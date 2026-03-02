@@ -24,6 +24,25 @@ import path from 'path'
 // =============================================================================
 
 /**
+ * Packages that export Reactive<T>-branded types beyond createSignal/createMemo.
+ * Files importing from these packages need ts.TypeChecker for reactivity detection.
+ * Regex-based detection handles createSignal/createMemo/props; the TypeChecker is
+ * only needed for library accessor patterns like username.error() or form.isSubmitting().
+ */
+const REACTIVE_BRAND_PACKAGES = [
+  '@barefootjs/form',
+]
+
+/**
+ * Check if a source file imports from packages that export Reactive<T>-branded types.
+ * Only these files need ts.createProgram() for type-based detection — all others
+ * can rely on the regex fallback (which handles signals, memos, and props).
+ */
+export function needsTypeBasedDetection(source: string): boolean {
+  return REACTIVE_BRAND_PACKAGES.some(pkg => source.includes(pkg))
+}
+
+/**
  * Create a TypeScript program for a single file to enable type-based reactivity detection.
  * Uses a virtual CompilerHost that injects the source string as a virtual file
  * and delegates to the real file system for node_modules resolution.
@@ -115,8 +134,10 @@ export function analyzeComponent(
     )
   }
 
-  // Try to create a program for type-based reactivity detection
-  if (!checker) {
+  // Create ts.Program only when the file imports from packages that export
+  // Reactive<T>-branded types beyond what regex detection handles.
+  // This avoids ~220ms overhead per file for the majority of components.
+  if (!checker && needsTypeBasedDetection(source)) {
     const result = createProgramForFile(source, filePath)
     if (result) {
       sourceFile = result.sourceFile

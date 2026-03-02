@@ -12,7 +12,7 @@ import type {
   FileOutput,
 } from './types'
 import type { TemplateAdapter } from './adapters/interface'
-import { analyzeComponent, listExportedComponents, createProgramForFile } from './analyzer'
+import { analyzeComponent, listExportedComponents, createProgramForFile, needsTypeBasedDetection } from './analyzer'
 import { jsxToIR } from './jsx-to-ir'
 import { generateClientJs, analyzeClientNeeds } from './ir-to-client-js'
 import { collectComponentNamesFromIR } from './ir-to-client-js/generate-init'
@@ -125,8 +125,8 @@ function compileMultipleComponentsSync(
   // --- Pass 1: analyze + jsxToIR for ALL components ---
   const entries: { componentIR: ComponentIR; ctx: ReturnType<typeof analyzeComponent> }[] = []
 
-  // Create ts.Program once for all components in this file
-  const program = options.program ?? createProgramForFile(source, filePath)?.program
+  // Create ts.Program only when the file needs type-based reactivity detection
+  const program = options.program ?? (needsTypeBasedDetection(source) ? createProgramForFile(source, filePath)?.program : undefined)
 
   for (const componentName of componentNames) {
     const ctx = analyzeComponent(source, filePath, componentName, program)
