@@ -71,7 +71,7 @@ export function collectExternalImports(ir: ComponentIR, generatedCode: string): 
     // Skip type-only, DOM (handled separately), and component imports
     if (imp.isTypeOnly) continue
     if (imp.source === '@barefootjs/dom') continue
-    if (imp.source.startsWith('@ui/') || imp.source.startsWith('./') || imp.source.startsWith('../')) continue
+    if (imp.source.startsWith('@ui/') || imp.source.startsWith('@/') || imp.source.startsWith('./') || imp.source.startsWith('../')) continue
 
     // Check which specifiers are actually used in the generated code
     const usedSpecs: string[] = []
