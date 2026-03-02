@@ -5,17 +5,24 @@
  * Interactive playground for the Badge component.
  * Allows tweaking variant and children props with live preview.
  *
- * Strategy: SSR renders hidden Badge elements for each variant as templates.
- * The createEffect clones the matching template and updates its text content,
- * avoiding the need for client-side template registration (which render() requires
- * but the compiler doesn't provide for SSR-compiled components).
+ * Pure CSR approach: constructs Badge DOM directly using the same
+ * class strings as the Badge source component, avoiding SSR templates.
  */
 
 import { createSignal, createMemo, createEffect } from '@barefootjs/dom'
-import { Badge } from '@ui/components/ui/badge'
 import { CheckIcon, CopyIcon } from '@ui/components/ui/icon'
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
+
+// Mirror of Badge component class definitions (ui/components/ui/badge/index.tsx)
+const badgeBaseClasses = 'inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden'
+
+const badgeVariantClasses: Record<string, string> = {
+  default: 'border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90',
+  secondary: 'border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90',
+  destructive: 'border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
+  outline: 'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
+}
 
 function BadgePlayground(props: {}) {
   const [variant, setVariant] = createSignal<BadgeVariant>('default')
@@ -33,18 +40,15 @@ function BadgePlayground(props: {}) {
     const v = variant()
     const t = text()
     const container = document.querySelector('[data-badge-preview]') as HTMLElement
-    const templates = document.querySelector('[data-badge-templates]') as HTMLElement
-    if (!container || !templates) return
+    if (!container) return
 
-    const template = templates.querySelector(`[data-variant="${v}"]`) as HTMLElement
-    if (!template) return
-
-    const clone = template.cloneNode(true) as HTMLElement
-    clone.textContent = t
-    clone.removeAttribute('data-variant')
+    const span = document.createElement('span')
+    span.setAttribute('data-slot', 'badge')
+    span.className = `${badgeBaseClasses} ${badgeVariantClasses[v]}`
+    span.textContent = t
 
     container.innerHTML = ''
-    container.appendChild(clone)
+    container.appendChild(span)
   })
 
   const handleCopy = () => {
@@ -102,15 +106,6 @@ function BadgePlayground(props: {}) {
         >
           {copied() ? <CheckIcon size="sm" /> : <CopyIcon size="sm" />}
         </button>
-      </div>
-
-      {/* Hidden templates: SSR renders real Badge elements for each variant.
-          The createEffect clones the matching one into the preview area. */}
-      <div className="hidden" data-badge-templates>
-        <Badge variant="default" data-variant="default">Badge</Badge>
-        <Badge variant="secondary" data-variant="secondary">Badge</Badge>
-        <Badge variant="destructive" data-variant="destructive">Badge</Badge>
-        <Badge variant="outline" data-variant="outline">Badge</Badge>
       </div>
     </div>
   )
