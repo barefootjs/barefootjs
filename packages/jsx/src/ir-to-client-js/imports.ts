@@ -2,7 +2,7 @@
  * Import detection and DOM import management.
  */
 
-import type { ComponentIR } from '../types'
+import type { ComponentIR, IRNode } from '../types'
 
 // All exports from @barefootjs/dom that may be used in generated code
 export const DOM_IMPORT_CANDIDATES = [
@@ -66,17 +66,20 @@ export function collectUserDomImports(ir: ComponentIR): string[] {
  * preserved in client JS output so the browser can resolve them via import map.
  */
 export function collectExternalImports(ir: ComponentIR, generatedCode: string): string[] {
+  const componentNames = collectComponentNames(ir.root)
   const importLines: string[] = []
   for (const imp of ir.metadata.imports) {
-    // Skip type-only, DOM (handled separately), and component imports
     if (imp.isTypeOnly) continue
     if (imp.source === '@barefootjs/dom') continue
-    if (imp.source.startsWith('@ui/') || imp.source.startsWith('@/') || imp.source.startsWith('./') || imp.source.startsWith('../')) continue
+    // Skip relative imports (resolved by the build, not needed in browser)
+    if (imp.source.startsWith('./') || imp.source.startsWith('../')) continue
 
-    // Check which specifiers are actually used in the generated code
+    // Check which specifiers are actually used in the generated code.
+    // Skip component names — they are rendered via initChild(), not imported directly.
     const usedSpecs: string[] = []
     for (const spec of imp.specifiers) {
       const localName = spec.alias || spec.name
+      if (componentNames.has(localName)) continue
       if (new RegExp(`\\b${localName}\\b`).test(generatedCode)) {
         usedSpecs.push(spec.alias ? `${spec.name} as ${spec.alias}` : spec.name)
       }
@@ -87,4 +90,27 @@ export function collectExternalImports(ir: ComponentIR, generatedCode: string): 
     }
   }
   return importLines
+}
+
+/** Collect all component names referenced in the IR tree. */
+function collectComponentNames(node: IRNode): Set<string> {
+  const names = new Set<string>()
+  function walk(n: IRNode): void {
+    if (n.type === 'component') {
+      names.add(n.name)
+    }
+    if ('children' in n && Array.isArray(n.children)) {
+      for (const child of n.children) walk(child)
+    }
+    if (n.type === 'conditional') {
+      walk(n.whenTrue)
+      walk(n.whenFalse)
+    }
+    if (n.type === 'if-statement') {
+      walk(n.consequent)
+      if (n.alternate) walk(n.alternate)
+    }
+  }
+  walk(node)
+  return names
 }
