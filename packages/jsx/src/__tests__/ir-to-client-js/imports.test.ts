@@ -82,17 +82,38 @@ describe('collectExternalImports', () => {
     expect(result).toEqual([])
   })
 
-  test('skips @ui/ path-alias imports', () => {
+  test('preserves @ui/ imports by default (no localImportPrefixes)', () => {
     const ir = makeIR([makeImport('@ui/components/ui/input-otp', ['REGEXP_ONLY_DIGITS'])])
     const code = 'REGEXP_ONLY_DIGITS'
     const result = collectExternalImports(ir, code)
-    expect(result).toEqual([])
+    expect(result).toEqual(["import { REGEXP_ONLY_DIGITS } from '@ui/components/ui/input-otp'"])
   })
 
-  test('skips @/ path-alias imports', () => {
+  test('preserves @/ imports by default (no localImportPrefixes)', () => {
     const ir = makeIR([makeImport('@/lib/utils', ['formatDate'])])
     const code = 'formatDate(date)'
     const result = collectExternalImports(ir, code)
+    expect(result).toEqual(["import { formatDate } from '@/lib/utils'"])
+  })
+
+  test('skips @ui/ imports when localImportPrefixes includes @ui/', () => {
+    const ir = makeIR([makeImport('@ui/components/ui/input-otp', ['REGEXP_ONLY_DIGITS'])])
+    const code = 'REGEXP_ONLY_DIGITS'
+    const result = collectExternalImports(ir, code, ['@/', '@ui/'])
+    expect(result).toEqual([])
+  })
+
+  test('skips @/ imports when localImportPrefixes includes @/', () => {
+    const ir = makeIR([makeImport('@/lib/utils', ['formatDate'])])
+    const code = 'formatDate(date)'
+    const result = collectExternalImports(ir, code, ['@/', '@ui/'])
+    expect(result).toEqual([])
+  })
+
+  test('skips custom prefix when specified in localImportPrefixes', () => {
+    const ir = makeIR([makeImport('~/lib/helpers', ['doStuff'])])
+    const code = 'doStuff()'
+    const result = collectExternalImports(ir, code, ['~/'])
     expect(result).toEqual([])
   })
 
