@@ -383,6 +383,8 @@ export interface ConstantInfo {
   isExported?: boolean
   type: TypeInfo | null
   loc: SourceLocation
+  /** Pre-computed free identifier references in the value expression (computed at analysis time). */
+  freeIdentifiers?: Set<string>
 }
 
 export interface TypeDefinition {

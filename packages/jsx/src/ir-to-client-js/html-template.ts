@@ -235,10 +235,11 @@ export function irToComponentTemplate(
     let result = protect(expr)
 
     // First: inline constant references with their resolved values (#343)
-    // Parenthesized to prevent operator precedence issues
+    // Parenthesized to prevent operator precedence issues.
+    // (?<![-.]) avoids matching inside CSS property names (e.g., `width` in `max-width`).
     if (inlinableConstants && inlinableConstants.size > 0) {
       for (const [constName, constValue] of inlinableConstants) {
-        result = result.replace(new RegExp(`(?<!\\.)\\b${constName}\\b`, 'g'), `(${protect(constValue)})`)
+        result = result.replace(new RegExp(`(?<![-.])\\b${constName}\\b`, 'g'), `(${protect(constValue)})`)
       }
     }
 
@@ -397,6 +398,8 @@ export function canGenerateStaticTemplate(
 
     case 'element':
       for (const attr of node.attrs) {
+        // Spread attributes are always dropped by template generators, so skip them.
+        if (attr.name === '...') continue
         if (attr.dynamic && attr.value) {
           const valueStr = attrValueToString(attr.value)
           if (valueStr) {
@@ -481,10 +484,11 @@ export function generateCsrTemplate(
       }
     }
 
-    // Inline constant references with their resolved values
+    // Inline constant references with their resolved values.
+    // (?<![-.]) avoids matching inside CSS property names (e.g., `width` in `max-width`).
     if (inlinableConstants && inlinableConstants.size > 0) {
       for (const [constName, constValue] of inlinableConstants) {
-        result = result.replace(new RegExp(`(?<!\\.)\\b${constName}\\b`, 'g'), `(${protect(constValue)})`)
+        result = result.replace(new RegExp(`(?<![-.])\\b${constName}\\b`, 'g'), `(${protect(constValue)})`)
       }
     }
 

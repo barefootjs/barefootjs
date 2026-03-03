@@ -4122,6 +4122,112 @@ describe('Compiler', () => {
     })
   })
 
+  describe('renderChild for components without registered templates (#536)', () => {
+    test('stateless component with spread attrs and object-literal constants gets template registered', () => {
+      const source = `
+        const sizeMap = { sm: 16, md: 20, lg: 24 }
+        type Size = 'sm' | 'md' | 'lg'
+
+        export function CheckIcon(props: { size?: Size, className?: string }) {
+          const size = props.size ?? 'md'
+          const sizeAttrs = { width: sizeMap[size], height: sizeMap[size] }
+          return (
+            <svg {...sizeAttrs} className={props.className ?? ''} viewBox="0 0 24 24">
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+          )
+        }
+      `
+      const result = compileJSXSync(source, 'CheckIcon.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      // Stateless component must register a template so renderChild() can find it
+      expect(content).toContain("hydrate('CheckIcon',")
+      expect(content).toContain('template:')
+    })
+
+    test('multi-component file: stateless icons in conditional rendering produce renderChild + hydrate', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        function CopyIcon() {
+          return <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" /></svg>
+        }
+
+        function CheckIcon() {
+          return <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
+        }
+
+        export function CopyButton() {
+          const [copied, setCopied] = createSignal(false)
+          return (
+            <button onClick={() => setCopied(true)}>
+              {copied() ? <CheckIcon /> : <CopyIcon />}
+            </button>
+          )
+        }
+      `
+      const result = compileJSXSync(source, 'CopyButton.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      // Both icon components must have templates registered
+      expect(content).toContain("hydrate('CopyIcon',")
+      expect(content).toContain("hydrate('CheckIcon',")
+
+      // Both should have template functions
+      expect(content).toMatch(/hydrate\('CopyIcon',\s*\{[^}]*template:/)
+      expect(content).toMatch(/hydrate\('CheckIcon',\s*\{[^}]*template:/)
+
+      // Parent should use renderChild for the icons
+      expect(content).toContain("renderChild('CheckIcon'")
+      expect(content).toContain("renderChild('CopyIcon'")
+    })
+
+    test('regression: AST-based identifier extraction distinguishes property keys from ternary branches', () => {
+      // extractFreeIdentifiers() skips identifiers in PropertyAssignment key position.
+      // This verifies that identifiers in ternary branches (structurally distinct in the AST)
+      // are correctly identified as variable references.
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        function StatusOn() { return <span>ON</span> }
+        function StatusOff() { return <span>OFF</span> }
+
+        export function Toggle() {
+          const [active, setActive] = createSignal(false)
+          return (
+            <div>
+              {active() ? <StatusOn /> : <StatusOff />}
+              <button onClick={() => setActive(v => !v)}>toggle</button>
+            </div>
+          )
+        }
+      `
+      const result = compileJSXSync(source, 'Toggle.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      // Both child components must have templates registered
+      expect(content).toContain("hydrate('StatusOn',")
+      expect(content).toContain("hydrate('StatusOff',")
+      expect(content).toContain("renderChild('StatusOn'")
+      expect(content).toContain("renderChild('StatusOff'")
+    })
+  })
+
   describe('dependency-based declaration ordering (#508)', () => {
     test('constant depending on call expression with arrow argument preserves source order', () => {
       const source = `
