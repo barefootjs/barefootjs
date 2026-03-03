@@ -38,7 +38,9 @@ describe('combineParentChildClientJs', () => {
       ].join('\n')],
       ['icon', [
         "import { hydrate } from '@barefootjs/dom'",
+        "export function initCopyIcon(__scope) {}",
         "hydrate('CopyIcon', (el) => {})",
+        "export function initCheckIcon(__scope) {}",
         "hydrate('CheckIcon', (el) => {})",
       ].join('\n')],
     ])
@@ -47,11 +49,42 @@ describe('combineParentChildClientJs', () => {
 
     expect(result.has('CopyButton')).toBe(true)
     const combined = result.get('CopyButton')!
-    // Should inline the icon file content via component name fallback
+    // Inlines the entire icon file (both CopyIcon and CheckIcon)
     expect(combined).toContain("hydrate('CopyIcon',")
     expect(combined).toContain("hydrate('CheckIcon',")
     expect(combined).toContain("hydrate('CopyButton',")
     expect(combined).not.toContain('@bf-child:')
+  })
+
+  test('does not duplicate when multiple children resolve to the same file', () => {
+    // CopyButton uses both CopyIcon and CheckIcon, both from "icon" file.
+    // The icon file must be inlined only ONCE to prevent duplicate declarations.
+    const files = new Map([
+      ['CopyButton', [
+        "import { hydrate, renderChild } from '@barefootjs/dom'",
+        "import '/* @bf-child:CopyIcon */'",
+        "import '/* @bf-child:CheckIcon */'",
+        "hydrate('CopyButton', (el) => {})",
+      ].join('\n')],
+      ['icon', [
+        "import { hydrate } from '@barefootjs/dom'",
+        "export function initCopyIcon(__scope) {}",
+        "hydrate('CopyIcon', { init: initCopyIcon })",
+        "export function initCheckIcon(__scope) {}",
+        "hydrate('CheckIcon', { init: initCheckIcon })",
+      ].join('\n')],
+    ])
+
+    const result = combineParentChildClientJs(files)
+
+    const combined = result.get('CopyButton')!
+    // Icon file content appears exactly once
+    const copyIconCount = combined.split('initCopyIcon').length - 1
+    const checkIconCount = combined.split('initCheckIcon').length - 1
+    // initCopyIcon appears in: function declaration + hydrate call = 2
+    expect(copyIconCount).toBe(2)
+    // initCheckIcon appears in: function declaration + hydrate call = 2
+    expect(checkIconCount).toBe(2)
   })
 
   test('gracefully handles missing child', () => {
