@@ -115,6 +115,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
             raw: node.sortComparator.raw,
           } : undefined,
           chainOrder: node.chainOrder,
+          mapPreamble: node.mapPreamble,
         })
       }
       // Don't traverse into loop children for interactive elements collection

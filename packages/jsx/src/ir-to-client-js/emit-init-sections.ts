@@ -490,7 +490,11 @@ export function emitLoopUpdates(lines: string[], ctx: ClientJsContext): void {
       const indexParamTemplate = elem.index || '__idx'
       lines.push(`  createEffect(() => {`)
       lines.push(`    const __arr = ${chainedExprTemplate}`)
-      lines.push(`    reconcileTemplates(_${vLoop}, __arr, ${keyFn}, (${elem.param}, ${indexParamTemplate}) => \`${elem.template}\`)`)
+      if (elem.mapPreamble) {
+        lines.push(`    reconcileTemplates(_${vLoop}, __arr, ${keyFn}, (${elem.param}, ${indexParamTemplate}) => { ${elem.mapPreamble} return \`${elem.template}\` })`)
+      } else {
+        lines.push(`    reconcileTemplates(_${vLoop}, __arr, ${keyFn}, (${elem.param}, ${indexParamTemplate}) => \`${elem.template}\`)`)
+      }
       lines.push(`  })`)
     }
     lines.push('')

@@ -117,6 +117,9 @@ export function irToHtmlTemplate(node: IRNode): string {
       // Generate inline .map().join('') so loop variables are properly scoped
       const childTemplate = node.children.map(irToHtmlTemplate).join('')
       const indexParam = node.index ? `, ${node.index}` : ''
+      if (node.mapPreamble) {
+        return `\${${node.array}.map((${node.param}${indexParam}) => { ${node.mapPreamble} return \`${childTemplate}\` }).join('')}`
+      }
       return `\${${node.array}.map((${node.param}${indexParam}) => \`${childTemplate}\`).join('')}`
     }
 
@@ -594,6 +597,9 @@ export function generateCsrTemplate(
       // Generate inline .map().join('') so loop variables are properly scoped
       const childTemplate = node.children.map(recurseInLoop).join('')
       const indexParam = node.index ? `, ${node.index}` : ''
+      if (node.mapPreamble) {
+        return `\${${transformExpr(node.array)}.map((${node.param}${indexParam}) => { ${node.mapPreamble} return \`${childTemplate}\` }).join('')}`
+      }
       return `\${${transformExpr(node.array)}.map((${node.param}${indexParam}) => \`${childTemplate}\`).join('')}`
     }
 

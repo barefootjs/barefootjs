@@ -218,6 +218,13 @@ export interface IRLoop {
    * SSR adapters should skip rendering and output placeholder markers.
    */
   clientOnly?: boolean
+
+  /**
+   * Raw JS of pre-return statements in block body .map() callback.
+   * Example: `items.map(item => { const label = item.name.toUpperCase(); return <li>{label}</li> })`
+   * stores "const label = item.name.toUpperCase();" as mapPreamble.
+   */
+  mapPreamble?: string
 }
 
 export interface IRComponent {

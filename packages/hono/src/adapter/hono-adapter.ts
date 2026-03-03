@@ -566,6 +566,9 @@ export class HonoAdapter implements TemplateAdapter {
     // Render children with isInsideLoop flag so components generate their own scope IDs
     const children = this.renderChildrenInLoop(loop.children)
 
+    if (loop.mapPreamble) {
+      return `{${loop.array}.map((${loop.param}${indexParam}) => { ${loop.mapPreamble} return ${children} })}`
+    }
     return `{${loop.array}.map((${loop.param}${indexParam}) => ${children})}`
   }
 

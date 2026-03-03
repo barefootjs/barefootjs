@@ -4099,4 +4099,182 @@ describe('Compiler', () => {
       expect(template.content).toContain("{'Submit'}")
     })
   })
+
+  describe('.map() with block body (#520)', () => {
+    test('handles block body with variable declaration and return JSX', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function List() {
+          const [items, setItems] = createSignal([{ name: 'a' }, { name: 'b' }])
+          return (
+            <ul>
+              {items().map(item => {
+                const label = item.name.toUpperCase()
+                return <li>{label}</li>
+              })}
+            </ul>
+          )
+        }
+      `
+
+      const result = compileJSXSync(source, 'List.tsx', { adapter })
+
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+
+      // Should contain the preamble in the map callback
+      expect(clientJs?.content).toContain('const label = item.name.toUpperCase()')
+      // Should contain the template with the label reference
+      expect(clientJs?.content).toContain('${label}')
+    })
+
+    test('handles block body with multiple variable declarations', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function List() {
+          const [items, setItems] = createSignal([{ first: 'a', last: 'b' }])
+          return (
+            <ul>
+              {items().map(item => {
+                const first = item.first.toUpperCase()
+                const last = item.last.toUpperCase()
+                return <li>{first} {last}</li>
+              })}
+            </ul>
+          )
+        }
+      `
+
+      const result = compileJSXSync(source, 'List.tsx', { adapter })
+
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+
+      expect(clientJs?.content).toContain('const first = item.first.toUpperCase()')
+      expect(clientJs?.content).toContain('const last = item.last.toUpperCase()')
+    })
+
+    test('expression body (existing) does not set mapPreamble', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function List() {
+          const [items, setItems] = createSignal(['a', 'b'])
+          return (
+            <ul>
+              {items().map(item => (
+                <li>{item}</li>
+              ))}
+            </ul>
+          )
+        }
+      `
+
+      const result = compileJSXSync(source, 'List.tsx', { adapter })
+
+      expect(result.errors).toHaveLength(0)
+
+      // IR should not have mapPreamble
+      const irFile = result.files.find(f => f.type === 'ir')
+      if (irFile) {
+        const ir = JSON.parse(irFile.content)
+        const findLoop = (node: any): any => {
+          if (node.type === 'loop') return node
+          if (node.children) {
+            for (const c of node.children) {
+              const found = findLoop(c)
+              if (found) return found
+            }
+          }
+          return null
+        }
+        const loop = findLoop(ir.root)
+        expect(loop).toBeTruthy()
+        expect(loop.mapPreamble).toBeUndefined()
+      }
+    })
+
+    test('generates mapPreamble in IR', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function List() {
+          const [items, setItems] = createSignal([{ name: 'a' }])
+          return (
+            <ul>
+              {items().map(item => {
+                const label = item.name.toUpperCase()
+                return <li>{label}</li>
+              })}
+            </ul>
+          )
+        }
+      `
+
+      const result = compileJSXSync(source, 'List.tsx', { adapter, outputIR: true })
+
+      expect(result.errors).toHaveLength(0)
+
+      const irFile = result.files.find(f => f.type === 'ir')
+      expect(irFile).toBeDefined()
+      const ir = JSON.parse(irFile!.content)
+
+      const findLoop = (node: any): any => {
+        if (node.type === 'loop') return node
+        if (node.children) {
+          for (const c of node.children) {
+            const found = findLoop(c)
+            if (found) return found
+          }
+        }
+        return null
+      }
+      const loop = findLoop(ir.root)
+      expect(loop).toBeTruthy()
+      expect(loop.mapPreamble).toContain('const label = item.name.toUpperCase()')
+      expect(loop.children).toHaveLength(1)
+      expect(loop.children[0].type).toBe('element')
+    })
+
+    test('Hono adapter generates block body SSR output', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function List() {
+          const [items, setItems] = createSignal([{ name: 'a' }])
+          return (
+            <ul>
+              {items().map(item => {
+                const label = item.name.toUpperCase()
+                return <li>{label}</li>
+              })}
+            </ul>
+          )
+        }
+      `
+
+      const result = compileJSXSync(source, 'List.tsx', { adapter: honoAdapter })
+
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')
+      expect(template).toBeDefined()
+
+      // Should contain block body in map callback
+      expect(template?.content).toContain('const label = item.name.toUpperCase()')
+      expect(template?.content).toContain('return')
+    })
+  })
 })
