@@ -4022,4 +4022,81 @@ describe('Compiler', () => {
       expect(signalIndex).toBeLessThan(totalIndex)
     })
   })
+
+  describe('ternary text branches (#521)', () => {
+    test('non-reactive ternary preserves string quotes (TestAdapter)', () => {
+      const source = `
+        export function SubmitButton(props: { isSubmitting: boolean }) {
+          return <button>{props.isSubmitting ? 'Submitting...' : 'Submit'}</button>
+        }
+      `
+
+      const result = compileJSXSync(source, 'SubmitButton.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      expect(template).toBeDefined()
+      expect(template.content).toContain("'Submitting...'")
+      expect(template.content).toContain("'Submit'")
+    })
+
+    test('reactive ternary preserves string quotes (TestAdapter)', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function SubmitButton() {
+          const [isSubmitting, setIsSubmitting] = createSignal(false)
+          return <button>{isSubmitting() ? 'Submitting...' : 'Submit'}</button>
+        }
+      `
+
+      const result = compileJSXSync(source, 'SubmitButton.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      expect(template).toBeDefined()
+      expect(template.content).toContain("'Submitting...'")
+      expect(template.content).toContain("'Submit'")
+    })
+
+    test('non-reactive ternary preserves string quotes (HonoAdapter)', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        export function SubmitButton(props: { isSubmitting: boolean }) {
+          return <button>{props.isSubmitting ? 'Submitting...' : 'Submit'}</button>
+        }
+      `
+
+      const result = compileJSXSync(source, 'SubmitButton.tsx', { adapter: honoAdapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      expect(template).toBeDefined()
+      expect(template.content).toContain("'Submitting...'")
+      expect(template.content).toContain("'Submit'")
+    })
+
+    test('reactive ternary wraps string literals in braces (HonoAdapter)', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function SubmitButton() {
+          const [isSubmitting, setIsSubmitting] = createSignal(false)
+          return <button>{isSubmitting() ? 'Submitting...' : 'Submit'}</button>
+        }
+      `
+
+      const result = compileJSXSync(source, 'SubmitButton.tsx', { adapter: honoAdapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      expect(template).toBeDefined()
+      // String literals should be wrapped in braces inside cond marker fragments
+      expect(template.content).toContain("{'Submitting...'}")
+      expect(template.content).toContain("{'Submit'}")
+    })
+  })
 })
