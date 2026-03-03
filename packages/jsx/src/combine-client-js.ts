@@ -21,10 +21,20 @@ export function combineParentChildClientJs(
 ): Map<string, string> {
   const result = new Map<string, string>()
 
-  // Build case-insensitive lookup
+  // Build case-insensitive lookup by file/manifest name
   const lookup = new Map<string, string>()
   for (const [name, content] of files) {
     lookup.set(name.toLowerCase(), content)
+  }
+
+  // Secondary lookup: map component name → file name for multi-component files.
+  // e.g., icon/index.tsx exports CopyIcon + CheckIcon, keyed as "icon" in the manifest.
+  // componentToFile maps "copyicon" → "icon", "checkicon" → "icon".
+  const componentToFile = new Map<string, string>()
+  for (const [name, content] of files) {
+    for (const match of content.matchAll(/hydrate\('(\w+)'/g)) {
+      componentToFile.set(match[1].toLowerCase(), name.toLowerCase())
+    }
   }
 
   for (const [name, content] of files) {
@@ -41,7 +51,17 @@ export function combineParentChildClientJs(
       if (processed.has(key)) return
       processed.add(key)
 
-      const childContent = lookup.get(key)
+      let childContent = lookup.get(key)
+      if (!childContent) {
+        // Fallback: resolve component name → file name for multi-component files.
+        // Also mark the file name as processed so that other components from the
+        // same file (e.g., CheckIcon when CopyIcon was already resolved from "icon")
+        // don't inline the same file content again.
+        const fileName = componentToFile.get(key)
+        if (!fileName || processed.has(fileName)) return
+        processed.add(fileName)
+        childContent = lookup.get(fileName)
+      }
       if (!childContent) return
 
       // Depth-first: collect grandchildren before the child itself
