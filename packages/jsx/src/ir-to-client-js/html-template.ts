@@ -397,6 +397,8 @@ export function canGenerateStaticTemplate(
 
     case 'element':
       for (const attr of node.attrs) {
+        // Spread attributes are always dropped by template generators, so skip them.
+        if (attr.name === '...') continue
         if (attr.dynamic && attr.value) {
           const valueStr = attrValueToString(attr.value)
           if (valueStr) {

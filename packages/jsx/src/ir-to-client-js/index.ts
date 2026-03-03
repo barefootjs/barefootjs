@@ -10,8 +10,8 @@ import { collectElements } from './collect-elements'
 import { generateInitFunction } from './generate-init'
 import { collectUsedIdentifiers, collectUsedFunctions } from './identifiers'
 import { valueReferencesReactiveData } from './prop-handling'
-import { canGenerateStaticTemplate, irToComponentTemplate } from './html-template'
-import { buildInlinableConstants } from './emit-init-sections'
+import { canGenerateStaticTemplate, irToComponentTemplate, generateCsrTemplate } from './html-template'
+import { buildInlinableConstants, buildSignalAndMemoMaps, resolveChainedRefs } from './emit-init-sections'
 import { IMPORT_PLACEHOLDER, detectUsedImports } from './imports'
 
 /** Public entry point: IR → client JS string. Returns '' if no client JS is needed. */
@@ -135,11 +135,40 @@ function generateTemplateOnlyMount(ir: ComponentIR, ctx: ClientJsContext): strin
   const propNamesForTemplate = new Set(ctx.propsParams.map((p) => p.name))
   const { inlinableConstants, unsafeLocalNames } = buildInlinableConstants(ctx)
 
-  if (!canGenerateStaticTemplate(ir.root, propNamesForTemplate, inlinableConstants, unsafeLocalNames)) {
-    return ''
+  let templateHtml: string | undefined
+
+  if (canGenerateStaticTemplate(ir.root, propNamesForTemplate, inlinableConstants, unsafeLocalNames)) {
+    templateHtml = irToComponentTemplate(ir.root, propNamesForTemplate, inlinableConstants)
   }
 
-  const templateHtml = irToComponentTemplate(ir.root, propNamesForTemplate, inlinableConstants)
+  // CSR fallback: when static template generation fails (e.g., components with
+  // nested child components or loops), try generateCsrTemplate() (#536).
+  if (!templateHtml) {
+    const { signalMap, memoMap } = buildSignalAndMemoMaps(ctx)
+
+    // Re-promote demoted constants by resolving signal/memo references
+    const csrInlinableConstants = new Map(inlinableConstants)
+    for (const constant of ctx.localConstants) {
+      if (unsafeLocalNames.has(constant.name) && constant.value && !constant.value.includes('=>')) {
+        let value = constant.value.trim()
+        for (const [getter, initial] of signalMap) {
+          value = value.replace(new RegExp(`\\b${getter}\\(\\)`, 'g'), `(${initial})`)
+        }
+        for (const [name, computation] of memoMap) {
+          value = value.replace(new RegExp(`\\b${name}\\(\\)`, 'g'), `(${computation})`)
+        }
+        if (!/\b\w+\(\)/.test(value)) {
+          csrInlinableConstants.set(constant.name, value)
+        }
+      }
+    }
+    resolveChainedRefs(csrInlinableConstants)
+
+    templateHtml = generateCsrTemplate(
+      ir.root, propNamesForTemplate, csrInlinableConstants, signalMap, memoMap
+    )
+  }
+
   if (!templateHtml) {
     return ''
   }

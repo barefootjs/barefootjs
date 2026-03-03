@@ -782,6 +782,17 @@ function valueOnlyUsesKnownNames(value: string, knownNames: Set<string>): boolea
     const id = m[1]
     if (JS_BUILTINS.has(id)) continue
     if (knownNames.has(id)) continue
+
+    // Skip identifiers in object property key position: { key: value } or { key1: v1, key2: v2 }
+    // These are property names, not variable references.
+    const beforeStr = codeParts.slice(0, m.index!).trimEnd()
+    const lastCharBefore = beforeStr[beforeStr.length - 1]
+    if (lastCharBefore === '{' || lastCharBefore === ',') {
+      const afterPos = m.index! + id.length
+      const remaining = codeParts.slice(afterPos).trimStart()
+      if (remaining.startsWith(':') && !remaining.startsWith('::')) continue
+    }
+
     return false
   }
   return true
