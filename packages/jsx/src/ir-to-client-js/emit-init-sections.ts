@@ -447,6 +447,54 @@ export function emitLoopUpdates(lines: string[], ctx: ClientJsContext): void {
         }
       }
 
+      // Event delegation for plain elements in static arrays (#537)
+      // Static arrays have no data-key/bf-i markers, so walk up from target to
+      // the container's direct child and use indexOf for index lookup.
+      if (!elem.childComponent && elem.childEvents.length > 0) {
+        const v = varSlotId(elem.slotId)
+        const eventsByName = new Map<string, typeof elem.childEvents>()
+        for (const ev of elem.childEvents) {
+          if (!eventsByName.has(ev.eventName)) {
+            eventsByName.set(ev.eventName, [])
+          }
+          eventsByName.get(ev.eventName)!.push(ev)
+        }
+
+        const NON_BUBBLING_EVENTS = new Set(['blur', 'focus', 'load', 'unload'])
+
+        for (const [eventName, events] of eventsByName) {
+          const useCapture = NON_BUBBLING_EVENTS.has(eventName)
+          if (useCapture) {
+            lines.push(`  if (_${v}) _${v}.addEventListener('${eventName}', (e) => {`)
+          } else {
+            lines.push(`  if (_${v}) _${v}.${toDomEventProp(eventName)} = (e) => {`)
+          }
+          lines.push(`    const target = e.target`)
+          for (const ev of events) {
+            lines.push(`    const ${ev.childSlotId}El = target.closest('[bf="${ev.childSlotId}"]')`)
+            lines.push(`    if (${ev.childSlotId}El) {`)
+            const handlerCall = ev.handler.trim().startsWith('(') || ev.handler.trim().startsWith('function')
+              ? `(${ev.handler})(e)`
+              : ev.handler
+            lines.push(`      let __el = ${ev.childSlotId}El`)
+            lines.push(`      while (__el.parentElement && __el.parentElement !== _${v}) __el = __el.parentElement`)
+            lines.push(`      if (__el.parentElement === _${v}) {`)
+            lines.push(`        const __idx = Array.from(_${v}.children).indexOf(__el)`)
+            lines.push(`        const ${elem.param} = ${elem.array}[__idx]`)
+            lines.push(`        if (${elem.param}) ${handlerCall}`)
+            lines.push(`      }`)
+            lines.push(`      return`)
+            lines.push(`    }`)
+          }
+          if (useCapture) {
+            lines.push(`  }, true)`)
+          } else {
+            lines.push(`  }`)
+          }
+          lines.push('')
+        }
+      }
+
       continue
     }
 

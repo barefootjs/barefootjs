@@ -2663,6 +2663,98 @@ describe('Compiler', () => {
       expect(content).toContain('@bf-child:TableCell')
       expect(content).toContain('@bf-child:Badge')
     })
+
+    test('static array: onClick on plain element generates event delegation (#537)', () => {
+      const source = `
+        'use client'
+
+        export function List() {
+          const items = [{ id: '1', label: 'A' }, { id: '2', label: 'B' }]
+          const handleClick = (id: string) => console.log(id)
+          return (
+            <ul>
+              {items.map(item => (
+                <li><button onClick={() => handleClick(item.id)}>{item.label}</button></li>
+              ))}
+            </ul>
+          )
+        }
+      `
+      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      // Event delegation should be generated for the static array
+      expect(content).toContain('.onclick = (e) => {')
+      expect(content).toContain('target.closest')
+      expect(content).toContain('Array.from(')
+      expect(content).toContain('handleClick(item.id)')
+    })
+
+    test('static array: onClick on nested element uses walk-up strategy (#537)', () => {
+      const source = `
+        'use client'
+
+        export function List() {
+          const items = [{ value: 'x' }, { value: 'y' }]
+          const setValue = (v: string) => console.log(v)
+          return (
+            <div>
+              {items.map(item => (
+                <div className="card">
+                  <span>{item.value}</span>
+                  <button onClick={() => setValue(item.value)}>Select</button>
+                </div>
+              ))}
+            </div>
+          )
+        }
+      `
+      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      // Walk-up strategy: traverse from matched element to container's direct child
+      expect(content).toContain('while (__el.parentElement')
+      expect(content).toContain('.children).indexOf(__el)')
+      expect(content).toContain('setValue(item.value)')
+    })
+
+    test('dynamic signal array: onClick on plain element still works (regression guard)', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function DynList() {
+          const [items, setItems] = createSignal([{ id: '1' }, { id: '2' }])
+          const handleClick = (id: string) => console.log(id)
+          return (
+            <ul>
+              {items().map(item => (
+                <li><button onClick={() => handleClick(item.id)}>{item.id}</button></li>
+              ))}
+            </ul>
+          )
+        }
+      `
+      const result = compileJSXSync(source, 'DynList.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      // Dynamic array should use reconcileTemplates and event delegation
+      expect(content).toContain('reconcileTemplates')
+      expect(content).toContain('.onclick = (e) => {')
+      expect(content).toContain('handleClick(item.id)')
+    })
   })
 
   describe('TypeScript syntax guard (#349)', () => {
