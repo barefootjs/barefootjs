@@ -108,7 +108,7 @@ export async function compileJSX(
     type: 'markedTemplate',
   })
 
-  const clientJs = generateClientJs(componentIR)
+  const clientJs = generateClientJs(componentIR, undefined, undefined, options.localImportPrefixes)
   if (clientJs) {
     files.push({
       path: entryPath.replace(/\.tsx?$/, '.client.js'),
@@ -226,7 +226,7 @@ function compileMultipleComponentsSync(
       types,
       moduleExports: moduleExports || '',
       component,
-      clientJs: generateClientJs(componentIR, componentNames, usedAsChild) || undefined,
+      clientJs: generateClientJs(componentIR, componentNames, usedAsChild, options.localImportPrefixes) || undefined,
     })
   }
 
@@ -453,7 +453,7 @@ export function compileJSXSync(
     type: 'markedTemplate',
   })
 
-  const clientJs = generateClientJs(componentIR)
+  const clientJs = generateClientJs(componentIR, undefined, undefined, options.localImportPrefixes)
   if (clientJs) {
     files.push({
       path: filePath.replace(/\.tsx?$/, '.client.js'),

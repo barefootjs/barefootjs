@@ -21,6 +21,7 @@ import { CarouselPage } from './pages/carousel'
 import { CardPage } from './pages/card'
 import { CheckboxPage } from './pages/checkbox'
 import { InputPage } from './pages/input'
+import { InputOTPPage } from './pages/input-otp'
 import { LabelPage } from './pages/label'
 import { SliderPage } from './pages/slider'
 import { SwitchPage } from './pages/switch'
@@ -180,6 +181,10 @@ export function createApp() {
             <a href="/docs/components/input" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Input</h3>
               <p className="text-xs text-muted-foreground">Text input field</p>
+            </a>
+            <a href="/docs/components/input-otp" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+              <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Input OTP</h3>
+              <p className="text-xs text-muted-foreground">One-time password input</p>
             </a>
             <a href="/docs/components/label" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Label</h3>
@@ -406,6 +411,11 @@ export function createApp() {
   // Input documentation
   app.get('/docs/components/input', (c) => {
     return c.render(<InputPage />)
+  })
+
+  // Input OTP documentation
+  app.get('/docs/components/input-otp', (c) => {
+    return c.render(<InputOTPPage />)
   })
 
   // Label documentation

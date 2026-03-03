@@ -65,7 +65,7 @@ export function collectUserDomImports(ir: ComponentIR): string[] {
  * These are third-party libraries like @barefootjs/form, zod, etc. that need to be
  * preserved in client JS output so the browser can resolve them via import map.
  */
-export function collectExternalImports(ir: ComponentIR, generatedCode: string): string[] {
+export function collectExternalImports(ir: ComponentIR, generatedCode: string, localImportPrefixes?: string[]): string[] {
   const componentNames = collectComponentNames(ir.root)
   const importLines: string[] = []
   for (const imp of ir.metadata.imports) {
@@ -73,6 +73,8 @@ export function collectExternalImports(ir: ComponentIR, generatedCode: string): 
     if (imp.source === '@barefootjs/dom') continue
     // Skip relative imports (resolved by the build, not needed in browser)
     if (imp.source.startsWith('./') || imp.source.startsWith('../')) continue
+    // Skip local path-alias imports (resolved at build time, not in browser)
+    if (localImportPrefixes?.some(prefix => imp.source.startsWith(prefix))) continue
 
     // Check which specifiers are actually used in the generated code.
     // Skip component names — they are rendered via initChild(), not imported directly.

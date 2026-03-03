@@ -35,7 +35,7 @@ import {
  * Orchestrate client JS code generation: analyze dependencies, emit code sections,
  * and resolve imports. Returns the complete init function + registration code.
  */
-export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, siblingComponents?: string[], usedAsChild?: Set<string>): string {
+export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, siblingComponents?: string[], usedAsChild?: Set<string>, localImportPrefixes?: string[]): string {
   const lines: string[] = []
   const name = ctx.componentName
 
@@ -252,7 +252,7 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   const importLine = `import { ${sortedImports.join(', ')} } from '@barefootjs/dom'`
 
   // Collect external (non-DOM) imports used in the generated code
-  const externalImportLines = collectExternalImports(_ir, generatedCode)
+  const externalImportLines = collectExternalImports(_ir, generatedCode, localImportPrefixes)
   const allImportLines = [importLine, ...externalImportLines].join('\n')
 
   // Module-level constants use `var` with nullish coalescing for safe

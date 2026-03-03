@@ -194,6 +194,12 @@
       "type": "registry:ui",
       "title": "Spinner",
       "description": "An animated loading indicator for async operations"
+    },
+    {
+      "name": "input-otp",
+      "type": "registry:ui",
+      "title": "Input OTP",
+      "description": "An accessible one-time password input with copy-paste support"
     }
   ]
 }

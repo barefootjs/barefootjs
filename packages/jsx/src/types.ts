@@ -466,6 +466,8 @@ export interface CompileOptions {
   cssLayerPrefix?: string
   /** Pre-built TypeScript program for type-based reactivity detection */
   program?: import('typescript').Program
+  /** Import prefixes resolved at build time, not in browser (e.g., ['@/', '@ui/']) */
+  localImportPrefixes?: string[]
 }
 
 export interface FileOutput {

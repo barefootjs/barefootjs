@@ -29,6 +29,7 @@ export const componentOrder = [
   { slug: 'dropdown-menu', title: 'Dropdown Menu' },
   { slug: 'hover-card', title: 'Hover Card' },
   { slug: 'input', title: 'Input' },
+  { slug: 'input-otp', title: 'Input OTP' },
   { slug: 'label', title: 'Label' },
   { slug: 'menubar', title: 'Menubar' },
   { slug: 'navigation-menu', title: 'Navigation Menu' },
