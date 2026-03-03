@@ -761,10 +761,11 @@ describe('Compiler', () => {
       expect(content).not.toContain('props.next ?? {}')
     })
 
-    test('defers dynamic text evaluation inside conditional branches', () => {
+    test('evaluates dynamic text unconditionally inside conditional branches with try-catch', () => {
       // Regression: when a dynamic text expression (e.g. prev.title) is only inside
-      // a conditional branch, expression evaluation must happen after the element
-      // existence check. Otherwise prev.title throws TypeError when prev is undefined.
+      // a conditional branch, expression must be evaluated unconditionally to maintain
+      // reactive subscriptions. But wrapped in try-catch because the guard variable
+      // (e.g., prev) may be undefined when the condition is false.
       const source = `
         'use client'
 
@@ -794,11 +795,12 @@ describe('Compiler', () => {
       expect(clientJs).toBeDefined()
       const content = clientJs!.content
 
-      // The expression should be inlined inside the element check, not evaluated before it.
-      // Pattern: if (__el_XX) __el_XX.nodeValue = String(prev.title)
-      // NOT:     const __val = prev.title  (which would throw when prev is undefined)
-      expect(content).toMatch(/if \(__el_\w+\) __el_\w+\.nodeValue = String\(prev\.title\)/)
-      expect(content).not.toMatch(/const __val = prev\.title/)
+      // The expression should be evaluated unconditionally to maintain reactive
+      // subscriptions, but wrapped in try-catch to handle cases where the guard
+      // variable (e.g., prev) is undefined and property access would throw.
+      // Pattern: try { __val = prev.title } catch { return }
+      expect(content).toMatch(/try \{ __val = prev\.title \} catch \{ return \}/)
+      expect(content).toMatch(/if \(__el_\w+\) __el_\w+\.nodeValue = String\(__val\)/)
     })
 
     test('still defaults props with property access to {} when not used as conditional guard', () => {

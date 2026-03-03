@@ -84,6 +84,38 @@ test.describe('DatePicker Documentation Page', () => {
       // Should show day count
       await expect(page.locator('[data-testid="day-count"]')).toContainText('day')
     })
+
+    test('recalculates day count when end date is re-selected', async ({ page }) => {
+      const formScope = '[bf-s^="DatePickerFormDemo_"]'
+      const startPicker = page.locator(`${formScope} [data-slot="date-picker"]`).first()
+      const endPicker = page.locator(`${formScope} [data-slot="date-picker"]`).nth(1)
+      const dayCount = page.locator('[data-testid="day-count"]')
+
+      // Select start date (5th)
+      await startPicker.locator('button').click()
+      let popover = page.locator('[data-slot="popover-content"][data-state="open"]')
+      await popover.locator('[data-slot="calendar"] button[data-current-month]:has-text("5")').first().click()
+
+      // Select end date (15th) → 10 days
+      await endPicker.locator('button').click()
+      popover = page.locator('[data-slot="popover-content"][data-state="open"]')
+      await popover.locator('[data-slot="calendar"] button[data-current-month]:has-text("15")').first().click()
+
+      await expect(dayCount).toContainText('10 days selected')
+
+      // Verify End Date button shows the first end date
+      await expect(endPicker.locator('button')).toContainText('15')
+
+      // Re-select end date (8th) → 3 days
+      await endPicker.locator('button').click()
+      popover = page.locator('[data-slot="popover-content"][data-state="open"]')
+      await popover.locator('[data-slot="calendar"] button[data-current-month]:has-text("8")').first().click()
+
+      // Verify End Date button updated to new date
+      await expect(endPicker.locator('button')).toContainText('8')
+
+      await expect(dayCount).toContainText('3 days selected')
+    })
   })
 
   test.describe('Date Range', () => {

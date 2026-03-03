@@ -55,12 +55,13 @@ export function DatePickerFormDemo() {
   const [startDate, setStartDate] = createSignal<Date | undefined>(undefined)
   const [endDate, setEndDate] = createSignal<Date | undefined>(undefined)
 
-  const dayCount = createMemo(() => {
+  const dayCountText = createMemo(() => {
     const start = startDate()
     const end = endDate()
     if (!start || !end) return null
     const diff = Math.abs(end.getTime() - start.getTime())
-    return Math.ceil(diff / (1000 * 60 * 60 * 24))
+    const count = Math.ceil(diff / (1000 * 60 * 60 * 24))
+    return `${count} day${count > 1 ? 's' : ''} selected`
   })
 
   const isEndDateDisabled = (date: Date): boolean => {
@@ -90,9 +91,9 @@ export function DatePickerFormDemo() {
           />
         </div>
       </div>
-      {dayCount() !== null && (
+      {dayCountText() !== null && (
         <p className="text-sm text-muted-foreground" data-testid="day-count">
-          {dayCount()} day{dayCount()! > 1 ? 's' : ''} selected
+          {dayCountText()}
         </p>
       )}
     </div>
