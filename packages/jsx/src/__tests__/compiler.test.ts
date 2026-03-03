@@ -1147,7 +1147,7 @@ describe('Compiler', () => {
       expect(clientJs).toBeDefined()
       expect(clientJs?.content).toContain('initToggle')
       // Both branches should have click handlers collected
-      expect(clientJs?.content).toContain('onclick')
+      expect(clientJs?.content).toContain("addEventListener('click'")
     })
 
     test('collects reactive attributes from conditional return branches', () => {
@@ -4585,8 +4585,8 @@ describe('Compiler', () => {
       // Should include handleSubmit reference
       expect(clientJs!.content).toContain('handleSubmit')
 
-      // Should have onclick binding
-      expect(clientJs!.content).toContain('onclick')
+      // Should have addEventListener click binding
+      expect(clientJs!.content).toContain("addEventListener('click'")
     })
 
     test('insert() template contains comment markers for text branches', () => {
