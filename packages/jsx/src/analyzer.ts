@@ -717,6 +717,23 @@ function collectFunction(
 // Constant Collection
 // =============================================================================
 
+/**
+ * Recursively flatten ternary (conditional) branches at the AST level,
+ * returning leaf expressions as code strings.
+ */
+function extractValueBranches(node: ts.Expression, ctx: AnalyzerContext): string[] {
+  if (ts.isParenthesizedExpression(node)) {
+    return extractValueBranches(node.expression, ctx)
+  }
+  if (ts.isConditionalExpression(node)) {
+    return [
+      ...extractValueBranches(node.whenTrue, ctx),
+      ...extractValueBranches(node.whenFalse, ctx),
+    ]
+  }
+  return [ctx.getJS(node)]
+}
+
 function collectConstant(
   node: ts.VariableDeclaration,
   ctx: AnalyzerContext,
@@ -733,6 +750,16 @@ function collectConstant(
     ? ctx.getJS(node.initializer)
     : undefined
 
+  // Extract structured branch info from ternary initializers
+  let valueBranches: string[] | undefined
+  if (node.initializer) {
+    let inner: ts.Expression = node.initializer
+    while (ts.isParenthesizedExpression(inner)) inner = inner.expression
+    if (ts.isConditionalExpression(inner)) {
+      valueBranches = extractValueBranches(node.initializer, ctx)
+    }
+  }
+
   // Get type from annotation or infer
   let type: TypeInfo | null = null
   if (node.type) {
@@ -744,6 +771,7 @@ function collectConstant(
   ctx.localConstants.push({
     name,
     value,
+    valueBranches,
     declarationKind,
     type,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
