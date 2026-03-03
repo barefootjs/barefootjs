@@ -579,6 +579,34 @@ describe('Compiler', () => {
       // Should include index param in callback (not just item without index)
       expect(clientJs?.content).toContain('(item, i) => `')
     })
+
+    test('includes index parameter in key function when key references index', () => {
+      const source = `
+        'use client'
+        import { createMemo } from '@barefootjs/dom'
+
+        export function List() {
+          const items = createMemo(() => ['a', 'b', 'c'])
+          return (
+            <ul>
+              {items().map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          )
+        }
+      `
+
+      const result = compileJSXSync(source, 'List.tsx', { adapter })
+
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+
+      // Key function must include the index parameter to avoid ReferenceError
+      expect(clientJs?.content).toContain('(item, i) => String(i)')
+    })
   })
 
   describe('local constants arrow function detection', () => {
