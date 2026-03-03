@@ -24,6 +24,7 @@ export const componentOrder = [
   { slug: 'combobox', title: 'Combobox' },
   { slug: 'context-menu', title: 'Context Menu' },
   { slug: 'data-table', title: 'Data Table' },
+  { slug: 'date-picker', title: 'Date Picker' },
   { slug: 'dialog', title: 'Dialog' },
   { slug: 'drawer', title: 'Drawer' },
   { slug: 'dropdown-menu', title: 'Dropdown Menu' },

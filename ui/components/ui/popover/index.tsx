@@ -186,7 +186,11 @@ function PopoverContent(props: PopoverContentProps) {
     // Position content relative to trigger
     const updatePosition = () => {
       if (!triggerEl) return
-      const rect = triggerEl.getBoundingClientRect()
+      // display:contents elements have no box model; use first element child for positioning
+      const positionEl = (triggerEl.style.display === 'contents' && triggerEl.firstElementChild
+        ? triggerEl.firstElementChild
+        : triggerEl) as HTMLElement
+      const rect = positionEl.getBoundingClientRect()
       const align = props.align ?? 'center'
       const side = props.side ?? 'bottom'
 

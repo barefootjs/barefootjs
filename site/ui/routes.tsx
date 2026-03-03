@@ -35,6 +35,7 @@ import { TabsPage } from './pages/tabs'
 import { DialogPage } from './pages/dialog'
 import { ContextMenuPage } from './pages/context-menu'
 import { DataTablePage } from './pages/data-table'
+import { DatePickerPage } from './pages/date-picker'
 import { DropdownMenuPage } from './pages/dropdown-menu'
 import { ToastPage } from './pages/toast'
 import { TogglePage } from './pages/toggle'
@@ -163,6 +164,10 @@ export function createApp() {
             <a href="/docs/components/data-table" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Data Table</h3>
               <p className="text-xs text-muted-foreground">Sortable, filterable data table</p>
+            </a>
+            <a href="/docs/components/date-picker" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+              <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Date Picker</h3>
+              <p className="text-xs text-muted-foreground">Date selection with calendar popup</p>
             </a>
             <a href="/docs/components/dialog" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Dialog</h3>
@@ -458,6 +463,11 @@ export function createApp() {
   // Tabs documentation
   app.get('/docs/components/tabs', (c) => {
     return c.render(<TabsPage />)
+  })
+
+  // Date Picker documentation
+  app.get('/docs/components/date-picker', (c) => {
+    return c.render(<DatePickerPage />)
   })
 
   // Dialog documentation

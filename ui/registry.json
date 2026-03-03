@@ -88,6 +88,12 @@
       "description": "Powerful table with sorting, filtering, and pagination"
     },
     {
+      "name": "date-picker",
+      "type": "registry:ui",
+      "title": "Date Picker",
+      "description": "A date picker component with calendar popup and range selection"
+    },
+    {
       "name": "pagination",
       "type": "registry:ui",
       "title": "Pagination",

@@ -226,13 +226,19 @@ export function emitDynamicTextUpdates(lines: string[], ctx: ClientJsContext): v
           lines.push(`    if (__el_${v}) __el_${v}.nodeValue = String(__val)`)
         }
       } else {
-        // Only conditional elements — defer expression evaluation until
-        // after the element existence check to avoid TypeError when the
-        // parent prop is undefined (e.g. prev?.title when prev is undefined).
+        // Only conditional elements — evaluate expression unconditionally
+        // to maintain reactive subscriptions even when the DOM element hasn't
+        // been created yet by insert(). Without this, the effect loses all
+        // subscriptions when the text node doesn't exist and never re-runs.
+        // Use try-catch because the expression may access a property of the
+        // conditional guard variable (e.g., prev.title where prev may be
+        // undefined when the condition is false).
+        lines.push(`    let __val`)
+        lines.push(`    try { __val = ${expr} } catch { return }`)
         for (const elem of conditionalElems) {
           const v = varSlotId(elem.slotId)
           lines.push(`    const [__el_${v}] = $t(__scope, '${elem.slotId}')`)
-          lines.push(`    if (__el_${v}) __el_${v}.nodeValue = String(${expr})`)
+          lines.push(`    if (__el_${v}) __el_${v}.nodeValue = String(__val)`)
         }
       }
       lines.push(`  })`)
