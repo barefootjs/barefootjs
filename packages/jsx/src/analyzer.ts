@@ -752,6 +752,46 @@ function extractValueBranches(node: ts.Expression, ctx: AnalyzerContext): string
   return [ctx.getJS(node)]
 }
 
+/**
+ * Extract free identifier references from an AST node by walking the tree.
+ * Skips property keys, member access properties, and bound parameter names.
+ */
+function extractFreeIdentifiersFromNode(node: ts.Node): Set<string> {
+  const ids = new Set<string>()
+  const boundNames = new Set<string>()
+
+  function addBindingNames(name: ts.BindingName, out: string[]): void {
+    if (ts.isIdentifier(name)) out.push(name.text)
+    else if (ts.isObjectBindingPattern(name)) name.elements.forEach(e => addBindingNames(e.name, out))
+    else if (ts.isArrayBindingPattern(name)) name.elements.forEach(e => { if (!ts.isOmittedExpression(e)) addBindingNames(e.name, out) })
+  }
+
+  function visit(n: ts.Node): void {
+    if (ts.isIdentifier(n)) {
+      const parent = n.parent
+      if (parent && ts.isPropertyAccessExpression(parent) && parent.name === n) return
+      if (parent && ts.isPropertyAssignment(parent) && parent.name === n) return
+      if (parent && ts.isParameter(parent) && parent.name === n) return
+      if (parent && ts.isVariableDeclaration(parent) && parent.name === n) return
+      if (boundNames.has(n.text)) return
+      ids.add(n.text)
+      return
+    }
+    if (ts.isArrowFunction(n)) {
+      const params: string[] = []
+      for (const p of n.parameters) addBindingNames(p.name, params)
+      for (const name of params) boundNames.add(name)
+      ts.forEachChild(n, visit)
+      for (const name of params) boundNames.delete(name)
+      return
+    }
+    ts.forEachChild(n, visit)
+  }
+
+  visit(node)
+  return ids
+}
+
 function collectConstant(
   node: ts.VariableDeclaration,
   ctx: AnalyzerContext,
@@ -787,6 +827,10 @@ function collectConstant(
     type = inferTypeFromValue(value)
   }
 
+  const freeIdentifiers = node.initializer
+    ? extractFreeIdentifiersFromNode(node.initializer)
+    : undefined
+
   ctx.localConstants.push({
     name,
     value,
@@ -795,6 +839,7 @@ function collectConstant(
     isExported,
     type,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+    freeIdentifiers,
   })
 }
 

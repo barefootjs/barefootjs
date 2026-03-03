@@ -4100,10 +4100,10 @@ describe('Compiler', () => {
       expect(content).toContain("renderChild('CopyIcon'")
     })
 
-    test('regression: object key fix does not skip ternary colon identifiers', () => {
-      // The object-key-position fix skips `{ key: value }` patterns.
-      // This tests that identifiers before `:` in TERNARY expressions
-      // (where the preceding char is `?`, not `{` or `,`) are NOT skipped.
+    test('regression: AST-based identifier extraction distinguishes property keys from ternary branches', () => {
+      // extractFreeIdentifiers() skips identifiers in PropertyAssignment key position.
+      // This verifies that identifiers in ternary branches (structurally distinct in the AST)
+      // are correctly identified as variable references.
       const source = `
         'use client'
         import { createSignal } from '@barefootjs/dom'

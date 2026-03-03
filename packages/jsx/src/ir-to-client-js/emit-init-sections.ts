@@ -755,6 +755,26 @@ const JS_BUILTINS = new Set([
 ])
 
 /**
+ * Recursively collect all bound identifier names from a binding pattern.
+ * Handles simple identifiers, object destructuring, and array destructuring.
+ */
+function collectBindingNames(name: ts.BindingName, out: string[]): void {
+  if (ts.isIdentifier(name)) {
+    out.push(name.text)
+  } else if (ts.isObjectBindingPattern(name)) {
+    for (const element of name.elements) {
+      collectBindingNames(element.name, out)
+    }
+  } else if (ts.isArrayBindingPattern(name)) {
+    for (const element of name.elements) {
+      if (!ts.isOmittedExpression(element)) {
+        collectBindingNames(element.name, out)
+      }
+    }
+  }
+}
+
+/**
  * Extract free variable references from an expression using TypeScript AST.
  * Returns the set of identifier names that are in "reference" position
  * (not object property keys, not member access properties, not parameter names).
@@ -780,6 +800,7 @@ function extractFreeIdentifiers(expr: string): Set<string> | null {
       // foo.bar → skip bar (property name in member access)
       if (parent && ts.isPropertyAccessExpression(parent) && parent.name === node) return
       // { key: value } → skip key (property name in object literal)
+      // Note: { key } (ShorthandPropertyAssignment) IS a variable reference and is NOT skipped.
       if (parent && ts.isPropertyAssignment(parent) && parent.name === node) return
       // function parameters → skip (bound, not free)
       if (parent && ts.isParameter(parent) && parent.name === node) return
@@ -796,15 +817,11 @@ function extractFreeIdentifiers(expr: string): Set<string> | null {
     if (ts.isArrowFunction(node)) {
       const params: string[] = []
       for (const p of node.parameters) {
-        if (ts.isIdentifier(p.name)) {
-          params.push(p.name.text)
-          boundNames.add(p.name.text)
-        }
+        collectBindingNames(p.name, params)
       }
+      for (const name of params) boundNames.add(name)
       ts.forEachChild(node, visit)
-      for (const p of params) {
-        boundNames.delete(p)
-      }
+      for (const name of params) boundNames.delete(name)
       return
     }
 
@@ -820,9 +837,12 @@ function extractFreeIdentifiers(expr: string): Set<string> | null {
  * the component scope (or JavaScript built-ins). Returns false if the value
  * contains references to file-scope variables that won't be available in
  * the generated client JS module scope.
+ *
+ * Uses pre-computed freeIdentifiers from the analyzer when available,
+ * falling back to extractFreeIdentifiers() for values without pre-computed data.
  */
-function valueOnlyUsesKnownNames(value: string, knownNames: Set<string>): boolean {
-  const freeIds = extractFreeIdentifiers(value)
+function valueOnlyUsesKnownNames(preComputed: Set<string> | undefined, value: string, knownNames: Set<string>): boolean {
+  const freeIds = preComputed ?? extractFreeIdentifiers(value)
   if (freeIds === null) return false // Cannot parse → assume unsafe
 
   for (const id of freeIds) {
@@ -860,7 +880,7 @@ export function resolveChainedRefs(constants: Map<string, string>): void {
       let newValue = protect(constValue)
       for (const [otherName, otherValue] of constants) {
         if (otherName === constName) continue
-        const replaced = newValue.replace(new RegExp(`(?<!\\.)\\b${otherName}\\b`, 'g'), `(${protect(otherValue)})`)
+        const replaced = newValue.replace(new RegExp(`(?<![-.])\\b${otherName}\\b`, 'g'), `(${protect(otherValue)})`)
         if (replaced !== newValue) {
           newValue = replaced
           changed = true
@@ -938,7 +958,7 @@ export function buildInlinableConstants(ctx: ClientJsContext): {
       continue
     }
 
-    if (!valueOnlyUsesKnownNames(trimmedValue, componentScopeNames)) {
+    if (!valueOnlyUsesKnownNames(constant.freeIdentifiers, trimmedValue, componentScopeNames)) {
       unsafeLocalNames.add(constant.name)
       continue
     }
@@ -1046,6 +1066,37 @@ export function buildSignalAndMemoMaps(ctx: ClientJsContext): {
   return { signalMap, memoMap }
 }
 
+/**
+ * Build an expanded inlinable constants map for CSR template generation.
+ * Re-promotes constants that were demoted to unsafeLocalNames by resolving
+ * signal/memo call expressions with their initial values.
+ */
+export function buildCsrInlinableConstants(
+  ctx: ClientJsContext,
+  inlinableConstants: Map<string, string>,
+  unsafeLocalNames: Set<string>,
+  signalMap: Map<string, string>,
+  memoMap: Map<string, string>,
+): Map<string, string> {
+  const csrInlinableConstants = new Map(inlinableConstants)
+  for (const constant of ctx.localConstants) {
+    if (unsafeLocalNames.has(constant.name) && constant.value && !constant.value.includes('=>')) {
+      let value = constant.value.trim()
+      for (const [getter, initial] of signalMap) {
+        value = value.replace(new RegExp(`\\b${getter}\\(\\)`, 'g'), `(${initial})`)
+      }
+      for (const [memoName, computation] of memoMap) {
+        value = value.replace(new RegExp(`\\b${memoName}\\(\\)`, 'g'), `(${computation})`)
+      }
+      if (!/\b\w+\(\)/.test(value)) {
+        csrInlinableConstants.set(constant.name, value)
+      }
+    }
+  }
+  resolveChainedRefs(csrInlinableConstants)
+  return csrInlinableConstants
+}
+
 /** Emit hydrate() call that registers component, template, and hydrates. */
 export function emitRegistrationAndHydration(
   lines: string[],
@@ -1074,27 +1125,8 @@ export function emitRegistrationAndHydration(
   } else if (usedAsChild?.has(name)) {
     // CSR fallback: only emit when this component is used as a child by another
     // component in the same file. Top-level-only components skip this to save bytes.
-    // transformExpr() uses string literal protection to prevent regex corruption
-    // of CSS class names (e.g., 'size-4' when constant 'size' exists).
     const { signalMap, memoMap } = buildSignalAndMemoMaps(ctx)
-
-    // Re-promote demoted constants by resolving signal/memo references
-    const csrInlinableConstants = new Map(inlinableConstants)
-    for (const constant of ctx.localConstants) {
-      if (unsafeLocalNames.has(constant.name) && constant.value && !constant.value.includes('=>')) {
-        let value = constant.value.trim()
-        for (const [getter, initial] of signalMap) {
-          value = value.replace(new RegExp(`\\b${getter}\\(\\)`, 'g'), `(${initial})`)
-        }
-        for (const [name, computation] of memoMap) {
-          value = value.replace(new RegExp(`\\b${name}\\(\\)`, 'g'), `(${computation})`)
-        }
-        if (!/\b\w+\(\)/.test(value)) {
-          csrInlinableConstants.set(constant.name, value)
-        }
-      }
-    }
-    resolveChainedRefs(csrInlinableConstants)
+    const csrInlinableConstants = buildCsrInlinableConstants(ctx, inlinableConstants, unsafeLocalNames, signalMap, memoMap)
 
     const templateHtml = generateCsrTemplate(
       _ir.root, propNamesForTemplate, csrInlinableConstants, signalMap, memoMap

@@ -11,7 +11,7 @@ import { generateInitFunction } from './generate-init'
 import { collectUsedIdentifiers, collectUsedFunctions } from './identifiers'
 import { valueReferencesReactiveData } from './prop-handling'
 import { canGenerateStaticTemplate, irToComponentTemplate, generateCsrTemplate } from './html-template'
-import { buildInlinableConstants, buildSignalAndMemoMaps, resolveChainedRefs } from './emit-init-sections'
+import { buildInlinableConstants, buildSignalAndMemoMaps, buildCsrInlinableConstants } from './emit-init-sections'
 import { IMPORT_PLACEHOLDER, detectUsedImports } from './imports'
 
 /** Public entry point: IR → client JS string. Returns '' if no client JS is needed. */
@@ -145,24 +145,7 @@ function generateTemplateOnlyMount(ir: ComponentIR, ctx: ClientJsContext): strin
   // nested child components or loops), try generateCsrTemplate() (#536).
   if (!templateHtml) {
     const { signalMap, memoMap } = buildSignalAndMemoMaps(ctx)
-
-    // Re-promote demoted constants by resolving signal/memo references
-    const csrInlinableConstants = new Map(inlinableConstants)
-    for (const constant of ctx.localConstants) {
-      if (unsafeLocalNames.has(constant.name) && constant.value && !constant.value.includes('=>')) {
-        let value = constant.value.trim()
-        for (const [getter, initial] of signalMap) {
-          value = value.replace(new RegExp(`\\b${getter}\\(\\)`, 'g'), `(${initial})`)
-        }
-        for (const [name, computation] of memoMap) {
-          value = value.replace(new RegExp(`\\b${name}\\(\\)`, 'g'), `(${computation})`)
-        }
-        if (!/\b\w+\(\)/.test(value)) {
-          csrInlinableConstants.set(constant.name, value)
-        }
-      }
-    }
-    resolveChainedRefs(csrInlinableConstants)
+    const csrInlinableConstants = buildCsrInlinableConstants(ctx, inlinableConstants, unsafeLocalNames, signalMap, memoMap)
 
     templateHtml = generateCsrTemplate(
       ir.root, propNamesForTemplate, csrInlinableConstants, signalMap, memoMap
