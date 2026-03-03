@@ -20,18 +20,18 @@ describe('Calendar', () => {
     expect(result.componentName).toBe('Calendar')
   })
 
-  test('has signals: currentYear, currentMonth, internalSelected, controlledSelected (createSignal)', () => {
+  test('has signals: currentYear, currentMonth, internalSelected, internalRange (createSignal)', () => {
     expect(result.signals).toContain('currentYear')
     expect(result.signals).toContain('currentMonth')
     expect(result.signals).toContain('internalSelected')
-    expect(result.signals).toContain('controlledSelected')
+    expect(result.signals).toContain('internalRange')
   })
 
   test('memos are not in signals', () => {
-    expect(result.signals).not.toContain('isControlled')
     expect(result.signals).not.toContain('selectedDate')
-    expect(result.signals).not.toContain('weeks')
-    expect(result.signals).not.toContain('monthLabel')
+    expect(result.signals).not.toContain('selectedRange')
+    expect(result.signals).not.toContain('weeks0')
+    expect(result.signals).not.toContain('monthLabel0')
     expect(result.signals).not.toContain('weekdays')
   })
 

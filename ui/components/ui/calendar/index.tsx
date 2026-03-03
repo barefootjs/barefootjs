@@ -191,7 +191,7 @@ const dayButtonRangeStartClasses = 'bg-primary text-primary-foreground rounded-l
 const dayButtonRangeEndClasses = 'bg-primary text-primary-foreground rounded-r-md rounded-l-none'
 const dayButtonRangeMiddleClasses = 'bg-accent text-accent-foreground rounded-none'
 
-// --- Day button class helper (module-level to avoid #543) ---
+// --- Day button class helper ---
 
 function getDayClasses(day: CalendarDay, isSelected: boolean, rangePosition: 'start' | 'end' | 'middle' | undefined): string {
   if (day.isDisabled) {
@@ -250,11 +250,9 @@ type CalendarProps = CalendarSingleProps | CalendarRangeProps
 
 function Calendar(props: CalendarProps) {
   const today = new Date()
-  // Workaround #543: use createMemo instead of arrow functions
-  const isRangeMode = createMemo(() => props.mode === 'range')
-  const numMonths = createMemo(() => props.numberOfMonths ?? 1)
+  const isRangeMode = () => props.mode === 'range'
+  const numMonths = () => props.numberOfMonths ?? 1
 
-  // Workaround #543: inline expression instead of function call
   const initialMonth = props.defaultMonth
     ?? (props.mode === 'range' ? (props as CalendarRangeProps).selected?.from : undefined)
     ?? (props.mode !== 'range' ? (props as CalendarSingleProps).selected : undefined)
@@ -291,7 +289,6 @@ function Calendar(props: CalendarProps) {
     (props.weekStartsOn ?? 0) === 1 ? WEEKDAYS_MON : WEEKDAYS_SUN
   )
 
-  // Workaround #543: use createMemo for each month's weeks and label
   const weeks0 = createMemo(() => {
     return generateCalendarDays(
       currentYear(), currentMonth(),
@@ -431,24 +428,9 @@ function Calendar(props: CalendarProps) {
     })
   }
 
-  // Event delegation handler for all calendar button clicks.
-  // Nav buttons use event delegation to work around #543 (functions stripped in .map).
+  // Event delegation for day button clicks (day buttons are inside .map())
   const handleCalendarClick = (e: MouseEvent) => {
     const el = e.target as HTMLElement
-
-    // Nav button clicks
-    const navPrev = el.closest('[data-slot="calendar-nav-prev"]')
-    if (navPrev && !(navPrev as HTMLButtonElement).disabled) {
-      goToPrevMonth()
-      return
-    }
-    const navNext = el.closest('[data-slot="calendar-nav-next"]')
-    if (navNext && !(navNext as HTMLButtonElement).disabled) {
-      goToNextMonth()
-      return
-    }
-
-    // Day button clicks
     const target = el.closest('[data-slot="calendar-day-button"]') as HTMLElement | null
     if (!target) return
     if (target.hasAttribute('data-disabled')) return
@@ -523,19 +505,19 @@ function Calendar(props: CalendarProps) {
     return undefined
   }
 
-  // Workaround #546/#547: inline JSX for each month instead of renderMonthGrid function + .map()
+  // NOTE: Month grids are inlined (not extracted to a function) because of #546/#547.
   return (
     <div data-slot="calendar" className={`${calendarClasses} ${props.className ?? ''}`} onClick={handleCalendarClick}>
       <div className={numMonths() > 1 ? 'flex gap-4' : ''}>
         {/* Month 0 (always rendered) */}
         <div data-slot="calendar-month">
           <div data-slot="calendar-month-caption" className={monthCaptionClasses}>
-            <button data-slot="calendar-nav-prev" className={navButtonClasses} disabled={isPrevDisabled()} aria-label="Go to previous month">
+            <button data-slot="calendar-nav-prev" className={navButtonClasses} disabled={isPrevDisabled()} aria-label="Go to previous month" onClick={goToPrevMonth}>
               <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
             </button>
             <span data-slot="calendar-month-title" className={monthTitleClasses}>{monthLabel0()}</span>
             {numMonths() === 1 ? (
-              <button data-slot="calendar-nav-next" className={navButtonClasses} disabled={isNextDisabled()} aria-label="Go to next month">
+              <button data-slot="calendar-nav-next" className={navButtonClasses} disabled={isNextDisabled()} aria-label="Go to next month" onClick={goToNextMonth}>
                 <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
               </button>
             ) : (
@@ -592,7 +574,7 @@ function Calendar(props: CalendarProps) {
             <div data-slot="calendar-month-caption" className={monthCaptionClasses}>
               <div className="size-7" />
               <span data-slot="calendar-month-title" className={monthTitleClasses}>{monthLabel1()}</span>
-              <button data-slot="calendar-nav-next" className={navButtonClasses} disabled={isNextDisabled()} aria-label="Go to next month">
+              <button data-slot="calendar-nav-next" className={navButtonClasses} disabled={isNextDisabled()} aria-label="Go to next month" onClick={goToNextMonth}>
                 <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
               </button>
             </div>
