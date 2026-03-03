@@ -21,10 +21,20 @@ export function combineParentChildClientJs(
 ): Map<string, string> {
   const result = new Map<string, string>()
 
-  // Build case-insensitive lookup
+  // Build case-insensitive lookup by file/manifest name
   const lookup = new Map<string, string>()
   for (const [name, content] of files) {
     lookup.set(name.toLowerCase(), content)
+  }
+
+  // Secondary lookup: by component name extracted from hydrate() calls.
+  // Handles multi-component files where file name ≠ component name
+  // (e.g., icon/index.tsx exports CopyIcon + CheckIcon, keyed as "icon").
+  const componentLookup = new Map<string, string>()
+  for (const [_, content] of files) {
+    for (const match of content.matchAll(/hydrate\('(\w+)'/g)) {
+      componentLookup.set(match[1].toLowerCase(), content)
+    }
   }
 
   for (const [name, content] of files) {
@@ -41,7 +51,7 @@ export function combineParentChildClientJs(
       if (processed.has(key)) return
       processed.add(key)
 
-      const childContent = lookup.get(key)
+      const childContent = lookup.get(key) ?? componentLookup.get(key)
       if (!childContent) return
 
       // Depth-first: collect grandchildren before the child itself
