@@ -73,6 +73,8 @@ export function collectExternalImports(ir: ComponentIR, generatedCode: string): 
     if (imp.source === '@barefootjs/dom') continue
     // Skip relative imports (resolved by the build, not needed in browser)
     if (imp.source.startsWith('./') || imp.source.startsWith('../')) continue
+    // Skip path-alias imports (e.g., @ui/, @/) — resolved at build time, not in browser
+    if (imp.source.startsWith('@/') || imp.source.startsWith('@ui/')) continue
 
     // Check which specifiers are actually used in the generated code.
     // Skip component names — they are rendered via initChild(), not imported directly.
