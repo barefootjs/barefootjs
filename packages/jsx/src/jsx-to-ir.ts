@@ -960,6 +960,7 @@ function transformMapCall(
   let filterPredicate: FilterPredicateResult | undefined
   let sortComparator: SortComparatorResult | undefined
   let chainOrder: 'filter-sort' | 'sort-filter' | undefined
+  let mapPreamble: string | undefined
 
   const filterInfo = isFilterCall(mapSource)
   const sortInfo = isSortCall(mapSource)
@@ -1111,6 +1112,34 @@ function transformMapCall(
           children = [transformed]
         }
       }
+    } else if (ts.isBlock(body)) {
+      // Block body: (item) => { const label = ...; return <div>{label}</div> }
+      // Find the last return statement and extract JSX from it
+      const returnStmt = body.statements.find(
+        (s): s is ts.ReturnStatement => ts.isReturnStatement(s) && s.expression != null
+      )
+      if (returnStmt && returnStmt.expression) {
+        let returnExpr = returnStmt.expression
+        // Unwrap parenthesized expression if present
+        while (ts.isParenthesizedExpression(returnExpr)) {
+          returnExpr = returnExpr.expression
+        }
+        if (ts.isJsxElement(returnExpr) || ts.isJsxSelfClosingElement(returnExpr) || ts.isJsxFragment(returnExpr)) {
+          const transformed = transformNode(returnExpr, ctx)
+          if (transformed) {
+            children = [transformed]
+          }
+        }
+        // Collect pre-return statements as mapPreamble
+        const preambleStmts: string[] = []
+        for (const stmt of body.statements) {
+          if (stmt === returnStmt) break
+          preambleStmts.push(ctx.getJS(stmt))
+        }
+        if (preambleStmts.length > 0) {
+          mapPreamble = preambleStmts.join(' ')
+        }
+      }
     }
   }
 
@@ -1181,6 +1210,7 @@ function transformMapCall(
     sortComparator,
     chainOrder,
     clientOnly: isClientOnly || undefined,
+    mapPreamble,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
   }
 }

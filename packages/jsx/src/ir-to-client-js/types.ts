@@ -125,6 +125,7 @@ export interface LoopElement {
     raw: string  // Full comparator body for client JS
   }
   chainOrder?: 'filter-sort' | 'sort-filter'
+  mapPreamble?: string
 }
 
 export interface RefElement {
