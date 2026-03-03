@@ -3,7 +3,6 @@
  * Each function appends to a lines[] array.
  */
 
-import ts from 'typescript'
 import type { ComponentIR, SignalInfo, IRFragment } from '../types'
 import type { Declaration } from './declaration-sort'
 import { isBooleanAttr } from '../html-constants'
@@ -755,96 +754,14 @@ const JS_BUILTINS = new Set([
 ])
 
 /**
- * Recursively collect all bound identifier names from a binding pattern.
- * Handles simple identifiers, object destructuring, and array destructuring.
- */
-function collectBindingNames(name: ts.BindingName, out: string[]): void {
-  if (ts.isIdentifier(name)) {
-    out.push(name.text)
-  } else if (ts.isObjectBindingPattern(name)) {
-    for (const element of name.elements) {
-      collectBindingNames(element.name, out)
-    }
-  } else if (ts.isArrayBindingPattern(name)) {
-    for (const element of name.elements) {
-      if (!ts.isOmittedExpression(element)) {
-        collectBindingNames(element.name, out)
-      }
-    }
-  }
-}
-
-/**
- * Extract free variable references from an expression using TypeScript AST.
- * Returns the set of identifier names that are in "reference" position
- * (not object property keys, not member access properties, not parameter names).
- * Returns null if the expression cannot be parsed.
- */
-function extractFreeIdentifiers(expr: string): Set<string> | null {
-  // Wrap in parens to disambiguate object literals from block statements
-  const sourceFile = ts.createSourceFile(
-    'expr.ts', `(${expr})`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX
-  )
-
-  if (sourceFile.statements.length === 0) return null
-  const firstStmt = sourceFile.statements[0]
-  if (!ts.isExpressionStatement(firstStmt)) return null
-
-  const ids = new Set<string>()
-  const boundNames = new Set<string>()
-
-  function visit(node: ts.Node): void {
-    if (ts.isIdentifier(node)) {
-      const parent = node.parent
-
-      // foo.bar → skip bar (property name in member access)
-      if (parent && ts.isPropertyAccessExpression(parent) && parent.name === node) return
-      // { key: value } → skip key (property name in object literal)
-      // Note: { key } (ShorthandPropertyAssignment) IS a variable reference and is NOT skipped.
-      if (parent && ts.isPropertyAssignment(parent) && parent.name === node) return
-      // function parameters → skip (bound, not free)
-      if (parent && ts.isParameter(parent) && parent.name === node) return
-      // variable declaration names → skip
-      if (parent && ts.isVariableDeclaration(parent) && parent.name === node) return
-      // arrow/function parameters tracked via boundNames
-      if (boundNames.has(node.text)) return
-
-      ids.add(node.text)
-      return
-    }
-
-    // Track arrow function parameters as bound names
-    if (ts.isArrowFunction(node)) {
-      const params: string[] = []
-      for (const p of node.parameters) {
-        collectBindingNames(p.name, params)
-      }
-      for (const name of params) boundNames.add(name)
-      ts.forEachChild(node, visit)
-      for (const name of params) boundNames.delete(name)
-      return
-    }
-
-    ts.forEachChild(node, visit)
-  }
-
-  visit(firstStmt.expression)
-  return ids
-}
-
-/**
  * Check that an expression value only references identifiers known within
  * the component scope (or JavaScript built-ins). Returns false if the value
  * contains references to file-scope variables that won't be available in
  * the generated client JS module scope.
  *
- * Uses pre-computed freeIdentifiers from the analyzer when available,
- * falling back to extractFreeIdentifiers() for values without pre-computed data.
+ * Uses pre-computed freeIdentifiers from the analyzer phase (ConstantInfo.freeIdentifiers).
  */
-function valueOnlyUsesKnownNames(preComputed: Set<string> | undefined, value: string, knownNames: Set<string>): boolean {
-  const freeIds = preComputed ?? extractFreeIdentifiers(value)
-  if (freeIds === null) return false // Cannot parse → assume unsafe
-
+function valueOnlyUsesKnownNames(freeIds: Set<string>, knownNames: Set<string>): boolean {
   for (const id of freeIds) {
     if (JS_BUILTINS.has(id)) continue
     if (knownNames.has(id)) continue
@@ -958,7 +875,7 @@ export function buildInlinableConstants(ctx: ClientJsContext): {
       continue
     }
 
-    if (!valueOnlyUsesKnownNames(constant.freeIdentifiers, trimmedValue, componentScopeNames)) {
+    if (!valueOnlyUsesKnownNames(constant.freeIdentifiers!, componentScopeNames)) {
       unsafeLocalNames.add(constant.name)
       continue
     }
