@@ -36,7 +36,7 @@ test.describe('Switch Documentation Page', () => {
       const switchBtn = section.locator('button[role="switch"]')
       const button = section.locator('button:has-text("Save preferences")')
 
-      await switchBtn.dispatchEvent('click')
+      await switchBtn.click()
       await expect(button).toBeEnabled()
     })
 
@@ -143,7 +143,7 @@ test.describe('Switch Documentation Page', () => {
       const enabledText = section.locator('text=/Enabled:/')
 
       // Click Email digest (second switch)
-      await switches.nth(1).dispatchEvent('click')
+      await switches.nth(1).click()
       await expect(enabledText).toContainText('Push notifications')
       await expect(enabledText).toContainText('Email digest')
     })
@@ -168,7 +168,7 @@ test.describe('Switch Documentation Page', () => {
 
       // First switch is "enable all", second is first channel (Email)
       const emailSwitch = switches.nth(1)
-      await emailSwitch.dispatchEvent('click')
+      await emailSwitch.click()
 
       // Should show "1 enabled"
       await expect(section.locator('text=1 enabled')).toBeVisible()
@@ -210,7 +210,7 @@ test.describe('Switch Documentation Page', () => {
       const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
-      await switches.nth(1).dispatchEvent('click')
+      await switches.nth(1).click()
       await expect(section.locator('text=1 enabled')).toBeVisible()
     })
 
@@ -218,8 +218,8 @@ test.describe('Switch Documentation Page', () => {
       const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
-      await switches.nth(1).dispatchEvent('click')
-      await switches.nth(2).dispatchEvent('click')
+      await switches.nth(1).click()
+      await switches.nth(2).click()
       await expect(section.locator('text=2 enabled')).toBeVisible()
     })
 
@@ -227,9 +227,9 @@ test.describe('Switch Documentation Page', () => {
       const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
-      await switches.nth(1).dispatchEvent('click')
-      await switches.nth(2).dispatchEvent('click')
-      await switches.nth(3).dispatchEvent('click')
+      await switches.nth(1).click()
+      await switches.nth(2).click()
+      await switches.nth(3).click()
 
       await expect(section.locator('text=3 enabled')).toBeVisible()
       await expect(switches.first()).toHaveAttribute('aria-checked', 'true') // Enable all
@@ -240,12 +240,12 @@ test.describe('Switch Documentation Page', () => {
       const switches = section.locator('button[role="switch"]')
 
       // Select 2
-      await switches.nth(1).dispatchEvent('click')
-      await switches.nth(2).dispatchEvent('click')
+      await switches.nth(1).click()
+      await switches.nth(2).click()
       await expect(section.locator('text=2 enabled')).toBeVisible()
 
       // Deselect 1
-      await switches.nth(1).dispatchEvent('click')
+      await switches.nth(1).click()
       await expect(section.locator('text=1 enabled')).toBeVisible()
     })
 
@@ -254,8 +254,8 @@ test.describe('Switch Documentation Page', () => {
       const switches = section.locator('button[role="switch"]')
 
       // Select 1, then deselect
-      await switches.nth(1).dispatchEvent('click')
-      await switches.nth(1).dispatchEvent('click')
+      await switches.nth(1).click()
+      await switches.nth(1).click()
 
       await expect(section.locator('text=Enable all')).toBeVisible()
     })
@@ -265,11 +265,11 @@ test.describe('Switch Documentation Page', () => {
       const switches = section.locator('button[role="switch"]')
 
       // Select 1 channel first
-      await switches.nth(1).dispatchEvent('click')
+      await switches.nth(1).click()
       await expect(section.locator('text=1 enabled')).toBeVisible()
 
       // Click "Enable all"
-      await switches.first().dispatchEvent('click')
+      await switches.first().click()
 
       // All should be selected
       await expect(section.locator('text=3 enabled')).toBeVisible()

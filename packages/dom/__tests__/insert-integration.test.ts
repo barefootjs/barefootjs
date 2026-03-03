@@ -74,8 +74,8 @@ describe('insert integration (#526)', () => {
       bindEvents: () => {}
     })
 
-    // Bind onclick
-    if (_s1) (_s1 as HTMLButtonElement).onclick = handleSubmit
+    // Bind click event
+    if (_s1) (_s1 as HTMLButtonElement).addEventListener('click', handleSubmit)
 
     const button = scope.querySelector('button')!
 

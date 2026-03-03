@@ -7,7 +7,7 @@ import type { ComponentIR, SignalInfo, IRFragment } from '../types'
 import type { Declaration } from './declaration-sort'
 import { isBooleanAttr } from '../html-constants'
 import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, LoopChildEvent } from './types'
-import { inferDefaultValue, toHtmlAttrName, toDomEventProp, wrapHandlerInBlock, buildChainedArrayExpr, quotePropName, varSlotId } from './utils'
+import { inferDefaultValue, toHtmlAttrName, toDomEventName, wrapHandlerInBlock, buildChainedArrayExpr, quotePropName, varSlotId } from './utils'
 import { addCondAttrToTemplate, canGenerateStaticTemplate, irToComponentTemplate, generateCsrTemplate, irChildrenToJsExpr, createStringProtector } from './html-template'
 
 /**
@@ -297,7 +297,7 @@ function emitBranchBindings(
   lines: string[],
   events: ConditionalBranchEvent[],
   refs: ConditionalBranchRef[],
-  eventPropFn: (eventName: string) => string
+  eventNameFn: (eventName: string) => string
 ): void {
   const allSlotIds = new Set<string>()
   for (const event of events) allSlotIds.add(event.slotId)
@@ -322,7 +322,7 @@ function emitBranchBindings(
     const v = varSlotId(slotId)
     for (const event of slotEvents) {
       const wrappedHandler = wrapHandlerInBlock(event.handler)
-      lines.push(`      if (_${v}) _${v}.${eventPropFn(event.eventName)} = ${wrappedHandler}`)
+      lines.push(`      if (_${v}) _${v}.addEventListener('${eventNameFn(event.eventName)}', ${wrappedHandler})`)
     }
   }
 
@@ -341,12 +341,12 @@ export function emitConditionalUpdates(lines: string[], ctx: ClientJsContext): v
     lines.push(`  insert(__scope, '${elem.slotId}', () => ${elem.condition}, {`)
     lines.push(`    template: () => \`${whenTrueWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, toDomEventProp)
+    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, toDomEventName)
     lines.push(`    }`)
     lines.push(`  }, {`)
     lines.push(`    template: () => \`${whenFalseWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, toDomEventProp)
+    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, toDomEventName)
     lines.push(`    }`)
     lines.push(`  })`)
     lines.push('')
@@ -358,18 +358,18 @@ export function emitClientOnlyConditionals(lines: string[], ctx: ClientJsContext
   for (const elem of ctx.clientOnlyConditionals) {
     const whenTrueWithCond = addCondAttrToTemplate(elem.whenTrueHtml, elem.slotId)
     const whenFalseWithCond = addCondAttrToTemplate(elem.whenFalseHtml, elem.slotId)
-    const rawEventProp = (eventName: string) => `on${eventName}`
+    const rawEventName = (eventName: string) => eventName
 
     lines.push(`  // @client conditional: ${elem.slotId}`)
     lines.push(`  insert(__scope, '${elem.slotId}', () => ${elem.condition}, {`)
     lines.push(`    template: () => \`${whenTrueWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, rawEventProp)
+    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, rawEventName)
     lines.push(`    }`)
     lines.push(`  }, {`)
     lines.push(`    template: () => \`${whenFalseWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, rawEventProp)
+    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, rawEventName)
     lines.push(`    }`)
     lines.push(`  })`)
     lines.push('')
@@ -580,7 +580,7 @@ function emitLoopEventDelegation(
     if (useCapture) {
       lines.push(`  if (${containerVar}) ${containerVar}.addEventListener('${eventName}', (e) => {`)
     } else {
-      lines.push(`  if (${containerVar}) ${containerVar}.${toDomEventProp(eventName)} = (e) => {`)
+      lines.push(`  if (${containerVar}) ${containerVar}.addEventListener('${toDomEventName(eventName)}', (e) => {`)
     }
     lines.push(`    const target = e.target`)
     for (const ev of events) {
@@ -596,7 +596,7 @@ function emitLoopEventDelegation(
     if (useCapture) {
       lines.push(`  }, true)`)
     } else {
-      lines.push(`  }`)
+      lines.push(`  })`)
     }
     lines.push('')
   }
@@ -624,13 +624,13 @@ export function emitEventHandlers(
     if (conditionalSlotIds.has(elem.slotId)) continue
 
     for (const event of elem.events) {
-      const eventProp = toDomEventProp(event.name)
+      const eventName = toDomEventName(event.name)
       const wrappedHandler = wrapHandlerInBlock(event.handler)
       if (elem.slotId === '__scope') {
-        lines.push(`  if (__scope) __scope.${eventProp} = ${wrappedHandler}`)
+        lines.push(`  if (__scope) __scope.addEventListener('${eventName}', ${wrappedHandler})`)
       } else {
         const v = varSlotId(elem.slotId)
-        lines.push(`  if (_${v}) _${v}.${eventProp} = ${wrappedHandler}`)
+        lines.push(`  if (_${v}) _${v}.addEventListener('${eventName}', ${wrappedHandler})`)
       }
     }
   }

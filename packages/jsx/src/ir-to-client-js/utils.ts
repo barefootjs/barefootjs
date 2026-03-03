@@ -65,12 +65,11 @@ export const jsxToDomEventMap: Record<string, string> = {
 }
 
 /**
- * Convert JSX-derived event name to DOM event property name.
- * Example: 'doubleclick' → 'ondblclick'
+ * Convert JSX-derived event name to DOM event name for addEventListener.
+ * Example: 'doubleclick' → 'dblclick'
  */
-export function toDomEventProp(eventName: string): string {
-  const mappedName = jsxToDomEventMap[eventName] ?? eventName
-  return `on${mappedName}`
+export function toDomEventName(eventName: string): string {
+  return jsxToDomEventMap[eventName] ?? eventName
 }
 
 /**

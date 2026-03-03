@@ -17,7 +17,7 @@ test.describe('Checkbox Documentation Page', () => {
       const checkbox = section.locator('button[role="checkbox"]')
       const button = section.locator('button:has-text("Continue")')
 
-      await checkbox.dispatchEvent('click')
+      await checkbox.click()
       await expect(button).toBeEnabled()
     })
 
@@ -66,7 +66,7 @@ test.describe('Checkbox Documentation Page', () => {
       const selectedText = section.locator('text=/Selected:/')
 
       // Click Mobile (first checkbox)
-      await checkboxes.first().dispatchEvent('click')
+      await checkboxes.first().click()
       await expect(selectedText).toContainText('Mobile')
       await expect(selectedText).toContainText('Desktop')
     })
@@ -79,7 +79,7 @@ test.describe('Checkbox Documentation Page', () => {
 
       // First checkbox is "select all", second is first email
       const firstEmailCheckbox = checkboxes.nth(1)
-      await firstEmailCheckbox.dispatchEvent('click')
+      await firstEmailCheckbox.click()
 
       // Should show "1 selected"
       await expect(section.locator('text=1 selected')).toBeVisible()
@@ -112,7 +112,7 @@ test.describe('Checkbox Documentation Page', () => {
       const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
-      await checkboxes.nth(1).dispatchEvent('click')
+      await checkboxes.nth(1).click()
       await expect(section.locator('text=1 selected')).toBeVisible()
     })
 
@@ -120,8 +120,8 @@ test.describe('Checkbox Documentation Page', () => {
       const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
-      await checkboxes.nth(1).dispatchEvent('click')
-      await checkboxes.nth(2).dispatchEvent('click')
+      await checkboxes.nth(1).click()
+      await checkboxes.nth(2).click()
       await expect(section.locator('text=2 selected')).toBeVisible()
     })
 
@@ -129,9 +129,9 @@ test.describe('Checkbox Documentation Page', () => {
       const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
-      await checkboxes.nth(1).dispatchEvent('click')
-      await checkboxes.nth(2).dispatchEvent('click')
-      await checkboxes.nth(3).dispatchEvent('click')
+      await checkboxes.nth(1).click()
+      await checkboxes.nth(2).click()
+      await checkboxes.nth(3).click()
 
       await expect(section.locator('text=3 selected')).toBeVisible()
       await expect(checkboxes.first()).toHaveAttribute('aria-checked', 'true') // Select all
@@ -142,12 +142,12 @@ test.describe('Checkbox Documentation Page', () => {
       const checkboxes = section.locator('button[role="checkbox"]')
 
       // Select 2
-      await checkboxes.nth(1).dispatchEvent('click')
-      await checkboxes.nth(2).dispatchEvent('click')
+      await checkboxes.nth(1).click()
+      await checkboxes.nth(2).click()
       await expect(section.locator('text=2 selected')).toBeVisible()
 
       // Unselect 1
-      await checkboxes.nth(1).dispatchEvent('click')
+      await checkboxes.nth(1).click()
       await expect(section.locator('text=1 selected')).toBeVisible()
     })
 
@@ -156,8 +156,8 @@ test.describe('Checkbox Documentation Page', () => {
       const checkboxes = section.locator('button[role="checkbox"]')
 
       // Select 1, then unselect
-      await checkboxes.nth(1).dispatchEvent('click')
-      await checkboxes.nth(1).dispatchEvent('click')
+      await checkboxes.nth(1).click()
+      await checkboxes.nth(1).click()
 
       await expect(section.locator('text=Select all')).toBeVisible()
     })
@@ -167,11 +167,11 @@ test.describe('Checkbox Documentation Page', () => {
       const checkboxes = section.locator('button[role="checkbox"]')
 
       // Select 1 email first
-      await checkboxes.nth(1).dispatchEvent('click')
+      await checkboxes.nth(1).click()
       await expect(section.locator('text=1 selected')).toBeVisible()
 
       // Click "Select all"
-      await checkboxes.first().dispatchEvent('click')
+      await checkboxes.first().click()
 
       // All should be selected
       await expect(section.locator('text=3 selected')).toBeVisible()
@@ -188,12 +188,12 @@ test.describe('Checkbox Documentation Page', () => {
       await expect(section.locator('text=Mark as read')).not.toBeVisible()
 
       // Select one - visible
-      await checkboxes.nth(1).dispatchEvent('click')
+      await checkboxes.nth(1).click()
       await expect(section.locator('text=1 selected')).toBeVisible() // Wait for selection update
       await expect(section.locator('text=Mark as read')).toBeVisible()
 
       // Unselect - hidden again
-      await checkboxes.nth(1).dispatchEvent('click')
+      await checkboxes.nth(1).click()
       await expect(section.locator('text=Select all')).toBeVisible() // Wait for selection reset
       await expect(section.locator('text=Mark as read')).not.toBeVisible()
     })

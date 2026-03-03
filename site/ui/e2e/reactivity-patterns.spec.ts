@@ -25,7 +25,7 @@ test.describe('Reactivity Patterns', () => {
 
       // Click Mobile checkbox
       const mobileCheckbox = checkboxes.first()
-      await mobileCheckbox.dispatchEvent('click')
+      await mobileCheckbox.click()
 
       // Verify selection updated
       await expect(selectedText).toContainText('Mobile')
@@ -47,7 +47,7 @@ test.describe('Reactivity Patterns', () => {
       await expect(desktopCheckbox).toHaveAttribute('aria-checked', 'true')
 
       // Click to toggle off
-      await desktopCheckbox.dispatchEvent('click')
+      await desktopCheckbox.click()
       await expect(desktopCheckbox).toHaveAttribute('aria-checked', 'false')
 
       // Verify the selected text updated (props reactivity working)
@@ -73,10 +73,10 @@ test.describe('Reactivity Patterns', () => {
       // The isChecked memo should track controlledChecked
 
       // Click to verify memo chain updates correctly
-      await checkbox.dispatchEvent('click')
+      await checkbox.click()
       await expect(checkbox).toHaveAttribute('data-state', 'checked')
 
-      await checkbox.dispatchEvent('click')
+      await checkbox.click()
       await expect(checkbox).toHaveAttribute('data-state', 'unchecked')
     })
   })
@@ -108,7 +108,7 @@ test.describe('Reactivity Patterns', () => {
 
       // Click Email checkbox (third one)
       const emailCheckbox = checkboxes.nth(2)
-      await emailCheckbox.dispatchEvent('click')
+      await emailCheckbox.click()
 
       // Verify both Desktop and Email are now shown
       await expect(selectedText).toContainText('Desktop')
@@ -128,7 +128,7 @@ test.describe('Reactivity Patterns', () => {
       expect(initialState).toBe('false')
 
       // Click to toggle
-      await checkbox.dispatchEvent('click')
+      await checkbox.click()
 
       const newState = await checkbox.getAttribute('aria-checked')
       expect(newState).toBe('true')
@@ -142,7 +142,7 @@ test.describe('Reactivity Patterns', () => {
 
       await expect(checkbox).toHaveAttribute('data-state', 'unchecked')
 
-      await checkbox.dispatchEvent('click')
+      await checkbox.click()
 
       await expect(checkbox).toHaveAttribute('data-state', 'checked')
     })
@@ -160,13 +160,13 @@ test.describe('Reactivity Patterns', () => {
       await expect(button).toBeDisabled()
 
       // Check the checkbox
-      await checkbox.dispatchEvent('click')
+      await checkbox.click()
 
       // Button should now be enabled
       await expect(button).toBeEnabled()
 
       // Uncheck
-      await checkbox.dispatchEvent('click')
+      await checkbox.click()
 
       // Button should be disabled again
       await expect(button).toBeDisabled()
@@ -185,7 +185,7 @@ test.describe('Reactivity Patterns', () => {
 
       // Click first email checkbox (not the select all)
       const firstEmailCheckbox = checkboxes.nth(1)
-      await firstEmailCheckbox.dispatchEvent('click')
+      await firstEmailCheckbox.click()
 
       // Should show "1 selected"
       await expect(section.locator('text=1 selected')).toBeVisible()

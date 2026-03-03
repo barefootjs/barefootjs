@@ -2688,7 +2688,7 @@ describe('Compiler', () => {
       const content = clientJs!.content
 
       // Event delegation should be generated for the static array
-      expect(content).toContain('.onclick = (e) => {')
+      expect(content).toContain(".addEventListener('click', (e) => {")
       expect(content).toContain('target.closest')
       expect(content).toContain('Array.from(')
       expect(content).toContain('handleClick(item.id)')
@@ -2752,7 +2752,7 @@ describe('Compiler', () => {
 
       // Dynamic array should use reconcileTemplates and event delegation
       expect(content).toContain('reconcileTemplates')
-      expect(content).toContain('.onclick = (e) => {')
+      expect(content).toContain(".addEventListener('click', (e) => {")
       expect(content).toContain('handleClick(item.id)')
     })
   })

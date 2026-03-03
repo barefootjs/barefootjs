@@ -70,7 +70,7 @@ test.describe('Pagination Documentation Page', () => {
       const section = page.locator('[bf-s^="PaginationDynamicDemo_"]:not([data-slot])').first()
 
       const page2Link = section.locator('[data-slot="pagination-link"]', { hasText: '2' })
-      await page2Link.dispatchEvent('click')
+      await page2Link.click()
 
       await expect(page2Link).toHaveAttribute('data-active', 'true')
 
@@ -82,7 +82,7 @@ test.describe('Pagination Documentation Page', () => {
       const section = page.locator('[bf-s^="PaginationDynamicDemo_"]:not([data-slot])').first()
 
       const nextBtn = section.locator('a[aria-label="Go to next page"]')
-      await nextBtn.dispatchEvent('click')
+      await nextBtn.click()
 
       const page2Link = section.locator('[data-slot="pagination-link"]', { hasText: '2' })
       await expect(page2Link).toHaveAttribute('data-active', 'true')
@@ -99,7 +99,7 @@ test.describe('Pagination Documentation Page', () => {
       await expect(page1Link).toHaveAttribute('aria-current', 'page')
 
       // Click page 3
-      await page3Link.dispatchEvent('click')
+      await page3Link.click()
 
       // Page 3 should become active, page 1 inactive
       await expect(page3Link).toHaveAttribute('data-active', 'true')
