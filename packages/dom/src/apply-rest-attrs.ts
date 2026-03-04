@@ -30,11 +30,23 @@ export function applyRestAttrs(
 ): void {
   const exclude = new Set(excludeKeys)
 
+  // Wire up event handlers once (not reactively)
+  for (const key of Object.keys(source)) {
+    if (exclude.has(key)) continue
+    if (key.startsWith('on') && key.length > 2 && key[2] === key[2].toUpperCase()) {
+      const handler = source[key]
+      if (typeof handler === 'function') {
+        const eventName = key[2].toLowerCase() + key.slice(3)
+        el.addEventListener(eventName, handler as EventListener)
+      }
+    }
+  }
+
   createEffect(() => {
     for (const key of Object.keys(source)) {
       if (exclude.has(key)) continue
 
-      // Skip event handlers — they are handled separately
+      // Event handlers are wired up above, not as attributes
       if (key.startsWith('on') && key.length > 2 && key[2] === key[2].toUpperCase()) continue
 
       const value = source[key]
