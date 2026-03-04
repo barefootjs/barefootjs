@@ -18,6 +18,7 @@ import { IMPORT_PLACEHOLDER, detectUsedImports } from './imports'
 export function generateClientJs(ir: ComponentIR, siblingComponents?: string[], usedAsChild?: Set<string>, localImportPrefixes?: string[]): string {
   const ctx = createContext(ir)
   collectElements(ir.root, ctx)
+  ir.errors.push(...ctx.warnings)
 
   if (!needsClientJs(ctx)) {
     // Stateless components still need template registration so renderChild() can find them (#435)
@@ -101,6 +102,7 @@ function createContext(ir: ComponentIR): ClientJsContext {
     clientOnlyConditionals: [],
     providerSetups: [],
     restAttrElements: [],
+    warnings: [],
   }
 }
 

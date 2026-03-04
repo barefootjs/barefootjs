@@ -109,6 +109,7 @@ export async function compileJSX(
   })
 
   const clientJs = generateClientJs(componentIR, undefined, undefined, options.localImportPrefixes)
+  errors.push(...componentIR.errors)
   if (clientJs) {
     files.push({
       path: entryPath.replace(/\.tsx?$/, '.client.js'),
@@ -228,6 +229,7 @@ function compileMultipleComponentsSync(
       component,
       clientJs: generateClientJs(componentIR, componentNames, usedAsChild, options.localImportPrefixes) || undefined,
     })
+    errors.push(...componentIR.errors)
   }
 
   if (allOutputs.length === 0) {
@@ -454,6 +456,7 @@ export function compileJSXSync(
   })
 
   const clientJs = generateClientJs(componentIR, undefined, undefined, options.localImportPrefixes)
+  errors.push(...componentIR.errors)
   if (clientJs) {
     files.push({
       path: filePath.replace(/\.tsx?$/, '.client.js'),
