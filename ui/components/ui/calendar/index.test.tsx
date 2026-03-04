@@ -51,8 +51,11 @@ describe('Calendar', () => {
     expect(root!.events).toContain('click')
   })
 
-  test('toStructure() includes renderMonthGrid calls', () => {
+  test('toStructure() includes inlined month grids', () => {
     const structure = result.toStructure()
-    expect(structure).toContain('renderMonthGrid')
+    // #569: renderMonthGrid is inlined at IR level, verify both grids are present
+    expect(structure).toContain('table.w-full.border-collapse [role=grid]')
+    expect(structure).toContain('weeks0()')
+    expect(structure).toContain('weeks1()')
   })
 })
