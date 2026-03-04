@@ -385,6 +385,8 @@ export interface ConstantInfo {
   loc: SourceLocation
   /** Pre-computed free identifier references in the value expression (computed at analysis time). */
   freeIdentifiers?: Set<string>
+  /** When true, the initializer is JSX that is inlined into the IR tree at usage sites (#547). */
+  isJsx?: boolean
 }
 
 export interface TypeDefinition {

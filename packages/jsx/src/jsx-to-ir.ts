@@ -649,6 +649,14 @@ function transformExpression(
     return transformMapCall(expr, ctx, isClientOnly)
   }
 
+  // Inline JSX constants at the IR level (#547)
+  if (ts.isIdentifier(expr)) {
+    const jsxNode = ctx.analyzer.jsxConstants.get(expr.text)
+    if (jsxNode) {
+      return transformNode(jsxNode, ctx)
+    }
+  }
+
   // Regular expression
   const exprText = ctx.getJS(expr)
   const reactive = isReactiveExpression(exprText, ctx, expr)

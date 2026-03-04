@@ -891,6 +891,7 @@ export function buildInlinableConstants(ctx: ClientJsContext): {
   }
 
   for (const constant of ctx.localConstants) {
+    if (constant.isJsx) continue  // Inlined at IR level (#547)
     if (!constant.value) {
       // `let x` with no initializer — not safe for template inlining
       unsafeLocalNames.add(constant.name)

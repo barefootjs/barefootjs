@@ -809,6 +809,17 @@ function collectConstant(
     ? ctx.getJS(node.initializer)
     : undefined
 
+  // Detect JSX initializers and store AST nodes for IR-level inlining (#547)
+  let isJsx = false
+  if (node.initializer) {
+    let init: ts.Expression = node.initializer
+    while (ts.isParenthesizedExpression(init)) init = init.expression
+    if (ts.isJsxElement(init) || ts.isJsxSelfClosingElement(init) || ts.isJsxFragment(init)) {
+      isJsx = true
+      ctx.jsxConstants.set(name, init)
+    }
+  }
+
   // Extract structured branch info from ternary initializers
   let valueBranches: string[] | undefined
   if (node.initializer) {
@@ -840,6 +851,7 @@ function collectConstant(
     type,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
     freeIdentifiers,
+    isJsx,
   })
 }
 
