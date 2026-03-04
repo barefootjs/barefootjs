@@ -505,123 +505,77 @@ function Calendar(props: CalendarProps) {
     return undefined
   }
 
-  // NOTE: Month grids are inlined (not extracted to a function) because of #546/#547.
-  return (
-    <div data-slot="calendar" className={`${calendarClasses} ${props.className ?? ''}`} onClick={handleCalendarClick}>
-      <div className={numMonths() > 1 ? 'flex gap-4' : ''}>
-        {/* Month 0 (always rendered) */}
-        <div data-slot="calendar-month">
-          <div data-slot="calendar-month-caption" className={monthCaptionClasses}>
+  function renderMonthGrid(weeks: CalendarDay[][], label: string, showPrev: boolean, showNext: boolean) {
+    return (
+      <div data-slot="calendar-month">
+        <div data-slot="calendar-month-caption" className={monthCaptionClasses}>
+          {showPrev ? (
             <button data-slot="calendar-nav-prev" className={navButtonClasses} disabled={isPrevDisabled()} aria-label="Go to previous month" onClick={goToPrevMonth}>
               <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <span data-slot="calendar-month-title" className={monthTitleClasses}>{monthLabel0()}</span>
-            {numMonths() === 1 ? (
-              <button data-slot="calendar-nav-next" className={navButtonClasses} disabled={isNextDisabled()} aria-label="Go to next month" onClick={goToNextMonth}>
-                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </button>
-            ) : (
-              <div className="size-7" />
-            )}
-          </div>
-          <table data-slot="calendar-month-grid" role="grid" className="w-full border-collapse">
-            <thead>
-              <tr>
-                {weekdays().map((dayName: string) => (
-                  <th data-slot="calendar-weekday" className={weekdayClasses}>{dayName}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {weeks0().map((week: CalendarDay[]) => (
-                <tr data-slot="calendar-week">
-                  {week.map((day: CalendarDay) => {
-                    const rangePos = isRangeMode() ? getRangePosition(day) : undefined
-                    const isSingleSelected = !isRangeMode() && selectedDate() ? isSameDay(selectedDate()!, day.date) : false
-                    const isRangeOnlyFrom = isRangeMode() && !day.isOutside && selectedRange()?.from && !selectedRange()?.to && isSameDay(day.date, selectedRange()!.from)
-                    const isSelected = isSingleSelected || (isRangeOnlyFrom ?? false)
-                    return (
-                      <td data-slot="calendar-day" className={dayCellClasses}>
-                        <button
-                          data-slot="calendar-day-button"
-                          className={getDayClasses(day, isSelected, rangePos)}
-                          data-date={toISODateString(day.date)}
-                          data-today={day.isToday || undefined}
-                          data-outside={day.isOutside || undefined}
-                          data-disabled={day.isDisabled || undefined}
-                          data-current-month={!day.isOutside || undefined}
-                          data-selected-single={isSingleSelected || undefined}
-                          data-selected-range-start={rangePos === 'start' || undefined}
-                          data-selected-range-end={rangePos === 'end' || undefined}
-                          data-selected-range-middle={rangePos === 'middle' || undefined}
-                          aria-selected={isSelected || rangePos !== undefined || undefined}
-                          disabled={day.isDisabled}
-                        >
-                          {day.date.getDate()}
-                        </button>
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          ) : (
+            <div className="size-7" />
+          )}
+          <span data-slot="calendar-month-title" className={monthTitleClasses}>{label}</span>
+          {showNext ? (
+            <button data-slot="calendar-nav-next" className={navButtonClasses} disabled={isNextDisabled()} aria-label="Go to next month" onClick={goToNextMonth}>
+              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </button>
+          ) : (
+            <div className="size-7" />
+          )}
         </div>
+        <table data-slot="calendar-month-grid" role="grid" className="w-full border-collapse">
+          <thead>
+            <tr>
+              {weekdays().map((dayName: string) => (
+                <th data-slot="calendar-weekday" className={weekdayClasses}>{dayName}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {weeks.map((week: CalendarDay[]) => (
+              <tr data-slot="calendar-week">
+                {week.map((day: CalendarDay) => {
+                  const rangePos = isRangeMode() ? getRangePosition(day) : undefined
+                  const isSingleSelected = !isRangeMode() && selectedDate() ? isSameDay(selectedDate()!, day.date) : false
+                  const isRangeOnlyFrom = isRangeMode() && !day.isOutside && selectedRange()?.from && !selectedRange()?.to && isSameDay(day.date, selectedRange()!.from)
+                  const isSelected = isSingleSelected || (isRangeOnlyFrom ?? false)
+                  return (
+                    <td data-slot="calendar-day" className={dayCellClasses}>
+                      <button
+                        data-slot="calendar-day-button"
+                        className={getDayClasses(day, isSelected, rangePos)}
+                        data-date={toISODateString(day.date)}
+                        data-today={day.isToday || undefined}
+                        data-outside={day.isOutside || undefined}
+                        data-disabled={day.isDisabled || undefined}
+                        data-current-month={!day.isOutside || undefined}
+                        data-selected-single={isSingleSelected || undefined}
+                        data-selected-range-start={rangePos === 'start' || undefined}
+                        data-selected-range-end={rangePos === 'end' || undefined}
+                        data-selected-range-middle={rangePos === 'middle' || undefined}
+                        aria-selected={isSelected || rangePos !== undefined || undefined}
+                        disabled={day.isDisabled}
+                      >
+                        {day.date.getDate()}
+                      </button>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
 
-        {/* Month 1 (rendered when numberOfMonths >= 2) */}
-        {numMonths() >= 2 && (
-          <div data-slot="calendar-month">
-            <div data-slot="calendar-month-caption" className={monthCaptionClasses}>
-              <div className="size-7" />
-              <span data-slot="calendar-month-title" className={monthTitleClasses}>{monthLabel1()}</span>
-              <button data-slot="calendar-nav-next" className={navButtonClasses} disabled={isNextDisabled()} aria-label="Go to next month" onClick={goToNextMonth}>
-                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </button>
-            </div>
-            <table data-slot="calendar-month-grid" role="grid" className="w-full border-collapse">
-              <thead>
-                <tr>
-                  {weekdays().map((dayName: string) => (
-                    <th data-slot="calendar-weekday" className={weekdayClasses}>{dayName}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {weeks1().map((week: CalendarDay[]) => (
-                  <tr data-slot="calendar-week">
-                    {week.map((day: CalendarDay) => {
-                      const rangePos = isRangeMode() ? getRangePosition(day) : undefined
-                      const isSingleSelected = !isRangeMode() && selectedDate() ? isSameDay(selectedDate()!, day.date) : false
-                      const isRangeOnlyFrom = isRangeMode() && !day.isOutside && selectedRange()?.from && !selectedRange()?.to && isSameDay(day.date, selectedRange()!.from)
-                      const isSelected = isSingleSelected || (isRangeOnlyFrom ?? false)
-                      return (
-                        <td data-slot="calendar-day" className={dayCellClasses}>
-                          <button
-                            data-slot="calendar-day-button"
-                            className={getDayClasses(day, isSelected, rangePos)}
-                            data-date={toISODateString(day.date)}
-                            data-today={day.isToday || undefined}
-                            data-outside={day.isOutside || undefined}
-                            data-disabled={day.isDisabled || undefined}
-                            data-current-month={!day.isOutside || undefined}
-                            data-selected-single={isSingleSelected || undefined}
-                            data-selected-range-start={rangePos === 'start' || undefined}
-                            data-selected-range-end={rangePos === 'end' || undefined}
-                            data-selected-range-middle={rangePos === 'middle' || undefined}
-                            aria-selected={isSelected || rangePos !== undefined || undefined}
-                            disabled={day.isDisabled}
-                          >
-                            {day.date.getDate()}
-                          </button>
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+  return (
+    <div data-slot="calendar" className={`${calendarClasses} ${props.className ?? ''}`} onClick={handleCalendarClick}>
+      <div className={numMonths() > 1 ? 'flex gap-4' : ''}>
+        {renderMonthGrid(weeks0(), monthLabel0(), true, numMonths() === 1)}
+        {numMonths() >= 2 && renderMonthGrid(weeks1(), monthLabel1(), false, true)}
       </div>
     </div>
   )
