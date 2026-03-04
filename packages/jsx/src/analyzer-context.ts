@@ -64,6 +64,11 @@ export interface AnalyzerContext {
   typeDefinitions: TypeDefinition[]
   /** Maps constant names to their JSX initializer AST nodes (#547) */
   jsxConstants: Map<string, ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment>
+  /** Maps function names to their JSX return AST and parameter names (#569) */
+  jsxFunctions: Map<string, {
+    jsxReturn: ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment
+    params: string[]
+  }>
 
   // Props
   propsType: TypeInfo | null
@@ -118,6 +123,7 @@ export function createAnalyzerContext(
     localConstants: [],
     typeDefinitions: [],
     jsxConstants: new Map(),
+    jsxFunctions: new Map(),
 
     propsType: null,
     propsParams: [],

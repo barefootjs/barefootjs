@@ -374,6 +374,8 @@ export interface FunctionInfo {
   returnType: TypeInfo | null
   containsJsx: boolean
   isExported?: boolean
+  /** When true, this function returns JSX and is inlined at call sites (#569). */
+  isJsxFunction?: boolean
   loc: SourceLocation
 }
 
@@ -389,6 +391,8 @@ export interface ConstantInfo {
   freeIdentifiers?: Set<string>
   /** When true, the initializer is JSX that is inlined into the IR tree at usage sites (#547). */
   isJsx?: boolean
+  /** When true, the initializer is a JSX-returning function inlined at call sites (#569). */
+  isJsxFunction?: boolean
 }
 
 export interface TypeDefinition {

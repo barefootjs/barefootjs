@@ -696,6 +696,39 @@ function collectTypeAliasDefinition(
 // Function Collection
 // =============================================================================
 
+/**
+ * Extract a single JSX return expression from a function body.
+ * Returns null if the body has multiple returns, conditional returns, or no JSX return.
+ */
+function extractSingleJsxReturn(
+  body: ts.Block
+): ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment | null {
+  let jsxReturn: ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment | null = null
+  let returnCount = 0
+
+  function visit(node: ts.Node): void {
+    // Don't descend into nested functions/arrows
+    if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) return
+    if (ts.isReturnStatement(node)) {
+      returnCount++
+      if (node.expression) {
+        let expr: ts.Expression = node.expression
+        while (ts.isParenthesizedExpression(expr)) expr = expr.expression
+        if (ts.isJsxElement(expr) || ts.isJsxSelfClosingElement(expr) || ts.isJsxFragment(expr)) {
+          jsxReturn = expr
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+
+  ts.forEachChild(body, visit)
+
+  // Only inline functions with exactly one return statement
+  if (returnCount !== 1) return null
+  return jsxReturn
+}
+
 function collectFunction(
   node: ts.FunctionDeclaration,
   ctx: AnalyzerContext,
@@ -720,6 +753,19 @@ function collectFunction(
   // Check if function contains JSX
   const containsJsx = body.includes('<') && (body.includes('/>') || body.includes('</'))
 
+  // Store JSX-returning functions for IR-level inlining (#569)
+  let isJsxFunction = false
+  if (containsJsx && node.body) {
+    const jsxReturn = extractSingleJsxReturn(node.body)
+    if (jsxReturn) {
+      isJsxFunction = true
+      ctx.jsxFunctions.set(name, {
+        jsxReturn,
+        params: node.parameters.map(p => p.name.getText(ctx.sourceFile)),
+      })
+    }
+  }
+
   ctx.localFunctions.push({
     name,
     params,
@@ -727,6 +773,7 @@ function collectFunction(
     returnType,
     containsJsx,
     isExported,
+    isJsxFunction: isJsxFunction || undefined,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
   })
 }
@@ -811,12 +858,39 @@ function collectConstant(
 
   // Detect JSX initializers and store AST nodes for IR-level inlining (#547)
   let isJsx = false
+  let isJsxFunction = false
   if (node.initializer) {
     let init: ts.Expression = node.initializer
     while (ts.isParenthesizedExpression(init)) init = init.expression
     if (ts.isJsxElement(init) || ts.isJsxSelfClosingElement(init) || ts.isJsxFragment(init)) {
       isJsx = true
       ctx.jsxConstants.set(name, init)
+    }
+
+    // Detect arrow function constants with JSX return (#569)
+    if (ts.isArrowFunction(init)) {
+      const arrowBody = init.body
+      if (ts.isBlock(arrowBody)) {
+        const jsxReturn = extractSingleJsxReturn(arrowBody)
+        if (jsxReturn) {
+          isJsxFunction = true
+          ctx.jsxFunctions.set(name, {
+            jsxReturn,
+            params: init.parameters.map(p => p.name.getText(ctx.sourceFile)),
+          })
+        }
+      } else {
+        // Implicit return: () => <div>...</div>
+        let body: ts.Expression = arrowBody
+        while (ts.isParenthesizedExpression(body)) body = body.expression
+        if (ts.isJsxElement(body) || ts.isJsxSelfClosingElement(body) || ts.isJsxFragment(body)) {
+          isJsxFunction = true
+          ctx.jsxFunctions.set(name, {
+            jsxReturn: body,
+            params: init.parameters.map(p => p.name.getText(ctx.sourceFile)),
+          })
+        }
+      }
     }
   }
 
@@ -852,6 +926,7 @@ function collectConstant(
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
     freeIdentifiers,
     isJsx,
+    isJsxFunction: isJsxFunction || undefined,
   })
 }
 

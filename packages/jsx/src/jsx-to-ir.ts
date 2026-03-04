@@ -661,6 +661,17 @@ function transformExpression(
     }
   }
 
+  // Inline JSX function calls at the IR level (#569)
+  if (ts.isCallExpression(expr)) {
+    const callee = expr.expression
+    if (ts.isIdentifier(callee)) {
+      const jsxFunc = ctx.analyzer.jsxFunctions.get(callee.text)
+      if (jsxFunc) {
+        return transformJsxFunctionCall(expr, jsxFunc, ctx, isClientOnly)
+      }
+    }
+  }
+
   // Regular expression
   const exprText = ctx.getJS(expr)
   const reactive = isReactiveExpression(exprText, ctx, expr)
@@ -682,6 +693,62 @@ function transformExpression(
 // =============================================================================
 // Conditional Transformation
 // =============================================================================
+
+/**
+ * Inline a JSX-returning function call at the IR level (#569).
+ *
+ * Substitutes function parameters with call arguments in getJS output,
+ * then transforms the function's JSX AST — producing proper IR nodes
+ * (loops, conditionals, etc.) with unique scope IDs for each call site.
+ */
+function transformJsxFunctionCall(
+  callExpr: ts.CallExpression,
+  jsxFunc: { jsxReturn: ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment; params: string[] },
+  ctx: TransformContext,
+  _isClientOnly: boolean
+): IRNode {
+  // Build substitution map: paramName → argument expression text
+  const substitutions = new Map<string, string>()
+  for (let i = 0; i < jsxFunc.params.length; i++) {
+    const paramName = jsxFunc.params[i]
+    const arg = callExpr.arguments[i]
+    if (arg) {
+      substitutions.set(paramName, ctx.getJS(arg))
+    }
+  }
+
+  // Temporarily override getJS to apply parameter substitutions.
+  // Capture analyzer.getJS (the base implementation) to avoid circular references.
+  const baseGetJS = ctx.analyzer.getJS.bind(ctx.analyzer)
+  const originalCtxGetJS = ctx.getJS
+  const originalAnalyzerGetJS = ctx.analyzer.getJS
+
+  const substitutedGetJS = (node: ts.Node) => {
+    let text = baseGetJS(node)
+    for (const [paramName, argExpr] of substitutions) {
+      text = text.replace(new RegExp(`\\b${paramName}\\b`, 'g'), argExpr)
+    }
+    return text
+  }
+
+  ctx.getJS = substitutedGetJS
+  ctx.analyzer.getJS = substitutedGetJS
+
+  try {
+    const result = transformNode(jsxFunc.jsxReturn, ctx)
+    return result ?? {
+      type: 'expression' as const,
+      expr: 'null',
+      typeInfo: null,
+      reactive: false,
+      slotId: null,
+      loc: getSourceLocation(callExpr, ctx.sourceFile, ctx.filePath),
+    }
+  } finally {
+    ctx.getJS = originalCtxGetJS
+    ctx.analyzer.getJS = originalAnalyzerGetJS
+  }
+}
 
 function transformConditional(
   node: ts.ConditionalExpression,
@@ -824,6 +891,17 @@ function transformConditionalBranch(
     containsJsxInExpression(node.right)
   ) {
     return transformNullishCoalescing(node, ctx)
+  }
+
+  // Inline JSX function calls in conditional branches (#569)
+  if (ts.isCallExpression(node)) {
+    const callee = node.expression
+    if (ts.isIdentifier(callee)) {
+      const jsxFunc = ctx.analyzer.jsxFunctions.get(callee.text)
+      if (jsxFunc) {
+        return transformJsxFunctionCall(node, jsxFunc, ctx, false)
+      }
+    }
   }
 
   // Regular expression (including null)

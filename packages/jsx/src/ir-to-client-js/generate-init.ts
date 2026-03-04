@@ -81,6 +81,7 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
 
   for (const constant of ctx.localConstants) {
     if (constant.isJsx) continue  // Inlined at IR level (#547)
+    if (constant.isJsxFunction) continue  // Inlined at call sites (#569)
     if (usedIdentifiers.has(constant.name)) {
       if (!constant.value) {
         neededConstants.push(constant)
@@ -163,6 +164,7 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
 
   // Collect functions
   for (const fn of ctx.localFunctions) {
+    if (fn.isJsxFunction) continue  // Inlined at call sites (#569)
     if (usedIdentifiers.has(fn.name)) {
       declarations.push({
         kind: 'function',
