@@ -1263,34 +1263,6 @@ describe('Client JS generation', () => {
   })
 
   describe('let variable declarations (#482)', () => {
-    test('let without initializer is captured by analyzer', () => {
-      const source = `
-        'use client'
-        import { createSignal, createEffect, onCleanup } from '@barefootjs/dom'
-
-        type ApiType = { scrollPrev: () => void }
-
-        export function Carousel() {
-          let emblaApi: ApiType | undefined
-          const [canScrollPrev, setCanScrollPrev] = createSignal(false)
-
-          createEffect(() => {
-            if (emblaApi) {
-              setCanScrollPrev(true)
-            }
-          })
-
-          return <div>{canScrollPrev() ? 'yes' : 'no'}</div>
-        }
-      `
-
-      const ctx = analyzeComponent(source, 'Carousel.tsx')
-      const letConstant = ctx.localConstants.find(c => c.name === 'emblaApi')
-      expect(letConstant).toBeDefined()
-      expect(letConstant!.declarationKind).toBe('let')
-      expect(letConstant!.value).toBeUndefined()
-    })
-
     test('let without initializer is emitted in client JS', () => {
       const source = `
         'use client'

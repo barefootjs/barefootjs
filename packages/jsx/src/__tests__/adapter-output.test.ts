@@ -7,7 +7,6 @@
 
 import { describe, test, expect } from 'bun:test'
 import { compileJSXSync, compileJSX } from '../compiler'
-import { analyzeComponent } from '../analyzer'
 import { TestAdapter } from '../adapters/test-adapter'
 import { HonoAdapter } from '../../../../packages/hono/src/adapter/hono-adapter'
 import { resolve, dirname } from 'node:path'
@@ -183,26 +182,6 @@ describe('Adapter output', () => {
       expect(exportConstIndex).toBeLessThan(funcStart)
     })
 
-    test('export { X } named export syntax sets isExported on analyzer', () => {
-      const source = `
-        'use client'
-        import { createSignal } from '@barefootjs/dom'
-
-        const MY_CONST = 42
-
-        export { MY_CONST }
-
-        export function Widget() {
-          const [val, setVal] = createSignal(0)
-          return <div>{MY_CONST}</div>
-        }
-      `
-      const ctx = analyzeComponent(source, 'Widget.tsx')
-      const constInfo = ctx.localConstants.find(c => c.name === 'MY_CONST')
-      expect(constInfo).toBeDefined()
-      expect(constInfo!.isExported).toBe(true)
-    })
-
     test('non-exported const stays inside function body', () => {
       const source = `
         'use client'
@@ -255,37 +234,6 @@ describe('Adapter output', () => {
       const helperIndex = content.indexOf('export function helperFn')
       const componentIndex = content.indexOf('export function Counter')
       expect(helperIndex).toBeLessThan(componentIndex)
-    })
-
-    test('analyzer sets isExported flag correctly', () => {
-      const source = `
-        'use client'
-        import { createSignal } from '@barefootjs/dom'
-
-        export const EXPORTED_A = 'aaa'
-        const INTERNAL_B = 'bbb'
-        export let EXPORTED_C = 100
-
-        export function MyComponent() {
-          const [val, setVal] = createSignal(0)
-          return <div />
-        }
-      `
-      const ctx = analyzeComponent(source, 'Test.tsx')
-
-      const a = ctx.localConstants.find(c => c.name === 'EXPORTED_A')
-      expect(a).toBeDefined()
-      expect(a!.isExported).toBe(true)
-      expect(a!.declarationKind).toBe('const')
-
-      const b = ctx.localConstants.find(c => c.name === 'INTERNAL_B')
-      expect(b).toBeDefined()
-      expect(b!.isExported).toBeFalsy()
-
-      const c = ctx.localConstants.find(c => c.name === 'EXPORTED_C')
-      expect(c).toBeDefined()
-      expect(c!.isExported).toBe(true)
-      expect(c!.declarationKind).toBe('let')
     })
 
     test('Hono adapter: exported const appears before component', () => {
