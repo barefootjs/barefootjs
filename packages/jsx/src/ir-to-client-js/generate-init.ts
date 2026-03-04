@@ -80,6 +80,7 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   const moduleLevelConstantNames = new Set<string>()
 
   for (const constant of ctx.localConstants) {
+    if (constant.isJsx) continue  // Inlined at IR level (#547)
     if (usedIdentifiers.has(constant.name)) {
       if (!constant.value) {
         neededConstants.push(constant)
