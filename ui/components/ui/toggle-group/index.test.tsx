@@ -26,6 +26,8 @@ describe('ToggleGroup', () => {
   })
 
   test('isControlled and currentValue are memos, not in signals', () => {
+    expect(result.memos).toContain('isControlled')
+    expect(result.memos).toContain('currentValue')
     expect(result.signals).not.toContain('isControlled')
     expect(result.signals).not.toContain('currentValue')
   })

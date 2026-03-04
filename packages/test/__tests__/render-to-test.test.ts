@@ -75,6 +75,56 @@ export { Label }
   })
 })
 
+describe('memos and effects fields', () => {
+  test('memos contains memo names from createMemo', () => {
+    const source = `
+"use client"
+import { createSignal, createMemo } from "@barefootjs/dom"
+
+function Counter() {
+  const [count, setCount] = createSignal(0)
+  const doubled = createMemo(() => count() * 2)
+  return <span>{doubled()}</span>
+}
+
+export { Counter }
+`
+    const result = renderToTest(source, 'counter.tsx')
+    expect(result.memos).toContain('doubled')
+    expect(result.memos).not.toContain('count')
+  })
+
+  test('effects counts createEffect calls', () => {
+    const source = `
+"use client"
+import { createSignal, createEffect } from "@barefootjs/dom"
+
+function Logger() {
+  const [count, setCount] = createSignal(0)
+  createEffect(() => { console.log(count()) })
+  return <span>{count()}</span>
+}
+
+export { Logger }
+`
+    const result = renderToTest(source, 'logger.tsx')
+    expect(result.effects).toBe(1)
+  })
+
+  test('memos and effects are empty for stateless components', () => {
+    const source = `
+function Static() {
+  return <span>hello</span>
+}
+
+export { Static }
+`
+    const result = renderToTest(source, 'static.tsx')
+    expect(result.memos).toEqual([])
+    expect(result.effects).toBe(0)
+  })
+})
+
 describe('Error detection', () => {
   test('missing "use client" reports BF001', () => {
     const source = `

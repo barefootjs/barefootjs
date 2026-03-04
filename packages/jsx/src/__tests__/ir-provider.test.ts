@@ -1,0 +1,327 @@
+/**
+ * BarefootJS Compiler - Context.Provider IR Tests
+ */
+
+import { describe, test, expect } from 'bun:test'
+import { analyzeComponent } from '../analyzer'
+import { jsxToIR } from '../jsx-to-ir'
+import { compileJSXSync } from '../compiler'
+import { TestAdapter } from '../adapters/test-adapter'
+
+const adapter = new TestAdapter()
+
+describe('Context.Provider JSX', () => {
+  test('<X.Provider value={...}> becomes IRProvider with contextName, valueProp, and children', () => {
+    // <MenuContext.Provider> should produce an IRProvider node that:
+    // - extracts "MenuContext" from "MenuContext.Provider"
+    // - captures the value prop expression
+    // - preserves child elements
+    const source = `
+      'use client'
+      import { createContext, createSignal, provideContext } from '@barefootjs/dom'
+
+      const MenuContext = createContext()
+
+      export function DropdownMenu({ children }) {
+        const [open, setOpen] = createSignal(false)
+        return (
+          <MenuContext.Provider value={{ open, setOpen }}>
+            <div>{children}</div>
+          </MenuContext.Provider>
+        )
+      }
+    `
+
+    const ctx = analyzeComponent(source, 'DropdownMenu.tsx')
+    const ir = jsxToIR(ctx)
+
+    expect(ir).toMatchObject({
+      type: 'provider',
+      contextName: 'MenuContext',
+      valueProp: {
+        name: 'value',
+        value: '{ open, setOpen }',
+        dynamic: true,
+      },
+      children: [
+        {
+          type: 'element',
+          tag: 'div',
+          children: [
+            { type: 'expression', expr: 'children' },
+          ],
+        },
+      ],
+    })
+  })
+
+  test('Provider preserves multiple children as sibling IR nodes', () => {
+    // Provider is transparent — its children should appear
+    // directly under the IRProvider node, not wrapped.
+    const source = `
+      'use client'
+      import { createContext, createSignal, provideContext } from '@barefootjs/dom'
+
+      const Ctx = createContext()
+
+      export function Tabs({ children }) {
+        const [active, setActive] = createSignal(0)
+        return (
+          <Ctx.Provider value={{ active, setActive }}>
+            <div className="tabs-header">Header</div>
+            <div className="tabs-body">{children}</div>
+          </Ctx.Provider>
+        )
+      }
+    `
+
+    const ctx = analyzeComponent(source, 'Tabs.tsx')
+    const ir = jsxToIR(ctx)
+
+    expect(ir).toMatchObject({
+      type: 'provider',
+      contextName: 'Ctx',
+      valueProp: { name: 'value', value: '{ active, setActive }' },
+      children: [
+        { type: 'element', tag: 'div', attrs: [{ name: 'className', value: 'tabs-header' }] },
+        { type: 'element', tag: 'div', attrs: [{ name: 'className', value: 'tabs-body' }] },
+      ],
+    })
+  })
+
+  test('compiler generates provideContext() before initChild() in client JS', () => {
+    // The generated init function must:
+    // 1. Import provideContext from @barefootjs/dom
+    // 2. Call provideContext(ContextName, valueExpr) BEFORE initChild()
+    //    so child components can read the context during their initialization
+    const adapter = new TestAdapter()
+    const source = `
+      'use client'
+      import { createContext, createSignal, provideContext } from '@barefootjs/dom'
+
+      const MenuContext = createContext()
+
+      export function DropdownMenu(props) {
+        const [open, setOpen] = createSignal(false)
+        return (
+          <MenuContext.Provider value={{ open, setOpen }}>
+            <DropdownTrigger />
+          </MenuContext.Provider>
+        )
+      }
+    `
+
+    const result = compileJSXSync(source, 'DropdownMenu.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!
+    expect(clientJs).toBeDefined()
+
+    // Verify the init function body contains the expected sequence:
+    //   provideContext(MenuContext, { open, setOpen })   <- context setup
+    //   initChild('DropdownTrigger', ...)                <- child init (after)
+    const initBody = clientJs.content
+      .split('\n')
+      .filter(line => line.includes('provideContext(') || line.includes('initChild('))
+      .map(line => line.trim())
+
+    expect(initBody).toEqual([
+      'provideContext(MenuContext, { open, setOpen })',
+      "initChild('DropdownTrigger', _s0, {})",
+    ])
+  })
+
+  test('provider-only root (no element child) auto-generates scope wrapper (#290)', () => {
+    // When a component returns only a Provider wrapping {children},
+    // the compiler should auto-wrap in a <div style="display:contents"> with needsScope=true
+    const source = `
+      'use client'
+      import { createContext, createSignal, provideContext } from '@barefootjs/dom'
+
+      const DialogContext = createContext()
+
+      export function Dialog({ children }) {
+        const [open, setOpen] = createSignal(false)
+        return (
+          <DialogContext.Provider value={{ open, setOpen }}>
+            {children}
+          </DialogContext.Provider>
+        )
+      }
+    `
+
+    const ctx = analyzeComponent(source, 'Dialog.tsx')
+    const ir = jsxToIR(ctx)
+
+    // Root should be a synthetic scope wrapper element
+    expect(ir).toMatchObject({
+      type: 'element',
+      tag: 'div',
+      needsScope: true,
+      attrs: [{ name: 'style', value: 'display:contents' }],
+      children: [
+        {
+          type: 'provider',
+          contextName: 'DialogContext',
+          children: [
+            { type: 'expression', expr: 'children' },
+          ],
+        },
+      ],
+    })
+  })
+
+  test('provider with element child does NOT get auto-wrapped (#290)', () => {
+    // When a provider already contains an HTML element, no wrapper should be added
+    const source = `
+      'use client'
+      import { createContext, createSignal, provideContext } from '@barefootjs/dom'
+
+      const MenuContext = createContext()
+
+      export function DropdownMenu({ children }) {
+        const [open, setOpen] = createSignal(false)
+        return (
+          <MenuContext.Provider value={{ open, setOpen }}>
+            <div>{children}</div>
+          </MenuContext.Provider>
+        )
+      }
+    `
+
+    const ctx = analyzeComponent(source, 'DropdownMenu.tsx')
+    const ir = jsxToIR(ctx)
+
+    // Root should be the provider itself (no synthetic wrapper)
+    expect(ir).toMatchObject({
+      type: 'provider',
+      contextName: 'MenuContext',
+      children: [
+        {
+          type: 'element',
+          tag: 'div',
+          needsScope: true,
+        },
+      ],
+    })
+  })
+
+  test('end-to-end: provider-only component generates hydrate + provideContext in client JS (#290)', () => {
+    const adapter = new TestAdapter()
+    const source = `
+      'use client'
+      import { createContext, createSignal, provideContext } from '@barefootjs/dom'
+
+      const DialogContext = createContext()
+
+      export function Dialog(props) {
+        const [open, setOpen] = createSignal(false)
+        return (
+          <DialogContext.Provider value={{ open, setOpen }}>
+            {props.children}
+          </DialogContext.Provider>
+        )
+      }
+    `
+
+    const result = compileJSXSync(source, 'Dialog.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!
+    expect(clientJs).toBeDefined()
+
+    // The generated client JS must contain hydrate (for registration + hydration)
+    // and provideContext (for context setup)
+    expect(clientJs.content).toContain('hydrate')
+    expect(clientJs.content).toContain('provideContext(DialogContext')
+  })
+
+  test('strips TypeScript type annotations from provider value expression (#341)', () => {
+    const source = `
+      'use client'
+      import { createContext, createSignal, provideContext } from '@barefootjs/dom'
+
+      const Ctx = createContext()
+
+      export function Root() {
+        const [val, setVal] = createSignal('')
+        return (
+          <Ctx.Provider value={{ onValueChange: (newValue: string) => { setVal(newValue) } }}>
+            <div>child</div>
+          </Ctx.Provider>
+        )
+      }
+    `
+
+    const result = compileJSXSync(source, 'Root.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!
+    expect(clientJs).toBeDefined()
+    expect(clientJs.content).toContain('provideContext(Ctx')
+    expect(clientJs.content).not.toContain('newValue: string')
+  })
+
+  test('named function references in provider value are emitted in client JS (#342)', () => {
+    const source = `
+      'use client'
+      import { createContext, createSignal, provideContext } from '@barefootjs/dom'
+
+      const TabsContext = createContext()
+
+      export function Tabs(props) {
+        const [value, setValue] = createSignal(props.defaultValue ?? '')
+        const handleValueChange = (newValue) => {
+          setValue(newValue)
+          props.onValueChange?.(newValue)
+        }
+        return (
+          <TabsContext.Provider value={{ value, handleValueChange }}>
+            <div>{props.children}</div>
+          </TabsContext.Provider>
+        )
+      }
+    `
+
+    const result = compileJSXSync(source, 'Tabs.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!
+    expect(clientJs).toBeDefined()
+    expect(clientJs.content).toContain('handleValueChange')
+    // Function must be defined before provideContext call
+    const fnIndex = clientJs.content.indexOf('handleValueChange')
+    const provideIndex = clientJs.content.indexOf('provideContext(TabsContext')
+    expect(fnIndex).toBeLessThan(provideIndex)
+  })
+
+  test('self-closing <X.Provider /> produces IRProvider with empty children', () => {
+    // Self-closing syntax should work just like the open/close form
+    // but with no children (e.g., for provider-only setup components)
+    const source = `
+      'use client'
+      import { createContext, createSignal, provideContext } from '@barefootjs/dom'
+
+      const Ctx = createContext()
+
+      export function Root() {
+        const [val, setVal] = createSignal(0)
+        return <Ctx.Provider value={{ val, setVal }} />
+      }
+    `
+
+    const ctx = analyzeComponent(source, 'Root.tsx')
+    const ir = jsxToIR(ctx)
+
+    expect(ir).toMatchObject({
+      type: 'provider',
+      contextName: 'Ctx',
+      valueProp: {
+        name: 'value',
+        value: '{ val, setVal }',
+        dynamic: true,
+      },
+      children: [],
+    })
+  })
+})

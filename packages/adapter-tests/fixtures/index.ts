@@ -36,6 +36,10 @@ import { fixture as nullishCoalescingText } from './nullish-coalescing-text'
 import { fixture as childComponent } from './child-component'
 import { fixture as multipleInstances } from './multiple-instances'
 import { fixture as staticArrayChildren } from './static-array-children'
+// Priority 8: CSR conformance
+import { fixture as booleanDynamicAttr } from './boolean-dynamic-attr'
+import { fixture as childComponentInit } from './child-component-init'
+import { fixture as reactivePropBinding } from './reactive-prop-binding'
 
 import type { JSXFixture } from '../src/types'
 
@@ -78,4 +82,8 @@ export const jsxFixtures: JSXFixture[] = [
   childComponent,
   multipleInstances,
   staticArrayChildren,
+  // Priority 8: CSR conformance
+  booleanDynamicAttr,
+  childComponentInit,
+  reactivePropBinding,
 ]

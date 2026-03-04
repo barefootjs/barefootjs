@@ -28,6 +28,11 @@ describe('Calendar', () => {
   })
 
   test('memos are not in signals', () => {
+    expect(result.memos).toContain('selectedDate')
+    expect(result.memos).toContain('selectedRange')
+    expect(result.memos).toContain('weeks0')
+    expect(result.memos).toContain('monthLabel0')
+    expect(result.memos).toContain('weekdays')
     expect(result.signals).not.toContain('selectedDate')
     expect(result.signals).not.toContain('selectedRange')
     expect(result.signals).not.toContain('weeks0')

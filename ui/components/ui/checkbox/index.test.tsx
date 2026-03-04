@@ -27,6 +27,8 @@ describe('Checkbox', () => {
 
   test('isControlled and isChecked are memos, not in signals', () => {
     // isControlled and isChecked are created via createMemo, not createSignal
+    expect(result.memos).toContain('isControlled')
+    expect(result.memos).toContain('isChecked')
     expect(result.signals).not.toContain('isControlled')
     expect(result.signals).not.toContain('isChecked')
   })
