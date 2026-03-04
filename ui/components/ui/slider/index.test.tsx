@@ -31,6 +31,9 @@ describe('Slider', () => {
 
   test('isControlled, currentValue, percentage are memos, not in signals', () => {
     // isControlled, currentValue, percentage are created via createMemo, not createSignal
+    expect(result.memos).toContain('isControlled')
+    expect(result.memos).toContain('currentValue')
+    expect(result.memos).toContain('percentage')
     expect(result.signals).not.toContain('isControlled')
     expect(result.signals).not.toContain('currentValue')
     expect(result.signals).not.toContain('percentage')

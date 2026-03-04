@@ -29,6 +29,8 @@ describe('Progress', () => {
   })
 
   test('percentage and dataState are memos, not in signals', () => {
+    expect(result.memos).toContain('percentage')
+    expect(result.memos).toContain('dataState')
     expect(result.signals).not.toContain('percentage')
     expect(result.signals).not.toContain('dataState')
   })
