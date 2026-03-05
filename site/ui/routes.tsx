@@ -16,6 +16,7 @@ import { AvatarPage } from './pages/avatar'
 import { BadgePage } from './pages/badge'
 import { BadgeRefPage } from './pages/components/badge'
 import { ButtonRefPage } from './pages/components/button'
+import { InputRefPage } from './pages/components/input'
 import { BreadcrumbPage } from './pages/breadcrumb'
 import { ButtonPage } from './pages/button'
 import { CalendarPage } from './pages/calendar'
@@ -431,6 +432,11 @@ export function createApp() {
   // Input documentation
   app.get('/docs/components/input', (c) => {
     return c.render(<InputPage />)
+  })
+
+  // Input reference page (redesigned #515)
+  app.get('/components/input', (c) => {
+    return c.render(<InputRefPage />)
   })
 
   // Input OTP documentation

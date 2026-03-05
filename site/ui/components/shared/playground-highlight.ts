@@ -57,3 +57,24 @@ export function highlightJsx(
 
   return `${hlPlain('&lt;')}${hlTag(tagName)}${renderedProps}${hlPlain('&gt;')}${escapedContent}${hlPlain('&lt;/')}${hlTag(tagName)}${hlPlain('&gt;')}`
 }
+
+/**
+ * Generate syntax-highlighted JSX markup for a self-closing component.
+ *
+ * Props whose value matches their defaultValue are omitted from output.
+ *
+ * @example
+ * highlightJsxSelfClosing('Input', [{ name: 'type', value: 'email', defaultValue: 'text' }])
+ * // => highlighted: <Input type="email" />
+ */
+export function highlightJsxSelfClosing(
+  tagName: string,
+  props: HighlightProp[],
+): string {
+  const renderedProps = props
+    .filter((p) => p.value !== p.defaultValue)
+    .map((p) => ` ${hlAttr(p.name)}${hlPlain('=')}${hlStr(`&quot;${p.value}&quot;`)}`)
+    .join('')
+
+  return `${hlPlain('&lt;')}${hlTag(tagName)}${renderedProps} ${hlPlain('/&gt;')}`
+}
