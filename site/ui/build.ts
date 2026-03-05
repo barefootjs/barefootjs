@@ -18,12 +18,12 @@ import { compileJSX, combineParentChildClientJs } from '@barefootjs/jsx'
 import { HonoAdapter } from '@barefootjs/hono/adapter'
 import { mkdir, readdir } from 'node:fs/promises'
 import { dirname, resolve, join, relative } from 'node:path'
-import { RELATIVE_IMPORT_RE } from './build-utils'
 import {
   hasUseClientDirective,
   discoverComponentFiles as discoverFiles,
   generateHash,
 } from '../../packages/cli/src/lib/build'
+import { RELATIVE_IMPORT_RE } from '../../packages/cli/src/lib/patterns'
 import { addScriptCollection } from '../../packages/hono/src/build'
 
 const ROOT_DIR = dirname(import.meta.path)
