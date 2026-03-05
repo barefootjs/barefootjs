@@ -17,6 +17,7 @@ import { BadgePage } from './pages/badge'
 import { BadgeRefPage } from './pages/components/badge'
 import { ButtonRefPage } from './pages/components/button'
 import { InputRefPage } from './pages/components/input'
+import { SelectRefPage } from './pages/components/select'
 import { BreadcrumbPage } from './pages/breadcrumb'
 import { ButtonPage } from './pages/button'
 import { CalendarPage } from './pages/calendar'
@@ -380,6 +381,11 @@ export function createApp() {
   // Button reference page (redesigned #515)
   app.get('/components/button', (c) => {
     return c.render(<ButtonRefPage />)
+  })
+
+  // Select reference page (redesigned #515)
+  app.get('/components/select', (c) => {
+    return c.render(<SelectRefPage />)
   })
 
   // Breadcrumb documentation
