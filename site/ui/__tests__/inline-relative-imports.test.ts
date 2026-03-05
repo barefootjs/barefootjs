@@ -1,10 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-
-// Mirror the regex from build.ts so we can test it in isolation
-const RELATIVE_IMPORT_RE = /^import\s+(?:.*\s+from\s+)?['"](\.[^'"]+)['"]\s*;?$/gm
+import { RELATIVE_IMPORT_RE } from '../build-utils'
 
 function matchAll(input: string) {
-  RELATIVE_IMPORT_RE.lastIndex = 0
   return [...input.matchAll(RELATIVE_IMPORT_RE)]
 }
 

@@ -18,6 +18,7 @@ import { compileJSX, combineParentChildClientJs } from '@barefootjs/jsx'
 import { HonoAdapter } from '@barefootjs/hono/adapter'
 import { mkdir, readdir } from 'node:fs/promises'
 import { dirname, resolve, join, relative } from 'node:path'
+import { RELATIVE_IMPORT_RE } from './build-utils'
 import {
   hasUseClientDirective,
   discoverComponentFiles as discoverFiles,
@@ -310,8 +311,6 @@ await copyTsFiles(SHARED_DIR, DIST_SHARED_DIR, 'dist/components/shared/')
 // modules (e.g., ./shared/playground-highlight) need to be inlined separately.
 // Component imports that were already inlined via @bf-child are stripped as redundant.
 async function inlineRelativeImports(manifestData: typeof manifest): Promise<void> {
-  const RELATIVE_IMPORT_RE = /^import\s+(?:.*\s+from\s+)?['"](\.[^'"]+)['"]\s*;?$/gm
-
   for (const [, entry] of Object.entries(manifestData)) {
     if (!entry.clientJs) continue
     const filePath = resolve(DIST_DIR, entry.clientJs)
