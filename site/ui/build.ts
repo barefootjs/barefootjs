@@ -23,6 +23,7 @@ import {
   discoverComponentFiles as discoverFiles,
   generateHash,
 } from '../../packages/cli/src/lib/build'
+import { RELATIVE_IMPORT_RE } from '../../packages/cli/src/lib/patterns'
 import { addScriptCollection } from '../../packages/hono/src/build'
 
 const ROOT_DIR = dirname(import.meta.path)
@@ -310,8 +311,6 @@ await copyTsFiles(SHARED_DIR, DIST_SHARED_DIR, 'dist/components/shared/')
 // modules (e.g., ./shared/playground-highlight) need to be inlined separately.
 // Component imports that were already inlined via @bf-child are stripped as redundant.
 async function inlineRelativeImports(manifestData: typeof manifest): Promise<void> {
-  const RELATIVE_IMPORT_RE = /^import\s+\{([^}]+)\}\s+from\s+['"](\.[^'"]+)['"]\s*;?$/gm
-
   for (const [, entry] of Object.entries(manifestData)) {
     if (!entry.clientJs) continue
     const filePath = resolve(DIST_DIR, entry.clientJs)
@@ -323,7 +322,7 @@ async function inlineRelativeImports(manifestData: typeof manifest): Promise<voi
     const inlinedPaths = new Set<string>()
 
     for (const match of matches) {
-      const importPath = match[2]
+      const importPath = match[1]
       const fullMatch = match[0]
 
       // Try to resolve source file
