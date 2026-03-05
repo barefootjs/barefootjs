@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { RELATIVE_IMPORT_RE } from '../../../packages/cli/src/lib/patterns'
+import { RELATIVE_IMPORT_RE } from '../lib/patterns'
 
 function matchAll(input: string) {
   return [...input.matchAll(RELATIVE_IMPORT_RE)]
