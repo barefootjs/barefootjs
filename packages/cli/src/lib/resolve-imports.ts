@@ -3,6 +3,10 @@
 import { dirname, resolve } from 'node:path'
 import { RELATIVE_IMPORT_RE } from './patterns'
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export interface ResolveRelativeImportsOptions {
   /** Absolute path to the dist directory (base for manifest paths) */
   distDir: string
@@ -60,7 +64,7 @@ export async function resolveRelativeImports(options: ResolveRelativeImportsOpti
 
       if (!sourceFile || inlinedPaths.has(sourceFile)) {
         // Already inlined or not found — strip the import
-        content = content.replace(fullMatch + '\n', '')
+        content = content.replace(new RegExp(escapeRegExp(fullMatch) + '\\n?'), '')
         continue
       }
 
@@ -68,7 +72,7 @@ export async function resolveRelativeImports(options: ResolveRelativeImportsOpti
       // components whose rendering was already done at SSR time — their imports
       // in client JS are for component name matching only, not runtime execution.
       if (sourceFile.endsWith('.tsx')) {
-        content = content.replace(fullMatch + '\n', '')
+        content = content.replace(new RegExp(escapeRegExp(fullMatch) + '\\n?'), '')
         console.log(`Stripped server component import: ${importPath} from ${entry.clientJs}`)
         continue
       }

@@ -118,6 +118,25 @@ const [count, setCount] = createSignal(0)
     expect(result).toBe(clientJs)
   })
 
+  test('strips import at EOF without trailing newline', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'eof-utils.tsx'), `
+export function EofComp() { return <div /> }
+`)
+    // No trailing newline after import
+    const clientJs = `console.log('main code')\nimport { EofComp } from './eof-utils'`
+    writeFileSync(resolve(COMPONENTS_DIR, 'Eof-222.js'), clientJs)
+
+    const manifest = {
+      Eof: { clientJs: 'components/Eof-222.js', markedTemplate: 'components/Eof.tsx' },
+    }
+
+    await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'Eof-222.js')).text()
+    expect(result).not.toContain('eof-utils')
+    expect(result).toContain("console.log('main code')")
+  })
+
   test('strips missing module import without crashing', async () => {
     const clientJs = `import { missing } from './nonexistent'
 console.log('still works')
