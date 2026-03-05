@@ -6,6 +6,7 @@
  */
 
 import { ComboboxPlayground } from '@/components/combobox-playground'
+import { ComboboxBasicDemo } from '@/components/combobox-demo'
 import {
   DocPage,
   PageHeader,
@@ -17,10 +18,6 @@ import {
   type TocItem,
 } from '../../components/shared/docs'
 import { getNavLinks } from '../../components/shared/PageNavigation'
-import {
-  Combobox, ComboboxTrigger, ComboboxValue, ComboboxContent,
-  ComboboxInput, ComboboxEmpty, ComboboxItem,
-} from '@ui/components/ui/combobox'
 
 const tocItems: TocItem[] = [
   { id: 'preview', title: 'Preview' },
@@ -125,20 +122,7 @@ export function ComboboxRefPage() {
         {/* Usage */}
         <Section id="usage" title="Usage">
           <Example title="" code={usageCode}>
-            <Combobox>
-              <ComboboxTrigger className="w-[280px]">
-                <ComboboxValue placeholder="Select framework..." />
-              </ComboboxTrigger>
-              <ComboboxContent>
-                <ComboboxInput placeholder="Search framework..." />
-                <ComboboxEmpty>No framework found.</ComboboxEmpty>
-                <ComboboxItem value="next">Next.js</ComboboxItem>
-                <ComboboxItem value="svelte">SvelteKit</ComboboxItem>
-                <ComboboxItem value="nuxt">Nuxt</ComboboxItem>
-                <ComboboxItem value="remix">Remix</ComboboxItem>
-                <ComboboxItem value="astro">Astro</ComboboxItem>
-              </ComboboxContent>
-            </Combobox>
+            <ComboboxBasicDemo />
           </Example>
         </Section>
 
