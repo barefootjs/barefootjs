@@ -16,6 +16,7 @@ import { AvatarPage } from './pages/avatar'
 import { BadgePage } from './pages/badge'
 import { BadgeRefPage } from './pages/components/badge'
 import { ButtonRefPage } from './pages/components/button'
+import { ComboboxRefPage } from './pages/components/combobox'
 import { InputRefPage } from './pages/components/input'
 import { LabelRefPage } from './pages/components/label'
 import { SelectRefPage } from './pages/components/select'
@@ -385,6 +386,11 @@ export function createApp() {
   // Button reference page (redesigned #515)
   app.get('/components/button', (c) => {
     return c.render(<ButtonRefPage />)
+  })
+
+  // Combobox reference page (redesigned #515)
+  app.get('/components/combobox', (c) => {
+    return c.render(<ComboboxRefPage />)
   })
 
   // Label reference page (redesigned #515)
