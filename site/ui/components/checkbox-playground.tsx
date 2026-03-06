@@ -3,7 +3,7 @@
  * Checkbox Props Playground
  *
  * Interactive playground for the Checkbox component.
- * Allows tweaking checked, disabled props with live preview.
+ * Allows tweaking defaultChecked and disabled props with live preview.
  */
 
 import { createSignal, createMemo, createEffect } from '@barefootjs/dom'
