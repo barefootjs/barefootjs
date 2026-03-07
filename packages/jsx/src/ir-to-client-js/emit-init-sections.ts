@@ -274,18 +274,21 @@ export function emitReactiveAttributeUpdates(lines: string[], ctx: ClientJsConte
       lines.push(`  createEffect(() => {`)
       lines.push(`    if (_${v}) {`)
       for (const attr of attrs) {
+        // Rewrite destructured prop references to props.xxx for live reactivity.
+        // Destructured props are const-captured once; effects must read from props object.
+        const expression = rewriteDestructuredPropsInExpr(attr.expression, ctx)
         const htmlAttrName = toHtmlAttrName(attr.attrName)
         if (htmlAttrName === 'value') {
-          lines.push(`      const __val = String(${attr.expression})`)
+          lines.push(`      const __val = String(${expression})`)
           lines.push(`      if (_${v}.value !== __val) _${v}.value = __val`)
         } else if (isBooleanAttr(htmlAttrName)) {
-          lines.push(`      _${v}.${htmlAttrName} = !!(${attr.expression})`)
+          lines.push(`      _${v}.${htmlAttrName} = !!(${expression})`)
         } else if (attr.presenceOrUndefined) {
-          lines.push(`      if (${attr.expression}) _${v}.setAttribute('${htmlAttrName}', '')`)
+          lines.push(`      if (${expression}) _${v}.setAttribute('${htmlAttrName}', '')`)
           lines.push(`      else _${v}.removeAttribute('${htmlAttrName}')`)
         } else {
           // Handle null/undefined: remove attribute instead of setting "undefined"
-          lines.push(`      { const __v = ${attr.expression}; if (__v != null) _${v}.setAttribute('${htmlAttrName}', String(__v)); else _${v}.removeAttribute('${htmlAttrName}') }`)
+          lines.push(`      { const __v = ${expression}; if (__v != null) _${v}.setAttribute('${htmlAttrName}', String(__v)); else _${v}.removeAttribute('${htmlAttrName}') }`)
         }
       }
       lines.push(`    }`)
@@ -293,6 +296,30 @@ export function emitReactiveAttributeUpdates(lines: string[], ctx: ClientJsConte
       lines.push('')
     }
   }
+}
+
+/**
+ * Rewrite destructured prop names in an expression to `(props.xxx ?? default)`.
+ * Only applies when the component uses destructured props (not props.xxx style).
+ */
+function rewriteDestructuredPropsInExpr(expr: string, ctx: ClientJsContext): string {
+  // Skip if the component already uses props object access (not destructuring)
+  if (ctx.propsObjectName) return expr
+
+  let result = expr
+  for (const prop of ctx.propsParams) {
+    if (prop.name === 'children') continue
+    const pattern = new RegExp(`\\b${prop.name}\\b`, 'g')
+    if (!pattern.test(result)) continue
+
+    const defaultVal = prop.defaultValue
+    const replacement = defaultVal
+      ? `(props.${prop.name} ?? ${defaultVal.includes('=>') ? `(${defaultVal})` : defaultVal})`
+      : `props.${prop.name}`
+    result = result.replace(new RegExp(`\\b${prop.name}\\b`, 'g'), replacement)
+  }
+
+  return result
 }
 
 /**

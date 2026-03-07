@@ -2026,4 +2026,92 @@ describe('Client JS generation', () => {
       expect(content).not.toContain("addEventListener('change'")
     })
   })
+
+  describe('reactive props through local constants', () => {
+    test('stateless component with prop-dependent className generates createEffect', () => {
+      const source = `
+        interface BadgeProps {
+          variant?: 'default' | 'secondary'
+          className?: string
+          children?: any
+        }
+
+        const variantClasses: Record<string, string> = {
+          default: 'bg-primary',
+          secondary: 'bg-secondary',
+        }
+
+        export function Badge({ variant = 'default', className = '', children }: BadgeProps) {
+          const classes = \`badge \${variantClasses[variant]} \${className}\`
+          return <span className={classes}>{children}</span>
+        }
+      `
+
+      const result = compileJSXSync(source, 'Badge.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      // Should generate createEffect for the class attribute
+      expect(content).toContain('createEffect')
+      expect(content).toContain("setAttribute('class'")
+
+      // Should reference props.variant and props.className (not destructured names)
+      expect(content).toContain('props.variant')
+      expect(content).toContain('props.className')
+    })
+
+    test('expanded constant with single prop reference is detected as reactive', () => {
+      const source = `
+        interface Props {
+          size?: 'sm' | 'lg'
+          children?: any
+        }
+
+        const sizeMap: Record<string, string> = { sm: 'text-sm', lg: 'text-lg' }
+
+        export function Text({ size = 'sm', children }: Props) {
+          const sizeClass = sizeMap[size]
+          return <span className={sizeClass}>{children}</span>
+        }
+      `
+
+      const result = compileJSXSync(source, 'Text.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      expect(content).toContain('createEffect')
+      expect(content).toContain('props.size')
+    })
+
+    test('default values from destructuring are included in rewrite', () => {
+      const source = `
+        interface Props {
+          label?: string
+          children?: any
+        }
+
+        export function Tag({ label = 'tag', children }: Props) {
+          const text = \`[\${label}]\`
+          return <span data-label={text}>{children}</span>
+        }
+      `
+
+      const result = compileJSXSync(source, 'Tag.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      expect(content).toContain('createEffect')
+      // Should include the default value in the rewrite
+      expect(content).toContain("props.label ?? 'tag'")
+    })
+  })
 })
