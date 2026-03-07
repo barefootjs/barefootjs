@@ -4,7 +4,7 @@
 
 import type { IRNode } from '../types'
 import { isBooleanAttr } from '../html-constants'
-import { toHtmlAttrName, attrValueToString, quotePropName } from './utils'
+import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM } from './utils'
 
 /**
  * Protect string literals from regex-based replacements.
@@ -260,13 +260,13 @@ export function irToComponentTemplate(
       }
     }
 
-    // Then: prefix prop names with 'props.'
+    // Then: prefix prop names with PROPS_PARAM
     for (const propName of propNames) {
       // Match propName as standalone identifier or followed by property/index/call access,
-      // but not already prefixed with 'props.' or inside string literals.
+      // but not already prefixed with PROPS_PARAM or inside string literals.
       // Uses negative lookahead for identifier chars to avoid partial matches.
-      const pattern = new RegExp(`(?<!props\\.)(?<!['"\\w])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
-      result = result.replace(pattern, `props.${propName}`)
+      const pattern = new RegExp(`(?<!${PROPS_PARAM}\\.)(?<!['"\\w])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
+      result = result.replace(pattern, `${PROPS_PARAM}.${propName}`)
     }
     return restore(result)
   }
@@ -538,10 +538,10 @@ export function generateCsrTemplate(
       }
     }
 
-    // Prefix prop names with 'props.'
+    // Prefix prop names with PROPS_PARAM
     for (const propName of propNames) {
-      const pattern = new RegExp(`(?<!props\\.)(?<!['"\\w])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
-      result = result.replace(pattern, `props.${propName}`)
+      const pattern = new RegExp(`(?<!${PROPS_PARAM}\\.)(?<!['"\\w])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
+      result = result.replace(pattern, `${PROPS_PARAM}.${propName}`)
     }
     return restore(result)
   }
