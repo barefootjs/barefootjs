@@ -31,6 +31,10 @@ import { CarouselRefPage } from './pages/components/carousel'
 import { DataTableRefPage } from './pages/components/data-table'
 import { SkeletonRefPage } from './pages/components/skeleton'
 import { TableRefPage } from './pages/components/table'
+import { RadioGroupRefPage } from './pages/components/radio-group'
+import { InputOTPRefPage } from './pages/components/input-otp'
+import { SliderRefPage } from './pages/components/slider'
+import { ToggleGroupRefPage } from './pages/components/toggle-group'
 import { BreadcrumbPage } from './pages/breadcrumb'
 import { ButtonPage } from './pages/button'
 import { CalendarPage } from './pages/calendar'
@@ -611,6 +615,26 @@ export function createApp() {
   // Toggle Group documentation
   app.get('/docs/components/toggle-group', (c) => {
     return c.render(<ToggleGroupPage />)
+  })
+
+  // Radio Group reference page (redesigned #515)
+  app.get('/components/radio-group', (c) => {
+    return c.render(<RadioGroupRefPage />)
+  })
+
+  // Input OTP reference page (redesigned #515)
+  app.get('/components/input-otp', (c) => {
+    return c.render(<InputOTPRefPage />)
+  })
+
+  // Slider reference page (redesigned #515)
+  app.get('/components/slider', (c) => {
+    return c.render(<SliderRefPage />)
+  })
+
+  // Toggle Group reference page (redesigned #515)
+  app.get('/components/toggle-group', (c) => {
+    return c.render(<ToggleGroupRefPage />)
   })
 
   // Tooltip documentation
