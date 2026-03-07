@@ -36,9 +36,6 @@ export function expandConstantForReactivity(expr: string, ctx: ClientJsContext):
   if (ctx.propsObjectName) return expr
 
   const trimmed = expr.trim()
-  // Only expand single identifiers (not complex expressions)
-  if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(trimmed)) return expr
-
   const constant = ctx.localConstants.find((c) => c.name === trimmed)
   if (constant && constant.value) {
     return constant.value
