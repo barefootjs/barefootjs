@@ -245,7 +245,8 @@ export function irToComponentTemplate(
   node: IRNode,
   propNames: Set<string>,
   inlinableConstants?: Map<string, string>,
-  restSpreadNames?: Set<string>
+  restSpreadNames?: Set<string>,
+  propsObjectName?: string | null
 ): string {
   const transformExpr = (expr: string): string => {
     const { protect, restore } = createStringProtector()
@@ -258,6 +259,15 @@ export function irToComponentTemplate(
       for (const [constName, constValue] of inlinableConstants) {
         result = result.replace(new RegExp(`(?<![-.])\\b${constName}\\b`, 'g'), `(${protect(constValue)})`)
       }
+    }
+
+    // Normalize source-level props object access (e.g., props.xxx → _p.xxx)
+    // before the bare propName prefixing step to avoid double-prefixing.
+    if (propsObjectName && propsObjectName !== PROPS_PARAM) {
+      result = result.replace(
+        new RegExp(`\\b${propsObjectName}\\.`, 'g'),
+        `${PROPS_PARAM}.`,
+      )
     }
 
     // Then: prefix prop names with PROPS_PARAM
@@ -302,7 +312,7 @@ export function irToComponentTemplate(
       }
 
       const attrs = attrParts.join(' ')
-      const children = node.children.map((c) => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames)).join('')
+      const children = node.children.map((c) => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames, propsObjectName)).join('')
 
       if (children || !VOID_ELEMENTS.has(node.tag)) {
         return `<${node.tag}${attrs ? ' ' + attrs : ''}>${children}</${node.tag}>`
@@ -321,19 +331,19 @@ export function irToComponentTemplate(
       return `\${${transformExpr(node.expr)}}`
 
     case 'conditional': {
-      const trueBranch = irToComponentTemplate(node.whenTrue, propNames, inlinableConstants, restSpreadNames)
-      const falseBranch = irToComponentTemplate(node.whenFalse, propNames, inlinableConstants, restSpreadNames)
+      const trueBranch = irToComponentTemplate(node.whenTrue, propNames, inlinableConstants, restSpreadNames, propsObjectName)
+      const falseBranch = irToComponentTemplate(node.whenFalse, propNames, inlinableConstants, restSpreadNames, propsObjectName)
       const trueHtml = node.slotId ? addCondAttrToTemplate(trueBranch, node.slotId) : trueBranch
       const falseHtml = node.slotId ? addCondAttrToTemplate(falseBranch, node.slotId) : falseBranch
       return `\${${transformExpr(node.condition)} ? \`${trueHtml}\` : \`${falseHtml}\`}`
     }
 
     case 'fragment':
-      return node.children.map((c) => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames)).join('')
+      return node.children.map((c) => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames, propsObjectName)).join('')
 
     case 'component': {
       if (node.name === 'Portal') {
-        return node.children.map((c) => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames)).join('')
+        return node.children.map((c) => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames, propsObjectName)).join('')
       }
 
       // Use renderChild() to render child component's template at runtime (#435)
@@ -342,7 +352,7 @@ export function irToComponentTemplate(
         .filter(p => !(p.name.startsWith('on') && p.name.length > 2 && p.name[2] === p.name[2].toUpperCase()))
         .map(p => {
           if (p.jsxChildren?.length) {
-            const childHtml = p.jsxChildren.map(c => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames)).join('')
+            const childHtml = p.jsxChildren.map(c => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames, propsObjectName)).join('')
             return `${quotePropName(p.name)}: \`${childHtml}\``
           }
           if (p.isLiteral) return `${quotePropName(p.name)}: ${JSON.stringify(p.value)}`
@@ -356,13 +366,13 @@ export function irToComponentTemplate(
     }
 
     case 'loop':
-      return node.children.map((c) => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames)).join('')
+      return node.children.map((c) => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames, propsObjectName)).join('')
 
     case 'if-statement':
       return ''
 
     case 'provider':
-      return node.children.map((c) => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames)).join('')
+      return node.children.map((c) => irToComponentTemplate(c, propNames, inlinableConstants, restSpreadNames, propsObjectName)).join('')
 
     default:
       return ''
@@ -497,6 +507,7 @@ export function generateCsrTemplate(
   memoMap?: Map<string, string>,
   insideLoop?: boolean,
   restSpreadNames?: Set<string>,
+  propsObjectName?: string | null,
 ): string {
   const transformExpr = (expr: string): string => {
     const { protect, restore } = createStringProtector()
@@ -538,6 +549,14 @@ export function generateCsrTemplate(
       }
     }
 
+    // Normalize source-level props object access (e.g., props.xxx → _p.xxx)
+    if (propsObjectName && propsObjectName !== PROPS_PARAM) {
+      result = result.replace(
+        new RegExp(`\\b${propsObjectName}\\.`, 'g'),
+        `${PROPS_PARAM}.`,
+      )
+    }
+
     // Prefix prop names with PROPS_PARAM
     for (const propName of propNames) {
       const pattern = new RegExp(`(?<!${PROPS_PARAM}\\.)(?<!['"\\w])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
@@ -546,8 +565,8 @@ export function generateCsrTemplate(
     return restore(result)
   }
 
-  const recurse = (n: IRNode): string => generateCsrTemplate(n, propNames, inlinableConstants, signalMap, memoMap, insideLoop, restSpreadNames)
-  const recurseInLoop = (n: IRNode): string => generateCsrTemplate(n, propNames, inlinableConstants, signalMap, memoMap, true, restSpreadNames)
+  const recurse = (n: IRNode): string => generateCsrTemplate(n, propNames, inlinableConstants, signalMap, memoMap, insideLoop, restSpreadNames, propsObjectName)
+  const recurseInLoop = (n: IRNode): string => generateCsrTemplate(n, propNames, inlinableConstants, signalMap, memoMap, true, restSpreadNames, propsObjectName)
 
   switch (node.type) {
     case 'element': {

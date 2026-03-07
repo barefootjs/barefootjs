@@ -1123,7 +1123,7 @@ export function emitRegistrationAndHydration(
   // Build ComponentDef object for hydrate()
   const defParts: string[] = [`init: init${name}`]
   if (canGenerateStaticTemplate(_ir.root, propNamesForTemplate, inlinableConstants, unsafeLocalNames)) {
-    const templateHtml = irToComponentTemplate(_ir.root, propNamesForTemplate, inlinableConstants, restSpreadNames)
+    const templateHtml = irToComponentTemplate(_ir.root, propNamesForTemplate, inlinableConstants, restSpreadNames, ctx.propsObjectName)
     if (templateHtml) {
       defParts.push(`template: (${PROPS_PARAM}) => \`${templateHtml}\``)
     }
@@ -1134,7 +1134,7 @@ export function emitRegistrationAndHydration(
     const csrInlinableConstants = buildCsrInlinableConstants(ctx, inlinableConstants, unsafeLocalNames, signalMap, memoMap)
 
     const templateHtml = generateCsrTemplate(
-      _ir.root, propNamesForTemplate, csrInlinableConstants, signalMap, memoMap, undefined, restSpreadNames
+      _ir.root, propNamesForTemplate, csrInlinableConstants, signalMap, memoMap, undefined, restSpreadNames, ctx.propsObjectName
     )
     if (templateHtml) {
       defParts.push(`template: (${PROPS_PARAM}) => \`${templateHtml}\``)

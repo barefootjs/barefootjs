@@ -247,11 +247,28 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   // Rename source-level props object name to the generated parameter name.
   // User code may use `props.xxx` or a custom name like `p.xxx`;
   // the init function parameter is always PROPS_PARAM.
+  // Both property access (props.xxx) and bare references (fn(props)) are renamed.
+  // The hydrate() template line is protected since html-template.ts handles it independently.
   const srcPropsName = ctx.propsObjectName ?? 'props'
   if (srcPropsName !== PROPS_PARAM) {
+    // Protect hydrate() template lines from double-replacement.
+    // These are already processed by html-template.ts with PROPS_PARAM.
+    const TEMPLATE_PLACEHOLDER = '__BF_TEMPLATE_LINE__'
+    const templateLines: string[] = []
     generatedCode = generatedCode.replace(
-      new RegExp(`\\b${srcPropsName}\\.`, 'g'),
-      `${PROPS_PARAM}.`,
+      /^hydrate\(.+\)$/gm,
+      (match) => { templateLines.push(match); return `${TEMPLATE_PLACEHOLDER}${templateLines.length - 1}` }
+    )
+
+    generatedCode = generatedCode.replace(
+      new RegExp(`\\b${srcPropsName}\\b`, 'g'),
+      PROPS_PARAM,
+    )
+
+    // Restore protected template lines
+    generatedCode = generatedCode.replace(
+      new RegExp(`${TEMPLATE_PLACEHOLDER}(\\d+)`, 'g'),
+      (_, idx) => templateLines[Number(idx)]
     )
   }
 
