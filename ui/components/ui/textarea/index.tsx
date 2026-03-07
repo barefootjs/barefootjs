@@ -31,7 +31,7 @@ const baseClasses = 'placeholder:text-muted-foreground selection:bg-primary sele
 const focusClasses = 'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
 // Error state classes
-const errorClasses = 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive'
+const errorClasses = 'aria-[invalid]:ring-destructive/20 dark:aria-[invalid]:ring-destructive/40 aria-[invalid]:border-destructive'
 
 /**
  * Props for the Textarea component.

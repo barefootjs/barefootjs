@@ -26,7 +26,7 @@ const baseClasses = 'file:text-foreground placeholder:text-muted-foreground sele
 const focusClasses = 'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
 // Error state classes
-const errorClasses = 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive'
+const errorClasses = 'aria-[invalid]:ring-destructive/20 dark:aria-[invalid]:ring-destructive/40 aria-[invalid]:border-destructive'
 
 /**
  * Input component following shadcn/ui design.

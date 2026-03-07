@@ -42,7 +42,7 @@ const baseClasses = 'peer size-4 shrink-0 rounded-[4px] border shadow-xs transit
 const focusClasses = 'focus-visible:border-ring focus-visible:ring-ring/50'
 
 // Error state classes
-const errorClasses = 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive'
+const errorClasses = 'aria-[invalid]:ring-destructive/20 dark:aria-[invalid]:ring-destructive/40 aria-[invalid]:border-destructive'
 
 // State classes using data-state attribute selectors for reactivity
 // When data-state changes, CSS automatically applies correct styles
