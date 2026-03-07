@@ -7,7 +7,7 @@ import type { ClientJsContext, LoopChildEvent } from './types'
 import { attrValueToString, quotePropName } from './utils'
 import { isReactiveExpression, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectLoopChildEvents } from './reactivity'
 import { irToHtmlTemplate, irChildrenToJsExpr } from './html-template'
-import { expandDynamicPropValue } from './prop-handling'
+import { expandDynamicPropValue, expandConstantForReactivity } from './prop-handling'
 
 
 /** Check whether an array of IR nodes contains any component nodes (recursively). */
@@ -321,11 +321,15 @@ function collectFromElement(element: IRElement, ctx: ClientJsContext, _insideCon
         const valueStr = attrValueToString(attr.value)
         if (!valueStr) continue
 
-        if (isReactiveExpression(valueStr, ctx)) {
+        // Expand local constant references to detect transitive prop dependencies.
+        // e.g., `classes` → `` `${baseClasses} ${variantClasses[variant]} ${className}` ``
+        const expandedValueStr = expandConstantForReactivity(valueStr, ctx)
+
+        if (isReactiveExpression(expandedValueStr, ctx)) {
           ctx.reactiveAttrs.push({
             slotId: element.slotId,
             attrName: attr.name,
-            expression: valueStr,
+            expression: expandedValueStr,
             presenceOrUndefined: attr.presenceOrUndefined,
           })
         }

@@ -24,6 +24,19 @@ export function expandDynamicPropValue(value: string, ctx: ClientJsContext): str
 }
 
 /**
+ * Expand a local constant for reactivity detection in stateless components.
+ * Stateful components use props.xxx directly, so expansion is unnecessary.
+ *
+ * e.g., `classes` → `` `${baseClasses} ${variantClasses[variant]} ${className}` ``
+ */
+export function expandConstantForReactivity(expr: string, ctx: ClientJsContext): string {
+  // Stateful components use props.xxx directly — reactivity is already detected.
+  if (ctx.propsObjectName) return expr
+
+  return expandDynamicPropValue(expr, ctx)
+}
+
+/**
  * Check if a value references reactive data (props, signals, or memos).
  */
 export function valueReferencesReactiveData(
