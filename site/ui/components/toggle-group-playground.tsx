@@ -36,7 +36,7 @@ function highlightToggleGroupJsx(type: string, variant: string, size: string, di
 
 function ToggleGroupPlayground(_props: {}) {
   const [type, setType] = createSignal<GroupType>('single')
-  const [variant, setVariant] = createSignal<GroupVariant>('default')
+  const [variant, setVariant] = createSignal<GroupVariant>('outline')
   const [size, setSize] = createSignal<GroupSize>('default')
   const [disabled, setDisabled] = createSignal(false)
 

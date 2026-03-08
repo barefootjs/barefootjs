@@ -38,13 +38,13 @@ interface RadioGroupContextValue {
 
 const RadioGroupContext = createContext<RadioGroupContextValue>()
 
-// CSS classes for RadioGroupItem (module-level constants)
-const itemBaseClasses = 'aspect-square size-4 shrink-0 rounded-full border shadow-xs transition-[color,box-shadow] outline-none'
-const itemFocusClasses = 'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
-const itemStateClasses = '[&[data-state=unchecked]]:border-input [&[data-state=unchecked]]:text-primary dark:[&[data-state=unchecked]]:bg-input/30 [&[data-state=checked]]:border-primary [&[data-state=checked]]:text-primary'
-const itemErrorClasses = 'aria-[invalid]:ring-destructive/20 dark:aria-[invalid]:ring-destructive/40 aria-[invalid]:border-destructive'
+// CSS classes for RadioGroupItem (matching shadcn/ui)
+const itemBaseClasses = 'relative flex aspect-square size-4 shrink-0 rounded-full border border-input outline-none transition-[color,box-shadow]'
+const itemFocusClasses = 'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+const itemStateClasses = '[&[data-state=checked]]:border-primary [&[data-state=checked]]:bg-primary [&[data-state=checked]]:text-primary-foreground dark:bg-input/30 dark:[&[data-state=checked]]:bg-primary'
+const itemErrorClasses = 'aria-[invalid]:border-destructive aria-[invalid]:ring-3 aria-[invalid]:ring-destructive/20 dark:aria-[invalid]:ring-destructive/40'
 const itemDisabledClasses = 'disabled:cursor-not-allowed disabled:opacity-50'
-const itemClasses = `${itemBaseClasses} ${itemFocusClasses} ${itemStateClasses} ${itemErrorClasses} ${itemDisabledClasses} grid place-content-center`
+const itemClasses = `${itemBaseClasses} ${itemFocusClasses} ${itemStateClasses} ${itemErrorClasses} ${itemDisabledClasses}`
 
 /**
  * Props for the RadioGroup component.
@@ -130,12 +130,7 @@ function RadioGroupItem(props: RadioGroupItemProps) {
       // Update indicator dot visibility
       const indicator = el.querySelector('[data-slot="radio-group-indicator"]') as HTMLElement
       if (indicator) {
-        const circle = indicator.querySelector('circle')
-        if (isSelected && !circle) {
-          indicator.innerHTML = '<svg class="size-3.5 fill-primary" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" /></svg>'
-        } else if (!isSelected && circle) {
-          indicator.innerHTML = ''
-        }
+        indicator.style.display = isSelected ? 'flex' : 'none'
       }
     })
 
@@ -156,8 +151,8 @@ function RadioGroupItem(props: RadioGroupItemProps) {
       className={`${itemClasses} ${props.className ?? ''}`}
       ref={handleMount}
     >
-      <span data-slot="radio-group-indicator" className="flex items-center justify-center">
-        {/* Dot indicator rendered reactively via effect */}
+      <span data-slot="radio-group-indicator" className="flex size-4 items-center justify-center" style="display:none">
+        <span className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-foreground" />
       </span>
     </button>
   )
