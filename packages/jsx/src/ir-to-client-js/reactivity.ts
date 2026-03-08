@@ -8,7 +8,10 @@ import type {
   ConditionalBranchEvent,
   ConditionalBranchRef,
   LoopChildEvent,
+  LoopChildReactiveAttr,
 } from './types'
+import { attrValueToString } from './utils'
+import { expandConstantForReactivity } from './prop-handling'
 
 /**
  * Check if an expression directly references signal getters, memos, or props.
@@ -179,4 +182,35 @@ export function collectLoopChildEvents(node: IRNode): LoopChildEvent[] {
     }
   })
   return events
+}
+
+/**
+ * Collect reactive attributes from loop children.
+ * These are dynamic attributes that read signals and need createEffect
+ * to update the DOM when signals change.
+ */
+export function collectLoopChildReactiveAttrs(
+  node: IRNode,
+  ctx: ClientJsContext,
+): LoopChildReactiveAttr[] {
+  const attrs: LoopChildReactiveAttr[] = []
+  traverseElements(node, (el) => {
+    if (el.slotId) {
+      for (const attr of el.attrs) {
+        if (attr.name === '...' || !attr.dynamic || !attr.value) continue
+        const valueStr = attrValueToString(attr.value)
+        if (!valueStr) continue
+        const expanded = expandConstantForReactivity(valueStr, ctx)
+        if (isReactiveExpression(expanded, ctx)) {
+          attrs.push({
+            childSlotId: el.slotId,
+            attrName: attr.name,
+            expression: expanded,
+            presenceOrUndefined: attr.presenceOrUndefined,
+          })
+        }
+      }
+    }
+  })
+  return attrs
 }

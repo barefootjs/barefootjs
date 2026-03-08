@@ -3,9 +3,9 @@
  */
 
 import type { IRNode, IRElement } from '../types'
-import type { ClientJsContext, LoopChildEvent } from './types'
+import type { ClientJsContext, LoopChildEvent, LoopChildReactiveAttr } from './types'
 import { attrValueToString, quotePropName, PROPS_PARAM } from './utils'
-import { isReactiveExpression, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectLoopChildEvents } from './reactivity'
+import { isReactiveExpression, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectLoopChildEvents, collectLoopChildReactiveAttrs } from './reactivity'
 import { irToHtmlTemplate, irChildrenToJsExpr } from './html-template'
 import { expandDynamicPropValue, expandConstantForReactivity } from './prop-handling'
 
@@ -104,9 +104,11 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
       if (node.slotId && !insideConditional) {
         const childHandlers: string[] = []
         const childEvents: LoopChildEvent[] = []
+        const childReactiveAttrs: LoopChildReactiveAttr[] = []
         for (const child of node.children) {
           childHandlers.push(...collectEventHandlersFromIR(child))
           childEvents.push(...collectLoopChildEvents(child))
+          childReactiveAttrs.push(...collectLoopChildReactiveAttrs(child, ctx))
         }
 
         if (node.childComponent) {
@@ -126,6 +128,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
           template: node.childComponent ? '' : (node.children[0] ? irToHtmlTemplate(node.children[0], buildRestSpreadNames(ctx)) : ''),
           childEventHandlers: childHandlers,
           childEvents,
+          childReactiveAttrs,
           childComponent: node.childComponent,
           nestedComponents: node.nestedComponents,
           isStaticArray: node.isStaticArray,

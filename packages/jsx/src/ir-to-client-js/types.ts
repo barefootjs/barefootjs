@@ -105,6 +105,13 @@ export interface LoopChildEvent {
   handler: string // Handler expression (may reference loop param)
 }
 
+export interface LoopChildReactiveAttr {
+  childSlotId: string // bf slot ID of the element with reactive attr
+  attrName: string // 'className', 'disabled', etc.
+  expression: string // Expression that reads signals
+  presenceOrUndefined?: boolean
+}
+
 export interface LoopElement {
   slotId: string
   array: string
@@ -114,6 +121,7 @@ export interface LoopElement {
   template: string
   childEventHandlers: string[] // Event handlers from child elements (for identifier extraction)
   childEvents: LoopChildEvent[] // Detailed event info for delegation
+  childReactiveAttrs: LoopChildReactiveAttr[] // Reactive attributes in loop children
   childComponent?: IRLoopChildComponent // For createComponent-based rendering
   nestedComponents?: IRLoopChildComponent[] // For nested components in static arrays
   isStaticArray: boolean // True if array is a static prop (not a signal)
