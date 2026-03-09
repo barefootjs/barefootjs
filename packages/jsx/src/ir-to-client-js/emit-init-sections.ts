@@ -493,18 +493,31 @@ export function emitLoopUpdates(lines: string[], ctx: ClientJsContext): void {
         lines.push(`    ${elem.array}.forEach((${elem.param}, ${indexParam}) => {`)
         lines.push(`      const __iterEl = _${v}.children[${indexParam}]`)
         lines.push(`      if (__iterEl) {`)
+        // Group attrs by childSlotId to avoid duplicate const declarations
+        const attrsBySlot = new Map<string, typeof elem.childReactiveAttrs>()
         for (const attr of elem.childReactiveAttrs) {
-          lines.push(`        const __t_${attr.childSlotId} = __iterEl.matches('[bf="${attr.childSlotId}"]') ? __iterEl : __iterEl.querySelector('[bf="${attr.childSlotId}"]')`)
-          lines.push(`        if (__t_${attr.childSlotId}) {`)
-          lines.push(`          createEffect(() => {`)
-          if (attr.attrName === 'className') {
-            lines.push(`            __t_${attr.childSlotId}.className = ${attr.expression}`)
-          } else if (attr.presenceOrUndefined) {
-            lines.push(`            __t_${attr.childSlotId}.toggleAttribute('${attr.attrName}', !!(${attr.expression}))`)
-          } else {
-            lines.push(`            __t_${attr.childSlotId}.setAttribute('${toHtmlAttrName(attr.attrName)}', ${attr.expression})`)
+          if (!attrsBySlot.has(attr.childSlotId)) {
+            attrsBySlot.set(attr.childSlotId, [])
           }
-          lines.push(`          })`)
+          attrsBySlot.get(attr.childSlotId)!.push(attr)
+        }
+        for (const [slotId, attrs] of attrsBySlot) {
+          lines.push(`        const __t_${slotId} = __iterEl.matches('[bf="${slotId}"]') ? __iterEl : __iterEl.querySelector('[bf="${slotId}"]')`)
+          lines.push(`        if (__t_${slotId}) {`)
+          for (const attr of attrs) {
+            const htmlAttrName = toHtmlAttrName(attr.attrName)
+            lines.push(`          createEffect(() => {`)
+            if (isBooleanAttr(htmlAttrName)) {
+              lines.push(`            __t_${slotId}.${htmlAttrName} = !!(${attr.expression})`)
+            } else if (attr.attrName === 'className') {
+              lines.push(`            __t_${slotId}.className = ${attr.expression}`)
+            } else if (attr.presenceOrUndefined) {
+              lines.push(`            __t_${slotId}.toggleAttribute('${htmlAttrName}', !!(${attr.expression}))`)
+            } else {
+              lines.push(`            __t_${slotId}.setAttribute('${htmlAttrName}', ${attr.expression})`)
+            }
+            lines.push(`          })`)
+          }
           lines.push(`        }`)
         }
         lines.push(`      }`)

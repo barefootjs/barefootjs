@@ -95,6 +95,42 @@ describe('reactive attributes inside .map() callbacks', () => {
     expect(clientJs!.content).toContain('reconcileTemplates')
   })
 
+  test('static array: multiple reactive attrs on same element groups correctly', () => {
+    const source = `
+      'use client'
+
+      import { createSignal } from '@barefootjs/dom'
+
+      export function TagList() {
+        const tags = ['all', 'ui', 'form']
+        const [activeTag, setActiveTag] = createSignal('all')
+        const [isDisabled, setIsDisabled] = createSignal(false)
+        return (
+          <div>
+            {tags.map(tag => (
+              <button
+                className={tag === activeTag() ? 'active' : 'inactive'}
+                disabled={isDisabled()}
+              >{tag}</button>
+            ))}
+          </div>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'TagList.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')
+    expect(clientJs).toBeDefined()
+    expect(clientJs!.content).toContain('className')
+    expect(clientJs!.content).toContain('disabled')
+
+    // Verify no duplicate const declarations for same slot
+    const constDecls = clientJs!.content.match(/const __t_\w+/g) ?? []
+    const uniqueDecls = new Set(constDecls)
+    expect(constDecls.length).toBe(uniqueDecls.size)
+  })
+
   test('static array: non-reactive className does NOT generate createEffect', () => {
     const source = `
       'use client'
