@@ -6,6 +6,7 @@
  * Ref: #517
  */
 
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -397,25 +398,25 @@ function ComponentCard({ entry }: { entry: CatalogEntry }) {
   return (
     <a
       href={href}
-      className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline overflow-hidden"
+      className="no-underline"
       data-catalog-card
       data-tags={entry.tags.join(' ')}
     >
-      {/* Preview area */}
-      <div className="flex items-center justify-center p-6 min-h-[120px] bg-muted/30">
-        {entry.preview ? (
-          entry.preview()
-        ) : (
-          <span className="text-2xl font-semibold text-muted-foreground/40 select-none">
-            {entry.title.charAt(0)}
-          </span>
-        )}
-      </div>
-      {/* Label area */}
-      <div className="px-4 py-3 border-t border-border">
-        <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">{entry.title}</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">{entry.description}</p>
-      </div>
+      <Card className="overflow-hidden py-0 gap-0 hover:border-ring transition-colors">
+        <CardContent className="flex items-center justify-center p-6 min-h-[120px] bg-muted/30">
+          {entry.preview ? (
+            entry.preview()
+          ) : (
+            <span className="text-2xl font-semibold text-muted-foreground/40 select-none">
+              {entry.title.charAt(0)}
+            </span>
+          )}
+        </CardContent>
+        <CardHeader className="px-4 py-3 border-t border-border">
+          <CardTitle className="text-sm">{entry.title}</CardTitle>
+          <CardDescription className="mt-0.5">{entry.description}</CardDescription>
+        </CardHeader>
+      </Card>
     </a>
   )
 }
