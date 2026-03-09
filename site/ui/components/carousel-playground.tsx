@@ -21,7 +21,7 @@
 
 import { createSignal, createEffect } from '@barefootjs/dom'
 import { CopyButton } from './copy-button'
-import { hlPlain, hlTag, hlAttr, hlStr } from './shared/playground-highlight'
+import { highlightJsxTree, plainJsxTree, type JsxTreeNode } from './shared/playground-highlight'
 import { PlaygroundLayout, PlaygroundControl } from './shared/PlaygroundLayout'
 import { Checkbox } from '@ui/components/ui/checkbox'
 import {
@@ -35,20 +35,22 @@ import {
 function CarouselPlayground(_props: {}) {
   const [vertical, setVertical] = createSignal(false)
 
-  createEffect(() => {
-    const v = vertical()
-    const codeEl = document.querySelector('[data-playground-code]') as HTMLElement
-    if (!codeEl) return
+  const tree = (): JsxTreeNode => {
+    const props = vertical()
+      ? [{ name: 'orientation', value: 'vertical', defaultValue: 'horizontal' }]
+      : []
+    return {
+      tag: 'Carousel', props, children: [
+        { tag: 'CarouselContent', children: [{ tag: 'CarouselItem', children: '...' }] },
+        { tag: 'CarouselPrevious' },
+        { tag: 'CarouselNext' },
+      ],
+    }
+  }
 
-    const orientProp = v ? ` ${hlAttr('orientation')}${hlPlain('=')}${hlStr('&quot;vertical&quot;')}` : ''
-    codeEl.innerHTML =
-      `${hlPlain('&lt;')}${hlTag('Carousel')}${orientProp}${hlPlain('&gt;')}\n` +
-      `  ${hlPlain('&lt;')}${hlTag('CarouselContent')}${hlPlain('&gt;')}\n` +
-      `    ${hlPlain('&lt;')}${hlTag('CarouselItem')}${hlPlain('&gt;')}...${hlPlain('&lt;/')}${hlTag('CarouselItem')}${hlPlain('&gt;')}\n` +
-      `  ${hlPlain('&lt;/')}${hlTag('CarouselContent')}${hlPlain('&gt;')}\n` +
-      `  ${hlPlain('&lt;')}${hlTag('CarouselPrevious')} ${hlPlain('/&gt;')}\n` +
-      `  ${hlPlain('&lt;')}${hlTag('CarouselNext')} ${hlPlain('/&gt;')}\n` +
-      `${hlPlain('&lt;/')}${hlTag('Carousel')}${hlPlain('&gt;')}`
+  createEffect(() => {
+    const codeEl = document.querySelector('[data-playground-code]') as HTMLElement
+    if (codeEl) codeEl.innerHTML = highlightJsxTree(tree())
   })
 
   // Toggle visibility of the two pre-rendered carousels.
@@ -75,18 +77,6 @@ function CarouselPlayground(_props: {}) {
     }
   })
 
-  const plainCode = () => {
-    const orientProp = vertical() ? ` orientation="vertical"` : ''
-    return (
-      `<Carousel${orientProp}>\n` +
-      `  <CarouselContent>\n` +
-      `    <CarouselItem>...</CarouselItem>\n` +
-      `  </CarouselContent>\n` +
-      `  <CarouselPrevious />\n` +
-      `  <CarouselNext />\n` +
-      `</Carousel>`
-    )
-  }
 
   const items = [1, 2, 3, 4, 5]
 
@@ -139,7 +129,7 @@ function CarouselPlayground(_props: {}) {
           />
         </PlaygroundControl>
       </>}
-      copyButton={<CopyButton code={plainCode()} />}
+      copyButton={<CopyButton code={plainJsxTree(tree())} />}
     />
   )
 }

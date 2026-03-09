@@ -9,7 +9,7 @@
 
 import { createSignal, createEffect } from '@barefootjs/dom'
 import { CopyButton } from './copy-button'
-import { escapeHtml, hlPlain, hlTag } from './shared/playground-highlight'
+import { highlightJsxTree, plainJsxTree, type JsxTreeNode } from './shared/playground-highlight'
 import { PlaygroundLayout, PlaygroundControl } from './shared/PlaygroundLayout'
 import { Checkbox } from '@ui/components/ui/checkbox'
 import { Input } from '@ui/components/ui/input'
@@ -28,68 +28,27 @@ function CardPlayground(_props: {}) {
   const [showContent, setShowContent] = createSignal(false)
   const [showFooter, setShowFooter] = createSignal(false)
 
-  createEffect(() => {
-    const t = escapeHtml(title())
-    const d = escapeHtml(description())
-    const content = showContent()
-    const footer = showFooter()
-    const codeEl = document.querySelector('[data-playground-code]') as HTMLElement
-    if (!codeEl) return
-
-    let code =
-      `${hlPlain('&lt;')}${hlTag('Card')}${hlPlain('&gt;')}\n` +
-      `  ${hlPlain('&lt;')}${hlTag('CardHeader')}${hlPlain('&gt;')}\n` +
-      `    ${hlPlain('&lt;')}${hlTag('CardTitle')}${hlPlain('&gt;')}${t}${hlPlain('&lt;/')}${hlTag('CardTitle')}${hlPlain('&gt;')}\n` +
-      `    ${hlPlain('&lt;')}${hlTag('CardDescription')}${hlPlain('&gt;')}${d}${hlPlain('&lt;/')}${hlTag('CardDescription')}${hlPlain('&gt;')}\n` +
-      `  ${hlPlain('&lt;/')}${hlTag('CardHeader')}${hlPlain('&gt;')}\n`
-
-    if (content) {
-      code +=
-        `  ${hlPlain('&lt;')}${hlTag('CardContent')}${hlPlain('&gt;')}\n` +
-        `    ${hlPlain('&lt;')}${hlTag('p')}${hlPlain('&gt;')}Content goes here.${hlPlain('&lt;/')}${hlTag('p')}${hlPlain('&gt;')}\n` +
-        `  ${hlPlain('&lt;/')}${hlTag('CardContent')}${hlPlain('&gt;')}\n`
+  const tree = (): JsxTreeNode => {
+    const headerChildren: JsxTreeNode[] = [
+      { tag: 'CardTitle', children: title() },
+      { tag: 'CardDescription', children: description() },
+    ]
+    const cardChildren: JsxTreeNode[] = [
+      { tag: 'CardHeader', children: headerChildren },
+    ]
+    if (showContent()) {
+      cardChildren.push({ tag: 'CardContent', children: [{ tag: 'p', children: 'Content goes here.' }] })
     }
-
-    if (footer) {
-      code +=
-        `  ${hlPlain('&lt;')}${hlTag('CardFooter')}${hlPlain('&gt;')}\n` +
-        `    ${hlPlain('&lt;')}${hlTag('Button')}${hlPlain('&gt;')}Save${hlPlain('&lt;/')}${hlTag('Button')}${hlPlain('&gt;')}\n` +
-        `  ${hlPlain('&lt;/')}${hlTag('CardFooter')}${hlPlain('&gt;')}\n`
+    if (showFooter()) {
+      cardChildren.push({ tag: 'CardFooter', children: [{ tag: 'Button', children: 'Save' }] })
     }
-
-    code += `${hlPlain('&lt;/')}${hlTag('Card')}${hlPlain('&gt;')}`
-    codeEl.innerHTML = code
-  })
-
-  const plainCode = () => {
-    const t = title()
-    const d = description()
-    const content = showContent()
-    const footer = showFooter()
-    let code =
-      `<Card>\n` +
-      `  <CardHeader>\n` +
-      `    <CardTitle>${t}</CardTitle>\n` +
-      `    <CardDescription>${d}</CardDescription>\n` +
-      `  </CardHeader>\n`
-
-    if (content) {
-      code +=
-        `  <CardContent>\n` +
-        `    <p>Content goes here.</p>\n` +
-        `  </CardContent>\n`
-    }
-
-    if (footer) {
-      code +=
-        `  <CardFooter>\n` +
-        `    <Button>Save</Button>\n` +
-        `  </CardFooter>\n`
-    }
-
-    code += `</Card>`
-    return code
+    return { tag: 'Card', children: cardChildren }
   }
+
+  createEffect(() => {
+    const codeEl = document.querySelector('[data-playground-code]') as HTMLElement
+    if (codeEl) codeEl.innerHTML = highlightJsxTree(tree())
+  })
 
   return (
     <PlaygroundLayout
@@ -140,7 +99,7 @@ function CardPlayground(_props: {}) {
           />
         </PlaygroundControl>
       </>}
-      copyButton={<CopyButton code={plainCode()} />}
+      copyButton={<CopyButton code={plainJsxTree(tree())} />}
     />
   )
 }

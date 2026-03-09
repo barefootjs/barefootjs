@@ -8,7 +8,7 @@
 
 import { createSignal, createEffect } from '@barefootjs/dom'
 import { CopyButton } from './copy-button'
-import { hlPlain, hlTag } from './shared/playground-highlight'
+import { highlightJsxTree, plainJsxTree, type JsxTreeNode } from './shared/playground-highlight'
 import { PlaygroundLayout, PlaygroundControl } from './shared/PlaygroundLayout'
 import { Checkbox } from '@ui/components/ui/checkbox'
 import {
@@ -26,76 +26,44 @@ function TablePlayground(_props: {}) {
   const [showCaption, setShowCaption] = createSignal(false)
   const [showFooter, setShowFooter] = createSignal(false)
 
-  createEffect(() => {
-    const caption = showCaption()
-    const footer = showFooter()
-    const codeEl = document.querySelector('[data-playground-code]') as HTMLElement
-    if (!codeEl) return
-
-    let code = `${hlPlain('&lt;')}${hlTag('Table')}${hlPlain('&gt;')}\n`
-
-    if (caption) {
-      code += `  ${hlPlain('&lt;')}${hlTag('TableCaption')}${hlPlain('&gt;')}A list of recent invoices.${hlPlain('&lt;/')}${hlTag('TableCaption')}${hlPlain('&gt;')}\n`
+  const tree = (): JsxTreeNode => {
+    const tableChildren: JsxTreeNode[] = []
+    if (showCaption()) {
+      tableChildren.push({ tag: 'TableCaption', children: 'A list of recent invoices.' })
     }
-
-    code +=
-      `  ${hlPlain('&lt;')}${hlTag('TableHeader')}${hlPlain('&gt;')}\n` +
-      `    ${hlPlain('&lt;')}${hlTag('TableRow')}${hlPlain('&gt;')}\n` +
-      `      ${hlPlain('&lt;')}${hlTag('TableHead')}${hlPlain('&gt;')}Invoice${hlPlain('&lt;/')}${hlTag('TableHead')}${hlPlain('&gt;')}\n` +
-      `      ${hlPlain('&lt;')}${hlTag('TableHead')}${hlPlain('&gt;')}Amount${hlPlain('&lt;/')}${hlTag('TableHead')}${hlPlain('&gt;')}\n` +
-      `    ${hlPlain('&lt;/')}${hlTag('TableRow')}${hlPlain('&gt;')}\n` +
-      `  ${hlPlain('&lt;/')}${hlTag('TableHeader')}${hlPlain('&gt;')}\n` +
-      `  ${hlPlain('&lt;')}${hlTag('TableBody')}${hlPlain('&gt;')}\n` +
-      `    ${hlPlain('&lt;')}${hlTag('TableRow')}${hlPlain('&gt;')}\n` +
-      `      ${hlPlain('&lt;')}${hlTag('TableCell')}${hlPlain('&gt;')}INV001${hlPlain('&lt;/')}${hlTag('TableCell')}${hlPlain('&gt;')}\n` +
-      `      ${hlPlain('&lt;')}${hlTag('TableCell')}${hlPlain('&gt;')}$250.00${hlPlain('&lt;/')}${hlTag('TableCell')}${hlPlain('&gt;')}\n` +
-      `    ${hlPlain('&lt;/')}${hlTag('TableRow')}${hlPlain('&gt;')}\n` +
-      `  ${hlPlain('&lt;/')}${hlTag('TableBody')}${hlPlain('&gt;')}\n`
-
-    if (footer) {
-      code +=
-        `  ${hlPlain('&lt;')}${hlTag('TableFooter')}${hlPlain('&gt;')}\n` +
-        `    ${hlPlain('&lt;')}${hlTag('TableRow')}${hlPlain('&gt;')}\n` +
-        `      ${hlPlain('&lt;')}${hlTag('TableCell')}${hlPlain('&gt;')}Total${hlPlain('&lt;/')}${hlTag('TableCell')}${hlPlain('&gt;')}\n` +
-        `      ${hlPlain('&lt;')}${hlTag('TableCell')}${hlPlain('&gt;')}$400.00${hlPlain('&lt;/')}${hlTag('TableCell')}${hlPlain('&gt;')}\n` +
-        `    ${hlPlain('&lt;/')}${hlTag('TableRow')}${hlPlain('&gt;')}\n` +
-        `  ${hlPlain('&lt;/')}${hlTag('TableFooter')}${hlPlain('&gt;')}\n`
+    tableChildren.push({
+      tag: 'TableHeader', children: [{
+        tag: 'TableRow', children: [
+          { tag: 'TableHead', children: 'Invoice' },
+          { tag: 'TableHead', children: 'Amount' },
+        ],
+      }],
+    })
+    tableChildren.push({
+      tag: 'TableBody', children: [{
+        tag: 'TableRow', children: [
+          { tag: 'TableCell', children: 'INV001' },
+          { tag: 'TableCell', children: '$250.00' },
+        ],
+      }],
+    })
+    if (showFooter()) {
+      tableChildren.push({
+        tag: 'TableFooter', children: [{
+          tag: 'TableRow', children: [
+            { tag: 'TableCell', children: 'Total' },
+            { tag: 'TableCell', children: '$400.00' },
+          ],
+        }],
+      })
     }
-
-    code += `${hlPlain('&lt;/')}${hlTag('Table')}${hlPlain('&gt;')}`
-    codeEl.innerHTML = code
-  })
-
-  const plainCode = () => {
-    const caption = showCaption()
-    const footer = showFooter()
-    let code = `<Table>\n`
-    if (caption) code += `  <TableCaption>A list of recent invoices.</TableCaption>\n`
-    code +=
-      `  <TableHeader>\n` +
-      `    <TableRow>\n` +
-      `      <TableHead>Invoice</TableHead>\n` +
-      `      <TableHead>Amount</TableHead>\n` +
-      `    </TableRow>\n` +
-      `  </TableHeader>\n` +
-      `  <TableBody>\n` +
-      `    <TableRow>\n` +
-      `      <TableCell>INV001</TableCell>\n` +
-      `      <TableCell>$250.00</TableCell>\n` +
-      `    </TableRow>\n` +
-      `  </TableBody>\n`
-    if (footer) {
-      code +=
-        `  <TableFooter>\n` +
-        `    <TableRow>\n` +
-        `      <TableCell>Total</TableCell>\n` +
-        `      <TableCell>$400.00</TableCell>\n` +
-        `    </TableRow>\n` +
-        `  </TableFooter>\n`
-    }
-    code += `</Table>`
-    return code
+    return { tag: 'Table', children: tableChildren }
   }
+
+  createEffect(() => {
+    const codeEl = document.querySelector('[data-playground-code]') as HTMLElement
+    if (codeEl) codeEl.innerHTML = highlightJsxTree(tree())
+  })
 
   return (
     <PlaygroundLayout
@@ -147,7 +115,7 @@ function TablePlayground(_props: {}) {
           />
         </PlaygroundControl>
       </>}
-      copyButton={<CopyButton code={plainCode()} />}
+      copyButton={<CopyButton code={plainJsxTree(tree())} />}
     />
   )
 }
