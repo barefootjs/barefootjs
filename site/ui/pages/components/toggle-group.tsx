@@ -5,8 +5,8 @@
  * Part of the #515 page redesign initiative.
  */
 
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ToggleGroupPlayground } from '@/components/toggle-group-playground'
+import { ToggleGroupUsageDemo } from '@/components/toggle-group-usage-demo'
 import {
   DocPage,
   PageHeader,
@@ -143,27 +143,7 @@ export function ToggleGroupRefPage() {
         {/* Usage */}
         <Section id="usage" title="Usage">
           <Example title="" code={usageCode}>
-            <div className="space-y-6">
-              <ToggleGroup type="single" defaultValue="center">
-                <ToggleGroupItem value="left">Left</ToggleGroupItem>
-                <ToggleGroupItem value="center">Center</ToggleGroupItem>
-                <ToggleGroupItem value="right">Right</ToggleGroupItem>
-              </ToggleGroup>
-              <ToggleGroup type="single" variant="outline" defaultValue="M">
-                <ToggleGroupItem value="S">S</ToggleGroupItem>
-                <ToggleGroupItem value="M">M</ToggleGroupItem>
-                <ToggleGroupItem value="L">L</ToggleGroupItem>
-              </ToggleGroup>
-              <ToggleGroup type="multiple">
-                <ToggleGroupItem value="bold">Bold</ToggleGroupItem>
-                <ToggleGroupItem value="italic">Italic</ToggleGroupItem>
-                <ToggleGroupItem value="underline">Underline</ToggleGroupItem>
-              </ToggleGroup>
-              <ToggleGroup type="single" disabled>
-                <ToggleGroupItem value="a">A</ToggleGroupItem>
-                <ToggleGroupItem value="b">B</ToggleGroupItem>
-              </ToggleGroup>
-            </div>
+            <ToggleGroupUsageDemo />
           </Example>
         </Section>
 

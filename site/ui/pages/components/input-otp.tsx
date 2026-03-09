@@ -5,13 +5,8 @@
  * Part of the #515 page redesign initiative.
  */
 
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-  InputOTPSeparator,
-} from '@/components/ui/input-otp'
 import { InputOTPPlayground } from '@/components/input-otp-playground'
+import { InputOTPUsageDemo } from '@/components/input-otp-usage-demo'
 import {
   DocPage,
   PageHeader,
@@ -149,29 +144,7 @@ export function InputOTPRefPage() {
         {/* Usage */}
         <Section id="usage" title="Usage">
           <Example title="" code={usageCode}>
-            <div className="space-y-6">
-              <InputOTP maxLength={6}>
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                </InputOTPGroup>
-                <InputOTPSeparator />
-                <InputOTPGroup>
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
-              <InputOTP maxLength={4}>
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                </InputOTPGroup>
-              </InputOTP>
-            </div>
+            <InputOTPUsageDemo />
           </Example>
         </Section>
 

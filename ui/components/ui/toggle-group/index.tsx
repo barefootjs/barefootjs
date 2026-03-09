@@ -183,27 +183,33 @@ function ToggleGroupItem(props: ToggleGroupItemProps) {
   const handleMount = (el: HTMLElement) => {
     const ctx = useContext(ToggleGroupContext)
 
-    const variant: ToggleVariant = ctx.variant()
-    const size: ToggleSize = ctx.size()
-
-    // Apply variant/size classes at mount time
-    const variantClass = toggleVariantClasses[variant]
-    const sizeClass = toggleSizeClasses[size]
-    for (const cls of variantClass.split(' ')) {
-      if (cls) el.classList.add(cls)
-    }
-    for (const cls of sizeClass.split(' ')) {
-      if (cls) el.classList.add(cls)
-    }
-
-    // Set data-variant for CSS styling (outline border handling)
-    el.setAttribute('data-variant', variant)
-    el.setAttribute('data-size', size)
+    let prevVariantClasses: string[] = []
+    let prevSizeClasses: string[] = []
 
     createEffect(() => {
+      const variant = ctx.variant()
+      const size = ctx.size()
       const isSelected = ctx.value().includes(props.value)
+
+      // Update selection state
       el.setAttribute('aria-pressed', String(isSelected))
       el.setAttribute('data-state', isSelected ? 'on' : 'off')
+
+      // Update variant classes reactively
+      for (const cls of prevVariantClasses) el.classList.remove(cls)
+      const variantClasses = toggleVariantClasses[variant].split(' ').filter(Boolean)
+      for (const cls of variantClasses) el.classList.add(cls)
+      prevVariantClasses = variantClasses
+
+      // Update size classes reactively
+      for (const cls of prevSizeClasses) el.classList.remove(cls)
+      const sizeClasses = toggleSizeClasses[size].split(' ').filter(Boolean)
+      for (const cls of sizeClasses) el.classList.add(cls)
+      prevSizeClasses = sizeClasses
+
+      // Set data attributes for CSS styling
+      el.setAttribute('data-variant', variant)
+      el.setAttribute('data-size', size)
     })
 
     el.addEventListener('click', () => {
