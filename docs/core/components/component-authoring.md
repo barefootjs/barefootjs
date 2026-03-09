@@ -1,3 +1,8 @@
+---
+title: Component Authoring
+description: Learn how to write server and client components in BarefootJS using JSX functions.
+---
+
 # Component Authoring
 
 A BarefootJS component is a function that returns JSX. Components come in two kinds: **server components** and **client components**.

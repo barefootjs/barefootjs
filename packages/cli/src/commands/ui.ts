@@ -1,4 +1,4 @@
-// barefoot docs — show detailed component documentation.
+// barefoot ui — show detailed component documentation.
 
 import type { CliContext } from '../context'
 import type { ComponentMeta } from '../lib/types'
@@ -87,7 +87,7 @@ function printComponent(meta: ComponentMeta, jsonFlag: boolean) {
 export function run(args: string[], ctx: CliContext): void {
   const query = args.join(' ')
   if (!query) {
-    console.error('Error: Component name required. Usage: barefoot docs <component>')
+    console.error('Error: Component name required. Usage: barefoot ui <component>')
     process.exit(1)
   }
   printComponent(loadComponent(ctx.metaDir, query), ctx.jsonFlag)

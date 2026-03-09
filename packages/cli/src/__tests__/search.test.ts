@@ -1,10 +1,12 @@
 import { describe, test, expect, spyOn, beforeEach, afterEach } from 'bun:test'
 import { search } from '../commands/search'
 import { loadIndex, fetchIndex } from '../lib/meta-loader'
+import { scanCoreDocs } from '../lib/docs-loader'
 import type { MetaIndex } from '../lib/types'
 import path from 'path'
 
 const metaDir = path.resolve(import.meta.dir, '../../../../ui/meta')
+const docsDir = path.resolve(import.meta.dir, '../../../../docs/core')
 
 describe('search', () => {
   const index = loadIndex(metaDir)
@@ -20,19 +22,17 @@ describe('search', () => {
     expect(results.every(r =>
       r.name.includes('input') ||
       r.category.includes('input') ||
-      r.description.toLowerCase().includes('input') ||
-      r.tags.some(t => t.includes('input'))
+      r.description.toLowerCase().includes('input')
     )).toBe(true)
   })
 
   test('finds component by tag', () => {
     const results = search('button', index)
-    // All results should match "button" in name, category, description, or tags
+    // All results should match "button" in name, category, or description
     expect(results.every(r =>
       r.name.includes('button') ||
       r.category.includes('button') ||
-      r.description.toLowerCase().includes('button') ||
-      r.tags.some(t => t.includes('button'))
+      r.description.toLowerCase().includes('button')
     )).toBe(true)
   })
 
@@ -127,5 +127,37 @@ describe('fetchIndex', () => {
     await expect(fetchIndex('https://example.com/r/')).rejects.toThrow('exit')
     expect(exitSpy).toHaveBeenCalledWith(1)
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid JSON'))
+  })
+})
+
+describe('search - core docs', () => {
+  const index = loadIndex(metaDir)
+  const coreDocs = scanCoreDocs(docsDir)
+
+  test('finds core doc by slug', () => {
+    const results = search('create-signal', index, coreDocs)
+    expect(results.some(r => r.type === 'doc' && r.name.includes('create-signal'))).toBe(true)
+  })
+
+  test('finds core doc by description keyword', () => {
+    const results = search('hydration', index, coreDocs)
+    expect(results.some(r => r.type === 'doc')).toBe(true)
+  })
+
+  test('mixed results: components + docs', () => {
+    // "input" matches both input components and possibly some docs
+    const results = search('input', index, coreDocs)
+    expect(results.some(r => r.type === 'component')).toBe(true)
+  })
+
+  test('category alias: "signal" matches "reactivity" docs', () => {
+    const results = search('signal', index, coreDocs)
+    const reactivityDocs = results.filter(r => r.type === 'doc' && r.category === 'reactivity')
+    expect(reactivityDocs.length).toBeGreaterThan(0)
+  })
+
+  test('returns empty when no match in either source', () => {
+    const results = search('zzz_nonexistent_zzz', index, coreDocs)
+    expect(results).toEqual([])
   })
 })

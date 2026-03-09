@@ -1,3 +1,8 @@
+---
+title: /* @client */ Directive
+description: Mark JSX expressions for client-only evaluation when the compiler cannot translate them to server templates.
+---
+
 # /* @client */ Directive
 
 The `/* @client */` comment directive marks a JSX expression for **client-only evaluation**. The server renders a placeholder; the browser evaluates the expression at runtime.

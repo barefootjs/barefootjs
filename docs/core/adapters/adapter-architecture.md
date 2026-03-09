@@ -1,3 +1,8 @@
+---
+title: Adapter Architecture
+description: How adapters convert the compiler's IR into server-renderable template formats.
+---
+
 # Adapter Architecture
 
 An adapter converts the compiler's Intermediate Representation (IR) into a template format your server can render. This page explains how adapters work, the interface they implement, and the IR contract they consume.

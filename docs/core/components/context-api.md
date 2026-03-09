@@ -1,3 +1,8 @@
+---
+title: Context API
+description: Share state with deeply nested children without prop drilling using createContext and useContext.
+---
+
 # Context API
 
 Context lets a parent component share state with deeply nested children without passing props through every level. It is the foundation of compound component patterns like Dialog, Accordion, and Tabs.

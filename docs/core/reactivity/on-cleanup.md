@@ -1,3 +1,8 @@
+---
+title: onCleanup
+description: Registers a cleanup function that runs when the owning effect re-runs or the component is destroyed.
+---
+
 # onCleanup
 
 Registers a cleanup function in the current reactive context. Called when the owning effect re-runs or the component is destroyed.

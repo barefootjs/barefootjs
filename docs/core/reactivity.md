@@ -1,3 +1,8 @@
+---
+title: Reactivity
+description: Fine-grained reactive primitives inspired by SolidJS, including signals, effects, memos, and lifecycle hooks.
+---
+
 # Reactivity
 
 BarefootJS uses fine-grained reactivity inspired by SolidJS. For a conceptual overview, see [Core Concepts](./core-concepts.md#signal-based-reactivity).
