@@ -1918,6 +1918,35 @@ describe('Client JS generation', () => {
       expect(content).not.toContain('spreadAttrs(')
     })
 
+    test('multiple spreads: rest props identified when not first spread (#599)', () => {
+      // Pattern: <Tag {...childProps} {...props}> where props is the component's props object.
+      // The compiler must find the props spread even when it's not the first spread.
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        interface WrapperProps {
+          className?: string
+          children?: any
+        }
+
+        export function Wrapper(props: WrapperProps) {
+          const childProps = { 'data-extra': 'true' }
+          const [count, setCount] = createSignal(0)
+          return <div {...childProps} {...props} onClick={() => setCount(c => c + 1)}>{count()}</div>
+        }
+      `
+      const result = compileJSXSync(source, 'Wrapper.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      // props object spread should be recognized — should use applyRestAttrs
+      expect(content).toContain('applyRestAttrs')
+    })
+
     test('multi-component file: stateless icons in conditional rendering produce renderChild + hydrate', () => {
       const source = `
         'use client'
