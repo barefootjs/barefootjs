@@ -4,10 +4,6 @@
  *
  * Interactive playground for the Table component.
  * Allows toggling caption and footer sections independently.
- *
- * Note: Uses style-based visibility instead of conditional rendering (&&)
- * to avoid HTML table foster parenting issues where the browser moves
- * comment markers outside <table>, breaking hydration.
  */
 
 import { createSignal, createEffect } from '@barefootjs/dom'
@@ -107,7 +103,9 @@ function TablePlayground(_props: {}) {
       previewContent={
         <div className="w-full max-w-md">
           <Table>
-            <TableCaption style={showCaption() ? undefined : 'display:none'}>A list of recent invoices.</TableCaption>
+            {showCaption() && (
+              <TableCaption>A list of recent invoices.</TableCaption>
+            )}
             <TableHeader>
               <TableRow>
                 <TableHead>Invoice</TableHead>
@@ -124,12 +122,14 @@ function TablePlayground(_props: {}) {
                 <TableCell>$150.00</TableCell>
               </TableRow>
             </TableBody>
-            <TableFooter style={showFooter() ? undefined : 'display:none'}>
-              <TableRow>
-                <TableCell>Total</TableCell>
-                <TableCell>$400.00</TableCell>
-              </TableRow>
-            </TableFooter>
+            {showFooter() && (
+              <TableFooter>
+                <TableRow>
+                  <TableCell>Total</TableCell>
+                  <TableCell>$400.00</TableCell>
+                </TableRow>
+              </TableFooter>
+            )}
           </Table>
         </div>
       }

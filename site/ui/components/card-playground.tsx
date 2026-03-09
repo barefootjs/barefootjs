@@ -100,12 +100,16 @@ function CardPlayground(_props: {}) {
             <CardTitle>{title()}</CardTitle>
             <CardDescription>{description()}</CardDescription>
           </CardHeader>
-          <CardContent style={showContent() ? undefined : 'display:none'}>
-            <p className="text-sm">Content goes here.</p>
-          </CardContent>
-          <CardFooter style={showFooter() ? undefined : 'display:none'}>
-            <button className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground h-9 px-4 py-2">Save</button>
-          </CardFooter>
+          {showContent() && (
+            <CardContent>
+              <p className="text-sm">Content goes here.</p>
+            </CardContent>
+          )}
+          {showFooter() && (
+            <CardFooter>
+              <button className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground h-9 px-4 py-2">Save</button>
+            </CardFooter>
+          )}
         </Card>
       }
       controls={<>
