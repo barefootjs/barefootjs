@@ -1,3 +1,8 @@
+---
+title: IR Schema Reference
+description: JSON tree structure of the Intermediate Representation consumed by adapters and client-JS generation.
+---
+
 # IR Schema Reference
 
 The Intermediate Representation (IR) is a pure JSON tree structure that sits between JSX parsing and template/client-JS generation. It is **JSX-independent** — adapters consume IR without any knowledge of the original JSX syntax.

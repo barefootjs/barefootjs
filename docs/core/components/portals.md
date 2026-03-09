@@ -1,3 +1,8 @@
+---
+title: Portals
+description: Render elements outside their parent DOM hierarchy for overlays, modals, and tooltips.
+---
+
 # Portals
 
 A portal renders an element outside its parent DOM hierarchy. This is useful for overlays, modals, and tooltips that need to escape `overflow: hidden`, `z-index` stacking contexts, or other CSS containment.

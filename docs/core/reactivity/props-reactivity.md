@@ -1,3 +1,8 @@
+---
+title: Props Reactivity
+description: How prop access patterns determine whether reactive updates propagate in BarefootJS components.
+---
+
 # Props Reactivity
 
 Props in BarefootJS can be reactive. The compiler wraps dynamic prop expressions in getters, so **how you access props determines whether updates propagate**.

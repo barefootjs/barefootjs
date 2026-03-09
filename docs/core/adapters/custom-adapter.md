@@ -1,3 +1,8 @@
+---
+title: Writing a Custom Adapter
+description: Step-by-step guide to building a custom adapter using the TestAdapter as a reference.
+---
+
 # Writing a Custom Adapter
 
 This guide walks through building a custom adapter, using the `TestAdapter` (`packages/jsx/src/adapters/test-adapter.ts`) as a concrete example. The TestAdapter is a minimal, working adapter included in the compiler package — it generates simple JSX output and demonstrates every method you need to implement.

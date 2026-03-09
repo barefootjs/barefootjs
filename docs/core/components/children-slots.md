@@ -1,3 +1,8 @@
+---
+title: Children & Slots
+description: Accept nested JSX content via the children prop and enable polymorphic rendering with the Slot component.
+---
+
 # Children & Slots
 
 Components accept nested JSX content through the `children` prop. The `Slot` component enables polymorphic rendering with the `asChild` pattern.

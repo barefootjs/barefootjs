@@ -1,3 +1,8 @@
+---
+title: Props & Type Safety
+description: Type component props with TypeScript interfaces and preserve type information through compilation.
+---
+
 # Props & Type Safety
 
 Component props in BarefootJS are typed with TypeScript interfaces. The compiler preserves type information through compilation, and the adapter uses it to generate type-safe marked templates.

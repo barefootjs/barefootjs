@@ -1,3 +1,8 @@
+---
+title: JSX Compatibility
+description: Standard JSX syntax support in BarefootJS, including control flow and common patterns from React and SolidJS.
+---
+
 # JSX Compatibility
 
 BarefootJS uses standard JSX syntax. If you have written React or SolidJS components, most patterns work as you expect.

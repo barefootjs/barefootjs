@@ -1,3 +1,8 @@
+---
+title: Error Codes Reference
+description: Complete list of BF-prefixed compiler error codes with explanations and fixes.
+---
+
 # Error Codes Reference
 
 BarefootJS compiler errors follow the format `BF` + 3-digit code. Errors include source location and actionable suggestions.

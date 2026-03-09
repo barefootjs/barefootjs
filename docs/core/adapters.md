@@ -1,3 +1,8 @@
+---
+title: Adapters
+description: Bridge between the compiler's IR and your backend's template language, enabling cross-stack component reuse.
+---
+
 # Adapters
 
 Adapters are the bridge between the compiler's IR and your backend's template language. The compiler produces a backend-agnostic Intermediate Representation (IR); an adapter converts it into a template your server can render.

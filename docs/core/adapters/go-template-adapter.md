@@ -1,3 +1,8 @@
+---
+title: Go Template Adapter
+description: Generate Go html/template files and type definitions from the compiler's IR.
+---
+
 # Go Template Adapter
 
 The Go Template adapter generates Go `html/template` files (`.tmpl`) and Go type definitions (`_types.go`) from the compiler's IR. It is designed for Go backends using the standard `html/template` package.

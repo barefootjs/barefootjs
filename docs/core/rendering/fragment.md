@@ -1,3 +1,8 @@
+---
+title: Fragment
+description: Using fragments to render children without a wrapper element, including transparent fragment behavior.
+---
+
 # Fragment
 
 Fragments (`<>...</>`) are supported. They render children without a wrapper element.

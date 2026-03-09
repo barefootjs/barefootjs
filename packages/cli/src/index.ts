@@ -18,8 +18,9 @@ Commands:
   build [--minify]            Compile components using barefoot.config.ts
   init [--name <name>]        Initialize a new BarefootJS project
   add <component...> [--force] [--registry <url>] Add components to your project
-  search <query> [--dir <path>] [--registry <url>] Search components by name/category/tags
-  docs <component>            Show component documentation (props, examples, a11y)
+  search <query> [--dir <path>] [--registry <url>] Search components and documentation
+  ui <component>              Show component documentation (props, examples, a11y)
+  core [document]             Show core documentation (concepts, API, guides)
   scaffold <name> <comp...>   Generate component skeleton + IR test
   test [component]            Find and show test commands
   test:template <name>        Generate IR test from existing source
@@ -33,11 +34,12 @@ Options:
 
 Workflow:
   1. barefoot init                         — Initialize project
-  2. barefoot search <query>               — Find components
+  2. barefoot search <query>               — Find components and docs
   3. barefoot add <component...>           — Add to your project
-  4. barefoot docs <component>             — Learn props and usage
-  5. bun test <path>                       — Verify
-  6. barefoot preview <component>          — Visual preview in browser`)
+  4. barefoot ui <component>               — Learn props and usage
+  5. barefoot core <topic>                 — Read framework docs
+  6. bun test <path>                       — Verify
+  7. barefoot preview <component>          — Visual preview in browser`)
 }
 
 switch (command) {
@@ -65,8 +67,14 @@ switch (command) {
     break
   }
 
-  case 'docs': {
-    const { run } = await import('./commands/docs')
+  case 'ui': {
+    const { run } = await import('./commands/ui')
+    run(commandArgs, ctx)
+    break
+  }
+
+  case 'core': {
+    const { run } = await import('./commands/core')
     run(commandArgs, ctx)
     break
   }

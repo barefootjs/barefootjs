@@ -1,3 +1,8 @@
+---
+title: Components
+description: How to author, compose, and type components in BarefootJS, including props, children, context, and portals.
+---
+
 # Components
 
 This section covers how to author, compose, and type components in BarefootJS. For the `"use client"` directive and the server/client boundary, see [Core Concepts](./core-concepts.md#the-use-client-directive).

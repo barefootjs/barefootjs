@@ -1,3 +1,8 @@
+---
+title: Advanced
+description: Compiler internals, IR schema, error codes, and performance optimization for contributors and adapter authors.
+---
+
 # Advanced
 
 This section covers BarefootJS internals for contributors, adapter authors, and developers who want deeper understanding of the compilation pipeline.

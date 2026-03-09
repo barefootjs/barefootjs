@@ -1,3 +1,8 @@
+---
+title: Hono Adapter
+description: Generate Hono JSX templates from the compiler's IR for Hono-based servers.
+---
+
 # Hono Adapter
 
 The Hono adapter generates Hono JSX (`.hono.tsx`) files from the compiler's IR. It is designed for Hono-based servers and any JSX-compatible TypeScript backend.

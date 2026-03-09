@@ -1,3 +1,8 @@
+---
+title: Templates & Rendering
+description: BarefootJS-specific JSX behavior covering compatibility, fragments, and client directives.
+---
+
 # Templates & Rendering
 
 This section covers BarefootJS-specific JSX behavior. Standard JSX knowledge is assumed.

@@ -1,3 +1,8 @@
+---
+title: Compiler Internals
+description: How the BarefootJS compiler transforms JSX into marked templates and client JavaScript.
+---
+
 # Compiler Internals
 
 This page explains how the BarefootJS compiler transforms JSX source into marked templates and client JavaScript. Understanding these internals is useful for debugging compilation issues, writing custom adapters, or contributing to the compiler.

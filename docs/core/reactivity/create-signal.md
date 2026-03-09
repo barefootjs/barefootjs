@@ -1,3 +1,8 @@
+---
+title: createSignal
+description: Creates a reactive getter/setter pair for managing state.
+---
+
 # createSignal
 
 Creates a reactive value. Returns a getter/setter pair.

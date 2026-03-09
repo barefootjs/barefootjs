@@ -1,3 +1,8 @@
+---
+title: onMount
+description: Runs a callback once when the component initializes, without tracking signal dependencies.
+---
+
 # onMount
 
 Runs once when the component initializes. Signal accesses inside are **not** tracked.
