@@ -5,7 +5,7 @@
  * Part of the #515 page redesign initiative.
  */
 
-import { DataTablePreviewDemo } from '@/components/data-table-demo'
+import { DataTablePreviewDemo, DataTableUsageDemo } from '@/components/data-table-demo'
 import {
   DocPage,
   PageHeader,
@@ -44,15 +44,18 @@ type Payment = {
 }
 
 const payments: Payment[] = [
-  { id: "PAY001", amount: 316, status: "success", email: "ken@example.com" },
-  { id: "PAY002", amount: 242, status: "success", email: "abe@example.com" },
-  { id: "PAY003", amount: 837, status: "processing", email: "mon@example.com" },
+  { id: "PAY001", amount: 316, status: "success", email: "ken99@example.com" },
+  { id: "PAY002", amount: 242, status: "success", email: "abe45@example.com" },
+  { id: "PAY003", amount: 837, status: "processing", email: "monserrat44@example.com" },
+  { id: "PAY004", amount: 874, status: "success", email: "silas22@example.com" },
+  { id: "PAY005", amount: 721, status: "failed", email: "carmella@example.com" },
 ]
 
 function DataTableDemo() {
   const [sortKey, setSortKey] = createSignal<"amount" | null>(null)
   const [sortDir, setSortDir] = createSignal<"asc" | "desc">("asc")
   const [page, setPage] = createSignal(0)
+  const pageSize = 3
 
   const handleSort = () => {
     if (sortKey() === null) {
@@ -71,8 +74,16 @@ function DataTableDemo() {
     )
   })
 
+  const pageCount = createMemo(() =>
+    Math.max(1, Math.ceil(sorted().length / pageSize))
+  )
+
+  const paginated = createMemo(() =>
+    sorted().slice(page() * pageSize, (page() + 1) * pageSize)
+  )
+
   return (
-    <div>
+    <div className="space-y-4">
       <Table>
         <TableHeader>
           <TableRow>
@@ -89,7 +100,7 @@ function DataTableDemo() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sorted().map((p) => (
+          {paginated().map((p) => (
             <TableRow>
               <TableCell>{p.id}</TableCell>
               <TableCell>{p.status}</TableCell>
@@ -103,7 +114,7 @@ function DataTableDemo() {
       </Table>
       <DataTablePagination
         page={page()}
-        pageCount={1}
+        pageCount={pageCount()}
         onPageChange={setPage}
       />
     </div>
@@ -178,7 +189,7 @@ export function DataTableRefPage() {
         {/* Usage */}
         <Section id="usage" title="Usage">
           <Example title="" code={usageCode}>
-            <DataTablePreviewDemo />
+            <DataTableUsageDemo />
           </Example>
         </Section>
 
