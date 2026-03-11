@@ -12,8 +12,6 @@ import { renderer } from './renderer'
 import { AspectRatioRefPage } from './pages/components/aspect-ratio'
 import { AlertPage } from './pages/alert'
 import { AlertDialogPage } from './pages/alert-dialog'
-import { BadgePage } from './pages/badge'
-import { AvatarPage } from './pages/avatar'
 import { BadgeRefPage } from './pages/components/badge'
 import { ButtonRefPage } from './pages/components/button'
 import { ComboboxRefPage } from './pages/components/combobox'
@@ -385,11 +383,6 @@ export function createApp() {
   // Alert Dialog documentation
   app.get('/docs/components/alert-dialog', (c) => {
     return c.render(<AlertDialogPage />)
-  })
-
-  // Avatar documentation
-  app.get('/components/avatar', (c) => {
-    return c.render(<AvatarPage />)
   })
 
   // Badge reference page
