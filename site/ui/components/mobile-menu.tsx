@@ -208,7 +208,7 @@ export function MobileMenu() {
                   <a href="/docs/components/accordion" className={menuLinkClass}>Accordion</a>
                   <a href="/docs/components/badge" className={menuLinkClass}>Badge</a>
                   <a href="/components/button" className={menuLinkClass}>Button</a>
-                  <a href="/docs/components/card" className={menuLinkClass}>Card</a>
+                  <a href="/components/card" className={menuLinkClass}>Card</a>
                   <a href="/docs/components/checkbox" className={menuLinkClass}>Checkbox</a>
                   <a href="/docs/components/dialog" className={menuLinkClass}>Dialog</a>
                   <a href="/docs/components/dropdown-menu" className={menuLinkClass}>Dropdown Menu</a>

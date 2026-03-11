@@ -38,7 +38,6 @@ import { ToggleGroupRefPage } from './pages/components/toggle-group'
 import { BreadcrumbPage } from './pages/breadcrumb'
 import { CalendarPage } from './pages/calendar'
 import { CarouselPage } from './pages/carousel'
-import { CardPage } from './pages/card'
 import { CheckboxPage } from './pages/checkbox'
 import { CheckboxRefPage } from './pages/components/checkbox'
 import { InputPage } from './pages/input'
@@ -486,11 +485,6 @@ export function createApp() {
   // Carousel documentation
   app.get('/docs/components/carousel', (c) => {
     return c.render(<CarouselPage />)
-  })
-
-  // Card documentation
-  app.get('/docs/components/card', (c) => {
-    return c.render(<CardPage />)
   })
 
   // Collapsible documentation

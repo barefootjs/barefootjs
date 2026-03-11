@@ -24,7 +24,7 @@ const componentItems = [
   { id: 'accordion', title: 'Accordion', href: '/docs/components/accordion', category: 'Components' },
   { id: 'badge', title: 'Badge', href: '/docs/components/badge', category: 'Components' },
   { id: 'button', title: 'Button', href: '/components/button', category: 'Components' },
-  { id: 'card', title: 'Card', href: '/docs/components/card', category: 'Components' },
+  { id: 'card', title: 'Card', href: '/components/card', category: 'Components' },
   { id: 'checkbox', title: 'Checkbox', href: '/docs/components/checkbox', category: 'Components' },
   { id: 'command', title: 'Command', href: '/docs/components/command', category: 'Components' },
   { id: 'dialog', title: 'Dialog', href: '/docs/components/dialog', category: 'Components' },
