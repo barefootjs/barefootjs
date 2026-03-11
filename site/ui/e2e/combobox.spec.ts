@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('Combobox Documentation Page', () => {
+test.describe('Combobox Reference Page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/docs/components/combobox')
+    await page.goto('/components/combobox')
   })
 
   test.describe('Basic Demo', () => {

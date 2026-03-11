@@ -49,7 +49,6 @@ import { SwitchPage } from './pages/switch'
 import { AccordionPage } from './pages/accordion'
 import { CollapsiblePage } from './pages/collapsible'
 import { CommandPage } from './pages/command'
-import { ComboboxPage } from './pages/combobox'
 import { TabsPage } from './pages/tabs'
 import { DialogPage } from './pages/dialog'
 import { ContextMenuPage } from './pages/context-menu'
@@ -179,7 +178,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Command</h3>
               <p className="text-xs text-muted-foreground">Search and command menu</p>
             </a>
-            <a href="/docs/components/combobox" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/combobox" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Combobox</h3>
               <p className="text-xs text-muted-foreground">Autocomplete input with searchable dropdown</p>
             </a>
@@ -501,11 +500,6 @@ export function createApp() {
   // Command documentation
   app.get('/docs/components/command', (c) => {
     return c.render(<CommandPage />)
-  })
-
-  // Combobox documentation
-  app.get('/docs/components/combobox', (c) => {
-    return c.render(<ComboboxPage />)
   })
 
   // Checkbox documentation
