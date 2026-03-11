@@ -1,31 +1,40 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('Aspect Ratio Documentation Page', () => {
+test.describe('Aspect Ratio Reference Page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/docs/components/aspect-ratio')
+    await page.goto('/components/aspect-ratio')
   })
 
   test.describe('Preview', () => {
+    test('renders aspect ratio playground', async ({ page }) => {
+      const playground = page.locator('[data-aspect-ratio-preview]')
+
+      await expect(playground).toBeVisible()
+    })
+  })
+
+  test.describe('Image Example', () => {
     test('renders image with aspect ratio container', async ({ page }) => {
-      const container = page.locator('[data-slot="aspect-ratio"]').first()
+      const section = page.locator('#image').locator('..')
+      const container = section.locator('[data-slot="aspect-ratio"]').first()
 
       await expect(container).toBeVisible()
     })
 
     test('image is present inside container', async ({ page }) => {
-      const container = page.locator('[data-slot="aspect-ratio"]').first()
-      const img = container.locator('img')
+      const section = page.locator('#image').locator('..')
+      const img = section.locator('[data-slot="aspect-ratio"] img').first()
 
       await expect(img).toBeVisible()
     })
   })
 
-  test.describe('Basic', () => {
+  test.describe('Ratios Example', () => {
     test('renders multiple aspect ratio containers', async ({ page }) => {
-      const containers = page.locator('[data-slot="aspect-ratio"]')
+      const section = page.locator('#ratios').locator('..')
+      const containers = section.locator('[data-slot="aspect-ratio"]')
 
-      // Preview (1) + Basic (3) = 4 containers
-      await expect(containers).toHaveCount(4)
+      await expect(containers).toHaveCount(3)
     })
   })
 })

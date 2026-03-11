@@ -9,7 +9,6 @@ import { Hono } from 'hono'
 import { renderer } from './renderer'
 
 // Component pages
-import { AspectRatioPage } from './pages/aspect-ratio'
 import { AspectRatioRefPage } from './pages/components/aspect-ratio'
 import { AlertPage } from './pages/alert'
 import { AlertDialogPage } from './pages/alert-dialog'
@@ -134,7 +133,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Alert Dialog</h3>
               <p className="text-xs text-muted-foreground">Modal dialog for important confirmations</p>
             </a>
-            <a href="/docs/components/aspect-ratio" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/aspect-ratio" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Aspect Ratio</h3>
               <p className="text-xs text-muted-foreground">Content within a desired ratio</p>
             </a>
@@ -372,12 +371,7 @@ export function createApp() {
     return c.render(<ComponentCatalogPage />)
   })
 
-  // Aspect Ratio documentation
-  app.get('/docs/components/aspect-ratio', (c) => {
-    return c.render(<AspectRatioPage />)
-  })
-
-  // Aspect Ratio reference page (redesigned #515)
+  // Aspect Ratio reference page
   app.get('/components/aspect-ratio', (c) => {
     return c.render(<AspectRatioRefPage />)
   })
