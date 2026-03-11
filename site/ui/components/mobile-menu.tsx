@@ -207,7 +207,7 @@ export function MobileMenu() {
                 <div className="pl-2 py-1 space-y-0.5">
                   <a href="/docs/components/accordion" className={menuLinkClass}>Accordion</a>
                   <a href="/docs/components/badge" className={menuLinkClass}>Badge</a>
-                  <a href="/docs/components/button" className={menuLinkClass}>Button</a>
+                  <a href="/components/button" className={menuLinkClass}>Button</a>
                   <a href="/docs/components/card" className={menuLinkClass}>Card</a>
                   <a href="/docs/components/checkbox" className={menuLinkClass}>Checkbox</a>
                   <a href="/docs/components/dialog" className={menuLinkClass}>Dialog</a>

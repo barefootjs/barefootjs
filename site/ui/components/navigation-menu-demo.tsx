@@ -67,7 +67,7 @@ export function NavigationMenuBasicDemo() {
           <NavigationMenuContent className="w-[400px] md:w-[500px]">
             <ul className="grid gap-3 p-4 md:grid-cols-2">
               <li>
-                <NavigationMenuLink href="/docs/components/button">
+                <NavigationMenuLink href="/components/button">
                   <div className="text-sm font-medium leading-none">Button</div>
                   <p className="line-clamp-2 text-sm leading-snug text-muted-foreground mt-1">
                     Clickable actions with multiple variants and sizes.

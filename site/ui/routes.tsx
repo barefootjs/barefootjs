@@ -36,7 +36,6 @@ import { InputOTPRefPage } from './pages/components/input-otp'
 import { SliderRefPage } from './pages/components/slider'
 import { ToggleGroupRefPage } from './pages/components/toggle-group'
 import { BreadcrumbPage } from './pages/breadcrumb'
-import { ButtonPage } from './pages/button'
 import { CalendarPage } from './pages/calendar'
 import { CarouselPage } from './pages/carousel'
 import { CardPage } from './pages/card'
@@ -152,7 +151,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Breadcrumb</h3>
               <p className="text-xs text-muted-foreground">Navigation hierarchy trail</p>
             </a>
-            <a href="/docs/components/button" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/button" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Button</h3>
               <p className="text-xs text-muted-foreground">Clickable actions with multiple variants</p>
             </a>
@@ -479,15 +478,7 @@ export function createApp() {
     return c.render(<BreadcrumbPage />)
   })
 
-  // Button documentation
-  app.get('/docs/components/button', (c) => {
-    return c.render(<ButtonPage />, {
-      title: 'Button - barefootjs/ui',
-      description: 'Displays a button or a component that looks like a button.',
-    })
-  })
-
-  // Calendar documentation
+// Calendar documentation
   app.get('/docs/components/calendar', (c) => {
     return c.render(<CalendarPage />)
   })

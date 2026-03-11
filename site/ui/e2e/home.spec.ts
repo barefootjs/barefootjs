@@ -19,7 +19,7 @@ test.describe('Home Page', () => {
 
   test('displays component preview cards', async ({ page }) => {
     await expect(page.locator('#components a[href="/docs/components/accordion"]')).toBeVisible()
-    await expect(page.locator('#components a[href="/docs/components/button"]')).toBeVisible()
+    await expect(page.locator('#components a[href="/components/button"]')).toBeVisible()
     await expect(page.locator('#components a[href="/components/card"]')).toBeVisible()
     await expect(page.locator('#components a[href="/docs/components/command"]')).toBeVisible()
     await expect(page.locator('#components a[href="/docs/components/dialog"]')).toBeVisible()
@@ -38,8 +38,8 @@ test.describe('Home Page', () => {
   })
 
   test('navigates to Button page on click', async ({ page }) => {
-    await page.locator('#components a[href="/docs/components/button"]').click()
-    await expect(page).toHaveURL('/docs/components/button')
+    await page.locator('#components a[href="/components/button"]').click()
+    await expect(page).toHaveURL('/components/button')
     await expect(page.locator('h1')).toContainText('Button')
   })
 })

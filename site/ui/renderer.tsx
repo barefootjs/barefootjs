@@ -80,7 +80,7 @@ const menuEntries: SidebarEntry[] = [
       { title: 'Avatar', href: '/components/avatar' },
       { title: 'Badge', href: '/docs/components/badge' },
       { title: 'Breadcrumb', href: '/docs/components/breadcrumb' },
-      { title: 'Button', href: '/docs/components/button' },
+      { title: 'Button', href: '/components/button' },
       { title: 'Calendar', href: '/components/calendar' },
       { title: 'Card', href: '/components/card' },
       { title: 'Carousel', href: '/components/carousel' },
