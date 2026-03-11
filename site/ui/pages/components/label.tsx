@@ -51,7 +51,7 @@ const labelProps: PropDefinition[] = [
   },
   {
     name: 'children',
-    type: 'ReactNode',
+    type: 'Child',
     description: 'The content displayed inside the label.',
   },
 ]

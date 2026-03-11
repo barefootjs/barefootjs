@@ -90,7 +90,7 @@ const buttonProps: PropDefinition[] = [
   },
   {
     name: 'children',
-    type: 'ReactNode',
+    type: 'Child',
     description: 'The content of the button.',
   },
 ]

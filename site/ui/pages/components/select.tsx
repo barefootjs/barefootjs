@@ -105,7 +105,7 @@ const selectItemProps: PropDefinition[] = [
   },
   {
     name: 'children',
-    type: 'ReactNode',
+    type: 'Child',
     description: 'The display label for this item.',
   },
 ]
