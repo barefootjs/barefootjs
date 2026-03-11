@@ -8,6 +8,11 @@
 import { RadioGroupPlayground } from '@/components/radio-group-playground'
 import { RadioGroupUsageDemo } from '@/components/radio-group-usage-demo'
 import {
+  RadioGroupBasicDemo,
+  RadioGroupFormDemo,
+  RadioGroupCardDemo,
+} from '@/components/radio-group-demo'
+import {
   DocPage,
   PageHeader,
   Section,
@@ -23,6 +28,10 @@ const tocItems: TocItem[] = [
   { id: 'preview', title: 'Preview' },
   { id: 'installation', title: 'Installation' },
   { id: 'usage', title: 'Usage' },
+  { id: 'examples', title: 'Examples' },
+  { id: 'basic', title: 'Basic', branch: 'start' },
+  { id: 'form', title: 'Form', branch: 'child' },
+  { id: 'card', title: 'Card', branch: 'end' },
   { id: 'api-reference', title: 'API Reference' },
 ]
 
@@ -75,6 +84,132 @@ function RadioGroupDemo() {
           <span className="text-sm font-medium leading-none">Off</span>
         </div>
       </RadioGroup>
+    </div>
+  )
+}`
+
+const basicCode = `"use client"
+
+import { createSignal } from "@barefootjs/dom"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+
+export function RadioGroupBasicDemo() {
+  const [density, setDensity] = createSignal("default")
+
+  return (
+    <div className="space-y-4">
+      <RadioGroup defaultValue="default" onValueChange={setDensity}>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="default" />
+          <span className="text-sm font-medium leading-none">Default</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="comfortable" />
+          <span className="text-sm font-medium leading-none">Comfortable</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="compact" />
+          <span className="text-sm font-medium leading-none">Compact</span>
+        </div>
+      </RadioGroup>
+      <div className="text-sm text-muted-foreground pt-2 border-t">
+        Selected: {density()}
+      </div>
+    </div>
+  )
+}`
+
+const formCode = `"use client"
+
+import { createSignal, createMemo } from "@barefootjs/dom"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+
+export function RadioGroupFormDemo() {
+  const [notifyType, setNotifyType] = createSignal("all")
+  const [theme, setTheme] = createSignal("system")
+
+  const summary = createMemo(() =>
+    \`Notifications: \${notifyType()}, Theme: \${theme()}\`
+  )
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium leading-none">Notify me about...</h4>
+        <RadioGroup defaultValue="all" onValueChange={setNotifyType}>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="all" />
+            <span className="text-sm leading-none">All new messages</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="mentions" />
+            <span className="text-sm leading-none">Direct messages and mentions</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="none" />
+            <span className="text-sm leading-none">Nothing</span>
+          </div>
+        </RadioGroup>
+      </div>
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium leading-none">Theme</h4>
+        <RadioGroup defaultValue="system" onValueChange={setTheme}>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="light" />
+            <span className="text-sm leading-none">Light</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="dark" />
+            <span className="text-sm leading-none">Dark</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="system" />
+            <span className="text-sm leading-none">System</span>
+          </div>
+        </RadioGroup>
+      </div>
+      <div className="text-sm text-muted-foreground pt-2 border-t">
+        {summary()}
+      </div>
+    </div>
+  )
+}`
+
+const cardCode = `"use client"
+
+import { createSignal } from "@barefootjs/dom"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+
+const plans = [
+  { value: "startup", name: "Startup", price: "$29", description: "For small teams getting started" },
+  { value: "business", name: "Business", price: "$99", description: "For growing companies" },
+  { value: "enterprise", name: "Enterprise", price: "$299", description: "For large organizations" },
+]
+
+export function RadioGroupCardDemo() {
+  const [plan, setPlan] = createSignal("startup")
+
+  return (
+    <div className="space-y-4">
+      <RadioGroup defaultValue="startup" onValueChange={setPlan} class="grid-cols-1 sm:grid-cols-3">
+        {plans.map((p) => (
+          <div key={p.value} className="relative">
+            <div className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-accent/50 cursor-pointer">
+              <RadioGroupItem value={p.value} />
+              <div className="space-y-1">
+                <span className="text-sm font-medium leading-none">{p.name}</span>
+                <p className="text-xl font-bold text-foreground">
+                  {p.price}<span className="text-sm font-normal text-muted-foreground">/mo</span>
+                </p>
+                <p className="text-sm text-muted-foreground">{p.description}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </RadioGroup>
+      <div className="text-sm text-muted-foreground pt-2 border-t">
+        Selected plan: {plan()}
+      </div>
     </div>
   )
 }`
@@ -140,6 +275,23 @@ export function RadioGroupRefPage() {
           <Example title="" code={usageCode}>
             <RadioGroupUsageDemo />
           </Example>
+        </Section>
+
+        {/* Examples */}
+        <Section id="examples" title="Examples">
+          <div className="space-y-8">
+            <Example title="Basic" code={basicCode}>
+              <RadioGroupBasicDemo />
+            </Example>
+
+            <Example title="Form" code={formCode}>
+              <RadioGroupFormDemo />
+            </Example>
+
+            <Example title="Card" code={cardCode}>
+              <RadioGroupCardDemo />
+            </Example>
+          </div>
         </Section>
 
         {/* API Reference */}

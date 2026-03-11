@@ -73,7 +73,6 @@ import { PortalPage } from './pages/portal'
 import { PaginationPage } from './pages/pagination'
 import { PopoverPage } from './pages/popover'
 import { ProgressPage } from './pages/progress'
-import { RadioGroupPage } from './pages/radio-group'
 import { DrawerPage } from './pages/drawer'
 import { SheetPage } from './pages/sheet'
 import { SidebarPage } from './pages/sidebar'
@@ -243,7 +242,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Progress</h3>
               <p className="text-xs text-muted-foreground">Task completion indicator bar</p>
             </a>
-            <a href="/docs/components/radio-group" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/radio-group" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Radio Group</h3>
               <p className="text-xs text-muted-foreground">Single-select option group</p>
             </a>
@@ -688,10 +687,6 @@ export function createApp() {
     return c.render(<ProgressPage />)
   })
 
-  // Radio Group documentation
-  app.get('/docs/components/radio-group', (c) => {
-    return c.render(<RadioGroupPage />)
-  })
 
   // Hover Card documentation
   app.get('/docs/components/hover-card', (c) => {

@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('RadioGroup Documentation Page', () => {
+test.describe('RadioGroup Reference Page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/docs/components/radio-group')
+    await page.goto('/components/radio-group')
   })
 
   test.describe('RadioGroup Rendering', () => {
