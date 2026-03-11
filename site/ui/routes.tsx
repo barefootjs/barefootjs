@@ -41,7 +41,6 @@ import { CarouselPage } from './pages/carousel'
 import { CardPage } from './pages/card'
 import { CheckboxPage } from './pages/checkbox'
 import { CheckboxRefPage } from './pages/components/checkbox'
-import { InputPage } from './pages/input'
 import { InputOTPPage } from './pages/input-otp'
 import { LabelPage } from './pages/label'
 import { SliderPage } from './pages/slider'
@@ -211,7 +210,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Hover Card</h3>
               <p className="text-xs text-muted-foreground">Preview card on hover</p>
             </a>
-            <a href="/docs/components/input" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/input" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Input</h3>
               <p className="text-xs text-muted-foreground">Text input field</p>
             </a>
@@ -516,11 +515,6 @@ export function createApp() {
   // Checkbox reference page (redesigned #515)
   app.get('/components/checkbox', (c) => {
     return c.render(<CheckboxRefPage />)
-  })
-
-  // Input documentation
-  app.get('/docs/components/input', (c) => {
-    return c.render(<InputPage />)
   })
 
   // Input reference page (redesigned #515)
