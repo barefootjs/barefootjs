@@ -96,7 +96,7 @@ const menuEntries: SidebarEntry[] = [
       { title: 'Dropdown Menu', href: '/docs/components/dropdown-menu' },
       { title: 'Hover Card', href: '/docs/components/hover-card' },
       { title: 'Input', href: '/components/input' },
-      { title: 'Input OTP', href: '/docs/components/input-otp' },
+      { title: 'Input OTP', href: '/components/input-otp' },
       { title: 'Label', href: '/components/label' },
       { title: 'Menubar', href: '/docs/components/menubar' },
       { title: 'Navigation Menu', href: '/docs/components/navigation-menu' },

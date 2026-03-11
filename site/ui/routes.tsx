@@ -35,7 +35,6 @@ import { ToggleGroupRefPage } from './pages/components/toggle-group'
 import { BreadcrumbPage } from './pages/breadcrumb'
 import { CalendarPage } from './pages/calendar'
 import { CheckboxRefPage } from './pages/components/checkbox'
-import { InputOTPPage } from './pages/input-otp'
 import { SliderPage } from './pages/slider'
 import { SwitchPage } from './pages/switch'
 import { AccordionPage } from './pages/accordion'
@@ -203,7 +202,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Input</h3>
               <p className="text-xs text-muted-foreground">Text input field</p>
             </a>
-            <a href="/docs/components/input-otp" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/input-otp" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Input OTP</h3>
               <p className="text-xs text-muted-foreground">One-time password input</p>
             </a>
@@ -469,11 +468,6 @@ export function createApp() {
   // Input reference page (redesigned #515)
   app.get('/components/input', (c) => {
     return c.render(<InputRefPage />)
-  })
-
-  // Input OTP documentation
-  app.get('/docs/components/input-otp', (c) => {
-    return c.render(<InputOTPPage />)
   })
 
   // Slider documentation
