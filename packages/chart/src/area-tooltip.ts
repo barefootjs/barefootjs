@@ -1,12 +1,12 @@
 import { useContext, createEffect, onCleanup } from '@barefootjs/dom'
-import { BarChartContext } from './context'
+import { AreaChartContext } from './context'
 
 /**
- * Init function for ChartTooltip component.
- * Creates tooltip div and attaches mouse event listeners.
+ * Init function for ChartTooltip in AreaChart context.
+ * Creates tooltip div and attaches mouse event listeners to area hover dots.
  */
-export function initChartTooltip(_scope: Element, props: Record<string, unknown>): void {
-  const ctx = useContext(BarChartContext)
+export function initAreaChartTooltip(_scope: Element, props: Record<string, unknown>): void {
+  const ctx = useContext(AreaChartContext)
   const labelFormatter = props.labelFormatter as ((label: string) => string) | undefined
 
   let tooltip: HTMLDivElement | null = null
@@ -27,7 +27,7 @@ export function initChartTooltip(_scope: Element, props: Record<string, unknown>
 
     const data = ctx.data()
     const xKey = ctx.xDataKey()
-    const bars = ctx.bars()
+    const areas = ctx.areas()
     const config = ctx.config()
 
     tooltip = document.createElement('div')
@@ -54,7 +54,7 @@ export function initChartTooltip(_scope: Element, props: Record<string, unknown>
 
     const handleMouseOver = (e: Event): void => {
       const target = e.target as SVGElement
-      if (!target.hasAttribute('data-x')) return
+      if (!target.classList.contains('chart-area-dot')) return
 
       const xValue = target.getAttribute('data-x') ?? ''
       const datum = data.find((d) => String(d[xKey]) === xValue)
@@ -63,11 +63,11 @@ export function initChartTooltip(_scope: Element, props: Record<string, unknown>
       const label = labelFormatter ? labelFormatter(xValue) : xValue
 
       let html = `<div style="font-weight:500;margin-bottom:4px">${label}</div>`
-      for (const bar of bars) {
-        const value = datum[bar.dataKey]
-        const configEntry = config[bar.dataKey]
-        const color = bar.fill ?? configEntry?.color ?? 'currentColor'
-        const entryLabel = configEntry?.label ?? bar.dataKey
+      for (const area of areas) {
+        const value = datum[area.dataKey]
+        const configEntry = config[area.dataKey]
+        const color = area.stroke ?? configEntry?.color ?? 'currentColor'
+        const entryLabel = configEntry?.label ?? area.dataKey
         html += `<div style="display:flex;align-items:center;gap:8px">`
         html += `<span style="width:8px;height:8px;border-radius:2px;background:${color};display:inline-block"></span>`
         html += `<span>${entryLabel}</span>`
@@ -88,7 +88,7 @@ export function initChartTooltip(_scope: Element, props: Record<string, unknown>
 
     const handleMouseOut = (e: Event): void => {
       const target = e.target as SVGElement
-      if (target.hasAttribute('data-x')) {
+      if (target.classList.contains('chart-area-dot')) {
         currentTooltip.style.opacity = '0'
       }
     }

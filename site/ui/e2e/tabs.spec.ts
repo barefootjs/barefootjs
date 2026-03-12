@@ -30,7 +30,7 @@ async function findTabsDemo(page: Page, tabLabels: string[]): Promise<Locator> {
 
 test.describe('Tabs Documentation Page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/docs/components/tabs')
+    await page.goto('/components/tabs')
   })
 
   test.describe('Tabs Rendering', () => {
@@ -158,7 +158,7 @@ test.describe('Tabs Documentation Page', () => {
 })
 test.describe('Tabs Keyboard Navigation', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/docs/components/tabs')
+    await page.goto('/components/tabs')
   })
 
   test('ArrowRight navigates to next tab', async ({ page }) => {

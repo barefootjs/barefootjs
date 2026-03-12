@@ -83,7 +83,7 @@ export function NavigationMenuBasicDemo() {
                 </NavigationMenuLink>
               </li>
               <li>
-                <NavigationMenuLink href="/docs/components/tabs">
+                <NavigationMenuLink href="/components/tabs">
                   <div className="text-sm font-medium leading-none">Tabs</div>
                   <p className="line-clamp-2 text-sm leading-snug text-muted-foreground mt-1">
                     Tabbed content with keyboard navigation.

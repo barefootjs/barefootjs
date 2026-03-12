@@ -59,10 +59,34 @@
       "tags": ["input"]
     },
     {
+      "name": "area-chart",
+      "type": "registry:ui",
+      "title": "Area Chart",
+      "description": "An area chart component built with SVG, D3 scales, and d3-shape"
+    },
+    {
       "name": "bar-chart",
       "type": "registry:ui",
       "title": "Bar Chart",
       "description": "A bar chart component built with SVG and D3 scales"
+    },
+    {
+      "name": "line-chart",
+      "type": "registry:ui",
+      "title": "Line Chart",
+      "description": "A line chart component built with SVG, D3 scales, and D3 shape"
+    },
+    {
+      "name": "pie-chart",
+      "type": "registry:ui",
+      "title": "Pie Chart",
+      "description": "A pie chart component built with SVG and D3 shapes"
+    },
+    {
+      "name": "radar-chart",
+      "type": "registry:ui",
+      "title": "Radar Chart",
+      "description": "A radar chart component built with SVG and D3 scales"
     },
     {
       "name": "radial-chart",

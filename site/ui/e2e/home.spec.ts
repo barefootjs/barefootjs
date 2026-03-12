@@ -26,7 +26,7 @@ test.describe('Home Page', () => {
     await expect(page.locator('#components a[href="/components/select"]')).toBeVisible()
     await expect(page.locator('#components a[href="/components/slider"]')).toBeVisible()
     await expect(page.locator('#components a[href="/components/switch"]')).toBeVisible()
-    await expect(page.locator('#components a[href="/docs/components/tabs"]')).toBeVisible()
+    await expect(page.locator('#components a[href="/components/tabs"]')).toBeVisible()
   })
 
   test('displays form patterns section', async ({ page }) => {

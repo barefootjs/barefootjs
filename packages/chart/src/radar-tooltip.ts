@@ -1,12 +1,12 @@
 import { useContext, createEffect, onCleanup } from '@barefootjs/dom'
-import { BarChartContext } from './context'
+import { RadarChartContext } from './context'
 
 /**
- * Init function for ChartTooltip component.
- * Creates tooltip div and attaches mouse event listeners.
+ * Init function for RadarTooltip component.
+ * Creates tooltip div and attaches mouse event listeners to radar dots.
  */
-export function initChartTooltip(_scope: Element, props: Record<string, unknown>): void {
-  const ctx = useContext(BarChartContext)
+export function initRadarTooltip(_scope: Element, props: Record<string, unknown>): void {
+  const ctx = useContext(RadarChartContext)
   const labelFormatter = props.labelFormatter as ((label: string) => string) | undefined
 
   let tooltip: HTMLDivElement | null = null
@@ -15,9 +15,8 @@ export function initChartTooltip(_scope: Element, props: Record<string, unknown>
   createEffect(() => {
     const g = ctx.svgGroup()
     const container = ctx.container()
-    const xs = ctx.xScale()
-    const ys = ctx.yScale()
-    if (!g || !container || !xs || !ys) return
+    const rs = ctx.radialScale()
+    if (!g || !container || !rs) return
 
     // Cleanup previous tooltip
     if (cleanupFn) {
@@ -26,8 +25,8 @@ export function initChartTooltip(_scope: Element, props: Record<string, unknown>
     }
 
     const data = ctx.data()
-    const xKey = ctx.xDataKey()
-    const bars = ctx.bars()
+    const axisKey = ctx.dataKey()
+    const radars = ctx.radars()
     const config = ctx.config()
 
     tooltip = document.createElement('div')
@@ -54,20 +53,20 @@ export function initChartTooltip(_scope: Element, props: Record<string, unknown>
 
     const handleMouseOver = (e: Event): void => {
       const target = e.target as SVGElement
-      if (!target.hasAttribute('data-x')) return
+      if (target.tagName !== 'circle' || !target.hasAttribute('data-axis')) return
 
-      const xValue = target.getAttribute('data-x') ?? ''
-      const datum = data.find((d) => String(d[xKey]) === xValue)
+      const axisValue = target.getAttribute('data-axis') ?? ''
+      const datum = data.find((d) => String(d[axisKey]) === axisValue)
       if (!datum) return
 
-      const label = labelFormatter ? labelFormatter(xValue) : xValue
+      const label = labelFormatter ? labelFormatter(axisValue) : axisValue
 
       let html = `<div style="font-weight:500;margin-bottom:4px">${label}</div>`
-      for (const bar of bars) {
-        const value = datum[bar.dataKey]
-        const configEntry = config[bar.dataKey]
-        const color = bar.fill ?? configEntry?.color ?? 'currentColor'
-        const entryLabel = configEntry?.label ?? bar.dataKey
+      for (const radar of radars) {
+        const value = datum[radar.dataKey]
+        const configEntry = config[radar.dataKey]
+        const color = radar.fill ?? configEntry?.color ?? 'currentColor'
+        const entryLabel = configEntry?.label ?? radar.dataKey
         html += `<div style="display:flex;align-items:center;gap:8px">`
         html += `<span style="width:8px;height:8px;border-radius:2px;background:${color};display:inline-block"></span>`
         html += `<span>${entryLabel}</span>`
@@ -88,7 +87,7 @@ export function initChartTooltip(_scope: Element, props: Record<string, unknown>
 
     const handleMouseOut = (e: Event): void => {
       const target = e.target as SVGElement
-      if (target.hasAttribute('data-x')) {
+      if (target.tagName === 'circle') {
         currentTooltip.style.opacity = '0'
       }
     }

@@ -115,9 +115,9 @@ const menuEntries: SidebarEntry[] = [
       { title: 'Spinner', href: '/components/spinner' },
       { title: 'Switch', href: '/components/switch' },
       { title: 'Table', href: '/components/table' },
-      { title: 'Tabs', href: '/docs/components/tabs' },
+      { title: 'Tabs', href: '/components/tabs' },
       { title: 'Textarea', href: '/components/textarea' },
-      { title: 'Toast', href: '/docs/components/toast' },
+      { title: 'Toast', href: '/components/toast' },
       { title: 'Toggle', href: '/components/toggle' },
       { title: 'Toggle Group', href: '/components/toggle-group' },
       { title: 'Tooltip', href: '/components/tooltip' },
@@ -140,7 +140,11 @@ const menuEntries: SidebarEntry[] = [
   {
     title: 'Charts',
     links: [
+      { title: 'Area Chart', href: '/docs/charts/area-chart' },
       { title: 'Bar Chart', href: '/charts/bar-chart' },
+      { title: 'Line Chart', href: '/charts/line-chart' },
+      { title: 'Pie Chart', href: '/docs/charts/pie-chart' },
+      { title: 'Radar Chart', href: '/docs/charts/radar-chart' },
       { title: 'Radial Chart', href: '/charts/radial-chart' },
     ],
   },

@@ -37,12 +37,12 @@ import { CheckboxRefPage } from './pages/components/checkbox'
 import { AccordionRefPage } from './pages/components/accordion'
 import { CollapsibleRefPage } from './pages/components/collapsible'
 import { CommandRefPage } from './pages/components/command'
-import { TabsPage } from './pages/tabs'
+import { TabsRefPage } from './pages/components/tabs'
 import { DialogRefPage } from './pages/components/dialog'
 import { ContextMenuRefPage } from './pages/components/context-menu'
 import { DatePickerRefPage } from './pages/components/date-picker'
 import { DropdownMenuRefPage } from './pages/components/dropdown-menu'
-import { ToastPage } from './pages/toast'
+import { ToastRefPage } from './pages/components/toast'
 import { TooltipRefPage } from './pages/components/tooltip'
 import { ResizableRefPage } from './pages/components/resizable'
 import { ScrollAreaRefPage } from './pages/components/scroll-area'
@@ -63,6 +63,10 @@ import { ComponentCatalogPage } from './pages/components/catalog'
 // Chart pages
 import { BarChartRefPage } from './pages/charts/bar-chart'
 import { RadialChartRefPage } from './pages/charts/radial-chart'
+import { RadarChartRefPage } from './pages/charts/radar-chart'
+import { PieChartRefPage } from './pages/charts/pie-chart'
+import { AreaChartRefPage } from './pages/charts/area-chart'
+import { LineChartRefPage } from './pages/charts/line-chart'
 
 // Form pattern pages
 import { ControlledInputPage } from './pages/forms/controlled-input'
@@ -268,7 +272,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Table</h3>
               <p className="text-xs text-muted-foreground">Responsive data table</p>
             </a>
-            <a href="/docs/components/tabs" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/tabs" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Tabs</h3>
               <p className="text-xs text-muted-foreground">Tabbed content navigation</p>
             </a>
@@ -276,7 +280,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Textarea</h3>
               <p className="text-xs text-muted-foreground">Multi-line text input</p>
             </a>
-            <a href="/docs/components/toast" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/toast" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Toast</h3>
               <p className="text-xs text-muted-foreground">Temporary notification message</p>
             </a>
@@ -475,9 +479,9 @@ export function createApp() {
     return c.render(<AccordionRefPage />)
   })
 
-  // Tabs documentation
-  app.get('/docs/components/tabs', (c) => {
-    return c.render(<TabsPage />)
+  // Tabs reference page (migrated from /docs/components/tabs)
+  app.get('/components/tabs', (c) => {
+    return c.render(<TabsRefPage />)
   })
 
   // Date Picker reference page
@@ -500,9 +504,9 @@ export function createApp() {
     return c.render(<DropdownMenuRefPage />)
   })
 
-  // Toast documentation
-  app.get('/docs/components/toast', (c) => {
-    return c.render(<ToastPage />)
+  // Toast reference page
+  app.get('/components/toast', (c) => {
+    return c.render(<ToastRefPage />)
   })
 
   // Radio Group reference page (redesigned #515)
@@ -607,6 +611,26 @@ export function createApp() {
   // Radial Chart reference page
   app.get('/charts/radial-chart', (c) => {
     return c.render(<RadialChartRefPage />)
+  })
+
+  // Radar Chart reference page
+  app.get('/charts/radar-chart', (c) => {
+    return c.render(<RadarChartRefPage />)
+  })
+
+  // Pie Chart reference page
+  app.get('/charts/pie-chart', (c) => {
+    return c.render(<PieChartRefPage />)
+  })
+
+  // Area Chart reference page
+  app.get('/charts/area-chart', (c) => {
+    return c.render(<AreaChartRefPage />)
+  })
+
+  // Line Chart reference page
+  app.get('/charts/line-chart', (c) => {
+    return c.render(<LineChartRefPage />)
   })
 
   // Controlled Input pattern documentation

@@ -1,8 +1,12 @@
 /**
- * Tabs Documentation Page
+ * Tabs Reference Page (/components/tabs)
+ *
+ * Focused developer reference with interactive Props Playground.
+ * Part of the #515 page redesign initiative.
  */
 
 import { TabsBasicDemo, TabsMultipleDemo, TabsDisabledDemo } from '@/components/tabs-demo'
+import { TabsPlayground } from '@/components/tabs-playground'
 import {
   DocPage,
   PageHeader,
@@ -12,21 +16,64 @@ import {
   PackageManagerTabs,
   type PropDefinition,
   type TocItem,
-} from '../components/shared/docs'
-import { getNavLinks } from '../components/shared/PageNavigation'
+} from '../../components/shared/docs'
+import { getNavLinks } from '../../components/shared/PageNavigation'
 
-// Table of contents items
 const tocItems: TocItem[] = [
+  { id: 'preview', title: 'Preview' },
   { id: 'installation', title: 'Installation' },
+  { id: 'usage', title: 'Usage' },
   { id: 'examples', title: 'Examples' },
   { id: 'basic', title: 'Basic', branch: 'start' },
   { id: 'multiple-tabs', title: 'Multiple Tabs', branch: 'child' },
   { id: 'disabled-tab', title: 'Disabled Tab', branch: 'end' },
-  { id: 'accessibility', title: 'Accessibility' },
   { id: 'api-reference', title: 'API Reference' },
 ]
 
-// Code examples
+const usageCode = `"use client"
+
+import { createSignal, createMemo } from '@barefootjs/dom'
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@/components/ui/tabs'
+
+function TabsDemo() {
+  const [activeTab, setActiveTab] = createSignal('account')
+
+  const isAccountSelected = createMemo(() => activeTab() === 'account')
+  const isPasswordSelected = createMemo(() => activeTab() === 'password')
+
+  return (
+    <Tabs value={activeTab()}>
+      <TabsList>
+        <TabsTrigger
+          value="account"
+          selected={isAccountSelected()}
+          onClick={() => setActiveTab('account')}
+        >
+          Account
+        </TabsTrigger>
+        <TabsTrigger
+          value="password"
+          selected={isPasswordSelected()}
+          onClick={() => setActiveTab('password')}
+        >
+          Password
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="account" selected={isAccountSelected()}>
+        Make changes to your account here.
+      </TabsContent>
+      <TabsContent value="password" selected={isPasswordSelected()}>
+        Change your password here.
+      </TabsContent>
+    </Tabs>
+  )
+}`
+
 const basicCode = `"use client"
 
 import { createSignal, createMemo } from '@barefootjs/dom'
@@ -133,7 +180,6 @@ function TabsDisabled() {
   )
 }`
 
-// Props definition
 const tabsProps: PropDefinition[] = [
   {
     name: 'value',
@@ -191,7 +237,7 @@ const tabsContentProps: PropDefinition[] = [
   },
 ]
 
-export function TabsPage() {
+export function TabsRefPage() {
   return (
     <DocPage slug="tabs" toc={tocItems}>
       <div className="space-y-12">
@@ -201,16 +247,21 @@ export function TabsPage() {
           {...getNavLinks('tabs')}
         />
 
-        {/* Preview */}
-        <Example title="" code={`<Tabs>...</Tabs>`}>
-          <div className="w-full max-w-md">
-            <TabsBasicDemo />
-          </div>
-        </Example>
+        {/* Props Playground */}
+        <TabsPlayground />
 
         {/* Installation */}
         <Section id="installation" title="Installation">
           <PackageManagerTabs command="barefoot add tabs" />
+        </Section>
+
+        {/* Usage */}
+        <Section id="usage" title="Usage">
+          <Example title="" code={usageCode}>
+            <div className="w-full max-w-md">
+              <TabsBasicDemo />
+            </div>
+          </Example>
         </Section>
 
         {/* Examples */}
@@ -234,17 +285,6 @@ export function TabsPage() {
               </div>
             </Example>
           </div>
-        </Section>
-
-        {/* Accessibility */}
-        <Section id="accessibility" title="Accessibility">
-          <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-            <li><strong className="text-foreground">Keyboard Navigation</strong> - Arrow Left/Right to switch tabs, Home/End to jump to first/last</li>
-            <li><strong className="text-foreground">Focus Management</strong> - Focus moves to the selected tab trigger</li>
-            <li><strong className="text-foreground">ARIA</strong> - role="tablist" on container, role="tab" on triggers, role="tabpanel" on content</li>
-            <li><strong className="text-foreground">State Attributes</strong> - aria-selected on triggers, aria-controls/aria-labelledby for associations</li>
-            <li><strong className="text-foreground">Disabled State</strong> - aria-disabled on disabled tabs, skipped in keyboard navigation</li>
-          </ul>
         </Section>
 
         {/* API Reference */}

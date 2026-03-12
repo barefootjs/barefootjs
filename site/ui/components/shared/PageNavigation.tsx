@@ -60,7 +60,11 @@ export const componentOrder = [
 
 // Chart order for navigation (alphabetical)
 export const chartOrder = [
+  { slug: 'area-chart', title: 'Area Chart' },
   { slug: 'bar-chart', title: 'Bar Chart' },
+  { slug: 'line-chart', title: 'Line Chart' },
+  { slug: 'pie-chart', title: 'Pie Chart' },
+  { slug: 'radar-chart', title: 'Radar Chart' },
   { slug: 'radial-chart', title: 'Radial Chart' },
 ]
 

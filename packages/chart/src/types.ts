@@ -1,4 +1,4 @@
-import type { ScaleBand, ScaleLinear } from 'd3-scale'
+import type { ScaleBand, ScaleLinear, ScalePoint } from 'd3-scale'
 
 /** Color and label configuration for chart data series */
 export type ChartConfig = Record<
@@ -55,6 +55,21 @@ export interface YAxisProps {
   tickFormatter?: (value: number) => string
 }
 
+/** Props for LineChart */
+export interface LineChartProps {
+  data: Record<string, unknown>[]
+  children?: unknown
+}
+
+/** Props for Line */
+export interface LineProps {
+  dataKey: string
+  stroke?: string
+  strokeWidth?: number
+  type?: 'linear' | 'monotone'
+  dot?: boolean
+}
+
 /** Props for ChartTooltip */
 export interface ChartTooltipProps {
   labelFormatter?: (label: string) => string
@@ -62,6 +77,12 @@ export interface ChartTooltipProps {
 
 /** Registration info for a radial bar series */
 export interface RadialBarRegistration {
+  dataKey: string
+  fill: string
+}
+
+/** Registration info for a pie slice */
+export interface PieRegistration {
   dataKey: string
   fill: string
 }
@@ -105,6 +126,40 @@ export interface RadialChartContextValue {
   unregisterRadialBar: (dataKey: string) => void
 }
 
+/** Props for PieChart */
+export interface PieChartProps {
+  data: Record<string, unknown>[]
+  children?: unknown
+}
+
+/** Props for Pie */
+export interface PieProps {
+  dataKey: string
+  nameKey: string
+  fill?: string
+  innerRadius?: number
+  outerRadius?: number
+  paddingAngle?: number
+}
+
+/** Props for PieTooltip */
+export interface PieTooltipProps {
+  labelFormatter?: (label: string) => string
+}
+
+/** Context value shared between PieChart and its children */
+export interface PieChartContextValue {
+  svgGroup: () => SVGGElement | null
+  container: () => HTMLElement | null
+  data: () => Record<string, unknown>[]
+  width: () => number
+  height: () => number
+  config: () => ChartConfig
+  pies: () => PieRegistration[]
+  registerPie: (pie: PieRegistration) => void
+  unregisterPie: (dataKey: string) => void
+}
+
 /** Context value shared between BarChart and its children */
 export interface BarChartContextValue {
   svgGroup: () => SVGGElement | null
@@ -119,5 +174,97 @@ export interface BarChartContextValue {
   bars: () => BarRegistration[]
   registerBar: (bar: BarRegistration) => void
   unregisterBar: (dataKey: string) => void
+  setXDataKey: (key: string) => void
+}
+
+/** Registration info for a radar series */
+export interface RadarRegistration {
+  dataKey: string
+  fill: string
+  fillOpacity: number
+}
+
+/** Registration info for an area series */
+export interface AreaRegistration {
+  dataKey: string
+  fill: string
+  stroke: string
+  fillOpacity: number
+}
+
+/** Props for RadarChart */
+export interface RadarChartProps {
+  data: Record<string, unknown>[]
+  children?: unknown
+}
+
+/** Props for AreaChart */
+export interface AreaChartProps {
+  data: Record<string, unknown>[]
+  children?: unknown
+}
+
+/** Props for Radar */
+export interface RadarProps {
+  dataKey: string
+  fill?: string
+  fillOpacity?: number
+}
+
+/** Props for PolarGrid */
+export interface PolarGridProps {
+  gridType?: 'polygon' | 'circle'
+  show?: boolean
+}
+
+/** Props for PolarAngleAxis */
+export interface PolarAngleAxisProps {
+  dataKey: string
+  tickFormatter?: (value: string) => string
+  hide?: boolean
+}
+
+/** Props for RadarTooltip */
+export interface RadarTooltipProps {
+  labelFormatter?: (label: string) => string
+}
+
+/** Context value shared between RadarChart and its children */
+export interface RadarChartContextValue {
+  svgGroup: () => SVGGElement | null
+  container: () => HTMLElement | null
+  data: () => Record<string, unknown>[]
+  dataKey: () => string
+  radius: () => number
+  radialScale: () => ScaleLinear<number, number> | null
+  config: () => ChartConfig
+  radars: () => RadarRegistration[]
+  registerRadar: (radar: RadarRegistration) => void
+  unregisterRadar: (dataKey: string) => void
+  setDataKey: (key: string) => void
+}
+
+/** Props for Area */
+export interface AreaProps {
+  dataKey: string
+  fill?: string
+  stroke?: string
+  fillOpacity?: number
+}
+
+/** Context value shared between AreaChart and its children */
+export interface AreaChartContextValue {
+  svgGroup: () => SVGGElement | null
+  container: () => HTMLElement | null
+  data: () => Record<string, unknown>[]
+  xDataKey: () => string
+  xScale: () => ScalePoint<string> | null
+  yScale: () => ScaleLinear<number, number> | null
+  innerWidth: () => number
+  innerHeight: () => number
+  config: () => ChartConfig
+  areas: () => AreaRegistration[]
+  registerArea: (area: AreaRegistration) => void
+  unregisterArea: (dataKey: string) => void
   setXDataKey: (key: string) => void
 }

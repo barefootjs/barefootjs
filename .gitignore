@@ -43,6 +43,7 @@ examples/*/node_modules
 
 # Claude Code local overrides
 CLAUDE.local.md
+.claude/worktrees/
 
 # Playwright
 playwright-report/
