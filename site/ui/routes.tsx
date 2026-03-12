@@ -39,7 +39,7 @@ import { AccordionRefPage } from './pages/components/accordion'
 import { CollapsibleRefPage } from './pages/components/collapsible'
 import { CommandPage } from './pages/command'
 import { TabsPage } from './pages/tabs'
-import { DialogPage } from './pages/dialog'
+import { DialogRefPage } from './pages/components/dialog'
 import { ContextMenuPage } from './pages/context-menu'
 import { DatePickerPage } from './pages/date-picker'
 import { DropdownMenuPage } from './pages/dropdown-menu'
@@ -172,7 +172,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Date Picker</h3>
               <p className="text-xs text-muted-foreground">Date selection with calendar popup</p>
             </a>
-            <a href="/docs/components/dialog" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/dialog" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Dialog</h3>
               <p className="text-xs text-muted-foreground">Modal overlay with custom content</p>
             </a>
@@ -485,9 +485,9 @@ export function createApp() {
     return c.render(<DatePickerPage />)
   })
 
-  // Dialog documentation
-  app.get('/docs/components/dialog', (c) => {
-    return c.render(<DialogPage />)
+  // Dialog reference page
+  app.get('/components/dialog', (c) => {
+    return c.render(<DialogRefPage />)
   })
 
   // Context Menu documentation
