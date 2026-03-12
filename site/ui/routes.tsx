@@ -55,7 +55,7 @@ import { ProgressPage } from './pages/progress'
 import { DrawerPage } from './pages/drawer'
 import { SheetPage } from './pages/sheet'
 import { SidebarPage } from './pages/sidebar'
-import { HoverCardPage } from './pages/hover-card'
+import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarPage } from './pages/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
 import { SpinnerPage } from './pages/spinner'
@@ -184,7 +184,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Dropdown Menu</h3>
               <p className="text-xs text-muted-foreground">Action menu triggered by a button</p>
             </a>
-            <a href="/docs/components/hover-card" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/hover-card" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Hover Card</h3>
               <p className="text-xs text-muted-foreground">Preview card on hover</p>
             </a>
@@ -568,9 +568,9 @@ export function createApp() {
   })
 
 
-  // Hover Card documentation
-  app.get('/docs/components/hover-card', (c) => {
-    return c.render(<HoverCardPage />)
+  // Hover Card reference page
+  app.get('/components/hover-card', (c) => {
+    return c.render(<HoverCardRefPage />)
   })
 
   // Resizable reference page
