@@ -57,7 +57,7 @@ import { SheetPage } from './pages/sheet'
 import { SidebarPage } from './pages/sidebar'
 import { HoverCardPage } from './pages/hover-card'
 import { MenubarPage } from './pages/menubar'
-import { NavigationMenuPage } from './pages/navigation-menu'
+import { NavigationMenuRefPage } from './pages/components/navigation-menu'
 import { SpinnerPage } from './pages/spinner'
 import { ComponentCatalogPage } from './pages/components/catalog'
 
@@ -204,7 +204,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Menubar</h3>
               <p className="text-xs text-muted-foreground">Desktop application menu bar</p>
             </a>
-            <a href="/docs/components/navigation-menu" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/navigation-menu" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Navigation Menu</h3>
               <p className="text-xs text-muted-foreground">Hover-activated navigation links</p>
             </a>
@@ -547,9 +547,9 @@ export function createApp() {
     return c.render(<MenubarPage />)
   })
 
-  // Navigation Menu documentation
-  app.get('/docs/components/navigation-menu', (c) => {
-    return c.render(<NavigationMenuPage />)
+  // Navigation Menu reference page
+  app.get('/components/navigation-menu', (c) => {
+    return c.render(<NavigationMenuRefPage />)
   })
 
   // Pagination documentation
