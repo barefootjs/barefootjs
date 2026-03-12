@@ -144,6 +144,7 @@ const menuEntries: SidebarEntry[] = [
       { title: 'Bar Chart', href: '/docs/charts/bar-chart' },
       { title: 'Line Chart', href: '/charts/line-chart' },
       { title: 'Pie Chart', href: '/docs/charts/pie-chart' },
+      { title: 'Radar Chart', href: '/docs/charts/radar-chart' },
     ],
   },
 ]

@@ -83,6 +83,12 @@
       "description": "A pie chart component built with SVG and D3 shapes"
     },
     {
+      "name": "radar-chart",
+      "type": "registry:ui",
+      "title": "Radar Chart",
+      "description": "A radar chart component built with SVG and D3 scales"
+    },
+    {
       "name": "carousel",
       "type": "registry:ui",
       "title": "Carousel",

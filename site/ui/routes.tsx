@@ -62,6 +62,7 @@ import { ComponentCatalogPage } from './pages/components/catalog'
 
 // Chart pages
 import { BarChartRefPage } from './pages/charts/bar-chart'
+import { RadarChartRefPage } from './pages/charts/radar-chart'
 import { PieChartRefPage } from './pages/charts/pie-chart'
 import { AreaChartRefPage } from './pages/charts/area-chart'
 import { LineChartRefPage } from './pages/charts/line-chart'
@@ -604,6 +605,11 @@ export function createApp() {
   // Bar Chart reference page
   app.get('/charts/bar-chart', (c) => {
     return c.render(<BarChartRefPage />)
+  })
+
+  // Radar Chart reference page
+  app.get('/charts/radar-chart', (c) => {
+    return c.render(<RadarChartRefPage />)
   })
 
   // Pie Chart reference page
