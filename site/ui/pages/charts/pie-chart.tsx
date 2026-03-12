@@ -43,19 +43,17 @@ import {
 } from "@/components/ui/chart"
 
 const chartConfig: ChartConfig = {
-  chrome: { label: "Chrome", color: "hsl(221 83% 53%)" },
-  safari: { label: "Safari", color: "hsl(280 65% 60%)" },
-  firefox: { label: "Firefox", color: "hsl(350 65% 55%)" },
-  edge: { label: "Edge", color: "hsl(142 60% 45%)" },
-  other: { label: "Other", color: "hsl(45 80% 55%)" },
+  done: { label: "Done", color: "hsl(220 14% 30%)" },
+  inProgress: { label: "In Progress", color: "hsl(220 14% 50%)" },
+  todo: { label: "To Do", color: "hsl(220 14% 70%)" },
+  backlog: { label: "Backlog", color: "hsl(220 14% 85%)" },
 }
 
 const chartData = [
-  { browser: "chrome", visitors: 275 },
-  { browser: "safari", visitors: 200 },
-  { browser: "firefox", visitors: 187 },
-  { browser: "edge", visitors: 173 },
-  { browser: "other", visitors: 90 },
+  { status: "done", tasks: 42 },
+  { status: "inProgress", tasks: 18 },
+  { status: "todo", tasks: 25 },
+  { status: "backlog", tasks: 15 },
 ]
 
 export function MyPieChart() {
@@ -63,7 +61,7 @@ export function MyPieChart() {
     <ChartContainer config={chartConfig} className="w-full">
       <PieChart data={chartData}>
         <PieTooltip />
-        <Pie dataKey="visitors" nameKey="browser" />
+        <Pie dataKey="tasks" nameKey="status" />
       </PieChart>
     </ChartContainer>
   )
@@ -74,26 +72,24 @@ const basicCode = `"use client"
 import type { ChartConfig } from "@barefootjs/chart"
 
 const chartConfig: ChartConfig = {
-  chrome: { label: "Chrome", color: "hsl(221 83% 53%)" },
-  safari: { label: "Safari", color: "hsl(280 65% 60%)" },
-  firefox: { label: "Firefox", color: "hsl(350 65% 55%)" },
-  edge: { label: "Edge", color: "hsl(142 60% 45%)" },
-  other: { label: "Other", color: "hsl(45 80% 55%)" },
+  done: { label: "Done", color: "hsl(220 14% 30%)" },
+  inProgress: { label: "In Progress", color: "hsl(220 14% 50%)" },
+  todo: { label: "To Do", color: "hsl(220 14% 70%)" },
+  backlog: { label: "Backlog", color: "hsl(220 14% 85%)" },
 }
 
 const chartData = [
-  { browser: "chrome", visitors: 275 },
-  { browser: "safari", visitors: 200 },
-  { browser: "firefox", visitors: 187 },
-  { browser: "edge", visitors: 173 },
-  { browser: "other", visitors: 90 },
+  { status: "done", tasks: 42 },
+  { status: "inProgress", tasks: 18 },
+  { status: "todo", tasks: 25 },
+  { status: "backlog", tasks: 15 },
 ]
 
 export function PieChartBasicDemo() {
   return (
     <ChartContainer config={chartConfig} className="w-full">
       <PieChart data={chartData}>
-        <Pie dataKey="visitors" nameKey="browser" />
+        <Pie dataKey="tasks" nameKey="status" />
       </PieChart>
     </ChartContainer>
   )
@@ -104,8 +100,8 @@ const donutCode = `"use client"
 import type { ChartConfig } from "@barefootjs/chart"
 
 const chartConfig: ChartConfig = {
-  chrome: { label: "Chrome", color: "hsl(221 83% 53%)" },
-  safari: { label: "Safari", color: "hsl(280 65% 60%)" },
+  done: { label: "Done", color: "hsl(220 14% 30%)" },
+  inProgress: { label: "In Progress", color: "hsl(220 14% 50%)" },
   // ...
 }
 
@@ -115,8 +111,8 @@ export function PieChartDonutDemo() {
       <PieChart data={chartData}>
         <PieTooltip />
         <Pie
-          dataKey="visitors"
-          nameKey="browser"
+          dataKey="tasks"
+          nameKey="status"
           innerRadius={0.4}
         />
       </PieChart>
@@ -130,29 +126,29 @@ import { createSignal } from "@barefootjs/dom"
 import type { ChartConfig } from "@barefootjs/chart"
 
 const chartConfig: ChartConfig = {
-  chrome: { label: "Chrome", color: "hsl(221 83% 53%)" },
-  safari: { label: "Safari", color: "hsl(280 65% 60%)" },
+  done: { label: "Done", color: "hsl(220 14% 30%)" },
+  inProgress: { label: "In Progress", color: "hsl(220 14% 50%)" },
   // ...
 }
 
 const interactiveData = [
-  { browser: "chrome", visitors: 275, sessions: 450 },
-  { browser: "safari", visitors: 200, sessions: 320 },
+  { status: "done", tasks: 42, points: 68 },
+  { status: "inProgress", tasks: 18, points: 32 },
   // ...
 ]
 
 export function PieChartInteractiveDemo() {
   const [metric, setMetric] =
-    createSignal<"visitors" | "sessions">("visitors")
+    createSignal<"tasks" | "points">("tasks")
 
   return (
     <div>
       <div className="flex gap-2 mb-4">
-        <button onClick={() => setMetric("visitors")}>
-          Visitors
+        <button onClick={() => setMetric("tasks")}>
+          Tasks
         </button>
-        <button onClick={() => setMetric("sessions")}>
-          Sessions
+        <button onClick={() => setMetric("points")}>
+          Points
         </button>
       </div>
       <ChartContainer config={chartConfig} className="w-full">
@@ -160,7 +156,7 @@ export function PieChartInteractiveDemo() {
           <PieTooltip />
           <Pie
             dataKey={metric()}
-            nameKey="browser"
+            nameKey="status"
             innerRadius={0.3}
             paddingAngle={2}
           />

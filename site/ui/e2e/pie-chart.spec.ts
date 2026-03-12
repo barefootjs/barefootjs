@@ -15,14 +15,14 @@ test.describe('Pie Chart Reference Page', () => {
 
     test('renders the correct number of slices', async ({ page }) => {
       const container = page.locator(scope)
-      const slices = container.locator('path[data-key="visitors"]')
-      await expect(slices).toHaveCount(5)
+      const slices = container.locator('path[data-key="tasks"]')
+      await expect(slices).toHaveCount(4)
     })
 
     test('slices have correct data attributes', async ({ page }) => {
       const container = page.locator(scope)
-      const slice = container.locator('path[data-name="chrome"]')
-      await expect(slice).toHaveAttribute('data-value', '275')
+      const slice = container.locator('path[data-name="done"]')
+      await expect(slice).toHaveAttribute('data-value', '42')
     })
   })
 
@@ -33,15 +33,15 @@ test.describe('Pie Chart Reference Page', () => {
       await expect(preview.locator('svg').first()).toBeVisible()
     })
 
-    test('renders 5 pie slices in playground', async ({ page }) => {
+    test('renders 4 pie slices in playground', async ({ page }) => {
       const preview = page.locator('[data-pie-chart-preview]')
-      const paths = preview.locator('path[data-key="visitors"]')
-      await expect(paths).toHaveCount(5)
+      const paths = preview.locator('path[data-key="tasks"]')
+      await expect(paths).toHaveCount(4)
     })
 
     test('changing innerRadius updates the chart', async ({ page }) => {
       const preview = page.locator('[data-pie-chart-preview]')
-      const path = preview.locator('path[data-key="visitors"]').first()
+      const path = preview.locator('path[data-key="tasks"]').first()
 
       // Get initial d attribute
       const initialD = await path.getAttribute('d')
@@ -62,16 +62,16 @@ test.describe('Pie Chart Reference Page', () => {
     test('renders an SVG with pie slices', async ({ page }) => {
       const container = page.locator('[bf-s^="PieChartBasicDemo_"]:not([data-slot])')
       await expect(container.locator('svg')).toBeVisible()
-      const slices = container.locator('path[data-key="visitors"]')
-      await expect(slices).toHaveCount(5)
+      const slices = container.locator('path[data-key="tasks"]')
+      await expect(slices).toHaveCount(4)
     })
   })
 
   test.describe('Donut', () => {
     test('renders a donut chart with inner radius', async ({ page }) => {
       const container = page.locator('[bf-s^="PieChartDonutDemo_"]:not([data-slot])')
-      const slices = container.locator('path[data-key="visitors"]')
-      await expect(slices).toHaveCount(5)
+      const slices = container.locator('path[data-key="tasks"]')
+      await expect(slices).toHaveCount(4)
     })
   })
 
@@ -79,15 +79,15 @@ test.describe('Pie Chart Reference Page', () => {
     test('switching metric updates the chart', async ({ page }) => {
       const section = page.locator('[bf-s^="PieChartInteractiveDemo_"]:not([data-slot])').first()
 
-      // Initially shows visitors data
-      await expect(section.locator('path[data-key="visitors"]')).toHaveCount(5)
+      // Initially shows tasks data
+      await expect(section.locator('path[data-key="tasks"]')).toHaveCount(4)
 
-      // Click Sessions button
-      await section.locator('button:has-text("Sessions")').click()
+      // Click Points button
+      await section.locator('button:has-text("Points")').click()
 
-      // Should now show sessions data
-      await expect(section.locator('path[data-key="sessions"]')).toHaveCount(5)
-      await expect(section.locator('path[data-key="visitors"]')).toHaveCount(0)
+      // Should now show points data
+      await expect(section.locator('path[data-key="points"]')).toHaveCount(4)
+      await expect(section.locator('path[data-key="tasks"]')).toHaveCount(0)
     })
   })
 
@@ -100,7 +100,7 @@ test.describe('Pie Chart Reference Page', () => {
       await expect(tooltip).toHaveCSS('opacity', '0')
 
       // Hover over a slice
-      const slice = container.locator('path[data-name="chrome"]')
+      const slice = container.locator('path[data-name="done"]')
       await slice.hover()
 
       // Tooltip should become visible

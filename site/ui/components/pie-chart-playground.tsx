@@ -22,19 +22,17 @@ import {
 } from '@ui/components/ui/chart'
 
 const chartConfig: Record<string, { label: string; color: string }> = {
-  chrome: { label: "Chrome", color: "hsl(221 83% 53%)" },
-  safari: { label: "Safari", color: "hsl(280 65% 60%)" },
-  firefox: { label: "Firefox", color: "hsl(350 65% 55%)" },
-  edge: { label: "Edge", color: "hsl(142 60% 45%)" },
-  other: { label: "Other", color: "hsl(45 80% 55%)" },
+  done: { label: "Done", color: "hsl(220 14% 30%)" },
+  inProgress: { label: "In Progress", color: "hsl(220 14% 50%)" },
+  todo: { label: "To Do", color: "hsl(220 14% 70%)" },
+  backlog: { label: "Backlog", color: "hsl(220 14% 85%)" },
 }
 
 const chartData = [
-  { browser: "chrome", visitors: 275 },
-  { browser: "safari", visitors: 200 },
-  { browser: "firefox", visitors: 187 },
-  { browser: "edge", visitors: 173 },
-  { browser: "other", visitors: 90 },
+  { status: "done", tasks: 42 },
+  { status: "inProgress", tasks: 18 },
+  { status: "todo", tasks: 25 },
+  { status: "backlog", tasks: 15 },
 ]
 
 /**
@@ -64,7 +62,7 @@ function buildHighlightedCode(innerRadius: number, paddingAngle: number, showToo
     ? ` ${hlAttr('paddingAngle')}${hlPlain('={' + paddingAngle + '}')}`
     : ''
   lines.push(
-    `${indent}${indent}${hlPlain('&lt;')}${hlTag('Pie')} ${hlAttr('dataKey')}${hlPlain('=')}${hlStr('&quot;visitors&quot;')} ${hlAttr('nameKey')}${hlPlain('=')}${hlStr('&quot;browser&quot;')}${innerProp}${paddingProp} ${hlPlain('/&gt;')}`
+    `${indent}${indent}${hlPlain('&lt;')}${hlTag('Pie')} ${hlAttr('dataKey')}${hlPlain('=')}${hlStr('&quot;tasks&quot;')} ${hlAttr('nameKey')}${hlPlain('=')}${hlStr('&quot;status&quot;')}${innerProp}${paddingProp} ${hlPlain('/&gt;')}`
   )
 
   lines.push(
@@ -93,7 +91,7 @@ function buildPlainCode(innerRadius: number, paddingAngle: number, showTooltip: 
 
   const innerProp = innerRadius !== 0 ? ` innerRadius={${innerRadius}}` : ''
   const paddingProp = paddingAngle !== 0 ? ` paddingAngle={${paddingAngle}}` : ''
-  lines.push(`${indent}${indent}<Pie dataKey="visitors" nameKey="browser"${innerProp}${paddingProp} />`)
+  lines.push(`${indent}${indent}<Pie dataKey="tasks" nameKey="status"${innerProp}${paddingProp} />`)
 
   lines.push(`${indent}</PieChart>`)
   lines.push('</ChartContainer>')
@@ -123,8 +121,8 @@ function PieChartPlayground(_props: {}) {
             <PieChart data={chartData}>
               <PieTooltip />
               <Pie
-                dataKey="visitors"
-                nameKey="browser"
+                dataKey="tasks"
+                nameKey="status"
                 innerRadius={innerRadius()}
                 paddingAngle={paddingAngle()}
               />
