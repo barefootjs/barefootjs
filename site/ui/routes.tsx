@@ -43,7 +43,7 @@ import { ContextMenuRefPage } from './pages/components/context-menu'
 import { DatePickerRefPage } from './pages/components/date-picker'
 import { DropdownMenuRefPage } from './pages/components/dropdown-menu'
 import { ToastPage } from './pages/toast'
-import { TooltipPage } from './pages/tooltip'
+import { TooltipRefPage } from './pages/components/tooltip'
 import { ResizableRefPage } from './pages/components/resizable'
 import { ScrollAreaRefPage } from './pages/components/scroll-area'
 import { SeparatorRefPage } from './pages/components/separator'
@@ -287,7 +287,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Toggle Group</h3>
               <p className="text-xs text-muted-foreground">Group of toggle buttons</p>
             </a>
-            <a href="/docs/components/tooltip" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/tooltip" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Tooltip</h3>
               <p className="text-xs text-muted-foreground">Informational text on hover</p>
             </a>
@@ -524,9 +524,9 @@ export function createApp() {
     return c.render(<ToggleGroupRefPage />)
   })
 
-  // Tooltip documentation
-  app.get('/docs/components/tooltip', (c) => {
-    return c.render(<TooltipPage />)
+  // Tooltip reference page
+  app.get('/components/tooltip', (c) => {
+    return c.render(<TooltipRefPage />)
   })
 
 

@@ -120,7 +120,7 @@ const menuEntries: SidebarEntry[] = [
       { title: 'Toast', href: '/docs/components/toast' },
       { title: 'Toggle', href: '/components/toggle' },
       { title: 'Toggle Group', href: '/components/toggle-group' },
-      { title: 'Tooltip', href: '/docs/components/tooltip' },
+      { title: 'Tooltip', href: '/components/tooltip' },
     ],
   },
   {
