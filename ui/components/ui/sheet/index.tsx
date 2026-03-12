@@ -270,7 +270,6 @@ interface SheetContentProps extends HTMLBaseAttributes {
  * @param props.ariaDescribedby - ID of description for accessibility
  */
 function SheetContent(props: SheetContentProps) {
-  const side = props.side ?? 'right'
   const showClose = props.showCloseButton !== false
 
   const handleMount = (el: HTMLElement) => {
@@ -291,6 +290,7 @@ function SheetContent(props: SheetContentProps) {
       for (const fn of cleanupFns) fn()
       cleanupFns = []
 
+      const side = props.side ?? 'right'
       const isOpen = ctx.open()
       el.dataset.state = isOpen ? 'open' : 'closed'
       el.className = `${sheetContentBaseClasses} ${sideClasses[side]} ${isOpen ? sideOpenClasses[side] : sideClosedClasses[side]} ${props.className ?? ''}`
@@ -363,7 +363,7 @@ function SheetContent(props: SheetContentProps) {
       aria-describedby={props.ariaDescribedby}
       tabindex={-1}
       id={props.id}
-      className={`${sheetContentBaseClasses} ${sideClasses[side]} ${sideClosedClasses[side]} ${props.className ?? ''}`}
+      className={`${sheetContentBaseClasses} ${sideClasses[props.side ?? 'right']} ${sideClosedClasses[props.side ?? 'right']} ${props.className ?? ''}`}
       ref={handleMount}
     >
       {props.children}
