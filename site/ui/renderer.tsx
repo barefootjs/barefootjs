@@ -101,7 +101,7 @@ const menuEntries: SidebarEntry[] = [
       { title: 'Menubar', href: '/components/menubar' },
       { title: 'Navigation Menu', href: '/components/navigation-menu' },
       { title: 'Pagination', href: '/components/pagination' },
-      { title: 'Popover', href: '/docs/components/popover' },
+      { title: 'Popover', href: '/components/popover' },
       { title: 'Progress', href: '/docs/components/progress' },
       { title: 'Radio Group', href: '/components/radio-group' },
       { title: 'Resizable', href: '/components/resizable' },
