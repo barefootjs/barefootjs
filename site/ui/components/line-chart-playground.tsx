@@ -9,7 +9,8 @@
 import { createSignal, createEffect } from '@barefootjs/dom'
 import { CopyButton } from './copy-button'
 import {
-  hlPlain, hlTag, hlAttr, hlStr,
+  highlightJsxTree, plainJsxTree,
+  type JsxTreeNode, type HighlightProp,
 } from './shared/playground-highlight'
 import { PlaygroundLayout, PlaygroundControl } from './shared/PlaygroundLayout'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@ui/components/ui/select'
@@ -38,83 +39,45 @@ const chartData = [
 ]
 
 /**
- * Build highlighted JSX string for the composed LineChart pattern.
+ * Build the JSX tree description for code display.
  */
-function buildHighlightedCode(strokeWidth: number, curveType: string, showDots: boolean, showGrid: boolean): string {
-  const indent = '  '
-  const lines: string[] = []
-
-  lines.push(
-    `${hlPlain('&lt;')}${hlTag('ChartContainer')} ${hlAttr('config')}${hlPlain('={chartConfig}')} ${hlAttr('className')}${hlPlain('=')}${hlStr('&quot;w-full&quot;')}${hlPlain('&gt;')}`
-  )
-  lines.push(
-    `${indent}${hlPlain('&lt;')}${hlTag('LineChart')} ${hlAttr('data')}${hlPlain('={chartData}')}${hlPlain('&gt;')}`
-  )
+function buildCodeTree(strokeWidth: number, curveType: string, showDots: boolean, showGrid: boolean): JsxTreeNode {
+  const chartChildren: JsxTreeNode[] = []
 
   if (showGrid) {
-    lines.push(
-      `${indent}${indent}${hlPlain('&lt;')}${hlTag('CartesianGrid')} ${hlAttr('vertical')}${hlPlain('={false}')} ${hlPlain('/&gt;')}`
-    )
+    chartChildren.push({
+      tag: 'CartesianGrid',
+      props: [{ name: 'vertical', value: 'false', defaultValue: '', kind: 'expression' }],
+    })
   }
 
-  lines.push(
-    `${indent}${indent}${hlPlain('&lt;')}${hlTag('XAxis')} ${hlAttr('dataKey')}${hlPlain('=')}${hlStr('&quot;month&quot;')} ${hlPlain('/&gt;')}`
-  )
-  lines.push(
-    `${indent}${indent}${hlPlain('&lt;')}${hlTag('YAxis')} ${hlPlain('/&gt;')}`
-  )
-  lines.push(
-    `${indent}${indent}${hlPlain('&lt;')}${hlTag('ChartTooltip')} ${hlPlain('/&gt;')}`
+  chartChildren.push(
+    { tag: 'XAxis', props: [{ name: 'dataKey', value: 'month', defaultValue: '' }] },
+    { tag: 'YAxis' },
+    { tag: 'ChartTooltip' },
   )
 
-  const strokeWidthProp = strokeWidth !== 2
-    ? ` ${hlAttr('strokeWidth')}${hlPlain('={' + strokeWidth + '}')}`
-    : ''
-  const typeProp = ` ${hlAttr('type')}${hlPlain('=')}${hlStr('&quot;' + curveType + '&quot;')}`
-  const dotProp = !showDots
-    ? ` ${hlAttr('dot')}${hlPlain('={false}')}`
-    : ''
-  lines.push(
-    `${indent}${indent}${hlPlain('&lt;')}${hlTag('Line')} ${hlAttr('dataKey')}${hlPlain('=')}${hlStr('&quot;desktop&quot;')} ${hlAttr('stroke')}${hlPlain('=')}${hlStr('&quot;var(--color-desktop)&quot;')}${strokeWidthProp}${typeProp}${dotProp} ${hlPlain('/&gt;')}`
-  )
+  const lineProps: HighlightProp[] = [
+    { name: 'dataKey', value: 'desktop', defaultValue: '' },
+    { name: 'stroke', value: 'var(--color-desktop)', defaultValue: '' },
+    { name: 'strokeWidth', value: String(strokeWidth), defaultValue: '2', kind: 'expression' },
+    { name: 'type', value: curveType, defaultValue: '' },
+    { name: 'dot', value: String(showDots), defaultValue: 'true', kind: 'expression' },
+  ]
+  chartChildren.push({ tag: 'Line', props: lineProps })
 
-  lines.push(
-    `${indent}${hlPlain('&lt;/')}${hlTag('LineChart')}${hlPlain('&gt;')}`
-  )
-  lines.push(
-    `${hlPlain('&lt;/')}${hlTag('ChartContainer')}${hlPlain('&gt;')}`
-  )
-
-  return lines.join('\n')
-}
-
-/**
- * Build plain-text JSX string for clipboard copy.
- */
-function buildPlainCode(strokeWidth: number, curveType: string, showDots: boolean, showGrid: boolean): string {
-  const indent = '  '
-  const lines: string[] = []
-
-  lines.push('<ChartContainer config={chartConfig} className="w-full">')
-  lines.push(`${indent}<LineChart data={chartData}>`)
-
-  if (showGrid) {
-    lines.push(`${indent}${indent}<CartesianGrid vertical={false} />`)
+  return {
+    tag: 'ChartContainer',
+    props: [
+      { name: 'config', value: 'chartConfig', defaultValue: '', kind: 'expression' },
+      { name: 'className', value: 'w-full', defaultValue: '' },
+    ],
+    children: [{
+      tag: 'LineChart',
+      props: [{ name: 'data', value: 'chartData', defaultValue: '', kind: 'expression' }],
+      children: chartChildren,
+    }],
   }
-
-  lines.push(`${indent}${indent}<XAxis dataKey="month" />`)
-  lines.push(`${indent}${indent}<YAxis />`)
-  lines.push(`${indent}${indent}<ChartTooltip />`)
-
-  const strokeWidthProp = strokeWidth !== 2 ? ` strokeWidth={${strokeWidth}}` : ''
-  const typeProp = ` type="${curveType}"`
-  const dotProp = !showDots ? ' dot={false}' : ''
-  lines.push(`${indent}${indent}<Line dataKey="desktop" stroke="var(--color-desktop)"${strokeWidthProp}${typeProp}${dotProp} />`)
-
-  lines.push(`${indent}</LineChart>`)
-  lines.push('</ChartContainer>')
-
-  return lines.join('\n')
 }
 
 function LineChartPlayground(_props: {}) {
@@ -129,7 +92,7 @@ function LineChartPlayground(_props: {}) {
     const d = showDots()
     const g = showGrid()
     const codeEl = document.querySelector('[data-playground-code]') as HTMLElement
-    if (codeEl) codeEl.innerHTML = buildHighlightedCode(sw, ct, d, g)
+    if (codeEl) codeEl.innerHTML = highlightJsxTree(buildCodeTree(sw, ct, d, g))
   })
 
   return (
@@ -195,7 +158,7 @@ function LineChartPlayground(_props: {}) {
           />
         </PlaygroundControl>
       </>}
-      copyButton={<CopyButton code={buildPlainCode(strokeWidth(), curveType(), showDots(), showGrid())} />}
+      copyButton={<CopyButton code={plainJsxTree(buildCodeTree(strokeWidth(), curveType(), showDots(), showGrid()))} />}
     />
   )
 }
