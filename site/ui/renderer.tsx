@@ -93,7 +93,7 @@ const menuEntries: SidebarEntry[] = [
       { title: 'Date Picker', href: '/components/date-picker' },
       { title: 'Dialog', href: '/components/dialog' },
       { title: 'Drawer', href: '/components/drawer' },
-      { title: 'Dropdown Menu', href: '/docs/components/dropdown-menu' },
+      { title: 'Dropdown Menu', href: '/components/dropdown-menu' },
       { title: 'Hover Card', href: '/components/hover-card' },
       { title: 'Input', href: '/components/input' },
       { title: 'Input OTP', href: '/components/input-otp' },

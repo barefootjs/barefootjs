@@ -41,7 +41,7 @@ import { TabsPage } from './pages/tabs'
 import { DialogRefPage } from './pages/components/dialog'
 import { ContextMenuRefPage } from './pages/components/context-menu'
 import { DatePickerRefPage } from './pages/components/date-picker'
-import { DropdownMenuPage } from './pages/dropdown-menu'
+import { DropdownMenuRefPage } from './pages/components/dropdown-menu'
 import { ToastPage } from './pages/toast'
 import { TooltipPage } from './pages/tooltip'
 import { ResizableRefPage } from './pages/components/resizable'
@@ -179,7 +179,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Drawer</h3>
               <p className="text-xs text-muted-foreground">Slide-out panel from screen edge</p>
             </a>
-            <a href="/docs/components/dropdown-menu" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/dropdown-menu" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Dropdown Menu</h3>
               <p className="text-xs text-muted-foreground">Action menu triggered by a button</p>
             </a>
@@ -494,9 +494,9 @@ export function createApp() {
     return c.render(<ContextMenuRefPage />)
   })
 
-// Dropdown Menu documentation
-  app.get('/docs/components/dropdown-menu', (c) => {
-    return c.render(<DropdownMenuPage />)
+// Dropdown Menu reference page
+  app.get('/components/dropdown-menu', (c) => {
+    return c.render(<DropdownMenuRefPage />)
   })
 
   // Toast documentation
