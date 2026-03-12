@@ -53,14 +53,19 @@ function ContextMenuPlayground(_props: {}) {
     if (codeEl) codeEl.innerHTML = highlightContextMenuJsx(v)
   })
 
-  // Update variant on live items
+  // Update variant classes on live items
+  const defaultClasses = 'text-popover-foreground hover:bg-accent/50 focus:bg-accent focus:text-accent-foreground'
+  const destructiveClasses = 'text-destructive hover:bg-accent/50 focus:bg-accent focus:text-destructive'
   createEffect(() => {
     const v = variant()
     const container = document.querySelector('[data-context-menu-preview]') as HTMLElement
     if (!container) return
     const items = container.querySelectorAll('[data-slot="context-menu-item"]') as NodeListOf<HTMLElement>
+    const removeClasses = v === 'destructive' ? defaultClasses : destructiveClasses
+    const addClasses = v === 'destructive' ? destructiveClasses : defaultClasses
     items.forEach(item => {
-      item.dataset.variant = v
+      removeClasses.split(' ').forEach(c => item.classList.remove(c))
+      addClasses.split(' ').forEach(c => item.classList.add(c))
     })
   })
 
