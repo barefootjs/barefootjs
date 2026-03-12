@@ -39,7 +39,7 @@ import { AccordionRefPage } from './pages/components/accordion'
 import { CollapsibleRefPage } from './pages/components/collapsible'
 import { CommandPage } from './pages/command'
 import { TabsPage } from './pages/tabs'
-import { DialogPage } from './pages/dialog'
+import { DialogRefPage } from './pages/components/dialog'
 import { ContextMenuRefPage } from './pages/components/context-menu'
 import { DatePickerPage } from './pages/date-picker'
 import { DropdownMenuPage } from './pages/dropdown-menu'
@@ -55,9 +55,9 @@ import { ProgressPage } from './pages/progress'
 import { DrawerPage } from './pages/drawer'
 import { SheetPage } from './pages/sheet'
 import { SidebarPage } from './pages/sidebar'
-import { HoverCardPage } from './pages/hover-card'
+import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarPage } from './pages/menubar'
-import { NavigationMenuPage } from './pages/navigation-menu'
+import { NavigationMenuRefPage } from './pages/components/navigation-menu'
 import { SpinnerPage } from './pages/spinner'
 import { ComponentCatalogPage } from './pages/components/catalog'
 
@@ -172,7 +172,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Date Picker</h3>
               <p className="text-xs text-muted-foreground">Date selection with calendar popup</p>
             </a>
-            <a href="/docs/components/dialog" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/dialog" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Dialog</h3>
               <p className="text-xs text-muted-foreground">Modal overlay with custom content</p>
             </a>
@@ -184,7 +184,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Dropdown Menu</h3>
               <p className="text-xs text-muted-foreground">Action menu triggered by a button</p>
             </a>
-            <a href="/docs/components/hover-card" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/hover-card" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Hover Card</h3>
               <p className="text-xs text-muted-foreground">Preview card on hover</p>
             </a>
@@ -204,7 +204,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Menubar</h3>
               <p className="text-xs text-muted-foreground">Desktop application menu bar</p>
             </a>
-            <a href="/docs/components/navigation-menu" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/navigation-menu" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Navigation Menu</h3>
               <p className="text-xs text-muted-foreground">Hover-activated navigation links</p>
             </a>
@@ -485,9 +485,9 @@ export function createApp() {
     return c.render(<DatePickerPage />)
   })
 
-  // Dialog documentation
-  app.get('/docs/components/dialog', (c) => {
-    return c.render(<DialogPage />)
+  // Dialog reference page
+  app.get('/components/dialog', (c) => {
+    return c.render(<DialogRefPage />)
   })
 
   // Context Menu reference page
@@ -547,9 +547,9 @@ export function createApp() {
     return c.render(<MenubarPage />)
   })
 
-  // Navigation Menu documentation
-  app.get('/docs/components/navigation-menu', (c) => {
-    return c.render(<NavigationMenuPage />)
+  // Navigation Menu reference page
+  app.get('/components/navigation-menu', (c) => {
+    return c.render(<NavigationMenuRefPage />)
   })
 
   // Pagination documentation
@@ -568,9 +568,9 @@ export function createApp() {
   })
 
 
-  // Hover Card documentation
-  app.get('/docs/components/hover-card', (c) => {
-    return c.render(<HoverCardPage />)
+  // Hover Card reference page
+  app.get('/components/hover-card', (c) => {
+    return c.render(<HoverCardRefPage />)
   })
 
   // Resizable reference page
