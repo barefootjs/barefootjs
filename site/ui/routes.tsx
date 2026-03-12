@@ -46,7 +46,6 @@ import { ContextMenuPage } from './pages/context-menu'
 import { DatePickerPage } from './pages/date-picker'
 import { DropdownMenuPage } from './pages/dropdown-menu'
 import { ToastPage } from './pages/toast'
-import { TogglePage } from './pages/toggle'
 import { ToggleGroupPage } from './pages/toggle-group'
 import { TooltipPage } from './pages/tooltip'
 import { SelectPage } from './pages/select'
@@ -289,7 +288,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Toast</h3>
               <p className="text-xs text-muted-foreground">Temporary notification message</p>
             </a>
-            <a href="/docs/components/toggle" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/toggle" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Toggle</h3>
               <p className="text-xs text-muted-foreground">Two-state pressed button</p>
             </a>
@@ -522,11 +521,6 @@ export function createApp() {
   // Toast documentation
   app.get('/docs/components/toast', (c) => {
     return c.render(<ToastPage />)
-  })
-
-  // Toggle documentation
-  app.get('/docs/components/toggle', (c) => {
-    return c.render(<TogglePage />)
   })
 
   // Toggle Group documentation
