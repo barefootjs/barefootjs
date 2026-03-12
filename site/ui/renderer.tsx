@@ -98,7 +98,7 @@ const menuEntries: SidebarEntry[] = [
       { title: 'Input', href: '/components/input' },
       { title: 'Input OTP', href: '/components/input-otp' },
       { title: 'Label', href: '/components/label' },
-      { title: 'Menubar', href: '/docs/components/menubar' },
+      { title: 'Menubar', href: '/components/menubar' },
       { title: 'Navigation Menu', href: '/components/navigation-menu' },
       { title: 'Pagination', href: '/docs/components/pagination' },
       { title: 'Popover', href: '/docs/components/popover' },
