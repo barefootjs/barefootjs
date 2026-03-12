@@ -33,15 +33,14 @@ import { InputOTPRefPage } from './pages/components/input-otp'
 import { SliderRefPage } from './pages/components/slider'
 import { ToggleGroupRefPage } from './pages/components/toggle-group'
 import { BreadcrumbRefPage } from './pages/components/breadcrumb'
-import { CalendarPage } from './pages/calendar'
 import { CheckboxRefPage } from './pages/components/checkbox'
 import { AccordionRefPage } from './pages/components/accordion'
 import { CollapsibleRefPage } from './pages/components/collapsible'
-import { CommandPage } from './pages/command'
+import { CommandRefPage } from './pages/components/command'
 import { TabsPage } from './pages/tabs'
 import { DialogRefPage } from './pages/components/dialog'
 import { ContextMenuRefPage } from './pages/components/context-menu'
-import { DatePickerPage } from './pages/date-picker'
+import { DatePickerRefPage } from './pages/components/date-picker'
 import { DropdownMenuPage } from './pages/dropdown-menu'
 import { ToastPage } from './pages/toast'
 import { TooltipPage } from './pages/tooltip'
@@ -152,7 +151,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Collapsible</h3>
               <p className="text-xs text-muted-foreground">Expandable content section</p>
             </a>
-            <a href="/docs/components/command" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/command" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Command</h3>
               <p className="text-xs text-muted-foreground">Search and command menu</p>
             </a>
@@ -168,7 +167,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Data Table</h3>
               <p className="text-xs text-muted-foreground">Sortable, filterable data table</p>
             </a>
-            <a href="/docs/components/date-picker" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/date-picker" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Date Picker</h3>
               <p className="text-xs text-muted-foreground">Date selection with calendar popup</p>
             </a>
@@ -445,9 +444,9 @@ export function createApp() {
     return c.render(<CollapsibleRefPage />)
   })
 
-  // Command documentation
-  app.get('/docs/components/command', (c) => {
-    return c.render(<CommandPage />)
+  // Command reference page
+  app.get('/components/command', (c) => {
+    return c.render(<CommandRefPage />)
   })
 
   // Checkbox reference page
@@ -480,9 +479,9 @@ export function createApp() {
     return c.render(<TabsPage />)
   })
 
-  // Date Picker documentation
-  app.get('/docs/components/date-picker', (c) => {
-    return c.render(<DatePickerPage />)
+  // Date Picker reference page
+  app.get('/components/date-picker', (c) => {
+    return c.render(<DatePickerRefPage />)
   })
 
   // Dialog reference page
