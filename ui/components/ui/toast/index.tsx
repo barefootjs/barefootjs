@@ -142,22 +142,26 @@ interface ToastProviderProps extends HTMLBaseAttributes {
  * @param props.position - Position of the container
  */
 function ToastProvider(props: ToastProviderProps) {
-  const position = props.position ?? 'bottom-right'
-
   const handleMount = (el: HTMLElement) => {
     // Portal to body
     if (el && el.parentNode !== document.body && !isSSRPortal(el)) {
       const ownerScope = el.closest('[bf-s]') ?? undefined
       createPortal(el, document.body, { ownerScope })
     }
+
+    createEffect(() => {
+      const position = props.position ?? 'bottom-right'
+      el.dataset.position = position
+      el.className = `${toastProviderClasses} ${positionClasses[position]} ${props.className ?? ''}`
+    })
   }
 
   return (
     <div
       data-slot="toast-provider"
       id={props.id}
-      data-position={position}
-      className={`${toastProviderClasses} ${positionClasses[position]} ${props.className ?? ''}`}
+      data-position={props.position ?? 'bottom-right'}
+      className={`${toastProviderClasses} ${positionClasses[props.position ?? 'bottom-right']} ${props.className ?? ''}`}
       ref={handleMount}
     >
       {props.children}
@@ -209,19 +213,19 @@ function Toast(props: ToastProps) {
 
   const handleMount = (el: HTMLElement) => {
     const providerEl = el.closest('[data-slot="toast-provider"]') as HTMLElement
-    const position = (providerEl?.dataset.position ?? 'bottom-right') as ToastPosition
-    const stateClasses = getToastStateClasses(position)
     let dismissTimer: ReturnType<typeof setTimeout> | null = null
 
     // Transition to hidden after exit animation completes
     el.addEventListener('transitionend', () => {
       if (el.dataset.state === 'exiting') {
         el.dataset.state = 'hidden'
-        el.className = `${stateClasses.hidden} ${toastBaseClasses} ${toastVariantClass} ${className}`
+        el.className = `hidden ${toastBaseClasses} ${toastVariantClass} ${className}`
       }
     })
 
     createEffect(() => {
+      const position = (providerEl?.dataset.position ?? 'bottom-right') as ToastPosition
+      const stateClasses = getToastStateClasses(position)
       const isOpen = props.open ?? false
       const duration = props.duration ?? 5000
 
