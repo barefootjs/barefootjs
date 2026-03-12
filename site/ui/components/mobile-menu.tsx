@@ -210,7 +210,7 @@ export function MobileMenu() {
                   <a href="/components/button" className={menuLinkClass}>Button</a>
                   <a href="/components/card" className={menuLinkClass}>Card</a>
                   <a href="/components/checkbox" className={menuLinkClass}>Checkbox</a>
-                  <a href="/docs/components/dialog" className={menuLinkClass}>Dialog</a>
+                  <a href="/components/dialog" className={menuLinkClass}>Dialog</a>
                   <a href="/components/dropdown-menu" className={menuLinkClass}>Dropdown Menu</a>
                   <a href="/components/input" className={menuLinkClass}>Input</a>
                   <a href="/components/select" className={menuLinkClass}>Select</a>
