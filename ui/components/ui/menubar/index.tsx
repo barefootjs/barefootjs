@@ -447,6 +447,24 @@ function MenubarItem(props: MenubarItemProps) {
   const handleMount = (el: HTMLElement) => {
     const barCtx = useContext(MenubarContext)
 
+    // Reactively update disabled state
+    createEffect(() => {
+      const isDisabled = props.disabled ?? false
+      const isDestructive = props.variant === 'destructive'
+      const stateClasses = isDisabled
+        ? menubarItemDisabledClasses
+        : isDestructive
+          ? menubarItemDestructiveClasses
+          : menubarItemDefaultClasses
+      if (isDisabled) {
+        el.setAttribute('aria-disabled', 'true')
+      } else {
+        el.removeAttribute('aria-disabled')
+      }
+      el.tabIndex = isDisabled ? -1 : 0
+      el.className = `${menubarItemBaseClasses} ${stateClasses} ${props.className ?? ''}`
+    })
+
     el.addEventListener('click', () => {
       if (el.getAttribute('aria-disabled') === 'true') return
       props.onSelect?.()
@@ -459,22 +477,13 @@ function MenubarItem(props: MenubarItemProps) {
     })
   }
 
-  const isDisabled = props.disabled ?? false
-  const isDestructive = props.variant === 'destructive'
-  const stateClasses = isDisabled
-    ? menubarItemDisabledClasses
-    : isDestructive
-      ? menubarItemDestructiveClasses
-      : menubarItemDefaultClasses
-
   return (
     <div
       data-slot="menubar-item"
       role="menuitem"
       id={props.id}
-      aria-disabled={isDisabled || undefined}
-      tabindex={isDisabled ? -1 : 0}
-      className={`${menubarItemBaseClasses} ${stateClasses} ${props.className ?? ''}`}
+      tabindex={0}
+      className={`${menubarItemBaseClasses} ${menubarItemDefaultClasses}`}
       ref={handleMount}
     >
       {props.children}
