@@ -248,7 +248,7 @@ export function MobileMenu() {
                   <ChevronRightIcon size="sm" className={chevronClass} />
                 </summary>
                 <div className="pl-2 py-1 space-y-0.5">
-                  <a href="/docs/charts/bar-chart" className={menuLinkClass}>Bar Chart</a>
+                  <a href="/charts/bar-chart" className={menuLinkClass}>Bar Chart</a>
                 </div>
               </details>
             </div>

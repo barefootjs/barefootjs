@@ -394,7 +394,7 @@ const catalogEntries: CatalogEntry[] = [
 ]
 
 function ComponentCard({ entry }: { entry: CatalogEntry }) {
-  const href = `/docs/components/${entry.slug}`
+  const href = `/components/${entry.slug}`
   return (
     <a
       href={href}

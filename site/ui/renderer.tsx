@@ -140,11 +140,11 @@ const menuEntries: SidebarEntry[] = [
   {
     title: 'Charts',
     links: [
-      { title: 'Area Chart', href: '/docs/charts/area-chart' },
+      { title: 'Area Chart', href: '/charts/area-chart' },
       { title: 'Bar Chart', href: '/charts/bar-chart' },
       { title: 'Line Chart', href: '/charts/line-chart' },
-      { title: 'Pie Chart', href: '/docs/charts/pie-chart' },
-      { title: 'Radar Chart', href: '/docs/charts/radar-chart' },
+      { title: 'Pie Chart', href: '/charts/pie-chart' },
+      { title: 'Radar Chart', href: '/charts/radar-chart' },
       { title: 'Radial Chart', href: '/charts/radial-chart' },
     ],
   },
