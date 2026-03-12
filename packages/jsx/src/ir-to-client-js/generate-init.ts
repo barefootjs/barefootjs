@@ -35,7 +35,7 @@ import {
  * Orchestrate client JS code generation: analyze dependencies, emit code sections,
  * and resolve imports. Returns the complete init function + registration code.
  */
-export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, siblingComponents?: string[], usedAsChild?: Set<string>, localImportPrefixes?: string[]): string {
+export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, siblingComponents?: string[], localImportPrefixes?: string[]): string {
   const lines: string[] = []
   const name = ctx.componentName
 
@@ -240,7 +240,7 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   emitRefCallbacks(lines, ctx, conditionalSlotIds)
   emitEffectsAndOnMounts(lines, ctx)
   emitProviderAndChildInits(lines, ctx)
-  const hydrateLine = emitRegistrationAndHydration(lines, ctx, _ir, usedAsChild)
+  const hydrateLine = emitRegistrationAndHydration(lines, ctx, _ir)
 
   let generatedCode = lines.join('\n')
 

@@ -678,9 +678,8 @@ describe('Client JS generation', () => {
       expect(clientJs).toBeDefined()
       const content = clientJs!.content
 
-      // Top-level-only: no CSR fallback template (saves bytes)
-      expect(content).not.toContain('template:')
-      expect(content).toContain("hydrate('Display', { init: initDisplay })")
+      // All components get CSR fallback templates for cross-file conditional use
+      expect(content).toMatch(/hydrate\('Display',.*template:/)
     })
 
     test('signal-dependent constant gets CSR fallback when used as child', () => {
@@ -1914,8 +1913,10 @@ describe('Client JS generation', () => {
       expect(clientJs).toBeDefined()
       const content = clientJs!.content
 
-      // Rest props spread should use applyRestAttrs, not spreadAttrs
-      expect(content).not.toContain('spreadAttrs(')
+      // Rest props spread in init function should NOT use spreadAttrs.
+      // (CSR fallback template may use spreadAttrs — that's correct for template rendering.)
+      const initBody = content.split(/hydrate\(/)[0]
+      expect(initBody).not.toContain('spreadAttrs(')
     })
 
     test('multiple spreads: rest props identified when not first spread (#599)', () => {

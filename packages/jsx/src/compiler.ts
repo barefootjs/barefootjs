@@ -16,7 +16,6 @@ import { analyzeComponent, listExportedComponents, createProgramForFile, needsTy
 import { jsxToIR } from './jsx-to-ir'
 import { generateClientJs, analyzeClientNeeds } from './ir-to-client-js'
 import { generateModuleExports } from './module-exports'
-import { collectComponentNamesFromIR } from './ir-to-client-js/generate-init'
 import { applyCssLayerPrefix } from './css-layer-prefixer'
 
 /**
@@ -108,7 +107,7 @@ export async function compileJSX(
     type: 'markedTemplate',
   })
 
-  const clientJs = generateClientJs(componentIR, undefined, undefined, options.localImportPrefixes)
+  const clientJs = generateClientJs(componentIR, undefined, options.localImportPrefixes)
   errors.push(...componentIR.errors)
   if (clientJs) {
     files.push({
@@ -169,12 +168,6 @@ function compileMultipleComponentsSync(
     entries.push({ componentIR, ctx })
   }
 
-  // --- Between passes: collect usedAsChild set ---
-  const usedAsChild = new Set<string>()
-  for (const { componentIR } of entries) {
-    collectComponentNamesFromIR([componentIR.root], usedAsChild)
-  }
-
   // --- Pass 2: adapter.generate + generateClientJs ---
   const allOutputs: { imports: string; types: string; moduleExports: string; component: string; clientJs?: string }[] = []
 
@@ -227,7 +220,7 @@ function compileMultipleComponentsSync(
       types,
       moduleExports: moduleExports || '',
       component,
-      clientJs: generateClientJs(componentIR, componentNames, usedAsChild, options.localImportPrefixes) || undefined,
+      clientJs: generateClientJs(componentIR, componentNames, options.localImportPrefixes) || undefined,
     })
     errors.push(...componentIR.errors)
   }
@@ -455,7 +448,7 @@ export function compileJSXSync(
     type: 'markedTemplate',
   })
 
-  const clientJs = generateClientJs(componentIR, undefined, undefined, options.localImportPrefixes)
+  const clientJs = generateClientJs(componentIR, undefined, options.localImportPrefixes)
   errors.push(...componentIR.errors)
   if (clientJs) {
     files.push({

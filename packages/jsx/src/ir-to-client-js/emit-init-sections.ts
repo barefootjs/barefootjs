@@ -1150,7 +1150,6 @@ export function emitRegistrationAndHydration(
   lines: string[],
   ctx: ClientJsContext,
   _ir: ComponentIR,
-  usedAsChild?: Set<string>
 ): string {
   const name = ctx.componentName
 
@@ -1176,9 +1175,10 @@ export function emitRegistrationAndHydration(
     if (templateHtml) {
       defParts.push(`template: (${PROPS_PARAM}) => \`${templateHtml}\``)
     }
-  } else if (usedAsChild?.has(name)) {
-    // CSR fallback: only emit when this component is used as a child by another
-    // component in the same file. Top-level-only components skip this to save bytes.
+  } else {
+    // CSR fallback: emit for all components that can't generate static templates.
+    // Components may be imported and used in conditional branches in other files,
+    // where renderChild() needs a registered template to render HTML correctly.
     const { signalMap, memoMap } = buildSignalAndMemoMaps(ctx)
     const csrInlinableConstants = buildCsrInlinableConstants(ctx, inlinableConstants, unsafeLocalNames, signalMap, memoMap)
 

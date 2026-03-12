@@ -16,7 +16,7 @@ import { buildInlinableConstants, buildSignalAndMemoMaps, buildCsrInlinableConst
 import { IMPORT_PLACEHOLDER, detectUsedImports } from './imports'
 
 /** Public entry point: IR → client JS string. Returns '' if no client JS is needed. */
-export function generateClientJs(ir: ComponentIR, siblingComponents?: string[], usedAsChild?: Set<string>, localImportPrefixes?: string[]): string {
+export function generateClientJs(ir: ComponentIR, siblingComponents?: string[], localImportPrefixes?: string[]): string {
   const ctx = createContext(ir)
   collectElements(ir.root, ctx)
   ir.errors.push(...ctx.warnings)
@@ -26,7 +26,7 @@ export function generateClientJs(ir: ComponentIR, siblingComponents?: string[], 
     return generateTemplateOnlyMount(ir, ctx)
   }
 
-  return generateInitFunction(ir, ctx, siblingComponents, usedAsChild, localImportPrefixes)
+  return generateInitFunction(ir, ctx, siblingComponents, localImportPrefixes)
 }
 
 /**

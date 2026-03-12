@@ -26,6 +26,8 @@ function PaginationPlayground(_props: {}) {
   const [activePage, setActivePage] = createSignal('1')
   const [showEllipsis, setShowEllipsis] = createSignal(true)
 
+  const totalPages = '10'
+
   const buildTree = (): JsxTreeNode => {
     const pageItems: JsxTreeNode[] = [
       { tag: 'PaginationItem', children: [{ tag: 'PaginationPrevious', props: [{ name: 'href', value: '#', defaultValue: '' }] }] },
@@ -36,6 +38,7 @@ function PaginationPlayground(_props: {}) {
     if (showEllipsis()) {
       pageItems.push({ tag: 'PaginationItem', children: [{ tag: 'PaginationEllipsis' }] })
     }
+    pageItems.push({ tag: 'PaginationItem', children: [{ tag: 'PaginationLink', props: [{ name: 'href', value: '#', defaultValue: '' }, ...(activePage() === totalPages ? [{ name: 'isActive', value: 'true', defaultValue: 'false', kind: 'boolean' as const }] : [])], children: totalPages }] })
     pageItems.push({ tag: 'PaginationItem', children: [{ tag: 'PaginationNext', props: [{ name: 'href', value: '#', defaultValue: '' }] }] })
 
     return {
@@ -75,6 +78,9 @@ function PaginationPlayground(_props: {}) {
               </PaginationItem>
             ) : null}
             <PaginationItem>
+              <PaginationLink href="#" isActive={activePage() === totalPages}>{totalPages}</PaginationLink>
+            </PaginationItem>
+            <PaginationItem>
               <PaginationNext href="#" />
             </PaginationItem>
           </PaginationContent>
@@ -90,6 +96,7 @@ function PaginationPlayground(_props: {}) {
               <SelectItem value="1">1</SelectItem>
               <SelectItem value="2">2</SelectItem>
               <SelectItem value="3">3</SelectItem>
+              <SelectItem value="10">10</SelectItem>
             </SelectContent>
           </Select>
         </PlaygroundControl>

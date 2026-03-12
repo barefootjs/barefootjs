@@ -5,7 +5,7 @@ import { TestAdapter } from '../adapters/test-adapter'
 const adapter = new TestAdapter()
 
 describe('hydrate() template generation for signal-bearing components', () => {
-  test('Counter (top-level only): NO CSR fallback template', () => {
+  test('Counter: gets CSR fallback template for cross-file conditional use', () => {
     const source = `
       'use client'
       import { createSignal, createMemo } from '@barefootjs/dom'
@@ -29,12 +29,11 @@ describe('hydrate() template generation for signal-bearing components', () => {
     expect(clientJs).toBeDefined()
     const content = clientJs!.content
 
-    // Top-level-only component: no CSR fallback template (saves bytes)
-    expect(content).toContain("hydrate('Counter', { init: initCounter })")
-    expect(content).not.toContain('template:')
+    // All components get CSR fallback templates for cross-file conditional use
+    expect(content).toMatch(/hydrate\('Counter',.*template:/)
   })
 
-  test('ItemList (top-level only): NO CSR fallback template', () => {
+  test('ItemList: gets CSR fallback template for cross-file conditional use', () => {
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/dom'
@@ -58,12 +57,11 @@ describe('hydrate() template generation for signal-bearing components', () => {
     const clientJs = result.files.find(f => f.type === 'clientJs')
     expect(clientJs).toBeDefined()
 
-    // Top-level-only: no CSR fallback
-    expect(clientJs!.content).toContain("hydrate('ItemList', { init: initItemList })")
-    expect(clientJs!.content).not.toContain('template:')
+    // All components get CSR fallback templates for cross-file conditional use
+    expect(clientJs!.content).toMatch(/hydrate\('ItemList',.*template:/)
   })
 
-  test('child stateless component gets template, parent (top-level) skips CSR fallback', () => {
+  test('child stateless component gets template, parent also gets CSR fallback', () => {
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/dom'
@@ -92,9 +90,8 @@ describe('hydrate() template generation for signal-bearing components', () => {
     // Stateless Child gets a static template (always useful)
     expect(content).toContain("hydrate('Child', { init: initChild, template:")
 
-    // Parent is NOT used as a child — no CSR fallback
-    expect(content).toContain("hydrate('Parent', { init: initParent })")
-    expect(content).not.toMatch(/hydrate\('Parent',.*template:/)
+    // Parent also gets CSR fallback template for cross-file conditional use
+    expect(content).toMatch(/hydrate\('Parent',.*template:/)
   })
 
   test('component used as child gets CSR fallback template', () => {
@@ -132,11 +129,11 @@ describe('hydrate() template generation for signal-bearing components', () => {
     // StatusBadge IS used as a child by Dashboard → gets CSR fallback template
     expect(content).toMatch(/hydrate\('StatusBadge',.*template:/)
 
-    // Dashboard is NOT used as a child → no CSR fallback
-    expect(content).not.toMatch(/hydrate\('Dashboard',.*template:/)
+    // Dashboard also gets CSR fallback template for cross-file conditional use
+    expect(content).toMatch(/hydrate\('Dashboard',.*template:/)
   })
 
-  test('client-only expression (top-level only): NO CSR fallback template', () => {
+  test('client-only expression: gets CSR fallback template for cross-file conditional use', () => {
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/dom'
@@ -156,9 +153,8 @@ describe('hydrate() template generation for signal-bearing components', () => {
     const clientJs = result.files.find(f => f.type === 'clientJs')
     expect(clientJs).toBeDefined()
 
-    // Top-level-only: no CSR fallback
-    expect(clientJs!.content).toContain("hydrate('Filtered', { init: initFiltered })")
-    expect(clientJs!.content).not.toContain('template:')
+    // All components get CSR fallback templates for cross-file conditional use
+    expect(clientJs!.content).toMatch(/hydrate\('Filtered',.*template:/)
   })
 
   test('string literals in CSS classes are not corrupted by constant inlining', () => {
