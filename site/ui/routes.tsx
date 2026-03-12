@@ -56,7 +56,7 @@ import { DrawerPage } from './pages/drawer'
 import { SheetPage } from './pages/sheet'
 import { SidebarPage } from './pages/sidebar'
 import { HoverCardPage } from './pages/hover-card'
-import { MenubarPage } from './pages/menubar'
+import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuPage } from './pages/navigation-menu'
 import { SpinnerPage } from './pages/spinner'
 import { ComponentCatalogPage } from './pages/components/catalog'
@@ -200,7 +200,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Label</h3>
               <p className="text-xs text-muted-foreground">Accessible label for form controls</p>
             </a>
-            <a href="/docs/components/menubar" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/menubar" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Menubar</h3>
               <p className="text-xs text-muted-foreground">Desktop application menu bar</p>
             </a>
@@ -542,9 +542,9 @@ export function createApp() {
     return c.render(<PortalPage />)
   })
 
-  // Menubar documentation
-  app.get('/docs/components/menubar', (c) => {
-    return c.render(<MenubarPage />)
+  // Menubar reference page
+  app.get('/components/menubar', (c) => {
+    return c.render(<MenubarRefPage />)
   })
 
   // Navigation Menu documentation
