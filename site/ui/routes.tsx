@@ -50,7 +50,7 @@ import { SeparatorRefPage } from './pages/components/separator'
 import { PortalPage } from './pages/portal'
 import { PaginationRefPage } from './pages/components/pagination'
 import { PopoverRefPage } from './pages/components/popover'
-import { ProgressPage } from './pages/progress'
+import { ProgressRefPage } from './pages/components/progress'
 import { DrawerRefPage } from './pages/components/drawer'
 import { SheetPage } from './pages/sheet'
 import { SidebarPage } from './pages/sidebar'
@@ -215,7 +215,7 @@ export function createApp() {
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Popover</h3>
               <p className="text-xs text-muted-foreground">Floating content anchored to a trigger</p>
             </a>
-            <a href="/docs/components/progress" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
+            <a href="/components/progress" className="group flex flex-col rounded-xl border border-border hover:border-ring transition-colors no-underline p-6 space-y-2">
               <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">Progress</h3>
               <p className="text-xs text-muted-foreground">Task completion indicator bar</p>
             </a>
@@ -561,9 +561,9 @@ export function createApp() {
     return c.render(<PopoverRefPage />)
   })
 
-  // Progress documentation
-  app.get('/docs/components/progress', (c) => {
-    return c.render(<ProgressPage />)
+  // Progress reference page
+  app.get('/components/progress', (c) => {
+    return c.render(<ProgressRefPage />)
   })
 
 
