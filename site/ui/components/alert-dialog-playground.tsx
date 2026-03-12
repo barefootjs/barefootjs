@@ -73,16 +73,16 @@ function AlertDialogPlayground(_props: {}) {
       previewContent={
         <div className="flex items-center justify-center">
           <AlertDialog open={open()} onOpenChange={setOpen}>
-            <AlertDialogTrigger asChild={destructive()}>
-              {destructive()
-                ? <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-10 px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Delete Account
-                  </button>
-                : <>Show Dialog</>
-              }
+            <AlertDialogTrigger asChild>
+              <button
+                type="button"
+                className={destructive()
+                  ? 'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-10 px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                  : 'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90'
+                }
+              >
+                {destructive() ? 'Delete Account' : 'Show Dialog'}
+              </button>
             </AlertDialogTrigger>
             <AlertDialogOverlay />
             <AlertDialogContent
