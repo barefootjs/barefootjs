@@ -489,19 +489,32 @@ function $cSingle(scope: Element | null, id: string): Element | null {
 
 /**
  * Get the scope ID from an element, stripping the ~ child prefix if present.
+ *
+ * When an element is both a comment scope proxy AND has its own bf-s attribute,
+ * we must determine which ID the children are scoped to:
+ * - If bf-s is a sub-scope of the comment scope (e.g., comment="Foo_xxx", bf-s="Foo_xxx_s0"),
+ *   children use bf-s as their parent (e.g., "~Foo_xxx_s0_s6"). Return bf-s.
+ * - If bf-s belongs to a wrapping component (unrelated to comment scope),
+ *   children use the comment scope ID. Return comment scope ID.
+ * - If only one source exists, use that.
  */
 function getScopeId(scope: Element | null): string | null {
   if (!scope) return null
-  // Prefer bf-s attribute on the element itself — this is the actual scope ID
-  // used to construct child scope IDs (e.g., ParentScope_s0 → ParentScope_s0_s6).
-  // Comment scope IDs (from commentScopeRegistry) may differ from the element's
-  // bf-s when the component is inlined into its parent (fragment root).
+
   const raw = scope.getAttribute(BF_SCOPE)
-  if (raw) return raw.startsWith(BF_CHILD_PREFIX) ? raw.slice(1) : raw
-  // Fall back to comment scope ID when element has no bf-s
+  const bfScopeId = raw ? (raw.startsWith(BF_CHILD_PREFIX) ? raw.slice(1) : raw) : null
+
   const commentInfo = commentScopeRegistry.get(scope)
-  if (commentInfo) return commentInfo.scopeId
-  return null
+  const commentScopeId = commentInfo?.scopeId ?? null
+
+  if (bfScopeId && commentScopeId) {
+    // bf-s is a sub-scope of the comment scope — children are scoped to bf-s
+    if (bfScopeId.startsWith(commentScopeId + '_')) return bfScopeId
+    // bf-s belongs to a different (wrapping) component — children are scoped to comment scope
+    return commentScopeId
+  }
+
+  return bfScopeId ?? commentScopeId ?? null
 }
 
 /**
