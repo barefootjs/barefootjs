@@ -134,7 +134,7 @@ export function SidebarCollapsibleGroupDemo() {
                           <ChevronRightIcon size="sm" className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
-                      <CollapsibleContent>
+                      <CollapsibleContent defaultOpen>
                         <SidebarMenuSub>
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton isActive>Overview</SidebarMenuSubButton>

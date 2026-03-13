@@ -28,26 +28,6 @@ function isGroup(entry: SidebarEntry): entry is SidebarGroup {
   return 'links' in entry
 }
 
-// --- Inline ChevronRight SVG (avoids @ui/components/ui/icon dependency) ---
-
-function ChevronRight({ className }: { className?: string }) {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      className={className}
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  )
-}
-
 // --- Sub-components ---
 
 function SidebarItemLink({ title, href, isActive }: { title: string; href: string; isActive: boolean }) {
@@ -73,7 +53,7 @@ function SidebarGroupSection({ group, currentPath }: { group: SidebarGroup; curr
     <details className="mb-2 group" open={shouldOpen}>
       <summary className="flex w-full items-center justify-between py-2 px-3 text-sm font-medium text-foreground hover:bg-accent/50 rounded-md transition-colors cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden">
         <span>{group.title}</span>
-        <ChevronRight className="transition-transform duration-200 group-open:rotate-90" />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="transition-transform duration-200 group-open:rotate-90"><path d="m9 18 6-6-6-6" /></svg>
       </summary>
       <div className="pl-2 py-1 space-y-0.5">
         {group.links.map(link => (
@@ -96,28 +76,32 @@ interface SidebarNavProps {
   currentPath: string
 }
 
+/**
+ * Renders the sidebar navigation.
+ * Groups and links are rendered as separate lists to work around
+ * a compiler limitation with conditional JSX inside map().
+ */
 export function SidebarNav({ entries, currentPath }: SidebarNavProps) {
+  const groups = entries.filter(isGroup) as SidebarGroup[]
+  const links = entries.filter(e => !isGroup(e)) as SidebarLink[]
+
   return (
     <div className="space-y-1">
-      {entries.map(entry => {
-        if (isGroup(entry)) {
-          return (
-            <SidebarGroupSection
-              key={entry.title}
-              group={entry}
-              currentPath={currentPath}
-            />
-          )
-        }
-        return (
-          <SidebarItemLink
-            key={entry.href}
-            title={entry.title}
-            href={entry.href}
-            isActive={currentPath === entry.href}
-          />
-        )
-      })}
+      {groups.map(group => (
+        <SidebarGroupSection
+          key={group.title}
+          group={group}
+          currentPath={currentPath}
+        />
+      ))}
+      {links.map(link => (
+        <SidebarItemLink
+          key={link.href}
+          title={link.title}
+          href={link.href}
+          isActive={currentPath === link.href}
+        />
+      ))}
     </div>
   )
 }

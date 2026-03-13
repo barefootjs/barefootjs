@@ -138,6 +138,7 @@ function SidebarProvider(props: SidebarProviderProps) {
     }}>
       <div
         data-slot="sidebar-wrapper"
+        data-state={props.defaultOpen !== false ? 'expanded' : 'collapsed'}
         style={`--sidebar-width:${SIDEBAR_WIDTH};--sidebar-width-icon:${SIDEBAR_WIDTH_ICON}`}
         className={`group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar relative flex h-full w-full ${props.className ?? ''}`}
         ref={handleMount}

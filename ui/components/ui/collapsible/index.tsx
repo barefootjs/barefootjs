@@ -167,6 +167,8 @@ function CollapsibleTrigger(props: CollapsibleTriggerProps) {
  * Props for CollapsibleContent component.
  */
 interface CollapsibleContentProps extends HTMLBaseAttributes {
+  /** Whether the content is initially open (for SSR) */
+  defaultOpen?: boolean
   /** Content to display */
   children?: Child
 }
@@ -188,13 +190,15 @@ function CollapsibleContent(props: CollapsibleContentProps) {
 
   const className = props.className ?? ''
 
+  const initialOpen = props.defaultOpen ?? false
+
   return (
     <div
       id={props.id}
       data-slot="collapsible-content"
       role="region"
-      data-state="closed"
-      className={`${collapsibleContentBaseClasses} ${collapsibleContentClosedClasses}`}
+      data-state={initialOpen ? 'open' : 'closed'}
+      className={`${collapsibleContentBaseClasses} ${initialOpen ? collapsibleContentOpenClasses : collapsibleContentClosedClasses}`}
       ref={handleMount}
     >
       <div className={collapsibleContentInnerClasses}>
