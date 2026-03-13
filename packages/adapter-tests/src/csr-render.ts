@@ -60,9 +60,7 @@ function compileToClientJs(source: string, filePath: string): string {
   }
   componentIR.metadata.clientAnalysis = analyzeClientNeeds(componentIR)
 
-  // Force CSR template by including this component in usedAsChild
-  const usedAsChild = new Set([componentIR.metadata.componentName])
-  return generateClientJs(componentIR, undefined, usedAsChild)
+  return generateClientJs(componentIR)
 }
 
 export async function renderCsrComponent(options: CsrRenderOptions): Promise<string> {

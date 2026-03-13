@@ -1,8 +1,12 @@
-import { describe, test, expect, beforeEach } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
 // Register happy-dom globals for SVG support
-GlobalRegistrator.register()
+beforeAll(() => {
+  if (typeof window === 'undefined') {
+    GlobalRegistrator.register()
+  }
+})
 
 import { applyChartCSSVariables, initChartContainer } from '../chart-container'
 import { initBarChart } from '../bar-chart'
