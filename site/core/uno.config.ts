@@ -1,7 +1,7 @@
-import { defineConfig, presetWind } from 'unocss'
+import { defineConfig, presetWind4 } from 'unocss'
 
 export default defineConfig({
-  presets: [presetWind()],
+  presets: [presetWind4()],
   safelist: [
     'hidden', 'sm:block', 'sm:hidden', 'lg:block',
     'border-input', 'border-border',
@@ -38,12 +38,12 @@ export default defineConfig({
       input: 'var(--input)',
       ring: 'var(--ring)',
     },
-    borderRadius: {
+    radius: {
       lg: 'var(--radius)',
       md: 'calc(var(--radius) - 2px)',
       sm: 'calc(var(--radius) - 4px)',
     },
-    boxShadow: {
+    shadow: {
       sm: 'var(--shadow-sm)',
       DEFAULT: 'var(--shadow)',
       md: 'var(--shadow-md)',
@@ -52,11 +52,11 @@ export default defineConfig({
       inner: 'var(--shadow-inner)',
       none: 'none',
     },
-    fontFamily: {
+    font: {
       sans: 'var(--font-sans)',
       mono: 'var(--font-mono)',
     },
-    letterSpacing: {
+    tracking: {
       tighter: 'var(--tracking-tighter)',
       tight: 'var(--tracking-tight)',
       normal: 'var(--tracking-normal)',
