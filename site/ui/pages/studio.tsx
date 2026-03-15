@@ -27,6 +27,381 @@ import { Slider } from '@/components/ui/slider'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 
+// ─── Component Pattern Data ─────────────────────────────────
+
+interface ComponentPattern {
+  slug: string
+  patterns: { title: string; render: () => any }[]
+}
+
+const componentPatterns: Record<string, ComponentPattern> = {
+  'Button': {
+    slug: 'button',
+    patterns: [
+      {
+        title: 'Variants',
+        render: () => (
+          <div className="flex flex-wrap gap-1.5">
+            <Button>Default</Button>
+            <Button variant="secondary">Secondary</Button>
+            <Button variant="outline">Outline</Button>
+            <Button variant="destructive">Destructive</Button>
+            <Button variant="ghost">Ghost</Button>
+            <Button variant="link">Link</Button>
+          </div>
+        ),
+      },
+      {
+        title: 'Sizes',
+        render: () => (
+          <div className="flex items-end gap-1.5">
+            <Button size="sm">Small</Button>
+            <Button>Default</Button>
+            <Button size="lg">Large</Button>
+          </div>
+        ),
+      },
+      {
+        title: 'With Icon',
+        render: () => (
+          <div className="flex gap-1.5">
+            <Button>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              Continue
+            </Button>
+            <Button variant="outline" size="icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            </Button>
+          </div>
+        ),
+      },
+      {
+        title: 'Loading',
+        render: () => (
+          <Button disabled>
+            <div className="h-3 w-3 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
+            Please wait
+          </Button>
+        ),
+      },
+    ],
+  },
+  'Input': {
+    slug: 'input',
+    patterns: [
+      { title: 'Default', render: () => <Input type="text" placeholder="Enter text..." /> },
+      {
+        title: 'With Label',
+        render: () => (
+          <div className="space-y-1.5">
+            <Label>Email</Label>
+            <Input type="email" placeholder="name@example.com" />
+          </div>
+        ),
+      },
+      { title: 'Disabled', render: () => <Input type="text" placeholder="Disabled" disabled /> },
+    ],
+  },
+  'Textarea': {
+    slug: 'textarea',
+    patterns: [
+      { title: 'Default', render: () => <Textarea placeholder="Type your message..." /> },
+      {
+        title: 'With Label',
+        render: () => (
+          <div className="space-y-1.5">
+            <Label>Bio</Label>
+            <Textarea placeholder="Tell us about yourself" />
+          </div>
+        ),
+      },
+    ],
+  },
+  'Checkbox': {
+    slug: 'checkbox',
+    patterns: [
+      {
+        title: 'Default',
+        render: () => (
+          <div className="flex items-center gap-2">
+            <Checkbox id="detail-cb" />
+            <Label for="detail-cb">Accept terms</Label>
+          </div>
+        ),
+      },
+      {
+        title: 'Checked',
+        render: () => (
+          <div className="flex items-center gap-2">
+            <Checkbox id="detail-cb2" checked />
+            <Label for="detail-cb2">Checked</Label>
+          </div>
+        ),
+      },
+      {
+        title: 'Disabled',
+        render: () => (
+          <div className="flex items-center gap-2">
+            <Checkbox id="detail-cb3" disabled />
+            <Label for="detail-cb3">Disabled</Label>
+          </div>
+        ),
+      },
+    ],
+  },
+  'Switch': {
+    slug: 'switch',
+    patterns: [
+      {
+        title: 'Default',
+        render: () => (
+          <div className="flex items-center gap-2">
+            <Switch id="detail-sw" />
+            <Label for="detail-sw">Airplane Mode</Label>
+          </div>
+        ),
+      },
+      {
+        title: 'Checked',
+        render: () => (
+          <div className="flex items-center gap-2">
+            <Switch id="detail-sw2" checked />
+            <Label for="detail-sw2">Enabled</Label>
+          </div>
+        ),
+      },
+    ],
+  },
+  'Slider': {
+    slug: 'slider',
+    patterns: [
+      { title: 'Default', render: () => <Slider defaultValue={50} max={100} step={1} /> },
+      { title: 'Low Value', render: () => <Slider defaultValue={25} max={100} step={1} /> },
+    ],
+  },
+  'Toggle': {
+    slug: 'toggle',
+    patterns: [
+      {
+        title: 'Default',
+        render: () => (
+          <div className="flex gap-1.5">
+            <Toggle aria-label="Toggle bold">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
+            </Toggle>
+            <Toggle variant="outline" aria-label="Toggle italic">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" x2="10" y1="4" y2="4"/><line x1="14" x2="5" y1="20" y2="20"/><line x1="15" x2="9" y1="4" y2="20"/></svg>
+            </Toggle>
+          </div>
+        ),
+      },
+    ],
+  },
+  'Label': {
+    slug: 'label',
+    patterns: [
+      { title: 'Default', render: () => <Label>Your email address</Label> },
+    ],
+  },
+  'Card': {
+    slug: 'card',
+    patterns: [
+      {
+        title: 'Basic',
+        render: () => (
+          <Card>
+            <CardHeader>
+              <CardTitle>Card Title</CardTitle>
+              <CardDescription>Card Description</CardDescription>
+            </CardHeader>
+          </Card>
+        ),
+      },
+    ],
+  },
+  'Badge': {
+    slug: 'badge',
+    patterns: [
+      {
+        title: 'Variants',
+        render: () => (
+          <div className="flex flex-wrap gap-1.5">
+            <Badge>Default</Badge>
+            <Badge variant="secondary">Secondary</Badge>
+            <Badge variant="destructive">Destructive</Badge>
+            <Badge variant="outline">Outline</Badge>
+          </div>
+        ),
+      },
+    ],
+  },
+  'Avatar': {
+    slug: 'avatar',
+    patterns: [
+      {
+        title: 'Initials',
+        render: () => (
+          <div className="flex gap-2">
+            <Avatar><AvatarFallback>AB</AvatarFallback></Avatar>
+            <Avatar><AvatarFallback>CD</AvatarFallback></Avatar>
+          </div>
+        ),
+      },
+    ],
+  },
+  'Separator': {
+    slug: 'separator',
+    patterns: [
+      { title: 'Horizontal', render: () => <Separator /> },
+      {
+        title: 'Vertical',
+        render: () => (
+          <div className="flex h-8 items-center gap-2">
+            <span className="text-xs text-muted-foreground">Blog</span>
+            <Separator orientation="vertical" />
+            <span className="text-xs text-muted-foreground">Docs</span>
+            <Separator orientation="vertical" />
+            <span className="text-xs text-muted-foreground">Source</span>
+          </div>
+        ),
+      },
+    ],
+  },
+  'Alert': {
+    slug: 'alert',
+    patterns: [
+      {
+        title: 'Default',
+        render: () => (
+          <Alert>
+            <AlertTitle>Heads up!</AlertTitle>
+            <AlertDescription>You can add components to your app.</AlertDescription>
+          </Alert>
+        ),
+      },
+      {
+        title: 'Destructive',
+        render: () => (
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>Something went wrong.</AlertDescription>
+          </Alert>
+        ),
+      },
+    ],
+  },
+  'Skeleton': {
+    slug: 'skeleton',
+    patterns: [
+      {
+        title: 'Card Layout',
+        render: () => (
+          <div className="flex items-center space-x-3">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-[180px]" />
+              <Skeleton className="h-3 w-[120px]" />
+            </div>
+          </div>
+        ),
+      },
+    ],
+  },
+  'Spinner': {
+    slug: 'spinner',
+    patterns: [
+      { title: 'Default', render: () => <Spinner /> },
+    ],
+  },
+  'Progress': {
+    slug: 'progress',
+    patterns: [
+      { title: '25%', render: () => <Progress value={25} /> },
+      { title: '60%', render: () => <Progress value={60} /> },
+      { title: '100%', render: () => <Progress value={100} /> },
+    ],
+  },
+  'Tabs': {
+    slug: 'tabs',
+    patterns: [
+      {
+        title: 'Default',
+        render: () => (
+          <Tabs defaultValue="account">
+            <TabsList>
+              <TabsTrigger value="account">Account</TabsTrigger>
+              <TabsTrigger value="password">Password</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ),
+      },
+      {
+        title: 'Three Tabs',
+        render: () => (
+          <Tabs defaultValue="overview">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="reports">Reports</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ),
+      },
+    ],
+  },
+  'Accordion': {
+    slug: 'accordion',
+    patterns: [
+      {
+        title: 'Default',
+        render: () => (
+          <Accordion>
+            <AccordionItem value="item-1">
+              <AccordionTrigger>Is it accessible?</AccordionTrigger>
+              <AccordionContent>Yes. It adheres to the WAI-ARIA design pattern.</AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-2">
+              <AccordionTrigger>Is it styled?</AccordionTrigger>
+              <AccordionContent>Yes. It comes with default styles.</AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        ),
+      },
+    ],
+  },
+  // ── Mock-only components (no real imports) ──
+  'Select': { slug: 'select', patterns: [{ title: 'Select', render: () => <p className="text-xs italic text-muted-foreground">Dropdown selection control with search and multi-select support.</p> }] },
+  'Radio Group': { slug: 'radio-group', patterns: [{ title: 'Radio Group', render: () => <p className="text-xs italic text-muted-foreground">A set of checkable buttons where only one can be checked at a time.</p> }] },
+  'Calendar': { slug: 'calendar', patterns: [{ title: 'Calendar', render: () => <p className="text-xs italic text-muted-foreground">A date field component with calendar popup.</p> }] },
+  'Date Picker': { slug: 'date-picker', patterns: [{ title: 'Date Picker', render: () => <p className="text-xs italic text-muted-foreground">A date picker with range and preset support.</p> }] },
+  'Combobox': { slug: 'combobox', patterns: [{ title: 'Combobox', render: () => <p className="text-xs italic text-muted-foreground">Autocomplete input with dropdown suggestions.</p> }] },
+  'Input OTP': { slug: 'input-otp', patterns: [{ title: 'Input OTP', render: () => <p className="text-xs italic text-muted-foreground">One-time password input with auto-advance.</p> }] },
+  'Toggle Group': { slug: 'toggle-group', patterns: [{ title: 'Toggle Group', render: () => <p className="text-xs italic text-muted-foreground">A group of toggle buttons supporting single or multiple selection.</p> }] },
+  'Table': { slug: 'table', patterns: [{ title: 'Table', render: () => <p className="text-xs italic text-muted-foreground">Responsive table with sorting and row selection.</p> }] },
+  'Aspect Ratio': { slug: 'aspect-ratio', patterns: [{ title: 'Aspect Ratio', render: () => <p className="text-xs italic text-muted-foreground">Displays content within a fixed aspect ratio container.</p> }] },
+  'Data Table': { slug: 'data-table', patterns: [{ title: 'Data Table', render: () => <p className="text-xs italic text-muted-foreground">Advanced table with pagination, sorting, and filtering.</p> }] },
+  'Carousel': { slug: 'carousel', patterns: [{ title: 'Carousel', render: () => <p className="text-xs italic text-muted-foreground">A carousel with motion and swipe support.</p> }] },
+  'Alert Dialog': { slug: 'alert-dialog', patterns: [{ title: 'Alert Dialog', render: () => <p className="text-xs italic text-muted-foreground">A modal dialog for important confirmations.</p> }] },
+  'Dialog': { slug: 'dialog', patterns: [{ title: 'Dialog', render: () => <p className="text-xs italic text-muted-foreground">A modal overlay with focus trapping and backdrop.</p> }] },
+  'Toast': { slug: 'toast', patterns: [{ title: 'Toast', render: () => <p className="text-xs italic text-muted-foreground">Temporary notification messages with auto-dismiss.</p> }] },
+  'Breadcrumb': { slug: 'breadcrumb', patterns: [{ title: 'Breadcrumb', render: () => <p className="text-xs italic text-muted-foreground">Navigation breadcrumb trail with separator support.</p> }] },
+  'Dropdown Menu': { slug: 'dropdown-menu', patterns: [{ title: 'Dropdown Menu', render: () => <p className="text-xs italic text-muted-foreground">Accessible dropdown menu with submenus and keyboard navigation.</p> }] },
+  'Context Menu': { slug: 'context-menu', patterns: [{ title: 'Context Menu', render: () => <p className="text-xs italic text-muted-foreground">Right-click context menu with nested items.</p> }] },
+  'Command': { slug: 'command', patterns: [{ title: 'Command', render: () => <p className="text-xs italic text-muted-foreground">Command palette with search and keyboard shortcuts.</p> }] },
+  'Pagination': { slug: 'pagination', patterns: [{ title: 'Pagination', render: () => <p className="text-xs italic text-muted-foreground">Page navigation with previous/next and page numbers.</p> }] },
+  'Menubar': { slug: 'menubar', patterns: [{ title: 'Menubar', render: () => <p className="text-xs italic text-muted-foreground">Horizontal menu bar with dropdown menus.</p> }] },
+  'Navigation Menu': { slug: 'navigation-menu', patterns: [{ title: 'Navigation Menu', render: () => <p className="text-xs italic text-muted-foreground">Site navigation with mega-menu dropdown support.</p> }] },
+  'Collapsible': { slug: 'collapsible', patterns: [{ title: 'Collapsible', render: () => <p className="text-xs italic text-muted-foreground">Expandable/collapsible content section.</p> }] },
+  'Sheet': { slug: 'sheet', patterns: [{ title: 'Sheet', render: () => <p className="text-xs italic text-muted-foreground">Side panel overlay that slides in from the edge.</p> }] },
+  'Drawer': { slug: 'drawer', patterns: [{ title: 'Drawer', render: () => <p className="text-xs italic text-muted-foreground">Bottom drawer with drag-to-dismiss gesture.</p> }] },
+  'Popover': { slug: 'popover', patterns: [{ title: 'Popover', render: () => <p className="text-xs italic text-muted-foreground">Floating content panel with arrow pointer.</p> }] },
+  'Tooltip': { slug: 'tooltip', patterns: [{ title: 'Tooltip', render: () => <p className="text-xs italic text-muted-foreground">Informational popup shown on hover or focus.</p> }] },
+  'Hover Card': { slug: 'hover-card', patterns: [{ title: 'Hover Card', render: () => <p className="text-xs italic text-muted-foreground">Rich content preview on hover.</p> }] },
+  'Scroll Area': { slug: 'scroll-area', patterns: [{ title: 'Scroll Area', render: () => <p className="text-xs italic text-muted-foreground">Custom scrollbar container with cross-browser support.</p> }] },
+  'Resizable': { slug: 'resizable', patterns: [{ title: 'Resizable', render: () => <p className="text-xs italic text-muted-foreground">Resizable panel layout with drag handles.</p> }] },
+  'Portal': { slug: 'portal', patterns: [{ title: 'Portal', render: () => <p className="text-xs italic text-muted-foreground">Renders children into a different part of the DOM tree.</p> }] },
+}
+
 // ─── Preset Data ────────────────────────────────────────────
 
 type TokenColors = Record<string, { light: string; dark: string }>
@@ -303,67 +678,30 @@ function DetailPanel() {
     <div className="fixed top-14 right-0 bottom-0 w-96 bg-card border-l border-border shadow-xl z-30 hidden" data-studio-detail-panel>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-sm font-semibold text-foreground" data-studio-detail-title>Button</h2>
+        <h2 className="text-sm font-semibold text-foreground" data-studio-detail-title>Component</h2>
         <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" data-studio-detail-close title="Close">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
       </div>
 
-      {/* Content — static mock showing patterns */}
-      <div className="p-4 overflow-y-auto h-full space-y-4" data-studio-detail-content>
-        {/* Patterns mock for Button */}
-        <div className="space-y-2">
-          <h3 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Patterns</h3>
-
-          <div className="rounded-md border border-border p-3 space-y-2">
-            <div className="text-xs font-medium text-foreground">Default</div>
-            <div className="flex gap-1.5">
-              <button className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium">Primary</button>
-              <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium">Outline</button>
-              <button className="inline-flex items-center justify-center rounded-md bg-secondary text-secondary-foreground px-3 py-1.5 text-xs font-medium">Secondary</button>
+      {/* Pre-rendered content blocks — one per component, toggled by script */}
+      <div className="overflow-y-auto h-full" data-studio-detail-content>
+        {Object.entries(componentPatterns).map(([name, { slug, patterns }]) => (
+          <div className="hidden p-4 space-y-4" data-studio-detail-for={name}>
+            <div className="space-y-2">
+              <h3 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Patterns</h3>
+              {patterns.map(p => (
+                <div className="rounded-md border border-border p-3 space-y-2">
+                  <div className="text-xs font-medium text-foreground">{p.title}</div>
+                  {p.render()}
+                </div>
+              ))}
             </div>
+            <a href={`/components/${slug}`} target="_blank" rel="noopener" className="text-[11px] text-muted-foreground hover:text-foreground no-underline hover:underline transition-colors">
+              View full documentation &rarr;
+            </a>
           </div>
-
-          <div className="rounded-md border border-border p-3 space-y-2">
-            <div className="text-xs font-medium text-foreground">Sizes</div>
-            <div className="flex items-end gap-1.5">
-              <button className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-2 py-1 text-[10px] font-medium">Small</button>
-              <button className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium">Default</button>
-              <button className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium">Large</button>
-            </div>
-          </div>
-
-          <div className="rounded-md border border-border p-3 space-y-2">
-            <div className="text-xs font-medium text-foreground">With Icon</div>
-            <div className="flex gap-1.5">
-              <button className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                Continue
-              </button>
-              <button className="inline-flex items-center justify-center rounded-md border border-input bg-background p-1.5">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-md border border-border p-3 space-y-2">
-            <div className="text-xs font-medium text-foreground">Loading</div>
-            <button className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium opacity-70" disabled>
-              <div className="h-3 w-3 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
-              Please wait
-            </button>
-          </div>
-
-          <div className="rounded-md border border-border p-3 space-y-2">
-            <div className="text-xs font-medium text-foreground">Destructive</div>
-            <button className="inline-flex items-center justify-center rounded-md bg-destructive text-destructive-foreground px-3 py-1.5 text-xs font-medium">Delete</button>
-          </div>
-        </div>
-
-        {/* Link to full docs */}
-        <a href="/components/button" target="_blank" rel="noopener" className="text-[11px] text-muted-foreground hover:text-foreground no-underline hover:underline transition-colors">
-          View full documentation &rarr;
-        </a>
+        ))}
       </div>
     </div>
   )
@@ -740,6 +1078,11 @@ const detailScript = `
     e.stopPropagation();
     var name = trigger.getAttribute('data-studio-detail');
     titleEl.textContent = name;
+    // Hide all content blocks, show matching one
+    var blocks = panel.querySelectorAll('[data-studio-detail-for]');
+    blocks.forEach(function(b) { b.classList.add('hidden'); });
+    var target = panel.querySelector('[data-studio-detail-for="' + name + '"]');
+    if (target) target.classList.remove('hidden');
     panel.style.display = 'flex';
     panel.style.flexDirection = 'column';
   });
