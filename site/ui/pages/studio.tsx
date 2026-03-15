@@ -8,6 +8,25 @@
  * Zoom in/out is implemented via CSS transform on the canvas.
  */
 
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Separator } from '@/components/ui/separator'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
+import { Toggle } from '@/components/ui/toggle'
+import { Progress } from '@/components/ui/progress'
+import { Slider } from '@/components/ui/slider'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
+
 // ─── Preset Data ────────────────────────────────────────────
 
 type TokenColors = Record<string, { light: string; dark: string }>
@@ -151,15 +170,6 @@ function IconCopy() {
     </svg>
   )
 }
-function IconCheck({ className, size }: { className?: string; size?: number }) {
-  const s = size || 12
-  return (
-    <svg className={className || ''} width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  )
-}
-
 // ─── Token Panel (floating) ─────────────────────────────────
 
 function ColorSwatch({ name }: { name: string }) {
@@ -381,35 +391,31 @@ function CanvasContent() {
       <GroupIsland title="Input & Form Controls">
         <PreviewItem name="Button">
           <div className="flex gap-1">
-            <button className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-2 py-1 text-[11px] font-medium">Primary</button>
-            <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-2 py-1 text-[11px] font-medium">Outline</button>
-            <button className="inline-flex items-center justify-center rounded-md bg-secondary text-secondary-foreground px-2 py-1 text-[11px] font-medium">Secondary</button>
+            <Button size="sm">Primary</Button>
+            <Button variant="outline" size="sm">Outline</Button>
+            <Button variant="secondary" size="sm">Secondary</Button>
           </div>
         </PreviewItem>
 
         <PreviewItem name="Input">
-          <input type="text" placeholder="name@example.com" className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px]" />
+          <Input type="text" placeholder="name@example.com" className="h-7 text-[11px]" />
         </PreviewItem>
 
         <PreviewItem name="Textarea">
-          <textarea placeholder="Write a message..." className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] h-10 resize-none" />
+          <Textarea placeholder="Write a message..." className="text-[11px] h-10 resize-none" />
         </PreviewItem>
 
         <PreviewItem name="Checkbox">
           <div className="flex items-center gap-1.5">
-            <div className="h-3.5 w-3.5 rounded-sm border border-primary bg-primary flex items-center justify-center">
-              <IconCheck size={10} className="text-primary-foreground" />
-            </div>
-            <span className="text-[11px] text-foreground">Accept terms</span>
+            <Checkbox defaultChecked />
+            <Label className="text-[11px]">Accept terms</Label>
           </div>
         </PreviewItem>
 
         <PreviewItem name="Switch">
           <div className="flex items-center gap-1.5">
-            <div className="h-4 w-7 rounded-full bg-primary p-0.5">
-              <div className="h-3 w-3 rounded-full bg-primary-foreground translate-x-3" />
-            </div>
-            <span className="text-[11px] text-foreground">Active</span>
+            <Switch defaultChecked />
+            <Label className="text-[11px]">Active</Label>
           </div>
         </PreviewItem>
 
@@ -434,20 +440,17 @@ function CanvasContent() {
         </PreviewItem>
 
         <PreviewItem name="Slider">
-          <div className="w-full h-1 bg-muted rounded-full relative">
-            <div className="h-full bg-primary rounded-full" style={{ width: '40%' }} />
-            <div className="absolute top-1/2 h-3 w-3 rounded-full border-2 border-primary bg-background" style={{ left: '40%', transform: 'translate(-50%, -50%)' }} />
-          </div>
+          <Slider defaultValue={40} className="w-full" />
         </PreviewItem>
 
         <PreviewItem name="Toggle">
-          <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-2 py-1 text-[11px] font-medium hover:bg-muted">
+          <Toggle variant="outline" size="sm">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
-          </button>
+          </Toggle>
         </PreviewItem>
 
         <PreviewItem name="Label">
-          <span className="text-[11px] font-medium text-foreground">Email address</span>
+          <Label className="text-[11px]">Email address</Label>
         </PreviewItem>
 
         <PreviewItem name="Calendar">
@@ -487,22 +490,26 @@ function CanvasContent() {
       {/* Display & Data */}
       <GroupIsland title="Display & Data">
         <PreviewItem name="Card">
-          <div className="w-full rounded border border-border p-2 space-y-0.5">
-            <div className="text-[11px] font-semibold text-card-foreground">Settings</div>
-            <div className="text-[10px] text-muted-foreground">Manage preferences.</div>
-          </div>
+          <Card className="w-full">
+            <CardHeader className="p-2 space-y-0.5">
+              <CardTitle className="text-[11px]">Settings</CardTitle>
+              <CardDescription className="text-[10px]">Manage preferences.</CardDescription>
+            </CardHeader>
+          </Card>
         </PreviewItem>
 
         <PreviewItem name="Badge">
           <div className="flex gap-1">
-            <span className="inline-flex items-center rounded-full bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-semibold">Default</span>
-            <span className="inline-flex items-center rounded-full bg-secondary text-secondary-foreground px-1.5 py-0.5 text-[9px] font-semibold">Secondary</span>
-            <span className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold">Outline</span>
+            <Badge className="text-[9px] px-1.5 py-0.5">Default</Badge>
+            <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5">Secondary</Badge>
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0.5">Outline</Badge>
           </div>
         </PreviewItem>
 
         <PreviewItem name="Avatar">
-          <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">AB</div>
+          <Avatar className="h-7 w-7">
+            <AvatarFallback className="text-[10px]">AB</AvatarFallback>
+          </Avatar>
         </PreviewItem>
 
         <PreviewItem name="Table">
@@ -516,7 +523,7 @@ function CanvasContent() {
         <PreviewItem name="Separator">
           <div className="w-full space-y-1.5">
             <div className="text-[10px] text-muted-foreground">Section A</div>
-            <div className="h-px bg-border w-full" />
+            <Separator />
             <div className="text-[10px] text-muted-foreground">Section B</div>
           </div>
         </PreviewItem>
@@ -535,9 +542,9 @@ function CanvasContent() {
 
         <PreviewItem name="Skeleton">
           <div className="w-full space-y-1">
-            <div className="h-2 bg-muted rounded w-full animate-pulse" />
-            <div className="h-2 bg-muted rounded w-3/4 animate-pulse" />
-            <div className="h-2 bg-muted rounded w-1/2 animate-pulse" />
+            <Skeleton className="h-2 w-full" />
+            <Skeleton className="h-2 w-3/4" />
+            <Skeleton className="h-2 w-1/2" />
           </div>
         </PreviewItem>
       </GroupIsland>
@@ -545,10 +552,10 @@ function CanvasContent() {
       {/* Feedback */}
       <GroupIsland title="Feedback">
         <PreviewItem name="Alert">
-          <div className="w-full rounded border border-border p-2">
-            <div className="text-[11px] font-medium text-foreground">Heads up!</div>
-            <div className="text-[10px] text-muted-foreground">Something to know.</div>
-          </div>
+          <Alert className="w-full py-2 px-2">
+            <AlertTitle className="text-[11px]">Heads up!</AlertTitle>
+            <AlertDescription className="text-[10px]">Something to know.</AlertDescription>
+          </Alert>
         </PreviewItem>
 
         <PreviewItem name="Alert Dialog">
@@ -566,25 +573,23 @@ function CanvasContent() {
         </PreviewItem>
 
         <PreviewItem name="Progress">
-          <div className="w-full h-1 bg-muted rounded-full">
-            <div className="h-full bg-primary rounded-full" style={{ width: '60%' }} />
-          </div>
+          <Progress value={60} className="w-full h-1" />
         </PreviewItem>
 
         <PreviewItem name="Spinner">
-          <div className="h-4 w-4 rounded-full border-2 border-muted border-t-foreground animate-spin" />
+          <Spinner className="h-4 w-4" />
         </PreviewItem>
       </GroupIsland>
 
       {/* Navigation */}
       <GroupIsland title="Navigation">
         <PreviewItem name="Tabs">
-          <div className="w-full">
-            <div className="flex border-b border-border">
-              <div className="px-2 py-1 text-[11px] font-medium border-b-2 border-primary text-foreground">Account</div>
-              <div className="px-2 py-1 text-[11px] text-muted-foreground">Password</div>
-            </div>
-          </div>
+          <Tabs defaultValue="account" className="w-full">
+            <TabsList className="h-7">
+              <TabsTrigger value="account" className="text-[11px] px-2 py-0.5">Account</TabsTrigger>
+              <TabsTrigger value="password" className="text-[11px] px-2 py-0.5">Password</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </PreviewItem>
 
         <PreviewItem name="Breadcrumb">
@@ -635,13 +640,12 @@ function CanvasContent() {
       {/* Layout & Overlay */}
       <GroupIsland title="Layout & Overlay">
         <PreviewItem name="Accordion">
-          <div className="w-full">
-            <div className="flex items-center justify-between py-1 text-[11px] font-medium text-foreground border-b border-border">
-              <span>Is it accessible?</span>
-              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-            </div>
-            <div className="text-[10px] text-muted-foreground py-1">Yes, WAI-ARIA.</div>
-          </div>
+          <Accordion className="w-full">
+            <AccordionItem value="a11y" open>
+              <AccordionTrigger className="text-[11px] py-1">Is it accessible?</AccordionTrigger>
+              <AccordionContent className="text-[10px] pb-1">Yes, WAI-ARIA.</AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </PreviewItem>
 
         <PreviewItem name="Collapsible">
