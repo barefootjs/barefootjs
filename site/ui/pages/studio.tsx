@@ -636,6 +636,34 @@ function TokenPanel() {
           </div>
         </div>
 
+        {/* Font — below style, dropdown opens downward with room */}
+        <div className="relative" data-studio-font-container>
+          <button className="w-full flex items-center justify-between px-2 py-1.5 rounded-md border border-border hover:border-ring transition-colors" data-studio-font-trigger>
+            <div>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Font</span>
+              <div className="text-[11px] font-medium text-foreground" data-studio-font-label>System Default</div>
+            </div>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" className="text-muted-foreground"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div className="hidden absolute left-0 right-0 top-full z-20 mt-1 rounded-md border border-border bg-card shadow-lg" data-studio-font-dropdown>
+            {[
+              { key: 'system', name: 'System Default', desc: 'OS native font stack', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+              { key: 'inter', name: 'Inter', desc: 'Clean and neutral', family: '"Inter", sans-serif' },
+              { key: 'noto-sans', name: 'Noto Sans', desc: 'Universal coverage', family: '"Noto Sans", sans-serif' },
+              { key: 'nunito-sans', name: 'Nunito Sans', desc: 'Friendly and rounded', family: '"Nunito Sans", sans-serif' },
+              { key: 'figtree', name: 'Figtree', desc: 'Modern geometric', family: '"Figtree", sans-serif' },
+            ].map(f => (
+              <button className="w-full flex items-center justify-between text-left px-2 py-1.5 transition-colors first:rounded-t-md last:rounded-b-md hover:bg-accent" data-studio-font={f.key}>
+                <div>
+                  <div className="text-[11px] font-medium text-foreground" style={{ fontFamily: f.family }}>{f.name}</div>
+                  <div className="text-[9px] text-muted-foreground">{f.desc}</div>
+                </div>
+                <span className="hidden text-[9px] text-muted-foreground shrink-0" data-studio-font-check={f.key}>&#10003;</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Spacing */}
         <div className="space-y-1">
           <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Spacing</span>
@@ -672,28 +700,6 @@ function TokenPanel() {
           </div>
         </div>
 
-        {/* Typography */}
-        <div className="space-y-1">
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Font</span>
-          <div className="space-y-0.5">
-            <button className="w-full flex items-center justify-between text-[11px] py-0.5 px-0.5 -mx-0.5 rounded-sm hover:bg-muted/50 transition-colors" data-studio-font="system" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-              <span>System UI</span>
-              <span className="hidden text-[9px] text-muted-foreground" data-studio-font-check="system">&#10003;</span>
-            </button>
-            <button className="w-full flex items-center justify-between text-[11px] py-0.5 px-0.5 -mx-0.5 rounded-sm hover:bg-muted/50 transition-colors" data-studio-font="mono" style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
-              <span>Monospace</span>
-              <span className="hidden text-[9px] text-muted-foreground" data-studio-font-check="mono">&#10003;</span>
-            </button>
-            <button className="w-full flex items-center justify-between text-[11px] py-0.5 px-0.5 -mx-0.5 rounded-sm hover:bg-muted/50 transition-colors" data-studio-font="serif" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}>
-              <span>Serif</span>
-              <span className="hidden text-[9px] text-muted-foreground" data-studio-font-check="serif">&#10003;</span>
-            </button>
-            <button className="w-full flex items-center justify-between text-[11px] py-0.5 px-0.5 -mx-0.5 rounded-sm hover:bg-muted/50 transition-colors" data-studio-font="rounded" style={{ fontFamily: '"Nunito", "Varela Round", system-ui, sans-serif' }}>
-              <span>Rounded</span>
-              <span className="hidden text-[9px] text-muted-foreground" data-studio-font-check="rounded">&#10003;</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Reset — bottom, separated by border */}
@@ -1274,10 +1280,29 @@ const studioScript = `
 
   var fontOptions = {
     system: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif',
-    mono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-    serif: 'Georgia, "Times New Roman", Times, serif',
-    rounded: '"Nunito", "Varela Round", system-ui, sans-serif'
+    inter: '"Inter", sans-serif',
+    'noto-sans': '"Noto Sans", sans-serif',
+    'nunito-sans': '"Nunito Sans", sans-serif',
+    figtree: '"Figtree", sans-serif'
   };
+
+  // Google Fonts to load on demand
+  var googleFonts = {
+    inter: 'Inter:wght@400;500;600;700',
+    'noto-sans': 'Noto+Sans:wght@400;500;600;700',
+    'nunito-sans': 'Nunito+Sans:wght@400;500;600;700',
+    figtree: 'Figtree:wght@400;500;600;700'
+  };
+  var loadedFonts = {};
+
+  function loadGoogleFont(key) {
+    if (loadedFonts[key] || !googleFonts[key]) return;
+    loadedFonts[key] = true;
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=' + googleFonts[key] + '&display=swap';
+    document.head.appendChild(link);
+  }
 
   function saveToStorage() {
     try {
@@ -1675,32 +1700,61 @@ const studioScript = `
     saveToStorage();
   });
 
-  // ── Style dropdown open/close ──
+  // ── Dropdown management (style + font) ──
   var styleDropdown = document.querySelector('[data-studio-style-dropdown]');
-  var styleContainer = document.querySelector('[data-studio-style-container]');
+  var fontDropdown = document.querySelector('[data-studio-font-dropdown]');
+
+  function closeAllDropdowns() {
+    styleDropdown && styleDropdown.classList.add('hidden');
+    fontDropdown && fontDropdown.classList.add('hidden');
+  }
 
   document.addEventListener('click', function(e) {
-    var trigger = e.target.closest('[data-studio-style-trigger]');
-    if (trigger) {
+    // ── Style trigger ──
+    if (e.target.closest('[data-studio-style-trigger]')) {
       e.preventDefault();
-      styleDropdown && styleDropdown.classList.toggle('hidden');
+      var wasHidden = styleDropdown && styleDropdown.classList.contains('hidden');
+      closeAllDropdowns();
+      if (wasHidden) styleDropdown.classList.remove('hidden');
       return;
     }
 
-    // Preset button inside dropdown
-    var btn = e.target.closest('[data-studio-preset]');
-    if (btn) {
-      var name = btn.getAttribute('data-studio-preset');
-      applyStyle(name);
-      styleDropdown && styleDropdown.classList.add('hidden');
+    // ── Style preset item ──
+    var presetBtn = e.target.closest('[data-studio-preset]');
+    if (presetBtn) {
+      applyStyle(presetBtn.getAttribute('data-studio-preset'));
+      closeAllDropdowns();
       return;
     }
 
-    // Click outside → close dropdown
-    if (styleDropdown && !styleDropdown.classList.contains('hidden')) {
-      if (!e.target.closest('[data-studio-style-container]')) {
-        styleDropdown.classList.add('hidden');
-      }
+    // ── Font trigger ──
+    if (e.target.closest('[data-studio-font-trigger]')) {
+      e.preventDefault();
+      var wasHidden = fontDropdown && fontDropdown.classList.contains('hidden');
+      closeAllDropdowns();
+      if (wasHidden) fontDropdown.classList.remove('hidden');
+      return;
+    }
+
+    // ── Font item ──
+    var fontBtn = e.target.closest('[data-studio-font]');
+    if (fontBtn) {
+      e.preventDefault();
+      var key = fontBtn.getAttribute('data-studio-font');
+      var value = fontOptions[key];
+      if (!value) return;
+      loadGoogleFont(key);
+      customFont = key;
+      document.documentElement.style.setProperty('--font-sans', value);
+      updateFontChecks();
+      saveToStorage();
+      closeAllDropdowns();
+      return;
+    }
+
+    // ── Click outside any dropdown → close all ──
+    if (!e.target.closest('[data-studio-style-container]') && !e.target.closest('[data-studio-font-container]')) {
+      closeAllDropdowns();
     }
   });
 
@@ -1762,18 +1816,30 @@ const studioScript = `
     saveToStorage();
   });
 
-  // ── Font check marks — highlight active font ──
+  // ── Font label names ──
+  var fontNames = {
+    system: 'System Default',
+    inter: 'Inter',
+    'noto-sans': 'Noto Sans',
+    'nunito-sans': 'Nunito Sans',
+    figtree: 'Figtree'
+  };
+
   function getActiveFont() {
     var current = getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim();
     var keys = Object.keys(fontOptions);
     for (var i = 0; i < keys.length; i++) {
       if (current === fontOptions[keys[i]]) return keys[i];
     }
-    return 'system'; // default
+    return 'system';
   }
 
   function updateFontChecks() {
     var active = customFont || getActiveFont();
+    // Update label
+    var label = document.querySelector('[data-studio-font-label]');
+    if (label) label.textContent = fontNames[active] || 'System Default';
+    // Update check marks
     document.querySelectorAll('[data-studio-font-check]').forEach(function(el) {
       var key = el.getAttribute('data-studio-font-check');
       if (key === active) {
@@ -1784,20 +1850,6 @@ const studioScript = `
     });
   }
 
-  // ── Font selection ──
-  document.addEventListener('click', function(e) {
-    var btn = e.target.closest('[data-studio-font]');
-    if (!btn) return;
-    e.preventDefault();
-    var key = btn.getAttribute('data-studio-font');
-    var value = fontOptions[key];
-    if (!value) return;
-
-    customFont = key;
-    document.documentElement.style.setProperty('--font-sans', value);
-    updateFontChecks();
-    saveToStorage();
-  });
 
   // ── Reset button ──
   document.addEventListener('click', function(e) {
@@ -1890,8 +1942,12 @@ const studioScript = `
     }
   }
 
+  // Preload all Google Fonts for preview text
+  Object.keys(googleFonts).forEach(function(key) { loadGoogleFont(key); });
+
   // Apply custom font override
   if (customFont && fontOptions[customFont]) {
+    loadGoogleFont(customFont);
     document.documentElement.style.setProperty('--font-sans', fontOptions[customFont]);
   }
   updateFontChecks();
