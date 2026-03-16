@@ -612,21 +612,25 @@ function TokenPanel() {
       </div>
 
       <div className="p-3 space-y-3 max-h-[calc(100vh-16rem)] overflow-y-auto">
-        {/* Style Presets */}
-        <div className="space-y-1.5">
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Style</span>
-          <div className="space-y-1">
+        {/* Style Presets — compact: show selected, dropdown on hover */}
+        <div className="relative" data-studio-style-container>
+          <button className="w-full flex items-center justify-between px-2 py-1.5 rounded-md border border-border hover:border-ring transition-colors" data-studio-style-trigger>
+            <div>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Style</span>
+              <div className="text-[11px] font-medium text-foreground" data-studio-style-label>Default</div>
+            </div>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" className="text-muted-foreground"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div className="hidden absolute left-0 right-0 top-full z-20 mt-1 rounded-md border border-border bg-card shadow-lg" data-studio-style-dropdown>
             {stylePresets.map((preset, i) => (
               <button
-                className={`w-full text-left px-2 py-1.5 rounded-md border transition-colors ${
-                  i === 0
-                    ? 'border-ring bg-accent text-accent-foreground'
-                    : 'border-border text-muted-foreground hover:border-ring'
+                className={`w-full text-left px-2 py-1.5 transition-colors first:rounded-t-md last:rounded-b-md hover:bg-accent ${
+                  i === 0 ? 'bg-accent/50' : ''
                 }`}
                 data-studio-preset={preset.name}
               >
-                <div className="text-[11px] font-medium">{preset.name}</div>
-                <div className="text-[9px] opacity-70">{preset.description}</div>
+                <div className="text-[11px] font-medium text-foreground">{preset.name}</div>
+                <div className="text-[9px] text-muted-foreground">{preset.description}</div>
               </button>
             ))}
           </div>
@@ -1334,21 +1338,18 @@ const studioScript = `
     return defaultColors[token] ? defaultColors[token][mode] : 'oklch(0.5 0 0)';
   }
 
-  // ── Update style preset button styles ──
+  // ── Update style label and dropdown highlight ──
   function updateStyleButtons() {
+    var label = document.querySelector('[data-studio-style-label]');
+    if (label) label.textContent = activeStyle;
+
     var buttons = document.querySelectorAll('[data-studio-preset]');
     buttons.forEach(function(btn) {
       var name = btn.getAttribute('data-studio-preset');
       if (name === activeStyle) {
-        btn.className = btn.className
-          .replace('border-border text-muted-foreground hover:border-ring', '')
-          .replace('border-ring bg-accent text-accent-foreground', '')
-          .trim() + ' border-ring bg-accent text-accent-foreground';
+        btn.classList.add('bg-accent/50');
       } else {
-        btn.className = btn.className
-          .replace('border-ring bg-accent text-accent-foreground', '')
-          .replace('border-border text-muted-foreground hover:border-ring', '')
-          .trim() + ' border-border text-muted-foreground hover:border-ring';
+        btn.classList.remove('bg-accent/50');
       }
     });
   }
@@ -1581,14 +1582,33 @@ const studioScript = `
     updateEditorSliders(token);
   });
 
-  // ── Style preset button click ──
+  // ── Style dropdown open/close ──
+  var styleDropdown = document.querySelector('[data-studio-style-dropdown]');
+  var styleContainer = document.querySelector('[data-studio-style-container]');
+
   document.addEventListener('click', function(e) {
+    var trigger = e.target.closest('[data-studio-style-trigger]');
+    if (trigger) {
+      e.preventDefault();
+      styleDropdown && styleDropdown.classList.toggle('hidden');
+      return;
+    }
+
+    // Preset button inside dropdown
     var btn = e.target.closest('[data-studio-preset]');
-    if (!btn) return;
-    // Ignore clicks on color edit buttons inside the panel
-    if (e.target.closest('[data-studio-color-edit]')) return;
-    var name = btn.getAttribute('data-studio-preset');
-    applyStyle(name);
+    if (btn) {
+      var name = btn.getAttribute('data-studio-preset');
+      applyStyle(name);
+      styleDropdown && styleDropdown.classList.add('hidden');
+      return;
+    }
+
+    // Click outside → close dropdown
+    if (styleDropdown && !styleDropdown.classList.contains('hidden')) {
+      if (!e.target.closest('[data-studio-style-container]')) {
+        styleDropdown.classList.add('hidden');
+      }
+    }
   });
 
   // ── Mode toggle (OKLCH ↔ RGB) ──
