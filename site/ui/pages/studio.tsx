@@ -675,7 +675,24 @@ function TokenPanel() {
         {/* Typography */}
         <div className="space-y-1">
           <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Font</span>
-          <div className="text-[11px] font-mono text-muted-foreground">system-ui, sans-serif</div>
+          <div className="space-y-0.5">
+            <button className="w-full flex items-center justify-between text-[11px] py-0.5 px-0.5 -mx-0.5 rounded-sm hover:bg-muted/50 transition-colors" data-studio-font="system" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+              <span>System UI</span>
+              <span className="hidden text-[9px] text-muted-foreground" data-studio-font-check="system">&#10003;</span>
+            </button>
+            <button className="w-full flex items-center justify-between text-[11px] py-0.5 px-0.5 -mx-0.5 rounded-sm hover:bg-muted/50 transition-colors" data-studio-font="mono" style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
+              <span>Monospace</span>
+              <span className="hidden text-[9px] text-muted-foreground" data-studio-font-check="mono">&#10003;</span>
+            </button>
+            <button className="w-full flex items-center justify-between text-[11px] py-0.5 px-0.5 -mx-0.5 rounded-sm hover:bg-muted/50 transition-colors" data-studio-font="serif" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}>
+              <span>Serif</span>
+              <span className="hidden text-[9px] text-muted-foreground" data-studio-font-check="serif">&#10003;</span>
+            </button>
+            <button className="w-full flex items-center justify-between text-[11px] py-0.5 px-0.5 -mx-0.5 rounded-sm hover:bg-muted/50 transition-colors" data-studio-font="rounded" style={{ fontFamily: '"Nunito", "Varela Round", system-ui, sans-serif' }}>
+              <span>Rounded</span>
+              <span className="hidden text-[9px] text-muted-foreground" data-studio-font-check="rounded">&#10003;</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1250,9 +1267,17 @@ const studioScript = `
   var customTokens = {};
 
   // ── localStorage persistence ──
-  // Track custom spacing/radius overrides (null = use preset value)
+  // Track custom overrides (null = use preset value)
   var customSpacing = null;
   var customRadius = null;
+  var customFont = null;
+
+  var fontOptions = {
+    system: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif',
+    mono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+    serif: 'Georgia, "Times New Roman", Times, serif',
+    rounded: '"Nunito", "Varela Round", system-ui, sans-serif'
+  };
 
   function saveToStorage() {
     try {
@@ -1260,7 +1285,8 @@ const studioScript = `
         style: activeStyle,
         tokens: customTokens,
         spacing: customSpacing,
-        radius: customRadius
+        radius: customRadius,
+        font: customFont
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch(e) {}
@@ -1276,12 +1302,13 @@ const studioScript = `
       if (data.style) activeStyle = data.style;
       if (data.spacing) customSpacing = data.spacing;
       if (data.radius) customRadius = data.radius;
+      if (data.font) customFont = data.font;
     } catch(e) {}
   }
 
   function hasCustomizations() {
     return Object.keys(customTokens).length > 0 || activeStyle !== 'Default'
-      || customSpacing !== null || customRadius !== null;
+      || customSpacing !== null || customRadius !== null || customFont !== null;
   }
 
   function updateResetButton() {
@@ -1415,6 +1442,7 @@ const studioScript = `
     activeStyle = name;
     customSpacing = null;
     customRadius = null;
+    customFont = null;
     var root = document.documentElement;
 
     // Spacing
@@ -1448,6 +1476,7 @@ const studioScript = `
     } else {
       root.style.setProperty('--font-sans', preset.font);
     }
+    updateFontChecks();
 
     // Update spacing label + slider
     var spacingLabel = document.querySelector('[data-studio-spacing-label]');
@@ -1733,6 +1762,43 @@ const studioScript = `
     saveToStorage();
   });
 
+  // ── Font check marks — highlight active font ──
+  function getActiveFont() {
+    var current = getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim();
+    var keys = Object.keys(fontOptions);
+    for (var i = 0; i < keys.length; i++) {
+      if (current === fontOptions[keys[i]]) return keys[i];
+    }
+    return 'system'; // default
+  }
+
+  function updateFontChecks() {
+    var active = customFont || getActiveFont();
+    document.querySelectorAll('[data-studio-font-check]').forEach(function(el) {
+      var key = el.getAttribute('data-studio-font-check');
+      if (key === active) {
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    });
+  }
+
+  // ── Font selection ──
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-studio-font]');
+    if (!btn) return;
+    e.preventDefault();
+    var key = btn.getAttribute('data-studio-font');
+    var value = fontOptions[key];
+    if (!value) return;
+
+    customFont = key;
+    document.documentElement.style.setProperty('--font-sans', value);
+    updateFontChecks();
+    saveToStorage();
+  });
+
   // ── Reset button ──
   document.addEventListener('click', function(e) {
     var btn = e.target.closest('[data-studio-reset]');
@@ -1746,6 +1812,7 @@ const studioScript = `
     }
     if (customSpacing !== null) parts.push('spacing');
     if (customRadius !== null) parts.push('radius');
+    if (customFont !== null) parts.push('font');
     if (activeStyle !== 'Default') parts.push('style preset');
 
     var msg = parts.length > 0
@@ -1758,6 +1825,7 @@ const studioScript = `
     customTokens = {};
     customSpacing = null;
     customRadius = null;
+    customFont = null;
 
     // Remove all inline style overrides for color tokens
     Object.keys(defaultColors).forEach(function(token) {
@@ -1821,6 +1889,12 @@ const studioScript = `
       radiusSlider.value = parseFloat(preset.radius);
     }
   }
+
+  // Apply custom font override
+  if (customFont && fontOptions[customFont]) {
+    document.documentElement.style.setProperty('--font-sans', fontOptions[customFont]);
+  }
+  updateFontChecks();
 
   // Apply saved color tokens
   reapplyForMode();
