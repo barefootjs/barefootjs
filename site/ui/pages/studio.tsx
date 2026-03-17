@@ -722,7 +722,7 @@ function TokenPanel() {
 
 function PreviewItem({ name, children }: { name: string; children: any }) {
   return (
-    <div className="group rounded-md px-2 pt-1 pb-2 min-w-0 overflow-hidden hover:bg-muted/50 transition-colors">
+    <div className="group rounded-md px-2 pt-1 pb-2 min-w-0 overflow-hidden">
       {/* Label — clickable to open detail */}
       <button className="text-[10px] text-muted-foreground hover:text-foreground transition-colors mb-1 truncate block text-left" data-studio-detail={name}>
         {name}
