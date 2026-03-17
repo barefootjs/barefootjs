@@ -791,6 +791,7 @@ function CanvasContent() {
             <Button size="sm">Primary</Button>
             <Button variant="outline" size="sm">Outline</Button>
             <Button variant="secondary" size="sm">Secondary</Button>
+            <Button variant="destructive" size="sm">Destructive</Button>
           </div>
         </PreviewItem>
 
