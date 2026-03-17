@@ -32,6 +32,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { DatePicker } from '@/components/ui/date-picker'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 
 // ─── Component Pattern Data ─────────────────────────────────
 
@@ -888,12 +889,14 @@ function CanvasContent() {
         </PreviewItem>
 
         <PreviewItem name="Input OTP">
-          <div className="flex gap-1">
-            <div className="w-6 h-7 rounded border border-input bg-background flex items-center justify-center text-[11px] font-mono">1</div>
-            <div className="w-6 h-7 rounded border border-input bg-background flex items-center justify-center text-[11px] font-mono">2</div>
-            <div className="w-6 h-7 rounded border border-input bg-background flex items-center justify-center text-[11px] font-mono text-muted-foreground">_</div>
-            <div className="w-6 h-7 rounded border border-input bg-background" />
-          </div>
+          <InputOTP maxLength={4}>
+            <InputOTPGroup>
+              <InputOTPSlot index={0} />
+              <InputOTPSlot index={1} />
+              <InputOTPSlot index={2} />
+              <InputOTPSlot index={3} />
+            </InputOTPGroup>
+          </InputOTP>
         </PreviewItem>
 
         <PreviewItem name="Toggle Group">
