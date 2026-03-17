@@ -58,7 +58,7 @@ const alertDialogOverlayOpenClasses = 'opacity-100'
 const alertDialogOverlayClosedClasses = 'opacity-0 pointer-events-none'
 
 // AlertDialogContent base classes (aligned with shadcn/ui)
-const alertDialogContentBaseClasses = 'fixed left-[50%] top-[50%] z-50 flex flex-col w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg'
+const alertDialogContentBaseClasses = 'fixed left-[50%] top-[50%] z-50 flex flex-col w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 shadow-lg duration-200 sm:rounded-lg'
 
 // AlertDialogContent open/closed classes
 const alertDialogContentOpenClasses = 'opacity-100 scale-100'

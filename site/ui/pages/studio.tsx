@@ -442,8 +442,8 @@ const defaultColors = {
   'accent-foreground':     { light: 'oklch(0.205 0 0)',           dark: 'oklch(0.985 0 0)' },
   destructive:             { light: 'oklch(0.577 0.245 27.325)',  dark: 'oklch(0.704 0.191 22.216)' },
   'destructive-foreground':{ light: 'oklch(0.985 0 0)',           dark: 'oklch(0.985 0 0)' },
-  border:                  { light: 'oklch(0.922 0 0)',           dark: 'oklch(1 0 0 / 10%)' },
-  input:                   { light: 'oklch(0.922 0 0)',           dark: 'oklch(1 0 0 / 15%)' },
+  border:                  { light: 'oklch(0.96 0 0)',            dark: 'oklch(1 0 0 / 10%)' },
+  input:                   { light: 'oklch(0.96 0 0)',            dark: 'oklch(1 0 0 / 15%)' },
   ring:                    { light: 'oklch(0.708 0 0)',           dark: 'oklch(0.556 0 0)' },
 }
 
@@ -775,7 +775,7 @@ function DetailPanel() {
 
 function GroupIsland({ title, children }: { title: string; children: any }) {
   return (
-    <div className="rounded-xl border-2 border-dashed border-border/60 bg-muted/20 p-3">
+    <div className="rounded-xl border border-dashed border-border/40 bg-muted/20 p-3">
       <h2 className="text-xs font-semibold text-foreground mb-2">{title}</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
         {children}

@@ -68,9 +68,9 @@ const drawerContentBaseClasses = 'z-50 flex flex-col bg-background shadow-lg tra
 // Direction-specific positioning classes
 const directionClasses: Record<DrawerDirection, string> = {
   top: 'fixed inset-x-0 top-0 max-h-[80vh] rounded-b-lg',
-  right: 'fixed inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
+  right: 'fixed inset-y-0 right-0 h-full w-3/4 border-l border-border sm:max-w-sm',
   bottom: 'fixed inset-x-0 bottom-0 max-h-[80vh] rounded-t-lg',
-  left: 'fixed inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
+  left: 'fixed inset-y-0 left-0 h-full w-3/4 border-r border-border sm:max-w-sm',
 }
 
 // Direction-specific open state classes (slide to final position)

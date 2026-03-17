@@ -31,7 +31,7 @@ const handleOrientationClasses = {
   vertical: 'h-px w-full after:inset-x-0 after:-top-1 after:-bottom-1',
 } as const
 
-const gripClasses = 'bg-border z-10 flex h-4 w-3 items-center justify-center rounded-sm border'
+const gripClasses = 'bg-border z-10 flex h-4 w-3 items-center justify-center rounded-sm border border-border'
 
 interface ResizablePanelGroupProps extends HTMLBaseAttributes {
   /** Layout direction. */

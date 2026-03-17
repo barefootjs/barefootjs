@@ -73,7 +73,7 @@ const contentOpenClasses = 'opacity-100 scale-100'
 const contentClosedClasses = 'opacity-0 scale-95 pointer-events-none'
 
 // Input (search)
-const inputWrapperClasses = 'flex items-center border-b px-3'
+const inputWrapperClasses = 'flex items-center border-b border-border px-3'
 const inputClasses = 'flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50'
 
 // Item
