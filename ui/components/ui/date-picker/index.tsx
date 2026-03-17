@@ -65,16 +65,25 @@ const triggerPlaceholderClasses = 'text-muted-foreground'
  */
 function DatePicker(props: DatePickerProps) {
   const [open, setOpen] = createSignal(false)
+  // Internal state for uncontrolled mode (when selected prop is not provided)
+  const [internalSelected, setInternalSelected] = createSignal<Date | undefined>(undefined)
+  const isControlled = props.selected !== undefined
+
+  const currentSelected = createMemo(() =>
+    isControlled ? props.selected : internalSelected()
+  )
 
   const displayText = createMemo(() => {
-    if (props.selected) {
+    const date = currentSelected()
+    if (date) {
       const fmt = props.formatDate ?? defaultFormatDate
-      return fmt(props.selected)
+      return fmt(date)
     }
     return props.placeholder ?? 'Pick a date'
   })
 
   const handleSelect = (date: Date | undefined) => {
+    if (!isControlled) setInternalSelected(date)
     props.onSelect?.(date)
     if (date) {
       setOpen(false)
@@ -87,7 +96,7 @@ function DatePicker(props: DatePickerProps) {
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className={`${triggerBaseClasses} ${!props.selected ? triggerPlaceholderClasses : ''} ${props.triggerClassName ?? ''}`}
+            className={`${triggerBaseClasses} ${!currentSelected() ? triggerPlaceholderClasses : ''} ${props.triggerClassName ?? ''}`}
             disabled={props.disabled ?? false}
           >
             <svg className="size-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4" /><path d="M16 2v4" /><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M3 10h18" /></svg>
@@ -100,7 +109,7 @@ function DatePicker(props: DatePickerProps) {
         >
           <Calendar
             mode="single"
-            selected={props.selected}
+            selected={currentSelected()}
             onSelect={handleSelect}
             disabled={props.disabledDates}
           />

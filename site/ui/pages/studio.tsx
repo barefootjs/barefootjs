@@ -30,6 +30,7 @@ import { Combobox, ComboboxTrigger, ComboboxValue, ComboboxContent, ComboboxInpu
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Calendar } from '@/components/ui/calendar'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { DatePicker } from '@/components/ui/date-picker'
 
 // ─── Component Pattern Data ─────────────────────────────────
 
@@ -867,9 +868,7 @@ function CanvasContent() {
         </PreviewItem>
 
         <PreviewItem name="Date Picker">
-          <div className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-muted-foreground">
-            Pick a date
-          </div>
+          <DatePicker triggerClassName="h-7 text-[11px] w-full" />
         </PreviewItem>
 
         <PreviewItem name="Combobox">
