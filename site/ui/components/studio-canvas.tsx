@@ -28,7 +28,7 @@ import { Switch } from '@/components/ui/switch'
 import { Toggle } from '@/components/ui/toggle'
 import { Progress } from '@/components/ui/progress'
 import { Slider } from '@/components/ui/slider'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { Combobox, ComboboxTrigger, ComboboxValue, ComboboxContent, ComboboxInput, ComboboxEmpty, ComboboxItem } from '@/components/ui/combobox'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
@@ -89,6 +89,8 @@ export function StudioCanvas() {
   const [dialogOpen, setDialogOpen] = createSignal(false)
   // Toast state
   const [toastOpen, setToastOpen] = createSignal(false)
+  // Tabs state
+  const [activeTab, setActiveTab] = createSignal('account')
 
   const handleSort = (key: 'name' | 'priority') => {
     if (sortKey() === key) {
@@ -429,11 +431,17 @@ export function StudioCanvas() {
       {/* Navigation */}
       <GroupIsland title="Navigation">
         <PreviewItem name="Tabs">
-          <Tabs defaultValue="account" className="w-full">
+          <Tabs value={activeTab()} onValueChange={setActiveTab} className="w-full">
             <TabsList className="h-7">
-              <TabsTrigger value="account" className="text-[11px] px-2 py-0.5">Account</TabsTrigger>
-              <TabsTrigger value="password" className="text-[11px] px-2 py-0.5">Password</TabsTrigger>
+              <TabsTrigger value="account" selected={activeTab() === 'account'} onClick={() => setActiveTab('account')} className="text-[11px] px-2 py-0.5">Account</TabsTrigger>
+              <TabsTrigger value="password" selected={activeTab() === 'password'} onClick={() => setActiveTab('password')} className="text-[11px] px-2 py-0.5">Password</TabsTrigger>
             </TabsList>
+            <TabsContent value="account" selected={activeTab() === 'account'} className="text-[10px] text-muted-foreground pt-1.5">
+              Name, email, and avatar settings.
+            </TabsContent>
+            <TabsContent value="password" selected={activeTab() === 'password'} className="text-[10px] text-muted-foreground pt-1.5">
+              Change your password here.
+            </TabsContent>
           </Tabs>
         </PreviewItem>
 
