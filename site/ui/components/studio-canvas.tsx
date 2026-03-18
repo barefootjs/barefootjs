@@ -24,6 +24,8 @@ import { ToastProvider, Toast, ToastTitle, ToastDescription, ToastClose } from '
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command'
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from '@/components/ui/pagination'
+import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator } from '@/components/ui/menubar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -509,21 +511,43 @@ export function StudioCanvas() {
         </PreviewItem>
 
         <PreviewItem name="Pagination">
-          <div className="flex items-center gap-0.5">
-            <div className="px-1.5 py-0.5 text-[10px] rounded border border-input text-muted-foreground">&lt;</div>
-            <div className="px-1.5 py-0.5 text-[10px] rounded bg-primary text-primary-foreground">1</div>
-            <div className="px-1.5 py-0.5 text-[10px] rounded border border-input text-muted-foreground">2</div>
-            <div className="px-1.5 py-0.5 text-[10px] rounded border border-input text-muted-foreground">3</div>
-            <div className="px-1.5 py-0.5 text-[10px] rounded border border-input text-muted-foreground">&gt;</div>
-          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem><PaginationPrevious className="sm:pl-2.5 [&>span]:hidden" /></PaginationItem>
+              <PaginationItem><PaginationLink isActive>1</PaginationLink></PaginationItem>
+              <PaginationItem><PaginationLink>2</PaginationLink></PaginationItem>
+              <PaginationItem><PaginationLink>3</PaginationLink></PaginationItem>
+              <PaginationItem><PaginationNext className="sm:pr-2.5 [&>span]:hidden" /></PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </PreviewItem>
 
         <PreviewItem name="Menubar">
-          <div className="flex gap-1 text-[11px]">
-            <span className="px-1.5 py-0.5 rounded bg-muted text-foreground">File</span>
-            <span className="px-1.5 py-0.5 text-muted-foreground">Edit</span>
-            <span className="px-1.5 py-0.5 text-muted-foreground">View</span>
-          </div>
+          <Menubar>
+            <MenubarMenu value="file">
+              <MenubarTrigger>File</MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem>New Tab</MenubarItem>
+                <MenubarItem>New Window</MenubarItem>
+                <MenubarSeparator />
+                <MenubarItem>Print</MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+            <MenubarMenu value="edit">
+              <MenubarTrigger>Edit</MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem>Undo</MenubarItem>
+                <MenubarItem>Redo</MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+            <MenubarMenu value="view">
+              <MenubarTrigger>View</MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem>Zoom In</MenubarItem>
+                <MenubarItem>Zoom Out</MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+          </Menubar>
         </PreviewItem>
 
         <PreviewItem name="Navigation Menu">
