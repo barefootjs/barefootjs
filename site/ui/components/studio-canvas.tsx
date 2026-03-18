@@ -19,6 +19,7 @@ import { Separator } from '@/components/ui/separator'
 import { AspectRatio } from '@/components/ui/aspect-ratio'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { AlertDialog, AlertDialogTrigger, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog'
+import { Dialog, DialogTrigger, DialogOverlay, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -83,6 +84,8 @@ export function StudioCanvas() {
 
   // Alert Dialog state
   const [alertDialogOpen, setAlertDialogOpen] = createSignal(false)
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = createSignal(false)
 
   const handleSort = (key: 'name' | 'priority') => {
     if (sortKey() === key) {
@@ -379,7 +382,21 @@ export function StudioCanvas() {
         </PreviewItem>
 
         <PreviewItem name="Dialog">
-          <div className="text-[10px] text-muted-foreground italic">Modal overlay</div>
+          <Dialog open={dialogOpen()} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 text-[11px] px-2">Edit Profile</Button>
+            </DialogTrigger>
+            <DialogOverlay />
+            <DialogContent ariaLabelledby="studio-dialog-title" ariaDescribedby="studio-dialog-desc">
+              <DialogHeader>
+                <DialogTitle id="studio-dialog-title">Edit Profile</DialogTitle>
+                <DialogDescription id="studio-dialog-desc">Make changes to your profile here.</DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose>Close</DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </PreviewItem>
 
         <PreviewItem name="Toast">
