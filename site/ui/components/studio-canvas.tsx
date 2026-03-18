@@ -29,6 +29,7 @@ import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, Menu
 import { NavigationMenu, NavigationMenuList, NavigationMenuItem, NavigationMenuTrigger, NavigationMenuContent, NavigationMenuLink } from '@/components/ui/navigation-menu'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
 import { Sheet, SheetTrigger, SheetOverlay, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '@/components/ui/sheet'
+import { Drawer, DrawerTrigger, DrawerOverlay, DrawerContent, DrawerHandle, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from '@/components/ui/drawer'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -109,6 +110,8 @@ export function StudioCanvas() {
   const [collapsibleOpen, setCollapsibleOpen] = createSignal(false)
   // Sheet state
   const [sheetOpen, setSheetOpen] = createSignal(false)
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = createSignal(false)
 
   const handleSort = (key: 'name' | 'priority') => {
     if (sortKey() === key) {
@@ -632,7 +635,22 @@ export function StudioCanvas() {
         </PreviewItem>
 
         <PreviewItem name="Drawer">
-          <div className="text-[10px] text-muted-foreground italic">Slide-out</div>
+          <Drawer open={drawerOpen()} onOpenChange={setDrawerOpen}>
+            <DrawerTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 text-[11px] px-2">Open</Button>
+            </DrawerTrigger>
+            <DrawerOverlay />
+            <DrawerContent direction="bottom" ariaLabelledby="studio-drawer-title">
+              <DrawerHandle />
+              <DrawerHeader>
+                <DrawerTitle id="studio-drawer-title">Move Goal</DrawerTitle>
+                <DrawerDescription>Set your daily activity goal.</DrawerDescription>
+              </DrawerHeader>
+              <DrawerFooter>
+                <DrawerClose>Close</DrawerClose>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
         </PreviewItem>
 
         <PreviewItem name="Popover">
