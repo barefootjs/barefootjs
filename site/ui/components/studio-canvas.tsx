@@ -27,6 +27,7 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext } from '@/components/ui/pagination'
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator } from '@/components/ui/menubar'
 import { NavigationMenu, NavigationMenuList, NavigationMenuItem, NavigationMenuTrigger, NavigationMenuContent, NavigationMenuLink } from '@/components/ui/navigation-menu'
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -103,6 +104,8 @@ export function StudioCanvas() {
   const [contextMenuOpen, setContextMenuOpen] = createSignal(false)
   // Accordion state
   const [accordionOpen, setAccordionOpen] = createSignal<string | null>('a11y')
+  // Collapsible state
+  const [collapsibleOpen, setCollapsibleOpen] = createSignal(false)
 
   const handleSort = (key: 'name' | 'priority') => {
     if (sortKey() === key) {
@@ -590,7 +593,21 @@ export function StudioCanvas() {
         </PreviewItem>
 
         <PreviewItem name="Collapsible">
-          <div className="text-[10px] text-muted-foreground italic">Expandable</div>
+          <Collapsible open={collapsibleOpen()} onOpenChange={setCollapsibleOpen} className="w-full">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-between text-[11px] h-7 px-2">
+                3 items
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-1 pt-1 text-[11px] text-muted-foreground">
+                <div className="rounded border border-border px-2 py-1">Item A</div>
+                <div className="rounded border border-border px-2 py-1">Item B</div>
+                <div className="rounded border border-border px-2 py-1">Item C</div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </PreviewItem>
 
         <PreviewItem name="Sheet">
