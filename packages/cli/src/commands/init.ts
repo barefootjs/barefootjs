@@ -146,11 +146,13 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
     const registryUrl = deriveRegistryUrl(fromUrl)
     console.log(`\n  Fetching components from ${registryUrl}...`)
     try {
-      const indexUrl = registryUrl.endsWith('/') ? `${registryUrl}index.json` : `${registryUrl}/index.json`
-      const res = await fetch(indexUrl, { signal: AbortSignal.timeout(10_000) })
+      // Use registry.json (build-registry output) instead of index.json (meta output)
+      // to only fetch components that have actual RegistryItem files.
+      const registryJsonUrl = registryUrl.endsWith('/') ? `${registryUrl}registry.json` : `${registryUrl}/registry.json`
+      const res = await fetch(registryJsonUrl, { signal: AbortSignal.timeout(10_000) })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const index = await res.json() as { components: { name: string }[] }
-      const allNames = index.components.map(c => c.name)
+      const registry = await res.json() as { items: { name: string }[] }
+      const allNames = registry.items.map(i => i.name)
       if (allNames.length > 0) {
         await addFromRegistry(allNames, registryUrl, projectDir, config, true)
       }
