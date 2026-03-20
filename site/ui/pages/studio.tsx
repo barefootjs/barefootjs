@@ -774,12 +774,12 @@ function ZoomControls() {
 function ExportBar() {
   return (
     <div className="flex items-center justify-center gap-3 px-4 py-2 bg-card border-t border-border">
-      <code className="rounded-md bg-muted border border-border px-3 py-1.5 font-mono text-[11px] text-foreground max-w-xl truncate">
-        barefoot init --from "https://ui.barefootjs.dev/studio?c=eJx..."
+      <code className="rounded-md bg-muted border border-border px-3 py-1.5 font-mono text-[11px] text-foreground max-w-xl truncate" data-studio-export-code>
+        barefoot init --from "https://ui.barefootjs.dev/studio?c=..."
       </code>
-      <button className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0">
+      <button className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0" data-studio-copy>
         <IconCopy />
-        Copy
+        <span data-studio-copy-label>Copy</span>
       </button>
     </div>
   )
@@ -1061,6 +1061,7 @@ const studioScript = `
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch(e) {}
     updateResetButton();
+    updateExportCommand();
   }
 
   function loadFromStorage() {
@@ -1600,6 +1601,74 @@ const studioScript = `
   }
 
 
+  // ── URL encoding/decoding for export ──
+  function buildConfig() {
+    var preset = stylePresets.find(function(p) { return p.name === activeStyle; }) || stylePresets[0];
+    var config = {};
+    if (activeStyle !== 'Default') config.style = activeStyle;
+    if (Object.keys(customTokens).length > 0) config.tokens = customTokens;
+    if (customSpacing !== null && customSpacing !== preset.spacing) config.spacing = customSpacing;
+    if (customRadius !== null && customRadius !== preset.radius) config.radius = customRadius;
+    if (customFont !== null) config.font = customFont;
+    return config;
+  }
+
+  function encodeConfig(config) {
+    return encodeURIComponent(btoa(JSON.stringify(config)));
+  }
+
+  function decodeConfig(str) {
+    return JSON.parse(atob(decodeURIComponent(str)));
+  }
+
+  function updateExportCommand() {
+    var codeEl = document.querySelector('[data-studio-export-code]');
+    if (!codeEl) return;
+    var config = buildConfig();
+    var baseUrl = location.origin + '/studio';
+    if (Object.keys(config).length > 0) {
+      var encoded = encodeConfig(config);
+      codeEl.textContent = 'barefoot init --from "' + baseUrl + '?c=' + encoded + '"';
+    } else {
+      codeEl.textContent = 'barefoot init --from "' + baseUrl + '"';
+    }
+  }
+
+  function loadFromURL() {
+    try {
+      var params = new URLSearchParams(location.search);
+      var encoded = params.get('c');
+      if (!encoded) return false;
+      var config = decodeConfig(encoded);
+      if (config.style) activeStyle = config.style;
+      if (config.tokens) customTokens = config.tokens;
+      if (config.spacing) customSpacing = config.spacing;
+      if (config.radius) customRadius = config.radius;
+      if (config.font) customFont = config.font;
+      return true;
+    } catch(e) {
+      return false;
+    }
+  }
+
+  // ── Copy button ──
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-studio-copy]');
+    if (!btn) return;
+    e.preventDefault();
+    var codeEl = document.querySelector('[data-studio-export-code]');
+    if (!codeEl) return;
+    var text = codeEl.textContent;
+    navigator.clipboard.writeText(text).then(function() {
+      var label = btn.querySelector('[data-studio-copy-label]');
+      if (label) {
+        var original = label.textContent;
+        label.textContent = 'Copied!';
+        setTimeout(function() { label.textContent = original; }, 2000);
+      }
+    });
+  });
+
   // ── Reset button ──
   document.addEventListener('click', function(e) {
     var btn = e.target.closest('[data-studio-reset]');
@@ -1655,8 +1724,11 @@ const studioScript = `
   });
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-  // ── Initialize: restore from localStorage ──
-  loadFromStorage();
+  // ── Initialize: restore from URL (priority) or localStorage ──
+  var loadedFromURL = loadFromURL();
+  if (!loadedFromURL) {
+    loadFromStorage();
+  }
 
   if (activeStyle !== 'Default') {
     applyStyle(activeStyle);
@@ -1706,6 +1778,7 @@ const studioScript = `
   // Apply saved color tokens
   reapplyForMode();
   updateResetButton();
+  updateExportCommand();
 })();
 `
 
