@@ -224,11 +224,11 @@ export function StudioCanvas() {
           <Label className="text-[11px]">Email address</Label>
         </PreviewItem>
 
+        <div className="col-span-2">
         <PreviewItem name="Calendar">
-          <div className="origin-top-left" style="transform: scale(0.78); width: 128%; margin-bottom: -50px">
-            <Calendar />
-          </div>
+          <Calendar />
         </PreviewItem>
+        </div>
 
         <PreviewItem name="Date Picker">
           <DatePicker triggerClassName="h-7 text-[11px] w-full" />
