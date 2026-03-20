@@ -36,7 +36,7 @@ import { createSignal, createMemo } from '@barefootjs/dom'
  */
 
 // Base classes for all checkboxes
-const baseClasses = 'peer size-4 shrink-0 rounded-[4px] border shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50'
+const baseClasses = 'peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50'
 
 // Focus visible classes
 const focusClasses = 'focus-visible:border-ring focus-visible:ring-ring/50'

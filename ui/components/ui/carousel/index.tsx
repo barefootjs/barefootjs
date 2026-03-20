@@ -63,7 +63,7 @@ const CarouselContext = createContext<CarouselContextValue>()
 const carouselClasses = 'relative'
 const carouselItemClasses = 'min-w-0 shrink-0 grow-0 basis-full'
 
-const carouselButtonBaseClasses = 'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] border bg-background text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 absolute h-8 w-8 rounded-full'
+const carouselButtonBaseClasses = 'inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] border border-input bg-background text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50 absolute h-8 w-8 rounded-full'
 
 interface CarouselProps extends HTMLBaseAttributes {
   /** Scroll orientation */

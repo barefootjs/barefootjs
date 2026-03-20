@@ -58,16 +58,16 @@ const tableContainerClasses = 'relative w-full overflow-x-auto'
 const tableClasses = 'w-full caption-bottom border-collapse text-sm'
 
 // TableHeader classes
-const tableHeaderClasses = '[&_tr]:border-b'
+const tableHeaderClasses = '[&_tr]:border-b [&_tr]:border-border'
 
 // TableBody classes
 const tableBodyClasses = '[&_tr:last-child]:border-0'
 
 // TableFooter classes
-const tableFooterClasses = 'bg-muted/50 border-t font-medium [&>tr]:last:border-b-0'
+const tableFooterClasses = 'bg-muted/50 border-t border-border font-medium [&>tr]:last:border-b-0'
 
 // TableRow classes
-const tableRowClasses = 'hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors'
+const tableRowClasses = 'hover:bg-muted/50 data-[state=selected]:bg-muted border-b border-border transition-colors'
 
 // TableHead classes
 const tableHeadClasses = 'text-foreground h-10 px-2 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]'

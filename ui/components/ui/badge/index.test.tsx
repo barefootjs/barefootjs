@@ -34,7 +34,7 @@ describe('Badge', () => {
     const span = result.find({ tag: 'span' })!
     expect(span.classes).toContain('inline-flex')
     expect(span.classes).toContain('items-center')
-    expect(span.classes).toContain('rounded-full')
+    expect(span.classes).toContain('rounded-xl')
   })
 
   test('contains Slot component for asChild', () => {

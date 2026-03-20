@@ -176,18 +176,17 @@ function TabsTrigger(props: TabsTriggerProps) {
     }
   }
 
-  const selected = props.selected ?? false
   const classes = `${tabsTriggerBaseClasses} ${tabsTriggerFocusClasses} ${tabsTriggerStateClasses} ${props.className ?? ''}`
 
   return (
     <button
       data-slot="tabs-trigger"
       role="tab"
-      aria-selected={selected}
+      aria-selected={props.selected ?? false}
       disabled={props.disabled ?? false}
-      data-state={selected ? 'active' : 'inactive'}
+      data-state={(props.selected ?? false) ? 'active' : 'inactive'}
       data-value={props.value}
-      tabindex={selected ? 0 : -1}
+      tabindex={(props.selected ?? false) ? 0 : -1}
       id={props.id}
       className={classes}
       onClick={props.onClick}
@@ -217,19 +216,15 @@ interface TabsContentProps extends HTMLBaseAttributes {
  * @param props.selected - Whether visible
  */
 function TabsContent(props: TabsContentProps) {
-  const selected = props.selected ?? false
-  const visibilityClass = selected ? '' : 'hidden'
-  const classes = `${tabsContentClasses} ${visibilityClass} ${props.className ?? ''}`
-
   return (
     <div
       data-slot="tabs-content"
       role="tabpanel"
       tabindex={0}
-      data-state={selected ? 'active' : 'inactive'}
+      data-state={(props.selected ?? false) ? 'active' : 'inactive'}
       data-value={props.value}
       id={props.id}
-      className={classes}
+      className={`${tabsContentClasses} ${(props.selected ?? false) ? '' : 'hidden'} ${props.className ?? ''}`}
     >
       {props.children}
     </div>

@@ -203,7 +203,7 @@ function Sidebar(props: SidebarProps) {
     : 'right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]'
   const containerVariant = gapFloatingOrInset
     ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+1rem+2px)]'
-    : `group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] ${side === 'left' ? 'border-r' : 'border-l'}`
+    : `group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] ${side === 'left' ? 'border-r border-border' : 'border-l border-border'}`
 
   // Inner classes
   const innerClasses = `bg-background flex size-full flex-col ${variant === 'floating' ? 'rounded-lg shadow-sm ring-1 ring-border' : ''}`

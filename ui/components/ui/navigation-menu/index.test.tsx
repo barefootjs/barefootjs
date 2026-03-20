@@ -235,7 +235,7 @@ describe('NavigationMenuLink', () => {
 
   test('has resolved CSS classes', () => {
     expect(result.root.classes).toContain('block')
-    expect(result.root.classes).toContain('rounded-md')
+    expect(result.root.classes).toContain('rounded-sm')
     expect(result.root.classes).toContain('no-underline')
   })
 

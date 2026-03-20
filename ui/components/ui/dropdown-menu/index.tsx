@@ -236,9 +236,14 @@ function DropdownMenuContent(props: DropdownMenuContentProps) {
     const ctx = useContext(DropdownMenuContext)
 
     // Position content relative to trigger
+    // Resolve through display:contents (asChild wraps in a span with display:contents
+    // which returns a zero rect from getBoundingClientRect)
+    const positionTarget = triggerEl && getComputedStyle(triggerEl).display === 'contents'
+      ? (triggerEl.firstElementChild as HTMLElement | null) ?? triggerEl
+      : triggerEl
     const updatePosition = () => {
-      if (!triggerEl) return
-      const rect = triggerEl.getBoundingClientRect()
+      if (!positionTarget) return
+      const rect = positionTarget.getBoundingClientRect()
       el.style.top = `${rect.bottom + 4}px`
       if (props.align === 'end') {
         el.style.left = `${rect.right - el.offsetWidth}px`

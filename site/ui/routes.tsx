@@ -68,6 +68,9 @@ import { PieChartRefPage } from './pages/charts/pie-chart'
 import { AreaChartRefPage } from './pages/charts/area-chart'
 import { LineChartRefPage } from './pages/charts/line-chart'
 
+// Studio page
+import { StudioPage } from './pages/studio'
+
 // Form pattern pages
 import { ControlledInputPage } from './pages/forms/controlled-input'
 import { ValidationPage } from './pages/forms/validation'
@@ -347,6 +350,11 @@ export function createApp() {
         </div>
       </div>
     )
+  })
+
+  // Studio - design system builder (#516)
+  app.get('/studio', (c) => {
+    return c.render(<StudioPage />)
   })
 
   // Component catalog - visual card grid (#517)

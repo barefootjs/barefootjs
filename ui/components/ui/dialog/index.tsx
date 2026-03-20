@@ -63,7 +63,7 @@ const dialogOverlayClosedClasses = 'opacity-0 pointer-events-none'
 // DialogContent base classes (aligned with shadcn/ui)
 // Portal: element is moved to document.body during hydration
 // Note: shadcn/ui uses 'grid', we use 'flex flex-col' for scroll behavior with fixed header/footer
-const dialogContentBaseClasses = 'fixed left-[50%] top-[50%] z-50 flex flex-col w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg'
+const dialogContentBaseClasses = 'fixed left-[50%] top-[50%] z-50 flex flex-col w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 shadow-lg duration-200 sm:rounded-lg'
 
 // DialogContent open/closed classes
 const dialogContentOpenClasses = 'opacity-100 scale-100'

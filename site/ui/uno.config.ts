@@ -1,7 +1,7 @@
-import { defineConfig, presetWind } from 'unocss'
+import { defineConfig, presetWind4 } from 'unocss'
 
 export default defineConfig({
-  presets: [presetWind()],
+  presets: [presetWind4()],
   // Wrap UnoCSS output in CSS @layer blocks for cascade ordering.
   // Order: preflights < base < shortcuts < components < default
   // Base resets (globals.css) go into @layer base.
@@ -69,13 +69,13 @@ export default defineConfig({
       input: 'var(--input)',
       ring: 'var(--ring)',
     },
-    borderRadius: {
+    radius: {
       lg: 'var(--radius)',
       md: 'calc(var(--radius) - 2px)',
       sm: 'calc(var(--radius) - 4px)',
     },
     // Shadow scale - Use 'shadow-*' utilities
-    boxShadow: {
+    shadow: {
       sm: 'var(--shadow-sm)',
       DEFAULT: 'var(--shadow)',
       md: 'var(--shadow-md)',
@@ -85,12 +85,12 @@ export default defineConfig({
       none: 'none',
     },
     // Typography - Use 'font-*' utilities
-    fontFamily: {
+    font: {
       sans: 'var(--font-sans)',
       mono: 'var(--font-mono)',
     },
     // Letter spacing - Use 'tracking-*' utilities
-    letterSpacing: {
+    tracking: {
       tighter: 'var(--tracking-tighter)',
       tight: 'var(--tracking-tight)',
       normal: 'var(--tracking-normal)',
@@ -103,8 +103,8 @@ export default defineConfig({
       normal: 'var(--duration-normal)',
       slow: 'var(--duration-slow)',
     },
-    // Use 'easing' for ease-* utilities
-    easing: {
+    // Use 'ease' for ease-* utilities
+    ease: {
       DEFAULT: 'var(--ease-default)',
       in: 'var(--ease-in)',
       out: 'var(--ease-out)',

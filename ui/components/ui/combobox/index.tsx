@@ -73,7 +73,7 @@ const contentOpenClasses = 'opacity-100 scale-100'
 const contentClosedClasses = 'opacity-0 scale-95 pointer-events-none'
 
 // Input (search)
-const inputWrapperClasses = 'flex items-center border-b px-3'
+const inputWrapperClasses = 'flex items-center border-b border-border px-3'
 const inputClasses = 'flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50'
 
 // Item
@@ -163,6 +163,9 @@ interface ComboboxSeparatorProps extends HTMLBaseAttributes {
 function Combobox(props: ComboboxProps) {
   const [open, setOpen] = createSignal(false)
   const [search, setSearch] = createSignal('')
+  // Internal state for uncontrolled mode (when value prop is not provided)
+  const [internalValue, setInternalValue] = createSignal(props.value ?? '')
+  const isControlled = props.value !== undefined
 
   const filterFn = props.filter ?? ((value: string, search: string) => {
     if (!search) return true
@@ -177,8 +180,11 @@ function Combobox(props: ComboboxProps) {
         // Clear search when closing
         if (!v) setSearch('')
       },
-      value: () => props.value ?? '',
-      onValueChange: props.onValueChange ?? (() => {}),
+      value: () => isControlled ? (props.value ?? '') : internalValue(),
+      onValueChange: (v: string) => {
+        if (!isControlled) setInternalValue(v)
+        if (props.onValueChange) props.onValueChange(v)
+      },
       search,
       onSearchChange: setSearch,
       filter: filterFn,
@@ -401,13 +407,16 @@ function ComboboxContent(props: ComboboxContentProps) {
       }
     })
 
-    // Auto-select first visible item when search changes
+    // Auto-select visible item when search changes:
+    // prefer the currently checked item, fall back to first visible
     createEffect(() => {
       ctx.search() // track dependency
       requestAnimationFrame(() => {
         const visibleItems = Array.from(el.querySelectorAll('[data-slot="combobox-item"]:not([hidden])')) as HTMLElement[]
-        visibleItems.forEach((item, i) => {
-          item.setAttribute('data-selected', String(i === 0))
+        const checkedItem = el.querySelector('[data-slot="combobox-item"][data-state="checked"]:not([hidden])') as HTMLElement | null
+        const targetItem = checkedItem ?? visibleItems[0] ?? null
+        visibleItems.forEach((item) => {
+          item.setAttribute('data-selected', String(item === targetItem))
         })
       })
     })

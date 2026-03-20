@@ -67,6 +67,7 @@ const menuEntries: SidebarEntry[] = [
     defaultOpen: true,
     links: [
       { title: 'Introduction', href: '/' },
+      { title: 'Studio', href: '/studio' },
     ],
   },
   {
@@ -211,15 +212,17 @@ export const renderer = jsxRenderer(
             <MobileMenu />
             <MobilePageNav prev={navLinks.prev} next={navLinks.next} />
             <CommandPalette />
-            <nav
-              className="hidden sm:block fixed top-14 left-0 w-56 h-[calc(100vh-56px)] overflow-y-auto border-r border-border bg-background p-4"
-              aria-label="Main navigation"
-              data-sidebar-menu
-            >
-              <SidebarNav entries={menuEntries} currentPath={currentPath} />
-            </nav>
-            <div className="sm:pl-56">
-              <main className="max-w-[1000px] mx-auto px-0 sm:px-4">
+            {currentPath !== '/studio' && (
+              <nav
+                className="hidden sm:block fixed top-14 left-0 w-56 h-[calc(100vh-56px)] overflow-y-auto border-r border-border bg-background p-4"
+                aria-label="Main navigation"
+                data-sidebar-menu
+              >
+                <SidebarNav entries={menuEntries} currentPath={currentPath} />
+              </nav>
+            )}
+            <div className={currentPath === '/studio' ? '' : 'sm:pl-56'}>
+              <main className={currentPath === '/studio' ? '' : 'max-w-[1000px] mx-auto px-0 sm:px-4'}>
                 {children}
               </main>
             </div>
