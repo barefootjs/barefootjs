@@ -87,6 +87,87 @@ test.describe('Studio Export & URL', () => {
     expect(decoded.style).toBe('Soft')
   })
 
+  test('editing light color auto-generates dark counterpart', async ({ page }) => {
+    await page.goto('/studio')
+
+    // Open the primary color editor
+    await page.locator('[data-studio-color-edit="primary"]').click()
+
+    // Use the R slider (RGB sliders are visible by default, OKLCH sliders are hidden)
+    const sliderR = page.locator('[data-studio-slider-r="primary"]')
+    await expect(sliderR).toBeVisible()
+    await sliderR.fill('128')
+    await sliderR.dispatchEvent('input')
+
+    // Read the stored customTokens from localStorage
+    const stored = await page.evaluate(() => {
+      const raw = localStorage.getItem('barefootjs-studio-tokens')
+      return raw ? JSON.parse(raw) : null
+    })
+
+    expect(stored).toBeTruthy()
+    expect(stored.tokens.primary).toBeTruthy()
+    expect(stored.tokens.primary.light).toBeTruthy()
+    expect(stored.tokens.primary.dark).toBeTruthy()
+
+    // The dark value should be auto-generated with inverted L.
+    // Parse both oklch values and verify they have complementary L values.
+    const lightMatch = stored.tokens.primary.light.match(/oklch\(([\d.]+)/)
+    const darkMatch = stored.tokens.primary.dark.match(/oklch\(([\d.]+)/)
+    expect(lightMatch).toBeTruthy()
+    expect(darkMatch).toBeTruthy()
+
+    const lightL = parseFloat(lightMatch![1])
+    const darkL = parseFloat(darkMatch![1])
+    // L values should roughly sum to 1 (auto-generation inverts L)
+    expect(lightL + darkL).toBeCloseTo(1, 1)
+  })
+
+  test('manually editing dark mode prevents auto-generation from light', async ({ page }) => {
+    await page.goto('/studio')
+
+    // Helper: set slider value and dispatch input event via evaluate
+    // (avoids visibility issues with editor toggle)
+    async function setSlider(selector: string, value: string) {
+      await page.evaluate(({ sel, val }) => {
+        const slider = document.querySelector(sel) as HTMLInputElement
+        if (slider) {
+          slider.value = val
+          slider.dispatchEvent(new Event('input', { bubbles: true }))
+        }
+      }, { sel: selector, val: value })
+    }
+
+    // Open primary editor and edit in light mode
+    await page.locator('[data-studio-color-edit="primary"]').click()
+    await setSlider('[data-studio-slider-r="primary"]', '100')
+
+    // Switch to dark mode
+    await page.evaluate(() => document.documentElement.classList.add('dark'))
+
+    // Edit primary in dark mode (manual override)
+    // Use evaluate to set slider directly (editor may be in toggled state)
+    await setSlider('[data-studio-slider-r="primary"]', '200')
+
+    // Read the manual dark value
+    const storedBefore = await page.evaluate(() => {
+      const raw = localStorage.getItem('barefootjs-studio-tokens')
+      return raw ? JSON.parse(raw) : null
+    })
+    const darkBefore = storedBefore.tokens.primary.dark
+
+    // Switch back to light mode and edit again
+    await page.evaluate(() => document.documentElement.classList.remove('dark'))
+    await setSlider('[data-studio-slider-r="primary"]', '50')
+
+    // Dark value should NOT have changed (was manually edited)
+    const storedAfter = await page.evaluate(() => {
+      const raw = localStorage.getItem('barefootjs-studio-tokens')
+      return raw ? JSON.parse(raw) : null
+    })
+    expect(storedAfter.tokens.primary.dark).toBe(darkBefore)
+  })
+
   test('round-trip: encode config → visit URL → values match', async ({ page }) => {
     const config = {
       style: 'Compact',

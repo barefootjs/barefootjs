@@ -1017,6 +1017,42 @@ const studioScript = `
   });
   portalObserver.observe(document.body, { childList: true });
 
+  // ── Auto dark/light mode generation ──
+  // Track which mode the user has manually edited per token.
+  // { tokenName: { light: true, dark: false } }
+  // If a mode is not manually edited, editing the other mode auto-generates it.
+  var manualEdits = {};
+
+  function generateCounterpartColor(oklchStr) {
+    var parsed = parseOklch(oklchStr);
+    var newL = Math.max(0, Math.min(1, 1 - parsed.l));
+    return buildOklch(newL, parsed.c, parsed.h);
+  }
+
+  function applyColorChange(token, newVal) {
+    var mode = getMode();
+    var otherMode = mode === 'light' ? 'dark' : 'light';
+
+    if (!customTokens[token]) customTokens[token] = {};
+    customTokens[token][mode] = newVal;
+
+    // Mark current mode as manually edited
+    if (!manualEdits[token]) manualEdits[token] = {};
+    manualEdits[token][mode] = true;
+
+    // Auto-generate counterpart if the other mode hasn't been manually edited
+    if (!manualEdits[token][otherMode]) {
+      customTokens[token][otherMode] = generateCounterpartColor(newVal);
+    }
+
+    // Apply to canvas
+    scopedSetProperty('--' + token, newVal);
+
+    // Update swatch preview in token panel
+    var swatch = document.querySelector('[data-studio-color-preview="' + token + '"]');
+    if (swatch) swatch.style.backgroundColor = newVal;
+  }
+
   // ── localStorage persistence ──
   // Track custom overrides (null = use preset value)
   var customSpacing = null;
@@ -1054,6 +1090,7 @@ const studioScript = `
       var data = {
         style: activeStyle,
         tokens: customTokens,
+        manualEdits: manualEdits,
         spacing: customSpacing,
         radius: customRadius,
         font: customFont
@@ -1070,6 +1107,7 @@ const studioScript = `
       if (!raw) return;
       var data = JSON.parse(raw);
       if (data.tokens) customTokens = data.tokens;
+      if (data.manualEdits) manualEdits = data.manualEdits;
       if (data.style) activeStyle = data.style;
       if (data.spacing) customSpacing = data.spacing;
       if (data.radius) customRadius = data.radius;
@@ -1442,16 +1480,8 @@ const studioScript = `
       newVal = buildOklch(parsed.l, parsed.c, parsed.h);
     }
 
-    // Store in customTokens
-    if (!customTokens[token]) {
-      customTokens[token] = {};
-      var otherMode = mode === 'light' ? 'dark' : 'light';
-      customTokens[token][otherMode] = getTokenValue(token, otherMode);
-    }
-    customTokens[token][mode] = newVal;
-
-    // Apply immediately
-    scopedSetProperty('--' + token, newVal);
+    // Apply change and auto-generate counterpart mode
+    applyColorChange(token, newVal);
 
     // Update all sliders and labels for this token
     updateEditorSliders(token);
@@ -1561,15 +1591,7 @@ const studioScript = `
     var oklch = rgbToOklch(rgb.r, rgb.g, rgb.b);
     var newVal = buildOklch(oklch.l, oklch.c, oklch.h);
 
-    var mode = getMode();
-    if (!customTokens[token]) {
-      customTokens[token] = {};
-      var otherMode = mode === 'light' ? 'dark' : 'light';
-      customTokens[token][otherMode] = getTokenValue(token, otherMode);
-    }
-    customTokens[token][mode] = newVal;
-
-    scopedSetProperty('--' + token, newVal);
+    applyColorChange(token, newVal);
     updateEditorSliders(token);
     saveToStorage();
   });
@@ -1649,7 +1671,15 @@ const studioScript = `
       if (!encoded) return false;
       var config = decodeConfig(encoded);
       if (config.style) activeStyle = config.style;
-      if (config.tokens) customTokens = config.tokens;
+      if (config.tokens) {
+        customTokens = config.tokens;
+        // Treat URL-loaded tokens as manually edited for all specified modes
+        Object.keys(config.tokens).forEach(function(token) {
+          manualEdits[token] = {};
+          if (config.tokens[token].light) manualEdits[token].light = true;
+          if (config.tokens[token].dark) manualEdits[token].dark = true;
+        });
+      }
       if (config.spacing) customSpacing = config.spacing;
       if (config.radius) customRadius = config.radius;
       if (config.font) customFont = config.font;
@@ -1701,6 +1731,7 @@ const studioScript = `
 
     // Clear all customizations
     customTokens = {};
+    manualEdits = {};
     customSpacing = null;
     customRadius = null;
     customFont = null;
