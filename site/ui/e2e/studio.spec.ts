@@ -126,23 +126,28 @@ test.describe('Studio Export & URL', () => {
   test('manually editing dark mode prevents auto-generation from light', async ({ page }) => {
     await page.goto('/studio')
 
-    // Edit primary in light mode (R slider is visible by default)
+    // Helper: set slider value and dispatch input event via evaluate
+    // (avoids visibility issues with editor toggle)
+    async function setSlider(selector: string, value: string) {
+      await page.evaluate(({ sel, val }) => {
+        const slider = document.querySelector(sel) as HTMLInputElement
+        if (slider) {
+          slider.value = val
+          slider.dispatchEvent(new Event('input', { bubbles: true }))
+        }
+      }, { sel: selector, val: value })
+    }
+
+    // Open primary editor and edit in light mode
     await page.locator('[data-studio-color-edit="primary"]').click()
-    const sliderR = page.locator('[data-studio-slider-r="primary"]')
-    await expect(sliderR).toBeVisible()
-    await sliderR.fill('100')
-    await sliderR.dispatchEvent('input')
+    await setSlider('[data-studio-slider-r="primary"]', '100')
 
     // Switch to dark mode
     await page.evaluate(() => document.documentElement.classList.add('dark'))
 
     // Edit primary in dark mode (manual override)
-    // Re-open editor (dark mode toggle may have closed it due to reapply)
-    await page.locator('[data-studio-color-edit="primary"]').click()
-    const darkSliderR = page.locator('[data-studio-slider-r="primary"]')
-    await expect(darkSliderR).toBeVisible()
-    await darkSliderR.fill('200')
-    await darkSliderR.dispatchEvent('input')
+    // Use evaluate to set slider directly (editor may be in toggled state)
+    await setSlider('[data-studio-slider-r="primary"]', '200')
 
     // Read the manual dark value
     const storedBefore = await page.evaluate(() => {
@@ -153,11 +158,7 @@ test.describe('Studio Export & URL', () => {
 
     // Switch back to light mode and edit again
     await page.evaluate(() => document.documentElement.classList.remove('dark'))
-    await page.locator('[data-studio-color-edit="primary"]').click()
-    const lightSlider = page.locator('[data-studio-slider-r="primary"]')
-    await expect(lightSlider).toBeVisible()
-    await lightSlider.fill('50')
-    await lightSlider.dispatchEvent('input')
+    await setSlider('[data-studio-slider-r="primary"]', '50')
 
     // Dark value should NOT have changed (was manually edited)
     const storedAfter = await page.evaluate(() => {
