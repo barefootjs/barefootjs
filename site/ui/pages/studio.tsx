@@ -774,12 +774,12 @@ function ZoomControls() {
 function ExportBar() {
   return (
     <div className="flex items-center justify-center gap-3 px-4 py-2 bg-card border-t border-border">
-      <code className="rounded-md bg-muted border border-border px-3 py-1.5 font-mono text-[11px] text-foreground max-w-xl truncate">
-        barefoot init --from "https://ui.barefootjs.dev/studio?c=eJx..."
+      <code className="rounded-md bg-muted border border-border px-3 py-1.5 font-mono text-[11px] text-foreground max-w-xl truncate" data-studio-export-code>
+        barefoot init --from "https://ui.barefootjs.dev/studio?c=..."
       </code>
-      <button className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0">
+      <button className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0" data-studio-copy>
         <IconCopy />
-        Copy
+        <span data-studio-copy-label>Copy</span>
       </button>
     </div>
   )
@@ -1017,6 +1017,42 @@ const studioScript = `
   });
   portalObserver.observe(document.body, { childList: true });
 
+  // ── Auto dark/light mode generation ──
+  // Track which mode the user has manually edited per token.
+  // { tokenName: { light: true, dark: false } }
+  // If a mode is not manually edited, editing the other mode auto-generates it.
+  var manualEdits = {};
+
+  function generateCounterpartColor(oklchStr) {
+    var parsed = parseOklch(oklchStr);
+    var newL = Math.max(0, Math.min(1, 1 - parsed.l));
+    return buildOklch(newL, parsed.c, parsed.h);
+  }
+
+  function applyColorChange(token, newVal) {
+    var mode = getMode();
+    var otherMode = mode === 'light' ? 'dark' : 'light';
+
+    if (!customTokens[token]) customTokens[token] = {};
+    customTokens[token][mode] = newVal;
+
+    // Mark current mode as manually edited
+    if (!manualEdits[token]) manualEdits[token] = {};
+    manualEdits[token][mode] = true;
+
+    // Auto-generate counterpart if the other mode hasn't been manually edited
+    if (!manualEdits[token][otherMode]) {
+      customTokens[token][otherMode] = generateCounterpartColor(newVal);
+    }
+
+    // Apply to canvas
+    scopedSetProperty('--' + token, newVal);
+
+    // Update swatch preview in token panel
+    var swatch = document.querySelector('[data-studio-color-preview="' + token + '"]');
+    if (swatch) swatch.style.backgroundColor = newVal;
+  }
+
   // ── localStorage persistence ──
   // Track custom overrides (null = use preset value)
   var customSpacing = null;
@@ -1054,6 +1090,7 @@ const studioScript = `
       var data = {
         style: activeStyle,
         tokens: customTokens,
+        manualEdits: manualEdits,
         spacing: customSpacing,
         radius: customRadius,
         font: customFont
@@ -1061,6 +1098,7 @@ const studioScript = `
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch(e) {}
     updateResetButton();
+    updateExportCommand();
   }
 
   function loadFromStorage() {
@@ -1069,6 +1107,7 @@ const studioScript = `
       if (!raw) return;
       var data = JSON.parse(raw);
       if (data.tokens) customTokens = data.tokens;
+      if (data.manualEdits) manualEdits = data.manualEdits;
       if (data.style) activeStyle = data.style;
       if (data.spacing) customSpacing = data.spacing;
       if (data.radius) customRadius = data.radius;
@@ -1279,6 +1318,14 @@ const studioScript = `
       }
     });
 
+    // Update swatch previews and open editors for all custom tokens
+    Object.keys(customTokens).forEach(function(token) {
+      var val = getTokenValue(token, mode);
+      // Update swatch preview (token panel is outside canvas, so var(--x) won't reflect scoped overrides)
+      var swatch = document.querySelector('[data-studio-color-preview="' + token + '"]');
+      if (swatch) swatch.style.backgroundColor = val;
+    });
+
     // Update any open editor to show the new mode's values
     document.querySelectorAll('[data-studio-color-editor]').forEach(function(ed) {
       if (ed.classList.contains('hidden')) return;
@@ -1433,16 +1480,8 @@ const studioScript = `
       newVal = buildOklch(parsed.l, parsed.c, parsed.h);
     }
 
-    // Store in customTokens
-    if (!customTokens[token]) {
-      customTokens[token] = {};
-      var otherMode = mode === 'light' ? 'dark' : 'light';
-      customTokens[token][otherMode] = getTokenValue(token, otherMode);
-    }
-    customTokens[token][mode] = newVal;
-
-    // Apply immediately
-    scopedSetProperty('--' + token, newVal);
+    // Apply change and auto-generate counterpart mode
+    applyColorChange(token, newVal);
 
     // Update all sliders and labels for this token
     updateEditorSliders(token);
@@ -1552,15 +1591,7 @@ const studioScript = `
     var oklch = rgbToOklch(rgb.r, rgb.g, rgb.b);
     var newVal = buildOklch(oklch.l, oklch.c, oklch.h);
 
-    var mode = getMode();
-    if (!customTokens[token]) {
-      customTokens[token] = {};
-      var otherMode = mode === 'light' ? 'dark' : 'light';
-      customTokens[token][otherMode] = getTokenValue(token, otherMode);
-    }
-    customTokens[token][mode] = newVal;
-
-    scopedSetProperty('--' + token, newVal);
+    applyColorChange(token, newVal);
     updateEditorSliders(token);
     saveToStorage();
   });
@@ -1600,6 +1631,82 @@ const studioScript = `
   }
 
 
+  // ── URL encoding/decoding for export ──
+  function buildConfig() {
+    var preset = stylePresets.find(function(p) { return p.name === activeStyle; }) || stylePresets[0];
+    var config = {};
+    if (activeStyle !== 'Default') config.style = activeStyle;
+    if (Object.keys(customTokens).length > 0) config.tokens = customTokens;
+    if (customSpacing !== null && customSpacing !== preset.spacing) config.spacing = customSpacing;
+    if (customRadius !== null && customRadius !== preset.radius) config.radius = customRadius;
+    if (customFont !== null) config.font = customFont;
+    return config;
+  }
+
+  function encodeConfig(config) {
+    return encodeURIComponent(btoa(JSON.stringify(config)));
+  }
+
+  function decodeConfig(str) {
+    return JSON.parse(atob(decodeURIComponent(str)));
+  }
+
+  function updateExportCommand() {
+    var codeEl = document.querySelector('[data-studio-export-code]');
+    if (!codeEl) return;
+    var config = buildConfig();
+    var baseUrl = location.origin + '/studio';
+    if (Object.keys(config).length > 0) {
+      var encoded = encodeConfig(config);
+      codeEl.textContent = 'barefoot init --from "' + baseUrl + '?c=' + encoded + '"';
+    } else {
+      codeEl.textContent = 'barefoot init --from "' + baseUrl + '"';
+    }
+  }
+
+  function loadFromURL() {
+    try {
+      var params = new URLSearchParams(location.search);
+      var encoded = params.get('c');
+      if (!encoded) return false;
+      var config = decodeConfig(encoded);
+      if (config.style) activeStyle = config.style;
+      if (config.tokens) {
+        customTokens = config.tokens;
+        // Treat URL-loaded tokens as manually edited for all specified modes
+        Object.keys(config.tokens).forEach(function(token) {
+          manualEdits[token] = {};
+          if (config.tokens[token].light) manualEdits[token].light = true;
+          if (config.tokens[token].dark) manualEdits[token].dark = true;
+        });
+      }
+      if (config.spacing) customSpacing = config.spacing;
+      if (config.radius) customRadius = config.radius;
+      if (config.font) customFont = config.font;
+      return true;
+    } catch(e) {
+      return false;
+    }
+  }
+
+  // ── Copy button ──
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-studio-copy]');
+    if (!btn) return;
+    e.preventDefault();
+    var codeEl = document.querySelector('[data-studio-export-code]');
+    if (!codeEl) return;
+    var text = codeEl.textContent;
+    navigator.clipboard.writeText(text).then(function() {
+      var label = btn.querySelector('[data-studio-copy-label]');
+      if (label) {
+        var original = label.textContent;
+        label.textContent = 'Copied!';
+        setTimeout(function() { label.textContent = original; }, 2000);
+      }
+    });
+  });
+
   // ── Reset button ──
   document.addEventListener('click', function(e) {
     var btn = e.target.closest('[data-studio-reset]');
@@ -1624,6 +1731,7 @@ const studioScript = `
 
     // Clear all customizations
     customTokens = {};
+    manualEdits = {};
     customSpacing = null;
     customRadius = null;
     customFont = null;
@@ -1655,12 +1763,25 @@ const studioScript = `
   });
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-  // ── Initialize: restore from localStorage ──
-  loadFromStorage();
+  // ── Initialize: restore from URL (priority) or localStorage ──
+  var loadedFromURL = loadFromURL();
+  if (!loadedFromURL) {
+    loadFromStorage();
+  }
+
+  // Save custom overrides before applyStyle (which resets them to null)
+  var savedSpacing = customSpacing;
+  var savedRadius = customRadius;
+  var savedFont = customFont;
 
   if (activeStyle !== 'Default') {
     applyStyle(activeStyle);
   }
+
+  // Restore custom overrides that applyStyle cleared
+  customSpacing = savedSpacing;
+  customRadius = savedRadius;
+  customFont = savedFont;
 
   // Apply custom spacing/radius overrides (on top of preset)
   if (customSpacing !== null) {
@@ -1706,6 +1827,7 @@ const studioScript = `
   // Apply saved color tokens
   reapplyForMode();
   updateResetButton();
+  updateExportCommand();
 })();
 `
 
