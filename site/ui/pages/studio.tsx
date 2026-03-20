@@ -1280,6 +1280,14 @@ const studioScript = `
       }
     });
 
+    // Update swatch previews and open editors for all custom tokens
+    Object.keys(customTokens).forEach(function(token) {
+      var val = getTokenValue(token, mode);
+      // Update swatch preview (token panel is outside canvas, so var(--x) won't reflect scoped overrides)
+      var swatch = document.querySelector('[data-studio-color-preview="' + token + '"]');
+      if (swatch) swatch.style.backgroundColor = val;
+    });
+
     // Update any open editor to show the new mode's values
     document.querySelectorAll('[data-studio-color-editor]').forEach(function(ed) {
       if (ed.classList.contains('hidden')) return;
@@ -1730,9 +1738,19 @@ const studioScript = `
     loadFromStorage();
   }
 
+  // Save custom overrides before applyStyle (which resets them to null)
+  var savedSpacing = customSpacing;
+  var savedRadius = customRadius;
+  var savedFont = customFont;
+
   if (activeStyle !== 'Default') {
     applyStyle(activeStyle);
   }
+
+  // Restore custom overrides that applyStyle cleared
+  customSpacing = savedSpacing;
+  customRadius = savedRadius;
+  customFont = savedFont;
 
   // Apply custom spacing/radius overrides (on top of preset)
   if (customSpacing !== null) {
