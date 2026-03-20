@@ -937,6 +937,43 @@ const studioScript = `
   var activeStyle = 'Default';
   var customTokens = {};
 
+  // ── Scoped token application ──
+  // Apply CSS variables to canvas element + portaled elements only,
+  // so TokenPanel/ZoomControls/ExportBar use the default theme.
+  var canvas = document.querySelector('[data-studio-canvas]');
+  var activeOverrides = {}; // { '--primary': 'oklch(...)' , '--spacing': '0.3rem', ... }
+
+  function scopedSetProperty(name, value) {
+    activeOverrides[name] = value;
+    if (canvas) canvas.style.setProperty(name, value);
+    // Apply to portaled elements (direct children of body with bf-pi attribute)
+    document.querySelectorAll('body > [bf-pi]').forEach(function(el) {
+      el.style.setProperty(name, value);
+    });
+  }
+
+  function scopedRemoveProperty(name) {
+    delete activeOverrides[name];
+    if (canvas) canvas.style.removeProperty(name);
+    document.querySelectorAll('body > [bf-pi]').forEach(function(el) {
+      el.style.removeProperty(name);
+    });
+  }
+
+  // Watch for new portaled elements and apply current overrides
+  var portalObserver = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(node) {
+        if (node.nodeType !== 1) return;
+        if (!node.hasAttribute('bf-pi')) return;
+        Object.keys(activeOverrides).forEach(function(name) {
+          node.style.setProperty(name, activeOverrides[name]);
+        });
+      });
+    });
+  });
+  portalObserver.observe(document.body, { childList: true });
+
   // ── localStorage persistence ──
   // Track custom overrides (null = use preset value)
   var customSpacing = null;
@@ -1133,38 +1170,37 @@ const studioScript = `
     customSpacing = null;
     customRadius = null;
     customFont = null;
-    var root = document.documentElement;
 
     // Spacing
     if (name === 'Default') {
-      root.style.removeProperty('--spacing');
+      scopedRemoveProperty('--spacing');
     } else {
-      root.style.setProperty('--spacing', preset.spacing);
+      scopedSetProperty('--spacing', preset.spacing);
     }
 
     // Radius
     if (name === 'Default') {
-      root.style.removeProperty('--radius');
+      scopedRemoveProperty('--radius');
     } else {
-      root.style.setProperty('--radius', preset.radius);
+      scopedSetProperty('--radius', preset.radius);
     }
 
     // Shadows
     var shadowKeys = ['sm', 'default', 'md', 'lg'];
     var shadowVars = ['--shadow-sm', '--shadow', '--shadow-md', '--shadow-lg'];
     if (name === 'Default') {
-      shadowVars.forEach(function(v) { root.style.removeProperty(v); });
+      shadowVars.forEach(function(v) { scopedRemoveProperty(v); });
     } else {
       shadowKeys.forEach(function(key, i) {
-        root.style.setProperty(shadowVars[i], preset.shadow[key]);
+        scopedSetProperty(shadowVars[i], preset.shadow[key]);
       });
     }
 
     // Font
     if (name === 'Default') {
-      root.style.removeProperty('--font-sans');
+      scopedRemoveProperty('--font-sans');
     } else {
-      root.style.setProperty('--font-sans', preset.font);
+      scopedSetProperty('--font-sans', preset.font);
     }
     updateFontChecks();
 
@@ -1189,13 +1225,12 @@ const studioScript = `
 
   // ── Re-apply color overrides for current mode (dark/light toggle) ──
   function reapplyForMode() {
-    var root = document.documentElement;
     var mode = getMode();
 
     // Re-apply custom color tokens for the new mode
     Object.keys(customTokens).forEach(function(token) {
       if (customTokens[token][mode]) {
-        root.style.setProperty('--' + token, customTokens[token][mode]);
+        scopedSetProperty('--' + token, customTokens[token][mode]);
       }
     });
 
@@ -1298,7 +1333,7 @@ const studioScript = `
       // Spacing slider
       var val = parseFloat(slider.value);
       var spacingVal = val + 'rem';
-      document.documentElement.style.setProperty('--spacing', spacingVal);
+      scopedSetProperty('--spacing', spacingVal);
       var spacingLabel = document.querySelector('[data-studio-spacing-label]');
       if (spacingLabel) spacingLabel.textContent = spacingVal;
       customSpacing = spacingVal;
@@ -1317,7 +1352,7 @@ const studioScript = `
       // Radius slider
       var val = parseFloat(slider.value);
       var radiusVal = val + 'rem';
-      document.documentElement.style.setProperty('--radius', radiusVal);
+      scopedSetProperty('--radius', radiusVal);
       var radiusLabel = document.querySelector('[data-studio-radius-label]');
       if (radiusLabel) radiusLabel.textContent = radiusVal;
       customRadius = radiusVal;
@@ -1358,7 +1393,7 @@ const studioScript = `
     customTokens[token][mode] = newVal;
 
     // Apply immediately
-    document.documentElement.style.setProperty('--' + token, newVal);
+    scopedSetProperty('--' + token, newVal);
 
     // Update all sliders and labels for this token
     updateEditorSliders(token);
@@ -1410,7 +1445,7 @@ const studioScript = `
       if (!value) return;
       loadGoogleFont(key);
       customFont = key;
-      document.documentElement.style.setProperty('--font-sans', value);
+      scopedSetProperty('--font-sans', value);
       updateFontChecks();
       saveToStorage();
       closeAllDropdowns();
@@ -1476,7 +1511,7 @@ const studioScript = `
     }
     customTokens[token][mode] = newVal;
 
-    document.documentElement.style.setProperty('--' + token, newVal);
+    scopedSetProperty('--' + token, newVal);
     updateEditorSliders(token);
     saveToStorage();
   });
@@ -1546,7 +1581,7 @@ const studioScript = `
 
     // Remove all inline style overrides for color tokens
     Object.keys(defaultColors).forEach(function(token) {
-      document.documentElement.style.removeProperty('--' + token);
+      scopedRemoveProperty('--' + token);
     });
 
     // Close all open editors
@@ -1580,7 +1615,7 @@ const studioScript = `
 
   // Apply custom spacing/radius overrides (on top of preset)
   if (customSpacing !== null) {
-    document.documentElement.style.setProperty('--spacing', customSpacing);
+    scopedSetProperty('--spacing', customSpacing);
     var spacingLabel = document.querySelector('[data-studio-spacing-label]');
     if (spacingLabel) spacingLabel.textContent = customSpacing;
     var spacingSlider = document.querySelector('[data-studio-spacing-slider]');
@@ -1594,7 +1629,7 @@ const studioScript = `
   }
 
   if (customRadius !== null) {
-    document.documentElement.style.setProperty('--radius', customRadius);
+    scopedSetProperty('--radius', customRadius);
     var radiusLabel = document.querySelector('[data-studio-radius-label]');
     if (radiusLabel) radiusLabel.textContent = customRadius;
     var radiusSlider = document.querySelector('[data-studio-radius-slider]');
@@ -1613,7 +1648,7 @@ const studioScript = `
   // Apply custom font override
   if (customFont && fontOptions[customFont]) {
     loadGoogleFont(customFont);
-    document.documentElement.style.setProperty('--font-sans', fontOptions[customFont]);
+    scopedSetProperty('--font-sans', fontOptions[customFont]);
   }
   updateFontChecks();
 
