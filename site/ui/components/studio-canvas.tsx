@@ -31,6 +31,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { Tooltip } from '@/components/ui/tooltip'
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Sheet, SheetTrigger, SheetOverlay, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '@/components/ui/sheet'
 import { Drawer, DrawerTrigger, DrawerOverlay, DrawerContent, DrawerHandle, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from '@/components/ui/drawer'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -727,7 +728,20 @@ export function StudioCanvas() {
         </PreviewItem>
 
         <PreviewItem name="Scroll Area">
-          <div className="text-[10px] text-muted-foreground italic">Scrollbar</div>
+          <ScrollArea className="h-20 w-full rounded-md border border-border" type="hover">
+            <div className="p-2 text-[11px]">
+              <div className="font-medium mb-1">Tags</div>
+              <div className="space-y-1 text-muted-foreground">
+                <div>v1.0.0</div>
+                <div>v1.1.0</div>
+                <div>v1.2.0</div>
+                <div>v1.3.0</div>
+                <div>v1.4.0</div>
+                <div>v2.0.0</div>
+              </div>
+            </div>
+            <ScrollBar />
+          </ScrollArea>
         </PreviewItem>
 
         <PreviewItem name="Resizable">
