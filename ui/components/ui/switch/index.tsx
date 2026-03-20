@@ -27,8 +27,8 @@ import { createSignal, createMemo } from '@barefootjs/dom'
  * ```
  */
 
-// Base classes for the switch track (h-[1.15rem] w-8 border matches shadcn/ui dimensions)
-const trackBaseClasses = 'peer inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent p-0 shadow-xs transition-all outline-none disabled:cursor-not-allowed disabled:opacity-50'
+// Base classes for the switch track (h-5 w-9 matches shadcn/ui dimensions)
+const trackBaseClasses = 'peer inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-transparent p-0 shadow-xs transition-all outline-none disabled:cursor-not-allowed disabled:opacity-50'
 
 // Focus visible classes
 const trackFocusClasses = 'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
