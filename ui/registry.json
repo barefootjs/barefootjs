@@ -324,6 +324,13 @@
       "tags": ["feedback"]
     },
     {
+      "name": "direction",
+      "type": "registry:ui",
+      "title": "Direction",
+      "description": "A provider for setting text direction (LTR/RTL) on child content",
+      "tags": ["layout"]
+    },
+    {
       "name": "dropdown-menu",
       "type": "registry:ui",
       "title": "Dropdown Menu",

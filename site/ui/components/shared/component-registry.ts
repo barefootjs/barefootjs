@@ -82,7 +82,8 @@ export const componentEntries: ComponentEntry[] = [
   { slug: 'pagination', title: 'Pagination', description: 'Page navigation controls', category: 'navigation' },
   { slug: 'tabs', title: 'Tabs', description: 'Tabbed content navigation', category: 'navigation' },
 
-  // Layout (8)
+  // Layout (9)
+  { slug: 'direction', title: 'Direction', description: 'RTL/LTR direction provider', category: 'layout' },
   { slug: 'drawer', title: 'Drawer', description: 'Slide-out panel from screen edge', category: 'layout' },
   { slug: 'hover-card', title: 'Hover Card', description: 'Preview card on hover', category: 'layout' },
   { slug: 'popover', title: 'Popover', description: 'Floating content anchored to a trigger', category: 'layout' },
