@@ -445,6 +445,13 @@
       "title": "Empty",
       "description": "Empty state placeholder with icon, title, and action",
       "tags": ["feedback"]
+    },
+    {
+      "name": "native-select",
+      "type": "registry:ui",
+      "title": "Native Select",
+      "description": "A styled native HTML select element",
+      "tags": ["input"]
     }
   ]
 }

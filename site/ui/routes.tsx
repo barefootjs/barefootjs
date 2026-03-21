@@ -62,6 +62,7 @@ import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
 import { EmptyRefPage } from './pages/components/empty'
 import { KbdRefPage } from './pages/components/kbd'
+import { NativeSelectRefPage } from './pages/components/native-select'
 import { SpinnerRefPage } from './pages/components/spinner'
 import { TypographyRefPage } from './pages/components/typography'
 import { ComponentCatalogPage } from './pages/components/catalog'
@@ -254,6 +255,11 @@ export function createApp() {
   // Kbd reference page
   app.get('/components/kbd', (c) => {
     return c.render(<KbdRefPage />)
+  })
+
+  // Native Select reference page
+  app.get('/components/native-select', (c) => {
+    return c.render(<NativeSelectRefPage />)
   })
 
   // Spinner reference page

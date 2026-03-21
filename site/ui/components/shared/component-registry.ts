@@ -45,6 +45,7 @@ export const componentEntries: ComponentEntry[] = [
   { slug: 'input-group', title: 'Input Group', description: 'Input with addons and affixes', category: 'input' },
   { slug: 'input-otp', title: 'Input OTP', description: 'One-time password input', category: 'input' },
   { slug: 'label', title: 'Label', description: 'Accessible label for form controls', category: 'input' },
+  { slug: 'native-select', title: 'Native Select', description: 'Styled native HTML select', category: 'input' },
   { slug: 'radio-group', title: 'Radio Group', description: 'Single-select option group', category: 'input' },
   { slug: 'select', title: 'Select', description: 'Dropdown selection control', category: 'input' },
   { slug: 'slider', title: 'Slider', description: 'Range value selector', category: 'input' },
