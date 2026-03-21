@@ -58,6 +58,7 @@ import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
 import { SpinnerRefPage } from './pages/components/spinner'
+import { TypographyRefPage } from './pages/components/typography'
 import { ComponentCatalogPage } from './pages/components/catalog'
 
 // Chart pages
@@ -233,6 +234,11 @@ export function createApp() {
   // Spinner reference page
   app.get('/components/spinner', (c) => {
     return c.render(<SpinnerRefPage />)
+  })
+
+  // Typography reference page
+  app.get('/components/typography', (c) => {
+    return c.render(<TypographyRefPage />)
   })
 
   // Switch reference page
