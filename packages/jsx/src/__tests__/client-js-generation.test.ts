@@ -2197,5 +2197,73 @@ describe('Client JS generation', () => {
       expect(content).toContain("String(__val ?? '')")
       expect(content).not.toMatch(/\.nodeValue = String\(__val\)(?! )/)
     })
+
+    test('propagates insideConditional through component children', () => {
+      // Regression: {show() && <Label>{text()}</Label>} — when text() changes
+      // while show() is true, the text node must update reactively.
+      // insideConditional must propagate through component nodes so the codegen
+      // uses $t() runtime lookup instead of init-time refs.
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        function Label(props: { children?: any }) {
+          return <span>{props.children}</span>
+        }
+
+        export function App() {
+          const [show, setShow] = createSignal(true)
+          const [text, setText] = createSignal('hello')
+          return (
+            <div>
+              <button onClick={() => setShow(!show())}>toggle</button>
+              {show() && <Label>{text()}</Label>}
+            </div>
+          )
+        }
+      `
+
+      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const errors = result.errors.filter(e => e.severity === 'error')
+      expect(errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      // text() inside a component inside a conditional must use $t() runtime lookup
+      expect(content).toContain('$t(__scope')
+    })
+
+    test('propagates insideConditional through fragment children', () => {
+      // Regression: {show() && <><span>{text()}</span></>} — inner signal must
+      // update reactively. insideConditional must propagate through fragment nodes.
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function App() {
+          const [show, setShow] = createSignal(true)
+          const [text, setText] = createSignal('hello')
+          return (
+            <div>
+              <button onClick={() => setShow(!show())}>toggle</button>
+              {show() && <><span>{text()}</span></>}
+            </div>
+          )
+        }
+      `
+
+      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const errors = result.errors.filter(e => e.severity === 'error')
+      expect(errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      // text() inside a fragment inside a conditional must use $t() runtime lookup
+      expect(content).toContain('$t(__scope')
+    })
   })
 })

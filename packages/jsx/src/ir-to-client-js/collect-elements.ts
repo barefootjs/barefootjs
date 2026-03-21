@@ -248,14 +248,14 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         propsExpr,
       })
       for (const child of node.children) {
-        collectElements(child, ctx)
+        collectElements(child, ctx, insideConditional)
       }
       // Traverse JSX prop children so events, reactive expressions,
       // and nested components inside JSX props are collected
       for (const prop of node.props) {
         if (prop.jsxChildren) {
           for (const child of prop.jsxChildren) {
-            collectElements(child, ctx)
+            collectElements(child, ctx, insideConditional)
           }
         }
       }
@@ -263,7 +263,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
 
     case 'fragment':
       for (const child of node.children) {
-        collectElements(child, ctx)
+        collectElements(child, ctx, insideConditional)
       }
       break
 
@@ -280,7 +280,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         valueExpr: node.valueProp.value,
       })
       for (const child of node.children) {
-        collectElements(child, ctx)
+        collectElements(child, ctx, insideConditional)
       }
       break
   }
