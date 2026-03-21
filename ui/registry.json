@@ -430,6 +430,13 @@
       "title": "Typography",
       "description": "Styled text elements for headings, paragraphs, and prose content",
       "tags": ["display"]
+    },
+    {
+      "name": "empty",
+      "type": "registry:ui",
+      "title": "Empty",
+      "description": "Empty state placeholder with icon, title, and action",
+      "tags": ["feedback"]
     }
   ]
 }

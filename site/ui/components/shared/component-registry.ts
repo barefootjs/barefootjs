@@ -65,10 +65,11 @@ export const componentEntries: ComponentEntry[] = [
   { slug: 'table', title: 'Table', description: 'Responsive data table', category: 'display' },
   { slug: 'typography', title: 'Typography', description: 'Styled text elements for prose', category: 'display' },
 
-  // Feedback (6)
+  // Feedback (7)
   { slug: 'alert', title: 'Alert', description: 'Callout for important content', category: 'feedback' },
   { slug: 'alert-dialog', title: 'Alert Dialog', description: 'Modal dialog for important confirmations', category: 'feedback' },
   { slug: 'dialog', title: 'Dialog', description: 'Modal overlay with custom content', category: 'feedback' },
+  { slug: 'empty', title: 'Empty', description: 'Empty state placeholder with icon and action', category: 'feedback' },
   { slug: 'progress', title: 'Progress', description: 'Task completion indicator bar', category: 'feedback' },
   { slug: 'spinner', title: 'Spinner', description: 'Animated loading indicator', category: 'feedback' },
   { slug: 'toast', title: 'Toast', description: 'Temporary notification message', category: 'feedback' },

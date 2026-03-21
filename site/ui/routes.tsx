@@ -60,6 +60,7 @@ import { SidebarRefPage } from './pages/components/sidebar'
 import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
+import { EmptyRefPage } from './pages/components/empty'
 import { SpinnerRefPage } from './pages/components/spinner'
 import { TypographyRefPage } from './pages/components/typography'
 import { ComponentCatalogPage } from './pages/components/catalog'
@@ -242,6 +243,11 @@ export function createApp() {
   // Input Group reference page
   app.get('/components/input-group', (c) => {
     return c.render(<InputGroupRefPage />)
+  })
+
+  // Empty reference page
+  app.get('/components/empty', (c) => {
+    return c.render(<EmptyRefPage />)
   })
 
   // Spinner reference page
