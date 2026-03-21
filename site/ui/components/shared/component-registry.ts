@@ -39,6 +39,7 @@ export const componentEntries: ComponentEntry[] = [
   { slug: 'checkbox', title: 'Checkbox', description: 'Toggle selection control', category: 'input' },
   { slug: 'combobox', title: 'Combobox', description: 'Autocomplete input with dropdown', category: 'input' },
   { slug: 'date-picker', title: 'Date Picker', description: 'Date selection with calendar popup', category: 'input' },
+  { slug: 'field', title: 'Field', description: 'Form field wrapper with label and error', category: 'input' },
   { slug: 'input', title: 'Input', description: 'Text input field', category: 'input' },
   { slug: 'input-otp', title: 'Input OTP', description: 'One-time password input', category: 'input' },
   { slug: 'label', title: 'Label', description: 'Accessible label for form controls', category: 'input' },

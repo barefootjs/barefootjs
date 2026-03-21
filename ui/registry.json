@@ -331,6 +331,14 @@
       "tags": ["navigation"]
     },
     {
+      "name": "field",
+      "type": "registry:ui",
+      "title": "Field",
+      "description": "Form field wrapper with label, description, and error message",
+      "tags": ["input"],
+      "requires": ["label"]
+    },
+    {
       "name": "input",
       "type": "registry:ui",
       "title": "Input",
