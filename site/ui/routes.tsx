@@ -53,6 +53,7 @@ import { PortalRefPage } from './pages/components/portal'
 import { PaginationRefPage } from './pages/components/pagination'
 import { PopoverRefPage } from './pages/components/popover'
 import { ProgressRefPage } from './pages/components/progress'
+import { DirectionRefPage } from './pages/components/direction'
 import { DrawerRefPage } from './pages/components/drawer'
 import { SheetRefPage } from './pages/components/sheet'
 import { SidebarRefPage } from './pages/components/sidebar'
@@ -369,6 +370,11 @@ export function createApp() {
   // Scroll Area reference page (redesigned #515)
   app.get('/components/scroll-area', (c) => {
     return c.render(<ScrollAreaRefPage />)
+  })
+
+  // Direction reference page
+  app.get('/components/direction', (c) => {
+    return c.render(<DirectionRefPage />)
   })
 
   // Drawer reference page (migrated from /docs/components/drawer)
