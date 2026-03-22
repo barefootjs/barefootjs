@@ -105,7 +105,7 @@ export function RadioGroupCardDemo() {
     <div className="space-y-4">
       <RadioGroup defaultValue="startup" onValueChange={setPlan} className="grid-cols-1 sm:grid-cols-3">
         <div className="relative">
-          <label className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-accent/50 cursor-pointer">
+          <label className="flex items-start space-x-3 rounded-lg border border-border p-4 hover:bg-accent/50 cursor-pointer">
             <RadioGroupItem value="startup" />
             <div className="space-y-1">
               <span className="text-sm font-medium leading-none">Startup</span>
@@ -115,7 +115,7 @@ export function RadioGroupCardDemo() {
           </label>
         </div>
         <div className="relative">
-          <label className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-accent/50 cursor-pointer">
+          <label className="flex items-start space-x-3 rounded-lg border border-border p-4 hover:bg-accent/50 cursor-pointer">
             <RadioGroupItem value="business" />
             <div className="space-y-1">
               <span className="text-sm font-medium leading-none">Business</span>
@@ -125,7 +125,7 @@ export function RadioGroupCardDemo() {
           </label>
         </div>
         <div className="relative">
-          <label className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-accent/50 cursor-pointer">
+          <label className="flex items-start space-x-3 rounded-lg border border-border p-4 hover:bg-accent/50 cursor-pointer">
             <RadioGroupItem value="enterprise" />
             <div className="space-y-1">
               <span className="text-sm font-medium leading-none">Enterprise</span>

@@ -32,7 +32,7 @@ function SeparatorPlayground(_props: {}) {
     <PlaygroundLayout
       previewDataAttr="data-separator-preview"
       previewContent={
-        <div className="flex h-32 w-64 items-center justify-center rounded-md border p-4">
+        <div className="flex h-32 w-64 items-center justify-center rounded-md border border-border p-4">
           <Separator orientation={orientation()} />
         </div>
       }

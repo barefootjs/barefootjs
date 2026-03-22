@@ -44,7 +44,7 @@ const tags = Array.from({ length: 50 }).map(
 
 function ScrollAreaDemo() {
   return (
-    <ScrollArea class="h-72 w-48 rounded-md border">
+    <ScrollArea class="h-72 w-48 rounded-md border border-border">
       <div className="p-4">
         <h4 className="mb-4 text-sm font-medium leading-none">Tags</h4>
         {tags.map((tag) => (
@@ -64,7 +64,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 function ScrollAreaHorizontal() {
   return (
-    <ScrollArea class="w-96 whitespace-nowrap rounded-md border">
+    <ScrollArea class="w-96 whitespace-nowrap rounded-md border border-border">
       <div className="flex w-max space-x-4 p-4">
         {works.map((work) => (
           <figure className="shrink-0">
@@ -87,7 +87,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 function ScrollAreaBothAxes() {
   return (
-    <ScrollArea class="h-64 w-80 rounded-md border">
+    <ScrollArea class="h-64 w-80 rounded-md border border-border">
       <div className="p-4" style="width: 600px;">
         <h4 className="mb-4 text-sm font-medium leading-none">Changelog</h4>
         <div className="space-y-4">

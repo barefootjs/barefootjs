@@ -91,7 +91,7 @@ function CarouselPlayground(_props: {}) {
               <CarouselContent>
                 {items.map((n) => (
                   <CarouselItem>
-                    <div className="flex aspect-square items-center justify-center rounded-lg border bg-card p-6">
+                    <div className="flex aspect-square items-center justify-center rounded-lg border border-border bg-card p-6">
                       <span className="text-3xl font-semibold">{n}</span>
                     </div>
                   </CarouselItem>
@@ -108,7 +108,7 @@ function CarouselPlayground(_props: {}) {
                 {items.map((n) => (
                   <CarouselItem orientation="vertical" className="basis-1/2">
                     <div className="p-1">
-                      <div className="flex items-center justify-center rounded-lg border bg-card p-4">
+                      <div className="flex items-center justify-center rounded-lg border border-border bg-card p-4">
                         <span className="text-2xl font-semibold">{n}</span>
                       </div>
                     </div>

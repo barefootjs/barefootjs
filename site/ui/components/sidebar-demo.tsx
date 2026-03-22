@@ -39,7 +39,7 @@ import { ChevronRightIcon, SettingsIcon } from '@ui/components/ui/icon'
  */
 export function SidebarBasicDemo() {
   return (
-    <div className="h-[400px] overflow-hidden rounded-lg border">
+    <div className="h-[400px] overflow-hidden rounded-lg border border-border">
       <SidebarProvider>
         <Sidebar>
           <SidebarHeader>
@@ -111,7 +111,7 @@ export function SidebarCollapsibleGroupDemo() {
   const [resourcesOpen, setResourcesOpen] = createSignal(false)
 
   return (
-    <div className="h-[400px] overflow-hidden rounded-lg border">
+    <div className="h-[400px] overflow-hidden rounded-lg border border-border">
       <SidebarProvider>
         <Sidebar>
           <SidebarHeader>
@@ -195,7 +195,7 @@ export function SidebarCollapsibleGroupDemo() {
  */
 export function SidebarFloatingDemo() {
   return (
-    <div className="h-[400px] overflow-hidden rounded-lg border bg-muted/30">
+    <div className="h-[400px] overflow-hidden rounded-lg border border-border bg-muted/30">
       <SidebarProvider>
         <Sidebar variant="floating">
           <SidebarHeader>
