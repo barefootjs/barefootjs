@@ -246,7 +246,7 @@ const catalogEntries: CatalogEntry[] = [
     description: 'Search and command menu',
     tags: ['navigation'],
     preview: () => (
-      <div className="w-full max-w-[200px] rounded-md border">
+      <div className="w-full max-w-[200px] rounded-md border border-border">
         <Command>
           <CommandInput placeholder="Type a command..." />
         </Command>
@@ -272,7 +272,7 @@ const catalogEntries: CatalogEntry[] = [
     description: 'Right-click menu at cursor position',
     tags: ['navigation'],
     preview: () => (
-      <div className="flex items-center justify-center h-16 w-[160px] border border-dashed rounded-md text-xs text-muted-foreground">Right-click here</div>
+      <div className="flex items-center justify-center h-16 w-[160px] border border-dashed border-border rounded-md text-xs text-muted-foreground">Right-click here</div>
     ),
   },
   {
@@ -409,7 +409,7 @@ const catalogEntries: CatalogEntry[] = [
       <Pagination>
         <PaginationContent>
           <PaginationItem><span className="text-xs text-muted-foreground">‹ Previous</span></PaginationItem>
-          <PaginationItem><span className="text-xs font-medium px-2.5 py-0.5 border rounded-md">1</span></PaginationItem>
+          <PaginationItem><span className="text-xs font-medium px-2.5 py-0.5 border border-border rounded-md">1</span></PaginationItem>
           <PaginationItem><span className="text-xs px-2.5 py-0.5">2</span></PaginationItem>
           <PaginationItem><span className="text-xs text-muted-foreground">Next ›</span></PaginationItem>
         </PaginationContent>
@@ -465,7 +465,7 @@ const catalogEntries: CatalogEntry[] = [
     tags: ['layout'],
     preview: () => (
       <div className="w-full max-w-[200px]">
-        <ResizablePanelGroup direction="horizontal" className="rounded-md border">
+        <ResizablePanelGroup direction="horizontal" className="rounded-md border border-border">
           <ResizablePanel defaultSize={50}>
             <div className="flex items-center justify-center h-16 text-xs p-2">A</div>
           </ResizablePanel>
@@ -483,7 +483,7 @@ const catalogEntries: CatalogEntry[] = [
     description: 'Custom scrollbar container',
     tags: ['layout'],
     preview: () => (
-      <ScrollArea className="h-[72px] w-full max-w-[180px] rounded-md border p-2">
+      <ScrollArea className="h-[72px] w-full max-w-[180px] rounded-md border border-border p-2">
         <div className="text-xs space-y-1">
           <div>Item 1</div>
           <div>Item 2</div>
