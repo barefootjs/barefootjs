@@ -66,9 +66,10 @@ const strokePaths = {
   'ellipsis': 'M5 12h.01M12 12h.01M19 12h.01',
   'arrow-up-down': 'm21 16-4 4-4-4M17 20V4M3 8l4-4 4 4M7 4v16',
   'panel-left': 'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M3 3h12v18H3zM9 3v18',
+  'loader-circle': 'M21 12a9 9 0 1 1-6.219-8.56',
 } as const
 
-export type IconName = keyof typeof strokePaths | 'github' | 'search' | 'settings' | 'globe' | 'log-out' | 'circle-help' | 'panel-left'
+export type IconName = keyof typeof strokePaths | 'github' | 'search' | 'settings' | 'globe' | 'log-out' | 'circle-help' | 'panel-left' | 'calendar' | 'grip-vertical' | 'loader-circle'
 
 // Icons that need butt linecap for proper visual centering
 const buttLinecapIcons = ['plus', 'minus'] as const
@@ -351,6 +352,41 @@ export function InfoIcon({ size, className = '', ...props }: IconProps) {
   )
 }
 
+export function CalendarIcon({ size, className = '', ...props }: IconProps) {
+  const sizeAttrs = size ? { width: sizeMap[size], height: sizeMap[size] } : {}
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" {...sizeAttrs} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={`shrink-0 ${className}`} aria-hidden="true" {...props}>
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <rect width="18" height="18" x="3" y="4" rx="2" />
+      <path d="M3 10h18" />
+    </svg>
+  )
+}
+
+export function GripVerticalIcon({ size, className = '', ...props }: IconProps) {
+  const sizeAttrs = size ? { width: sizeMap[size], height: sizeMap[size] } : {}
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" {...sizeAttrs} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={`shrink-0 ${className}`} aria-hidden="true" {...props}>
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="9" cy="5" r="1" />
+      <circle cx="9" cy="19" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="15" cy="5" r="1" />
+      <circle cx="15" cy="19" r="1" />
+    </svg>
+  )
+}
+
+export function LoaderCircleIcon({ size, className = '', ...props }: IconProps) {
+  const sizeAttrs = size ? { width: sizeMap[size], height: sizeMap[size] } : {}
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" {...sizeAttrs} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={`shrink-0 ${className}`} aria-hidden="true" {...props}>
+      <path d={strokePaths['loader-circle']} />
+    </svg>
+  )
+}
+
 export function PanelLeftIcon({ size, className = '', ...props }: IconProps) {
   const sizeAttrs = size ? { width: sizeMap[size], height: sizeMap[size] } : {}
   return (
@@ -387,6 +423,18 @@ export function Icon({ name, size = 'md', className = '', ...props }: { name: Ic
 
   if (name === 'circle-help') {
     return <CircleHelpIcon size={size} className={className} {...props} />
+  }
+
+  if (name === 'calendar') {
+    return <CalendarIcon size={size} className={className} {...props} />
+  }
+
+  if (name === 'grip-vertical') {
+    return <GripVerticalIcon size={size} className={className} {...props} />
+  }
+
+  if (name === 'loader-circle') {
+    return <LoaderCircleIcon size={size} className={className} {...props} />
   }
 
   if (name === 'panel-left') {

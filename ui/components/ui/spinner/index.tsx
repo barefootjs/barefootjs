@@ -7,6 +7,9 @@
  * Provides visual feedback during async operations with proper
  * ARIA accessibility attributes.
  *
+ * Uses the same SVG path as LoaderCircleIcon from '../icon',
+ * rendered inline for compiler compatibility with conditional rendering.
+ *
  * @example Basic usage
  * ```tsx
  * <Spinner />
@@ -24,6 +27,9 @@ interface SpinnerProps extends HTMLBaseAttributes {
   /** Additional CSS classes to apply. */
   className?: string
 }
+
+// LoaderCircle icon path (same as LoaderCircleIcon in '../icon')
+const loaderCirclePath = 'M21 12a9 9 0 1 1-6.219-8.56'
 
 /**
  * Spinner component — animated loading indicator.
@@ -51,7 +57,7 @@ function Spinner({ className = '', ...props }: SpinnerProps) {
       className={`animate-spin ${className}`}
       {...props}
     >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+      <path d={loaderCirclePath} />
     </svg>
   )
 }

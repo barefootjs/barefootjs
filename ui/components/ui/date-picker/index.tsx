@@ -12,6 +12,7 @@
 
 import { createSignal, createMemo } from '@barefootjs/dom'
 import type { HTMLBaseAttributes } from '@barefootjs/jsx'
+import { CalendarIcon } from '../icon'
 import { Button } from '../button'
 import { Popover, PopoverTrigger, PopoverContent } from '../popover'
 import { Calendar, type DateRange } from '../calendar'
@@ -98,7 +99,7 @@ function DatePicker(props: DatePickerProps) {
             className={`${triggerBaseClasses} ${!currentSelected() ? triggerPlaceholderClasses : ''} ${props.triggerClassName ?? ''}`}
             disabled={props.disabled ?? false}
           >
-            <svg className="size-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4" /><path d="M16 2v4" /><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M3 10h18" /></svg>
+            <CalendarIcon className="size-4 mr-2" />
             <span>{displayText()}</span>
           </Button>
         </PopoverTrigger>
@@ -176,7 +177,7 @@ function DateRangePicker(props: DateRangePickerProps) {
             className={`${triggerBaseClasses} w-[300px] ${!props.selected?.from ? triggerPlaceholderClasses : ''} ${props.triggerClassName ?? ''}`}
             disabled={props.disabled ?? false}
           >
-            <svg className="size-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4" /><path d="M16 2v4" /><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M3 10h18" /></svg>
+            <CalendarIcon className="size-4 mr-2" />
             <span>{displayText()}</span>
           </Button>
         </PopoverTrigger>
