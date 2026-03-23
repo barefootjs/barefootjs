@@ -7,6 +7,7 @@
  */
 
 import { createSignal, createEffect, onCleanup } from '@barefootjs/dom'
+import { Button } from '@ui/components/ui/button'
 import {
   Command,
   CommandInput,
@@ -18,6 +19,7 @@ import {
   CommandShortcut,
   CommandDialog,
 } from '@ui/components/ui/command'
+import { Kbd } from '@ui/components/ui/kbd'
 
 /**
  * Preview demo — inline command menu with groups, icons, and shortcuts.
@@ -86,21 +88,21 @@ export function CommandDialogDemo() {
     <div>
       <p className="text-sm text-muted-foreground">
         Press{' '}
-        <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+        <Kbd className="px-1.5 font-mono text-[10px] rounded">
           <span className="text-xs">⌘</span>J
-        </kbd>
+        </Kbd>
         {' '}or click the button below.
       </p>
-      <button
-        type="button"
-        className="mt-4 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+      <Button
+        variant="outline"
+        className="mt-4"
         data-command-dialog-trigger
         ref={(el: HTMLElement) => {
           el.addEventListener('click', () => setOpen(true))
         }}
       >
         Open Command Palette
-      </button>
+      </Button>
       <CommandDialog open={open()} onOpenChange={setOpen}>
         <CommandInput placeholder="Type a command or search..." />
         <CommandList>

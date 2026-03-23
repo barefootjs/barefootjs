@@ -14,6 +14,7 @@
 
 import { createSignal, createEffect } from '@barefootjs/dom'
 import { SearchIcon } from '@ui/components/ui/icon'
+import { Kbd } from '@ui/components/ui/kbd'
 
 // Navigation items grouped by category (static, for server-side rendering)
 const getStartedItems = [
@@ -232,9 +233,9 @@ export function CommandPalette() {
               className="flex-1 bg-transparent border-none py-3 text-sm outline-none placeholder:text-muted-foreground"
               autocomplete="off"
             />
-            <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+            <Kbd className="hidden sm:inline-flex px-1.5 font-mono text-[10px] rounded">
               ESC
-            </kbd>
+            </Kbd>
           </div>
 
           {/* Results list */}
