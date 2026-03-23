@@ -11,6 +11,7 @@ import { createSignal, createEffect } from '@barefootjs/dom'
 import { CopyButton } from './copy-button'
 import { highlightJsxTree, plainJsxTree, type JsxTreeNode } from './shared/playground-highlight'
 import { PlaygroundLayout, PlaygroundControl } from './shared/PlaygroundLayout'
+import { Button } from '@ui/components/ui/button'
 import { Checkbox } from '@ui/components/ui/checkbox'
 import { Input } from '@ui/components/ui/input'
 import {
@@ -66,7 +67,7 @@ function CardPlayground(_props: {}) {
           )}
           {showFooter() && (
             <CardFooter>
-              <button className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground h-9 px-4 py-2">Save</button>
+              <Button>Save</Button>
             </CardFooter>
           )}
         </Card>
