@@ -38,6 +38,7 @@
 import { createContext, useContext, createSignal, createEffect, createPortal, isSSRPortal, findSiblingSlot } from '@barefootjs/dom'
 import type { HTMLBaseAttributes } from '@barefootjs/jsx'
 import type { Child } from '../../../types'
+import { CheckIcon, ChevronRightIcon } from '../icon'
 
 // Context for parent-child state sharing
 interface ContextMenuContextValue {
@@ -458,7 +459,7 @@ function ContextMenuCheckboxItem(props: ContextMenuCheckboxItemProps) {
     >
       <span className={contextMenuIndicatorClasses}>
         {(props.checked ?? false) ? (
-          <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <CheckIcon className="size-4" />
         ) : null}
       </span>
       {props.children}
@@ -630,7 +631,7 @@ function ContextMenuSubTrigger(props: ContextMenuSubTriggerProps) {
       ref={handleMount}
     >
       {props.children}
-      <svg className="ml-auto size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      <ChevronRightIcon className="ml-auto size-4" />
     </div>
   )
 }

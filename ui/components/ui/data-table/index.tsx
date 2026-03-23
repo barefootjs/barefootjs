@@ -28,6 +28,7 @@
 
 import type { HTMLBaseAttributes } from '@barefootjs/jsx'
 import type { Child } from '../../../types'
+import { ChevronUpIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ArrowUpDownIcon } from '../icon'
 
 // Column header button classes
 const columnHeaderClasses = 'inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none'
@@ -61,20 +62,11 @@ function DataTableColumnHeader({ title, sorted = false, onSort, className = '', 
     >
       {title}
       {sorted === 'asc' ? (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m18 15-6-6-6 6" />
-        </svg>
+        <ChevronUpIcon size="sm" />
       ) : sorted === 'desc' ? (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+        <ChevronDownIcon size="sm" />
       ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m21 16-4 4-4-4" />
-          <path d="M17 20V4" />
-          <path d="m3 8 4-4 4 4" />
-          <path d="M7 4v16" />
-        </svg>
+        <ArrowUpDownIcon size="sm" />
       )}
     </button>
   )
@@ -116,9 +108,7 @@ function DataTablePagination({ canPrev, canNext, onPrev, onNext, children, class
           onClick={onPrev}
           disabled={!canPrev}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="m15 18-6-6 6-6" />
-          </svg>
+          <ChevronLeftIcon size="sm" />
           Previous
         </button>
         <button
@@ -128,9 +118,7 @@ function DataTablePagination({ canPrev, canNext, onPrev, onNext, children, class
           disabled={!canNext}
         >
           Next
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="m9 18 6-6-6-6" />
-          </svg>
+          <ChevronRightIcon size="sm" />
         </button>
       </div>
     </div>

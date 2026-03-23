@@ -41,6 +41,7 @@
 import { createContext, useContext, createSignal, createEffect, createPortal, isSSRPortal, findSiblingSlot } from '@barefootjs/dom'
 import type { HTMLBaseAttributes, ButtonHTMLAttributes } from '@barefootjs/jsx'
 import type { Child } from '../../../types'
+import { CheckIcon, ChevronDownIcon, SearchIcon } from '../icon'
 
 // --- Context ---
 
@@ -240,9 +241,7 @@ function ComboboxTrigger(props: ComboboxTriggerProps) {
       ref={handleMount}
     >
       {props.children}
-      <svg className="size-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m6 9 6 6 6-6" />
-      </svg>
+      <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
     </button>
   )
 }
@@ -467,7 +466,7 @@ function ComboboxInput(props: ComboboxInputProps) {
       className={inputWrapperClasses}
       ref={handleMount}
     >
-      <svg className="mr-2 size-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+      <SearchIcon className="mr-2 size-4 shrink-0 opacity-50" />
       <input
         data-slot="combobox-input"
         id={props.id}
@@ -587,7 +586,7 @@ function ComboboxItem(props: ComboboxItemProps) {
       ref={handleMount}
     >
       <span data-slot="combobox-item-indicator" className={indicatorClasses} style="display:none">
-        <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+        <CheckIcon className="size-4" />
       </span>
       {props.children}
     </div>
