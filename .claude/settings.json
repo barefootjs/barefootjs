@@ -1,9 +1,6 @@
 {
   "permissions": {
     "allow": [],
-    "deny": [
-      "Bash(git push origin main)",
-      "Bash(gh pr merge :*)"
-    ]
+    "deny": []
   }
 }
