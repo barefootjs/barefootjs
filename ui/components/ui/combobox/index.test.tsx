@@ -149,9 +149,9 @@ describe('ComboboxInput', () => {
     expect(input!.props['data-slot']).toBe('combobox-input')
   })
 
-  test('contains a search icon (svg)', () => {
-    const svg = result.find({ tag: 'svg' })
-    expect(svg).not.toBeNull()
+  test('contains a search icon (SearchIcon)', () => {
+    const icon = result.find({ componentName: 'SearchIcon' })
+    expect(icon).not.toBeNull()
   })
 })
 

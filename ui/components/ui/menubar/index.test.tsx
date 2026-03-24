@@ -259,9 +259,9 @@ describe('MenubarCheckboxItem', () => {
     expect(item.aria).toHaveProperty('checked')
   })
 
-  test('contains checkmark SVG', () => {
-    const svg = result.find({ tag: 'svg' })
-    expect(svg).not.toBeNull()
+  test('contains checkmark icon', () => {
+    const icon = result.find({ componentName: 'CheckIcon' })
+    expect(icon).not.toBeNull()
   })
 
   test('has indicator span', () => {
@@ -274,7 +274,7 @@ describe('MenubarCheckboxItem', () => {
     const structure = result.toStructure()
     expect(structure).toContain('[role=menuitemcheckbox]')
     expect(structure).toContain('[aria-checked]')
-    expect(structure).toContain('svg')
+    expect(structure).toContain('CheckIcon')
   })
 })
 
@@ -419,16 +419,16 @@ describe('MenubarSubTrigger', () => {
     expect(item.aria).toHaveProperty('expanded')
   })
 
-  test('contains chevron SVG icon', () => {
-    const svg = result.find({ tag: 'svg' })
-    expect(svg).not.toBeNull()
+  test('contains chevron icon', () => {
+    const icon = result.find({ componentName: 'ChevronRightIcon' })
+    expect(icon).not.toBeNull()
   })
 
   test('toStructure() shows sub trigger with chevron', () => {
     const structure = result.toStructure()
     expect(structure).toContain('[aria-haspopup]')
     expect(structure).toContain('[aria-expanded]')
-    expect(structure).toContain('svg')
+    expect(structure).toContain('ChevronRightIcon')
   })
 })
 

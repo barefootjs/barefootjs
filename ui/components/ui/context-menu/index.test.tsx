@@ -148,9 +148,9 @@ describe('ContextMenuCheckboxItem', () => {
     expect(result.root.aria).toHaveProperty('checked')
   })
 
-  test('contains conditional SVG child (checkmark)', () => {
-    const svg = result.find({ tag: 'svg' })
-    expect(svg).not.toBeNull()
+  test('contains conditional CheckIcon child (checkmark)', () => {
+    const icon = result.find({ componentName: 'CheckIcon' })
+    expect(icon).not.toBeNull()
   })
 })
 
@@ -264,9 +264,9 @@ describe('ContextMenuSubTrigger', () => {
     expect(result.root.props['data-sub-trigger']).toBe('true')
   })
 
-  test('contains chevron SVG', () => {
-    const svg = result.find({ tag: 'svg' })
-    expect(svg).not.toBeNull()
+  test('contains chevron icon', () => {
+    const icon = result.find({ componentName: 'ChevronRightIcon' })
+    expect(icon).not.toBeNull()
   })
 })
 

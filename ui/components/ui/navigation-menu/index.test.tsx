@@ -148,9 +148,9 @@ describe('NavigationMenuTrigger', () => {
     expect(button.dataState).toBe('closed')
   })
 
-  test('contains chevron SVG', () => {
-    const svg = result.find({ tag: 'svg' })
-    expect(svg).not.toBeNull()
+  test('contains chevron icon', () => {
+    const icon = result.find({ componentName: 'ChevronDownIcon' })
+    expect(icon).not.toBeNull()
   })
 
   test('has resolved CSS classes', () => {
@@ -166,7 +166,7 @@ describe('NavigationMenuTrigger', () => {
     expect(structure).toContain('button')
     expect(structure).toContain('[aria-haspopup]')
     expect(structure).toContain('[aria-expanded]')
-    expect(structure).toContain('svg')
+    expect(structure).toContain('ChevronDownIcon')
   })
 })
 

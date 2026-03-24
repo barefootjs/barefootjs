@@ -60,9 +60,9 @@ describe('CommandInput', () => {
     expect(input!.props['data-slot']).toBe('command-input')
   })
 
-  test('contains a search icon (svg)', () => {
-    const svg = result.find({ tag: 'svg' })
-    expect(svg).not.toBeNull()
+  test('contains a search icon (SearchIcon)', () => {
+    const icon = result.find({ componentName: 'SearchIcon' })
+    expect(icon).not.toBeNull()
   })
 
   test('input has resolved CSS classes', () => {

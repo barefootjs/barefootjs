@@ -40,10 +40,10 @@ describe('NativeSelect', () => {
   })
 
   test('has chevron icon', () => {
-    const svg = result.find({ tag: 'svg' })
-    expect(svg).not.toBeNull()
-    expect(svg!.props['data-slot']).toBe('native-select-icon')
-    expect(svg!.classes).toContain('pointer-events-none')
+    const icon = result.find({ componentName: 'ChevronDownIcon' })
+    expect(icon).not.toBeNull()
+    expect(icon!.props['data-slot']).toBe('native-select-icon')
+    expect(icon!.props['className']).toContain('pointer-events-none')
   })
 })
 

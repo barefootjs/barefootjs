@@ -59,9 +59,9 @@ describe('Checkbox', () => {
     expect(button.events).toContain('click')
   })
 
-  test('contains conditional SVG child (checkmark)', () => {
-    const svg = result.find({ tag: 'svg' })
-    expect(svg).not.toBeNull()
+  test('contains conditional CheckIcon child (checkmark)', () => {
+    const icon = result.find({ componentName: 'CheckIcon' })
+    expect(icon).not.toBeNull()
   })
 
   test('toStructure() includes role and aria info', () => {
@@ -69,7 +69,6 @@ describe('Checkbox', () => {
     expect(structure).toContain('[role=checkbox]')
     expect(structure).toContain('[aria-checked]')
     expect(structure).toContain('(click)')
-    expect(structure).toContain('svg')
-    expect(structure).toContain('path')
+    expect(structure).toContain('CheckIcon')
   })
 })
