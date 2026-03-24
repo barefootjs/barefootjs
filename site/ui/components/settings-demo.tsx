@@ -193,12 +193,18 @@ export function SettingsDemo() {
             </CardHeader>
             <CardContent>
               <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarFallback>JD</AvatarFallback>
+                <div className="flex items-center gap-6">
+                  <Avatar className="h-20 w-20">
+                    <AvatarFallback className="text-lg">JD</AvatarFallback>
                   </Avatar>
-                  <Button variant="outline" size="sm">Change avatar</Button>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium">Profile photo</p>
+                    <p className="text-xs text-muted-foreground">JPG, PNG or GIF. 1MB max.</p>
+                    <Button variant="outline" size="sm">Upload</Button>
+                  </div>
                 </div>
+
+                <Separator />
 
                 <Field data-invalid={displayNameError() !== '' || undefined}>
                   <FieldLabel for="settings-name">Display Name</FieldLabel>
@@ -239,12 +245,14 @@ export function SettingsDemo() {
                   </FieldContent>
                 </Field>
 
-                <Button
-                  onClick={handleProfileSave}
-                  disabled={displayNameError() !== '' || profileSaving()}
-                >
-                  <span className="button-text">{profileSaving() ? 'Saving...' : 'Save changes'}</span>
-                </Button>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleProfileSave}
+                    disabled={displayNameError() !== '' || profileSaving()}
+                  >
+                    <span className="button-text">{profileSaving() ? 'Saving...' : 'Save changes'}</span>
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -305,20 +313,20 @@ export function SettingsDemo() {
                   </FieldContent>
                 </Field>
 
-                <Button
-                  onClick={handlePasswordChange}
-                  disabled={!isPasswordFormValid() || accountSaving()}
-                >
-                  <span className="button-text">{accountSaving() ? 'Updating...' : 'Update password'}</span>
-                </Button>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handlePasswordChange}
+                    disabled={!isPasswordFormValid() || accountSaving()}
+                  >
+                    <span className="button-text">{accountSaving() ? 'Updating...' : 'Update password'}</span>
+                  </Button>
+                </div>
               </form>
 
-              <Separator />
-
-              <div className="space-y-4">
+              <div className="rounded-lg border border-destructive/30 p-4 space-y-3">
                 <h3 className="text-sm font-medium text-destructive">Danger Zone</h3>
                 <p className="text-sm text-muted-foreground">
-                  Once you delete your account, there is no going back. Please be certain.
+                  Once you delete your account, there is no going back.
                 </p>
                 <AlertDialog open={deleteDialogOpen()} onOpenChange={setDeleteDialogOpen}>
                   <AlertDialogTrigger asChild>
@@ -356,8 +364,8 @@ export function SettingsDemo() {
             </CardHeader>
             <CardContent>
               <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                <div className="rounded-lg border border-border divide-y divide-border">
+                  <div className="flex items-center justify-between p-4">
                     <div className="space-y-0.5">
                       <label className="text-sm font-medium">Email Notifications</label>
                       <p className="text-sm text-muted-foreground">Receive notifications via email</p>
@@ -368,9 +376,7 @@ export function SettingsDemo() {
                     />
                   </div>
 
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-4">
                     <div className="space-y-0.5">
                       <label className="text-sm font-medium">Push Notifications</label>
                       <p className="text-sm text-muted-foreground">Receive push notifications in browser</p>
@@ -381,9 +387,7 @@ export function SettingsDemo() {
                     />
                   </div>
 
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-4">
                     <div className="space-y-0.5">
                       <label className="text-sm font-medium">Marketing Emails</label>
                       <p className="text-sm text-muted-foreground">Receive emails about new features</p>
@@ -394,9 +398,7 @@ export function SettingsDemo() {
                     />
                   </div>
 
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-4">
                     <div className="space-y-0.5">
                       <label className="text-sm font-medium">Security Alerts</label>
                       <p className="text-sm text-muted-foreground">Important security notifications</p>
@@ -408,10 +410,8 @@ export function SettingsDemo() {
                   </div>
                 </div>
 
-                <Separator />
-
                 <Field>
-                  <FieldLabel for="notification-frequency">Notification Frequency</FieldLabel>
+                  <FieldLabel for="notification-frequency">Digest Frequency</FieldLabel>
                   <FieldContent>
                     <NativeSelect
                       id="notification-frequency"
@@ -426,12 +426,14 @@ export function SettingsDemo() {
                   </FieldContent>
                 </Field>
 
-                <Button
-                  onClick={handleNotificationsSave}
-                  disabled={notificationsSaving()}
-                >
-                  <span className="button-text">{notificationsSaving() ? 'Saving...' : 'Save preferences'}</span>
-                </Button>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleNotificationsSave}
+                    disabled={notificationsSaving()}
+                  >
+                    <span className="button-text">{notificationsSaving() ? 'Saving...' : 'Save preferences'}</span>
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
