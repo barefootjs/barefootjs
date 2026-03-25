@@ -28,7 +28,7 @@ import { createSignal, createMemo } from '@barefootjs/dom'
  */
 
 // Base classes for the switch track (h-5 w-9 matches shadcn/ui dimensions)
-const trackBaseClasses = 'peer inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-transparent p-0 shadow-xs transition-all outline-none disabled:cursor-not-allowed disabled:opacity-50'
+const trackBaseClasses = 'peer inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent p-0 shadow-xs transition-all outline-none disabled:cursor-not-allowed disabled:opacity-50'
 
 // Focus visible classes
 const trackFocusClasses = 'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
@@ -46,7 +46,7 @@ const thumbBaseClasses = 'pointer-events-none block size-4 rounded-full bg-backg
 // Thumb state classes using data-state attribute selectors
 const thumbStateClasses = [
   '[&[data-state=unchecked]]:translate-x-0',
-  '[&[data-state=checked]]:translate-x-[calc(100%-2px)]',
+  '[&[data-state=checked]]:translate-x-4',
 ].join(' ')
 
 /**
