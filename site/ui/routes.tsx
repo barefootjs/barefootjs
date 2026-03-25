@@ -57,6 +57,7 @@ import { ProgressRefPage } from './pages/components/progress'
 import { DirectionRefPage } from './pages/components/direction'
 import { DrawerRefPage } from './pages/components/drawer'
 import { SheetRefPage } from './pages/components/sheet'
+import { DashboardRefPage } from './pages/components/dashboard'
 import { LoginRefPage } from './pages/components/login'
 import { SettingsRefPage } from './pages/components/settings'
 import { SidebarRefPage } from './pages/components/sidebar'
@@ -411,6 +412,11 @@ export function createApp() {
   // Sheet reference page (redesigned)
   app.get('/components/sheet', (c) => {
     return c.render(<SheetRefPage />)
+  })
+
+  // Dashboard block page
+  app.get('/components/dashboard', (c) => {
+    return c.render(<DashboardRefPage />)
   })
 
   // Login block page

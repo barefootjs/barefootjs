@@ -103,6 +103,7 @@ export const componentEntries: ComponentEntry[] = [
 
 // Blocks — page-level composition patterns
 export const blockEntries: BlockEntry[] = [
+  { slug: 'dashboard', title: 'Dashboard', description: 'Sales dashboard with stats, filterable orders table, and activity feed' },
   { slug: 'login', title: 'Login', description: 'Login form with validation and social auth' },
   { slug: 'settings', title: 'Settings', description: 'Multi-tab settings page with forms and dialogs' },
   { slug: 'sidebar', title: 'Sidebar', description: 'Collapsible navigation panel' },
