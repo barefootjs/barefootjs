@@ -143,7 +143,7 @@ export function DashboardDemo() {
   }
 
   return (
-    <div className="w-full max-w-4xl space-y-6">
+    <div className="w-full max-w-4xl min-w-0 overflow-hidden space-y-6">
       {/* Tab navigation */}
       <Tabs value={selectedTab()} onValueChange={setSelectedTab}>
         <div className="flex items-center justify-between">
@@ -201,33 +201,35 @@ export function DashboardDemo() {
                     value={searchQuery()}
                     onInput={(e) => setSearchQuery(e.target.value)}
                   />
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[100px]">Order</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredOrders().map((order) => (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell className="font-medium">{order.id}</TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="text-sm font-medium">{order.customer}</p>
-                              <p className="text-xs text-muted-foreground">{order.email}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={order.status === 'completed' ? 'default' : order.status === 'processing' ? 'secondary' : order.status === 'pending' ? 'outline' : 'destructive'}>{order.status}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right">${order.amount.toFixed(2)}</TableCell>
+                          <TableHead className="w-[100px]">Order</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredOrders().map((order) => (
+                          <TableRow>
+                            <TableCell className="font-medium">{order.id}</TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="text-sm font-medium">{order.customer}</p>
+                                <p className="text-xs text-muted-foreground">{order.email}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={order.status === 'completed' ? 'default' : order.status === 'processing' ? 'secondary' : order.status === 'pending' ? 'outline' : 'destructive'}>{order.status}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">${order.amount.toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </CardContent>
             </Card>
