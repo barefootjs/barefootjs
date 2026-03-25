@@ -70,7 +70,7 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>): s
           const attrName = a.name === 'key' ? 'data-key' : toHtmlAttrName(a.name)
           if (a.value === null) return attrName
           // Resolve IRTemplateLiteral to string expression for use in template literals
-          const valExpr = typeof a.value === 'string' ? a.value : attrValueToString(a.value)
+          const valExpr = typeof a.value === 'string' ? a.value : (attrValueToString(a.value) ?? '')
           if (a.dynamic) return templateAttrExpr(attrName, valExpr, a)
           return `${attrName}="${valExpr}"`
         })
