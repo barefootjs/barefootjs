@@ -8,7 +8,7 @@ import type { ComponentIR } from '../types'
 import type { ClientJsContext } from './types'
 import { collectElements } from './collect-elements'
 import { generateInitFunction } from './generate-init'
-import { collectUsedIdentifiers, collectUsedFunctions } from './identifiers'
+import { collectUsedIdentifiers, collectUsedFunctions, collectIdentifiersFromIRTree } from './identifiers'
 import { valueReferencesReactiveData } from './prop-handling'
 import { canGenerateStaticTemplate, irToComponentTemplate, generateCsrTemplate } from './html-template'
 import { PROPS_PARAM } from './utils'
@@ -44,6 +44,7 @@ export function analyzeClientNeeds(ir: ComponentIR): { needsInit: boolean; usedP
 
   // Replicate the props-detection logic from generate-init.ts
   const usedIdentifiers = collectUsedIdentifiers(ctx)
+  collectIdentifiersFromIRTree(ir.root, usedIdentifiers)  // comprehensive fallback
   const usedFunctions = collectUsedFunctions(ctx)
   for (const fn of usedFunctions) {
     usedIdentifiers.add(fn)

@@ -49,6 +49,14 @@ const stats = [
   { title: 'Conversion Rate', value: '3.2%', change: '+0.4% from last month' },
 ]
 
+// Status → Badge variant mapping (module-level constant used inside reactive .map())
+const statusBadgeVariant: Record<string, string> = {
+  completed: 'default',
+  processing: 'secondary',
+  pending: 'outline',
+  cancelled: 'destructive',
+}
+
 // Order data with typed status
 type OrderStatus = 'completed' | 'processing' | 'pending' | 'cancelled'
 
@@ -222,7 +230,7 @@ export function DashboardDemo() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={order.status === 'completed' ? 'default' : order.status === 'processing' ? 'secondary' : order.status === 'pending' ? 'outline' : 'destructive'}>{order.status}</Badge>
+                              <Badge variant={statusBadgeVariant[order.status]}>{order.status}</Badge>
                             </TableCell>
                             <TableCell className="text-right">${order.amount.toFixed(2)}</TableCell>
                           </TableRow>

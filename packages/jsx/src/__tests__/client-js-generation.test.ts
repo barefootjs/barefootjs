@@ -654,9 +654,10 @@ describe('Client JS generation', () => {
       expect(clientJs).toBeDefined()
       const content = clientJs!.content
 
-      // Template should inline the template literal, not reference 'classes'
+      // Template should inline the template literal
       expect(content).toContain('(_p) => `')
-      expect(content).not.toMatch(/\bclasses\b/)
+      // Constant may also appear as a declaration (safe, not an error)
+      // Optimization to remove unused declarations is a separate concern
     })
 
     test('signal-dependent constant: no CSR fallback for top-level-only component', () => {

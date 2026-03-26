@@ -5,7 +5,7 @@
 import type { ComponentIR, ConstantInfo, IRNode } from '../types'
 import type { ClientJsContext } from './types'
 import { varSlotId, PROPS_PARAM } from './utils'
-import { collectUsedIdentifiers, collectUsedFunctions } from './identifiers'
+import { collectUsedIdentifiers, collectUsedFunctions, collectIdentifiersFromIRTree } from './identifiers'
 import { valueReferencesReactiveData, getControlledPropName, detectPropsWithPropertyAccess } from './prop-handling'
 import { IMPORT_PLACEHOLDER, MODULE_CONSTANTS_PLACEHOLDER, detectUsedImports, collectUserDomImports, collectExternalImports } from './imports'
 import { type Declaration, providedNames, sortDeclarations } from './declaration-sort'
@@ -74,6 +74,12 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   for (const fn of usedFunctions) {
     usedIdentifiers.add(fn)
   }
+
+  // Walk the full IR tree to catch identifiers in ANY context —
+  // nested component props, loop child components, conditional branches, etc.
+  // This eliminates the "whack-a-mole" pattern where new JSX patterns break
+  // because collectUsedIdentifiers didn't extract from a specific context.
+  collectIdentifiersFromIRTree(_ir.root, usedIdentifiers)
 
   const neededProps = new Set<string>()
   const neededConstants: ConstantInfo[] = []
