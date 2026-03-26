@@ -125,6 +125,9 @@ function traverseElements(node: IRNode, visitor: (el: IRElement) => void): void 
         traverseElements(node.alternate, visitor)
       }
       break
+    // Note: 'loop' case is intentionally omitted. Nested .map() event delegation
+    // requires a different approach (nested data-key lookup + inner loop variable
+    // resolution) that isn't implemented yet. See memory: compiler-reconcile-templates-events.md
   }
 }
 

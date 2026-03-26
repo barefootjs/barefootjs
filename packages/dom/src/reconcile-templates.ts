@@ -44,6 +44,14 @@ export function reconcileTemplates<T>(
     while (container.children.length > items.length) {
       container.lastElementChild?.remove()
     }
+    // Call renderItem for signal dependency tracking.
+    // SSR elements are already in the DOM, so the rendered HTML is discarded.
+    // Without this, signals accessed only inside the template function
+    // (e.g., addingToColumn() in a conditional) won't be tracked by the
+    // enclosing createEffect, and changes won't trigger re-rendering.
+    for (let i = 0; i < items.length; i++) {
+      renderItem(items[i], i)
+    }
     return
   }
 

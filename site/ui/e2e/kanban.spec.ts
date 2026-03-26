@@ -41,10 +41,10 @@ test.describe('Kanban Board Block', () => {
     })
   })
 
-  // BUG: reconcileTemplates loses event handlers for inner loop elements and
-  // doesn't track template-internal signals for re-rendering.
+  // BUG: Nested .map() event delegation doesn't resolve inner loop variables.
+  // closest('[data-key]') finds inner data-key instead of outer, and inner
+  // loop variable (task) is undefined in delegation scope.
   // See memory: compiler-reconcile-templates-events.md
-  // These tests will pass once the compiler/runtime bug is fixed.
   test.describe.skip('Move Tasks', () => {
     test('move right moves task from To Do to In Progress', async ({ page }) => {
       const section = page.locator('[bf-s^="KanbanDemo_"]:not([data-slot])').first()
@@ -84,7 +84,7 @@ test.describe('Kanban Board Block', () => {
     })
   })
 
-  test.describe.skip('Add Task', () => {
+  test.describe('Add Task', () => {
     test('clicking + shows add form', async ({ page }) => {
       const section = page.locator('[bf-s^="KanbanDemo_"]:not([data-slot])').first()
       const column = section.locator('.kanban-column').first()
