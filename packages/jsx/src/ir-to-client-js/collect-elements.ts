@@ -5,7 +5,7 @@
 import { type IRNode, type IRElement, type IRProp, pickAttrMeta } from '../types'
 import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchTextEffect, LoopChildEvent, LoopChildReactiveAttr } from './types'
 import { attrValueToString, quotePropName, PROPS_PARAM } from './utils'
-import { isReactiveExpression, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildReactiveAttrs } from './reactivity'
+import { isReactiveExpression, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs } from './reactivity'
 import { irToHtmlTemplate, irChildrenToJsExpr } from './html-template'
 import { expandDynamicPropValue, expandConstantForReactivity } from './prop-handling'
 
@@ -181,7 +181,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         const childReactiveAttrs: LoopChildReactiveAttr[] = []
         for (const child of node.children) {
           childHandlers.push(...collectEventHandlersFromIR(child))
-          childEvents.push(...collectLoopChildEvents(child))
+          childEvents.push(...collectLoopChildEventsWithNesting(child))
           childReactiveAttrs.push(...collectLoopChildReactiveAttrs(child, ctx))
         }
 

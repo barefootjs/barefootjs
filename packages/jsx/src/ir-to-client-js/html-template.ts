@@ -52,9 +52,12 @@ function templateAttrExpr(attrName: string, valExpr: string, attr: { presenceOrU
   return `\${(${valExpr}) != null ? '${attrName}="' + (${valExpr}) + '"' : ''}`
 }
 
-/** Convert an IR node tree to an HTML template string (for conditionals/loops). */
-export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>): string {
-  const recurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames)
+/** Convert an IR node tree to an HTML template string (for conditionals/loops).
+ *  @param loopDepth - Current nesting depth inside inner loops. 0 = outer loop level.
+ *    When > 0, `key` attributes are converted to `data-key-{depth}` instead of `data-key`.
+ */
+export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, loopDepth = 0): string {
+  const recurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth)
 
   switch (node.type) {
     case 'element': {
@@ -66,8 +69,10 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>): s
             if (restSpreadNames?.has(spreadValue)) return ''
             return `\${spreadAttrs(${spreadValue})}`
           }
-          // Convert JSX `key` to `data-key` so reconcileList can match elements
-          const attrName = a.name === 'key' ? 'data-key' : toHtmlAttrName(a.name)
+          // Convert JSX `key` to `data-key` (or `data-key-N` for nested loops)
+          const attrName = a.name === 'key'
+            ? (loopDepth > 0 ? `data-key-${loopDepth}` : 'data-key')
+            : toHtmlAttrName(a.name)
           if (a.value === null) return attrName
           // Resolve IRTemplateLiteral to string expression for use in template literals
           const valExpr = typeof a.value === 'string' ? a.value : (attrValueToString(a.value) ?? '')
@@ -148,7 +153,9 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>): s
 
     case 'loop': {
       // Generate inline .map().join('') so loop variables are properly scoped
-      const childTemplate = node.children.map(recurse).join('')
+      // Increment loopDepth so inner key attrs become data-key-N
+      const innerRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth + 1)
+      const childTemplate = node.children.map(innerRecurse).join('')
       const indexParam = node.index ? `, ${node.index}` : ''
       if (node.mapPreamble) {
         return `\${${node.array}.map((${node.param}${indexParam}) => { ${node.mapPreamble} return \`${childTemplate}\` }).join('')}`
@@ -262,6 +269,7 @@ export interface TemplateOptions {
   signalMap?: Map<string, string>
   memoMap?: Map<string, string>
   insideLoop?: boolean
+  loopDepth?: number
 }
 
 /**
@@ -280,11 +288,11 @@ export function irToComponentTemplate(
   restSpreadNames?: Set<string>,
   propsObjectName?: string | null
 ): string {
-  return irToComponentTemplateWithOpts(node, { propNames, inlinableConstants, restSpreadNames, propsObjectName })
+  return irToComponentTemplateWithOpts(node, { propNames, inlinableConstants, restSpreadNames, propsObjectName, loopDepth: -1 })
 }
 
 function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): string {
-  const { propNames, inlinableConstants, restSpreadNames, propsObjectName } = opts
+  const { propNames, inlinableConstants, restSpreadNames, propsObjectName, loopDepth = 0 } = opts
   const recurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, opts)
   const transformExpr = (expr: string): string => {
     const { protect, restore } = createStringProtector()
@@ -329,7 +337,15 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
             if (restSpreadNames?.has(spreadValue)) return ''
             return `\${spreadAttrs(${transformExpr(spreadValue)})}`
           }
-          if (a.name === 'key') return ''
+          // Skip key for outer loop elements (reconcileTemplates sets data-key at runtime).
+          // But render data-key-N for inner loop elements (needed for event delegation).
+          if (a.name === 'key') {
+            if (loopDepth === 0) return ''  // outer loop: skip (runtime handles it)
+            const valStr = attrValueToString(a.value)
+            if (valStr && a.dynamic) return templateAttrExpr(`data-key-${loopDepth}`, transformExpr(valStr), a)
+            if (valStr) return `data-key-${loopDepth}="${valStr}"`
+            return ''
+          }
           const attrName = toHtmlAttrName(a.name)
           if (a.value === null) return attrName
           const valueStr = attrValueToString(a.value)
@@ -397,8 +413,11 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
       return `\${renderChild('${node.name}', ${propsExpr}${keyArg})}`
     }
 
-    case 'loop':
-      return node.children.map(recurse).join('')
+    case 'loop': {
+      const innerOpts = { ...opts, loopDepth: loopDepth + 1 }
+      const innerRecurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, innerOpts)
+      return node.children.map(innerRecurse).join('')
+    }
 
     case 'if-statement':
       return ''
@@ -542,11 +561,11 @@ export function generateCsrTemplate(
   restSpreadNames?: Set<string>,
   propsObjectName?: string | null,
 ): string {
-  return generateCsrTemplateWithOpts(node, { propNames, inlinableConstants, restSpreadNames, propsObjectName, signalMap, memoMap, insideLoop })
+  return generateCsrTemplateWithOpts(node, { propNames, inlinableConstants, restSpreadNames, propsObjectName, signalMap, memoMap, insideLoop, loopDepth: -1 })
 }
 
 function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): string {
-  const { propNames, inlinableConstants, restSpreadNames, propsObjectName, signalMap, memoMap, insideLoop } = opts
+  const { propNames, inlinableConstants, restSpreadNames, propsObjectName, signalMap, memoMap, insideLoop, loopDepth = 0 } = opts
   const transformExpr = (expr: string): string => {
     const { protect, restore } = createStringProtector()
     let result = protect(expr)
@@ -604,7 +623,7 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
   }
 
   const recurse = (n: IRNode): string => generateCsrTemplateWithOpts(n, opts)
-  const recurseInLoop = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, insideLoop: true })
+  const recurseInLoop = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, insideLoop: true, loopDepth: loopDepth + 1 })
 
   switch (node.type) {
     case 'element': {
@@ -616,7 +635,9 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
             if (restSpreadNames?.has(spreadValue)) return ''
             return `\${spreadAttrs(${transformExpr(spreadValue)})}`
           }
-          const attrName = a.name === 'key' ? 'data-key' : toHtmlAttrName(a.name)
+          const attrName = a.name === 'key'
+            ? (loopDepth > 0 ? `data-key-${loopDepth}` : 'data-key')
+            : toHtmlAttrName(a.name)
           if (a.value === null) return attrName
           const valueStr = attrValueToString(a.value)
           if (a.dynamic && valueStr) return templateAttrExpr(attrName, transformExpr(valueStr), a)

@@ -577,12 +577,37 @@ export function emitLoopUpdates(lines: string[], ctx: ClientJsContext): void {
         // Dynamic keyed: find item by data-key attribute
         const keyWithItem = elem.key.replace(new RegExp(`\\b${elem.param}\\b`, 'g'), 'item')
         emitLoopEventDelegation(lines, `_${vLoop}`, elem.childEvents, (ls, ev, handlerCall) => {
-          ls.push(`      const li = ${varSlotId(ev.childSlotId)}El.closest('[data-key]')`)
-          ls.push(`      if (li) {`)
-          ls.push(`        const key = li.getAttribute('data-key')`)
-          ls.push(`        const ${elem.param} = ${elem.array}.find(item => String(${keyWithItem}) === key)`)
-          ls.push(`        if (${elem.param}) ${handlerCall}`)
-          ls.push(`      }`)
+          if (ev.nestedLoops.length === 0) {
+            // Direct child of outer loop — single-level lookup
+            ls.push(`      const li = ${varSlotId(ev.childSlotId)}El.closest('[data-key]')`)
+            ls.push(`      if (li) {`)
+            ls.push(`        const key = li.getAttribute('data-key')`)
+            ls.push(`        const ${elem.param} = ${elem.array}.find(item => String(${keyWithItem}) === key)`)
+            ls.push(`        if (${elem.param}) ${handlerCall}`)
+            ls.push(`      }`)
+          } else {
+            // Nested loop event — multi-level data-key-N resolution
+            const evVar = varSlotId(ev.childSlotId)
+            // Resolve inner loop keys (innermost first)
+            for (const nested of ev.nestedLoops) {
+              const dataAttr = `data-key-${nested.depth}`
+              ls.push(`      const innerLi${nested.depth} = ${evVar}El.closest('[${dataAttr}]')`)
+              ls.push(`      const innerKey${nested.depth} = innerLi${nested.depth}?.getAttribute('${dataAttr}')`)
+            }
+            // Resolve outer loop key
+            ls.push(`      const outerLi = ${evVar}El.closest('[data-key]')`)
+            ls.push(`      const outerKey = outerLi?.getAttribute('data-key')`)
+            // Resolve outer loop variable
+            ls.push(`      const ${elem.param} = ${elem.array}.find(item => String(${keyWithItem}) === outerKey)`)
+            // Resolve inner loop variables via the outer param's nested array
+            for (const nested of ev.nestedLoops) {
+              const innerKeyExpr = nested.key.replace(new RegExp(`\\b${nested.param}\\b`, 'g'), 'item')
+              ls.push(`      const ${nested.param} = ${elem.param} && ${nested.array}.find(item => String(${innerKeyExpr}) === innerKey${nested.depth})`)
+            }
+            // Guard all resolved variables
+            const allParams = [elem.param, ...ev.nestedLoops.map(n => n.param)]
+            ls.push(`      if (${allParams.join(' && ')}) ${handlerCall}`)
+          }
         })
       } else {
         // Dynamic non-keyed: find item by index in parent children

@@ -60,6 +60,7 @@ import { DrawerRefPage } from './pages/components/drawer'
 import { SheetRefPage } from './pages/components/sheet'
 import { DashboardRefPage } from './pages/components/dashboard'
 import { MailRefPage } from './pages/components/mail'
+import { KanbanRefPage } from './pages/components/kanban'
 import { LoginRefPage } from './pages/components/login'
 import { SettingsRefPage } from './pages/components/settings'
 import { SidebarRefPage } from './pages/components/sidebar'
@@ -429,6 +430,11 @@ export function createApp() {
   // Mail block page
   app.get('/components/mail', (c) => {
     return c.render(<MailRefPage />)
+  })
+
+  // Kanban block page
+  app.get('/components/kanban', (c) => {
+    return c.render(<KanbanRefPage />)
   })
 
   // Login block page

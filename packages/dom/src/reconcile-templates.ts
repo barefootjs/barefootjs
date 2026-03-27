@@ -44,6 +44,22 @@ export function reconcileTemplates<T>(
     while (container.children.length > items.length) {
       container.lastElementChild?.remove()
     }
+    // Call renderItem and update innerHTML for each element.
+    // This serves two purposes:
+    // 1. Signal dependency tracking: signals inside the template function are
+    //    accessed during renderItem, registering them with the enclosing createEffect
+    // 2. Inner loop key attributes: SSR doesn't render data-key-N attributes,
+    //    but the template includes them for nested loop event delegation
+    for (let i = 0; i < items.length && i < container.children.length; i++) {
+      const child = container.children[i] as HTMLElement
+      const html = renderItem(items[i], i)
+      const tpl = document.createElement('template')
+      tpl.innerHTML = html.trim()
+      const newEl = tpl.content.firstChild as HTMLElement
+      if (newEl && child) {
+        child.innerHTML = newEl.innerHTML
+      }
+    }
     return
   }
 

@@ -9,6 +9,7 @@ import type {
   ConditionalBranchRef,
   LoopChildEvent,
   LoopChildReactiveAttr,
+  NestedLoopInfo,
 } from './types'
 import { attrValueToString } from './utils'
 import { expandConstantForReactivity } from './prop-handling'
@@ -90,6 +91,11 @@ export function collectEventHandlersFromIR(node: IRNode): string[] {
         handlers.push(...collectEventHandlersFromIR(child))
       }
       break
+    case 'loop':
+      for (const child of node.children) {
+        handlers.push(...collectEventHandlersFromIR(child))
+      }
+      break
   }
 
   return handlers
@@ -125,6 +131,9 @@ function traverseElements(node: IRNode, visitor: (el: IRElement) => void): void 
         traverseElements(node.alternate, visitor)
       }
       break
+    // Note: 'loop' case is intentionally omitted. Nested .map() event delegation
+    // requires a different approach (nested data-key lookup + inner loop variable
+    // resolution) that isn't implemented yet. See memory: compiler-reconcile-templates-events.md
   }
 }
 
@@ -177,10 +186,68 @@ export function collectLoopChildEvents(node: IRNode): LoopChildEvent[] {
           eventName: event.name,
           childSlotId: el.slotId,
           handler: event.handler,
+          nestedLoops: [],
         })
       }
     }
   })
+  return events
+}
+
+/**
+ * Collect events from loop children INCLUDING nested inner loops.
+ * Recursively descends into nested IRLoop nodes, building NestedLoopInfo
+ * for multi-level event delegation (data-key-N resolution).
+ */
+export function collectLoopChildEventsWithNesting(
+  node: IRNode,
+  nestingStack: NestedLoopInfo[] = [],
+): LoopChildEvent[] {
+  const events: LoopChildEvent[] = []
+
+  function walk(n: IRNode): void {
+    switch (n.type) {
+      case 'element':
+        if (n.slotId) {
+          for (const event of n.events) {
+            events.push({
+              eventName: event.name,
+              childSlotId: n.slotId,
+              handler: event.handler,
+              nestedLoops: [...nestingStack],
+            })
+          }
+        }
+        for (const child of n.children) walk(child)
+        break
+      case 'loop':
+        // Enter nested loop — push nesting info
+        nestingStack.push({
+          depth: nestingStack.length + 1,
+          array: n.array,
+          param: n.param,
+          key: n.key ?? '',
+        })
+        for (const child of n.children) walk(child)
+        nestingStack.pop()
+        break
+      case 'fragment':
+      case 'component':
+      case 'provider':
+        for (const child of n.children) walk(child)
+        break
+      case 'conditional':
+        walk(n.whenTrue)
+        walk(n.whenFalse)
+        break
+      case 'if-statement':
+        walk(n.consequent)
+        if (n.alternate) walk(n.alternate)
+        break
+    }
+  }
+
+  walk(node)
   return events
 }
 

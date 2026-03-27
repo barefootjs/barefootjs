@@ -29,6 +29,7 @@ export const ErrorCodes = {
   UNSUPPORTED_JSX_PATTERN: 'BF021',
   INVALID_JSX_ATTRIBUTE: 'BF022',
   MISSING_KEY_IN_LIST: 'BF023',
+  MISSING_KEY_IN_NESTED_LIST: 'BF024',
 
   // Type errors (BF030-BF039)
   TYPE_INFERENCE_FAILED: 'BF030',
@@ -66,6 +67,8 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCodes.INVALID_JSX_ATTRIBUTE]: 'Invalid JSX attribute',
   [ErrorCodes.MISSING_KEY_IN_LIST]:
     'Missing key attribute in list rendering. Add a key prop for efficient updates',
+  [ErrorCodes.MISSING_KEY_IN_NESTED_LIST]:
+    'Nested .map() loop requires key attribute for event delegation. Add a key prop to elements in the inner loop',
 
   [ErrorCodes.TYPE_INFERENCE_FAILED]: 'Failed to infer type',
   [ErrorCodes.PROPS_TYPE_MISMATCH]: 'Props type mismatch',

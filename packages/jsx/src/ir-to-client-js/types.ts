@@ -115,10 +115,19 @@ export interface ConditionalElement {
   whenFalseTextEffects: ConditionalBranchTextEffect[]
 }
 
+export interface NestedLoopInfo {
+  depth: number    // 1 for first nesting level, 2 for second, etc.
+  array: string    // Inner loop array expression (e.g., 'col.tasks')
+  param: string    // Inner loop parameter name (e.g., 'task')
+  key: string      // Inner loop key expression (e.g., 'task.id')
+}
+
 export interface LoopChildEvent {
   eventName: string // 'click', 'submit', etc.
   childSlotId: string // bf slot ID of the element with the event
   handler: string // Handler expression (may reference loop param)
+  /** Nesting info for events inside nested inner loops. Empty = direct child. */
+  nestedLoops: NestedLoopInfo[]
 }
 
 export interface LoopChildReactiveAttr extends AttrMeta {
