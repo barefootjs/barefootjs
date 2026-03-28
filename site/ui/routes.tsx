@@ -64,6 +64,7 @@ import { KanbanRefPage } from './pages/components/kanban'
 import { LoginRefPage } from './pages/components/login'
 import { SettingsRefPage } from './pages/components/settings'
 import { SidebarRefPage } from './pages/components/sidebar'
+import { ChatRefPage } from './pages/components/chat'
 import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
@@ -450,6 +451,11 @@ export function createApp() {
   // Sidebar reference page (migrated from /docs/components/sidebar)
   app.get('/components/sidebar', (c) => {
     return c.render(<SidebarRefPage />)
+  })
+
+  // Chat block page
+  app.get('/components/chat', (c) => {
+    return c.render(<ChatRefPage />)
   })
 
 
