@@ -80,8 +80,11 @@ export function createComponent(
   const html = templateFn(unwrappedProps)
 
   // 4. Create DOM element
+  // Escape ">" inside attribute values to prevent broken HTML parsing.
+  // UnoCSS generates classes like has-[>svg] where ">" would prematurely
+  // close the opening tag when parsed via innerHTML.
   const template = document.createElement('template')
-  template.innerHTML = html.trim()
+  template.innerHTML = escapeAttrGt(html.trim())
   const element = template.content.firstChild as HTMLElement
 
   if (!element) {
@@ -258,6 +261,16 @@ function unwrapPropsForTemplate(props: Record<string, unknown>): Record<string, 
 }
 
 /**
+ * Escape ">" inside HTML attribute values to prevent broken parsing.
+ * UnoCSS classes like has-[>svg]:shrink-0 contain ">" which terminates
+ * the opening tag when parsed via innerHTML. The browser decodes &gt;
+ * back to ">" in the DOM attribute value, preserving CSS matching.
+ */
+function escapeAttrGt(html: string): string {
+  return html.replace(/"[^"]*"/g, match => match.replace(/>/g, '&gt;'))
+}
+
+/**
  * Check if a value contains DOM elements (HTMLElement instances).
  */
 function hasDomElements(value: unknown): boolean {
@@ -303,7 +316,7 @@ function createComponentFromDef(
 
   // Create DOM element
   const template = document.createElement('template')
-  template.innerHTML = html.trim()
+  template.innerHTML = escapeAttrGt(html.trim())
   const element = template.content.firstChild as HTMLElement
 
   if (!element) {

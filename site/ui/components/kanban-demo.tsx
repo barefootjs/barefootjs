@@ -11,6 +11,7 @@
 import { createSignal, createMemo } from '@barefootjs/dom'
 import { Badge } from '@ui/components/ui/badge'
 import { Button } from '@ui/components/ui/button'
+import { Input } from '@ui/components/ui/input'
 import {
   ToastProvider,
   Toast,
@@ -147,25 +148,17 @@ export function KanbanDemo() {
               </Button>
             </div>
 
-            {/* WORKAROUND: Uses native <input> and <button> in the add form instead of
-                 Input/Button components. Signal reads (newTaskTitle()) in the loop template
-                 cause reconcileElements to replace all items on each keystroke, losing
-                 component state. Fix: compiler should emit reactive attrs (value={signal()})
-                 as separate createEffect instead of inlining in template string. */}
             {addingToColumn() === col.id ? (
               <div className="add-task-form flex gap-2 mb-3">
-                <input
+                <Input
                   placeholder="Task title"
                   value={newTaskTitle()}
                   onInput={(e) => setNewTaskTitle(e.target.value)}
-                  className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none"
+                  className="h-8"
                 />
-                <button
-                  className="inline-flex items-center justify-center h-8 px-3 rounded-md bg-primary text-primary-foreground text-sm font-medium"
-                  onClick={() => addTask(col.id)}
-                >
+                <Button size="sm" onClick={() => addTask(col.id)}>
                   Add
-                </button>
+                </Button>
               </div>
             ) : null}
 
