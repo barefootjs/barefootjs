@@ -59,9 +59,21 @@ export function applyRestAttrs(
       const attr = toAttrName(key)
 
       if (value != null && value !== false) {
-        el.setAttribute(attr, String(value))
+        // Use DOM property for value/checked (setAttribute sets the default, not current)
+        if (attr === 'value' && 'value' in el) {
+          const strVal = String(value)
+          if ((el as HTMLInputElement).value !== strVal) (el as HTMLInputElement).value = strVal
+        } else if (attr === 'checked' && 'checked' in el) {
+          (el as HTMLInputElement).checked = !!value
+        } else {
+          el.setAttribute(attr, String(value))
+        }
       } else {
-        el.removeAttribute(attr)
+        if (attr === 'checked' && 'checked' in el) {
+          (el as HTMLInputElement).checked = false
+        } else {
+          el.removeAttribute(attr)
+        }
       }
     }
   })
