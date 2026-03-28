@@ -701,7 +701,7 @@ function emitCompositeElementReconciliation(
     const handler = ev.handler.trim().startsWith('(') || ev.handler.trim().startsWith('function')
       ? `(${ev.handler})(e)`
       : ev.handler
-    ls.push(`${indent}{ const __e = ${elVar}.querySelector('[bf="${ev.childSlotId}"]'); if (__e) __e.addEventListener('${toDomEventName(ev.eventName)}', (e) => { ${handler} }) }`)
+    ls.push(`${indent}{ const __e = ${elVar}.matches('[bf="${ev.childSlotId}"]') ? ${elVar} : ${elVar}.querySelector('[bf="${ev.childSlotId}"]'); if (__e) __e.addEventListener('${toDomEventName(ev.eventName)}', (e) => { ${handler} }) }`)
   }
 
   // Helper: emit renderItem body (shared between hydration tracking and reconciliation)
