@@ -41,7 +41,7 @@ export function applyRestAttrs(
     if (key.startsWith('on') && key.length > 2 && key[2] === key[2].toUpperCase()) {
       const handler = source[key]
       if (typeof handler === 'function') {
-        const eventName = key[2].toLowerCase() + key.slice(3)
+        const eventName = (key[2].toLowerCase() + key.slice(3)).toLowerCase()
         el.addEventListener(eventName, handler as EventListener)
       }
     }
