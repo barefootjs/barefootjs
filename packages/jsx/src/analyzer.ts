@@ -773,6 +773,7 @@ function collectFunction(
     returnType,
     containsJsx,
     isExported,
+    isModule: _isModule || undefined,
     isJsxFunction: isJsxFunction || undefined,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
   })

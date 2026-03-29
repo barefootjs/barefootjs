@@ -7,7 +7,7 @@ import type { AttrMeta, ComponentIR, SignalInfo, IRFragment } from '../types'
 import type { Declaration } from './declaration-sort'
 import { isBooleanAttr } from '../html-constants'
 import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, LoopChildEvent, LoopElement } from './types'
-import { inferDefaultValue, toHtmlAttrName, toDomEventName, wrapHandlerInBlock, buildChainedArrayExpr, quotePropName, varSlotId, PROPS_PARAM } from './utils'
+import { inferDefaultValue, toHtmlAttrName, toDomEventName, wrapHandlerInBlock, buildChainedArrayExpr, quotePropName, varSlotId, bodyReferencesComponentScope, PROPS_PARAM } from './utils'
 import { addCondAttrToTemplate, canGenerateStaticTemplate, irToComponentTemplate, generateCsrTemplate, irChildrenToJsExpr, createStringProtector } from './html-template'
 
 /**
@@ -1246,6 +1246,9 @@ export function buildInlinableConstants(ctx: ClientJsContext): {
   if (ctx.propsObjectName) componentScopeNames.add(ctx.propsObjectName)
 
   for (const fn of ctx.localFunctions) {
+    // Module-level functions that don't reference component internals
+    // are emitted at module scope, so they are available in the template.
+    if (fn.isModule && !bodyReferencesComponentScope(fn.body, componentScopeNames)) continue
     unsafeLocalNames.add(fn.name)
   }
 

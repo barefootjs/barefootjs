@@ -1141,12 +1141,20 @@ describe('Client JS generation', () => {
       const clientJs = result.files.find(f => f.type === 'clientJs')
       expect(clientJs).toBeDefined()
 
-      // The helper function itself should be emitted (as arrow function constant)
-      expect(clientJs!.content).toContain('const computeError')
+      const content = clientJs!.content
+
+      // Module-level function should be emitted at module scope using var + ??
+      // for safe re-declaration when multiple components share the same bundle
+      expect(content).toContain('var computeError = computeError ?? function(')
+      expect(content).not.toContain('const computeError')
+
+      // The function should appear before the init function (module scope)
+      const fnPos = content.indexOf('var computeError')
+      const initPos = content.indexOf('export function initMyComponent(')
+      expect(fnPos).toBeLessThan(initPos)
 
       // Internal declarations should appear only once (inside the function body),
       // not duplicated at the init function's top level
-      const content = clientJs!.content
       const basicErrorCount = content.split('const basicError').length - 1
       const isDuplicateCount = content.split('const isDuplicate').length - 1
       expect(basicErrorCount).toBe(1) // only inside computeError body

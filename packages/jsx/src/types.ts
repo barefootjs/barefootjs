@@ -399,6 +399,8 @@ export interface FunctionInfo {
   returnType: TypeInfo | null
   containsJsx: boolean
   isExported?: boolean
+  /** When true, declared at module level (outside the component function). */
+  isModule?: boolean
   /** When true, this function returns JSX and is inlined at call sites (#569). */
   isJsxFunction?: boolean
   loc: SourceLocation

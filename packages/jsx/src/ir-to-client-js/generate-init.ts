@@ -2,9 +2,9 @@
  * generateInitFunction orchestrator + generateElementRefs.
  */
 
-import type { ComponentIR, ConstantInfo, IRNode } from '../types'
+import type { ComponentIR, ConstantInfo, FunctionInfo, IRNode } from '../types'
 import type { ClientJsContext } from './types'
-import { varSlotId, PROPS_PARAM } from './utils'
+import { varSlotId, bodyReferencesComponentScope, PROPS_PARAM } from './utils'
 import { collectUsedIdentifiers, collectUsedFunctions, collectIdentifiersFromIRTree } from './identifiers'
 import { valueReferencesReactiveData, getControlledPropName, detectPropsWithPropertyAccess } from './prop-handling'
 import { IMPORT_PLACEHOLDER, MODULE_CONSTANTS_PLACEHOLDER, detectUsedImports, collectUserDomImports, collectExternalImports } from './imports'
@@ -171,16 +171,34 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
     })
   }
 
-  // Collect functions
+  // Build component-scope name set to check if module-level functions
+  // reference component internals (signals, memos, constants, props).
+  // Functions that reference component-scope names must stay inside init.
+  const componentScopeNames = new Set<string>()
+  for (const s of ctx.signals) {
+    componentScopeNames.add(s.getter)
+    componentScopeNames.add(s.setter)
+  }
+  for (const m of ctx.memos) componentScopeNames.add(m.name)
+  for (const c of ctx.localConstants) componentScopeNames.add(c.name)
+  for (const p of ctx.propsParams) componentScopeNames.add(p.name)
+  if (ctx.propsObjectName) componentScopeNames.add(ctx.propsObjectName)
+
+  // Collect functions (module-level functions that don't reference component
+  // internals are emitted outside init for SSR template accessibility)
+  const moduleLevelFunctions: FunctionInfo[] = []
   for (const fn of ctx.localFunctions) {
     if (fn.isJsxFunction) continue  // Inlined at call sites (#569)
-    if (usedIdentifiers.has(fn.name)) {
-      declarations.push({
-        kind: 'function',
-        info: fn,
-        sourceIndex: fn.loc.start.line,
-      })
+    if (!usedIdentifiers.has(fn.name)) continue
+    if (fn.isModule && !bodyReferencesComponentScope(fn.body, componentScopeNames)) {
+      moduleLevelFunctions.push(fn)
+      continue
     }
+    declarations.push({
+      kind: 'function',
+      info: fn,
+      sourceIndex: fn.loc.start.line,
+    })
   }
 
   // Collect signals
@@ -291,15 +309,27 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
 
   // Module-level constants use `var` with nullish coalescing for safe
   // re-declaration when multiple components in the same file share context
-  let moduleConstantsCode = ''
-  if (moduleLevelConstants.length > 0) {
-    const moduleConstantLines: string[] = []
-    for (const constant of moduleLevelConstants) {
-      if (!constant.value) continue
-      moduleConstantLines.push(`var ${constant.name} = ${constant.name} ?? ${constant.value}`)
-    }
-    moduleConstantsCode = moduleConstantLines.join('\n') + '\n'
+  const moduleCodeLines: string[] = []
+  for (const constant of moduleLevelConstants) {
+    if (!constant.value) continue
+    moduleCodeLines.push(`var ${constant.name} = ${constant.name} ?? ${constant.value}`)
   }
+
+  // Module-level functions: emitted at module scope so they are available
+  // in both the init function and the SSR template.
+  // Uses `var` + nullish coalescing for safe re-declaration when multiple
+  // components in the same bundle share the same helper function.
+  // Note: export is intentionally omitted — client JS files are self-contained
+  // entry points, not imported by other modules. Add export when a concrete
+  // cross-module use case arises.
+  for (const fn of moduleLevelFunctions) {
+    const paramStr = fn.params.map(p => p.name).join(', ')
+    moduleCodeLines.push(`var ${fn.name} = ${fn.name} ?? function(${paramStr}) ${fn.body}`)
+  }
+
+  const moduleConstantsCode = moduleCodeLines.length > 0
+    ? moduleCodeLines.join('\n') + '\n'
+    : ''
 
   return generatedCode
     .replace(IMPORT_PLACEHOLDER, allImportLines)
@@ -420,3 +450,4 @@ export function collectComponentNamesFromIR(nodes: IRNode[], names: Set<string>)
     }
   }
 }
+

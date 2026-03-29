@@ -140,3 +140,15 @@ export function inferDefaultValue(type: { kind: string; primitive?: string }): s
   return 'undefined'
 }
 
+/**
+ * Check if a function body references any identifiers from the given scope.
+ * Used to determine if a module-level function can be emitted outside the
+ * component init function, or if it must stay inside due to scope dependencies.
+ */
+export function bodyReferencesComponentScope(body: string, scopeNames: Set<string>): boolean {
+  for (const name of scopeNames) {
+    if (new RegExp(`\\b${name}\\b`).test(body)) return true
+  }
+  return false
+}
+

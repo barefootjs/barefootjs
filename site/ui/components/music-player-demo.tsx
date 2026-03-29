@@ -28,10 +28,10 @@ type Track = {
   artist: string
   album: string
   duration: number // seconds
-  durationStr: string // pre-formatted mm:ss
 }
 
-// Declared as function statement (not arrow) to avoid compiler inline-expansion bug
+// Module-level function: emitted at module scope in client JS,
+// accessible from both the init function and the SSR template.
 function formatTime(totalSeconds: number): string {
   const mins = Math.floor(totalSeconds / 60)
   const secs = Math.floor(totalSeconds % 60)
@@ -39,12 +39,12 @@ function formatTime(totalSeconds: number): string {
 }
 
 const playlist: Track[] = [
-  { id: 1, title: 'Morning Light', artist: 'Solar Wave', album: 'Daybreak', duration: 217, durationStr: '3:37' },
-  { id: 2, title: 'Deep Blue', artist: 'Ocean Drive', album: 'Tides', duration: 185, durationStr: '3:05' },
-  { id: 3, title: 'City Nights', artist: 'Neon Pulse', album: 'Urban', duration: 243, durationStr: '4:03' },
-  { id: 4, title: 'Mountain Echo', artist: 'Alpine', album: 'Heights', duration: 198, durationStr: '3:18' },
-  { id: 5, title: 'Starfall', artist: 'Cosmic Drift', album: 'Nebula', duration: 262, durationStr: '4:22' },
-  { id: 6, title: 'River Flow', artist: 'Calm Waters', album: 'Serenity', duration: 174, durationStr: '2:54' },
+  { id: 1, title: 'Morning Light', artist: 'Solar Wave', album: 'Daybreak', duration: 217 },
+  { id: 2, title: 'Deep Blue', artist: 'Ocean Drive', album: 'Tides', duration: 185 },
+  { id: 3, title: 'City Nights', artist: 'Neon Pulse', album: 'Urban', duration: 243 },
+  { id: 4, title: 'Mountain Echo', artist: 'Alpine', album: 'Heights', duration: 198 },
+  { id: 5, title: 'Starfall', artist: 'Cosmic Drift', album: 'Nebula', duration: 262 },
+  { id: 6, title: 'River Flow', artist: 'Calm Waters', album: 'Serenity', duration: 174 },
 ]
 
 /**
@@ -79,21 +79,19 @@ export function MusicPlayerDemo() {
     return track.duration > 0 ? (currentTime() / track.duration) * 100 : 0
   })
 
-  // Formatted times as signals (not memos) to avoid formatTime leaking into SSR template.
-  // The compiler inlines createMemo initial values into the template function,
-  // but the template runs outside the component scope where formatTime is unavailable.
-  const [formattedCurrentTime, setFormattedCurrentTime] = createSignal('0:00')
-  const [formattedRemaining, setFormattedRemaining] = createSignal('-3:37')
+  // Memo chain stage 3: formatted current time
+  const formattedCurrentTime = createMemo(() => formatTime(currentTime()))
 
-  // Update formatted times reactively
-  createEffect(() => {
-    setFormattedCurrentTime(formatTime(currentTime()))
+  // Memo chain stage 4: formatted remaining time
+  const formattedRemaining = createMemo(() => {
     const remaining = currentTrack().duration - currentTime()
-    setFormattedRemaining(`-${formatTime(Math.max(0, remaining))}`)
+    return `-${formatTime(Math.max(0, remaining))}`
   })
 
-  // Total duration as pre-computed string (avoids formatTime in SSR template)
-  const totalDurationStr = '21:19' // sum of all track durations
+  // Memo: total playlist duration
+  const totalDuration = createMemo(() =>
+    playlist.reduce((sum, t) => sum + t.duration, 0)
+  )
 
   const showToast = (message: string) => {
     setToastMessage(message)
@@ -196,7 +194,7 @@ export function MusicPlayerDemo() {
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Music Player</h2>
-        <span className="total-duration text-sm text-muted-foreground">{playlist.length} tracks · {totalDurationStr}</span>
+        <span className="total-duration text-sm text-muted-foreground">{playlist.length} tracks · {formatTime(totalDuration())}</span>
       </div>
 
       <div className="music-player rounded-xl border border-border bg-card overflow-hidden">
@@ -304,7 +302,7 @@ export function MusicPlayerDemo() {
                   </p>
                   <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
                 </div>
-                <span className="text-xs text-muted-foreground">{track.durationStr}</span>
+                <span className="text-xs text-muted-foreground">{formatTime(track.duration)}</span>
               </button>
             ))}
           </div>
