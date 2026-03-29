@@ -110,6 +110,7 @@ export const blockEntries: BlockEntry[] = [
   { slug: 'settings', title: 'Settings', description: 'Multi-tab settings page with forms and dialogs' },
   { slug: 'sidebar', title: 'Sidebar', description: 'Collapsible navigation panel' },
   { slug: 'chat', title: 'Chat', description: 'Messaging interface with auto-scroll, typing indicator, and unread counts' },
+  { slug: 'music-player', title: 'Music Player', description: 'Media player with timer, effect cleanup, and slider binding' },
 ]
 
 // Helper: get components filtered by category

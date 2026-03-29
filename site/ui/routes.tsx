@@ -65,6 +65,7 @@ import { LoginRefPage } from './pages/components/login'
 import { SettingsRefPage } from './pages/components/settings'
 import { SidebarRefPage } from './pages/components/sidebar'
 import { ChatRefPage } from './pages/components/chat'
+import { MusicPlayerRefPage } from './pages/components/music-player'
 import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
@@ -456,6 +457,11 @@ export function createApp() {
   // Chat block page
   app.get('/components/chat', (c) => {
     return c.render(<ChatRefPage />)
+  })
+
+  // Music Player block page
+  app.get('/components/music-player', (c) => {
+    return c.render(<MusicPlayerRefPage />)
   })
 
 
