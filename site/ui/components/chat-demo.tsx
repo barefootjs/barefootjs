@@ -141,12 +141,16 @@ export function ChatDemo() {
 
   let messagesEndRef: HTMLElement | undefined
 
-  // createEffect + DOM ref: auto-scroll to bottom when messages change
+  // createEffect + DOM ref: auto-scroll message area to bottom
   createEffect(() => {
     // Track contactMessages to trigger on message or contact change
     contactMessages()
     if (messagesEndRef) {
-      messagesEndRef.scrollIntoView({ behavior: 'smooth' })
+      // Scroll the nearest scrollable ancestor (ScrollArea viewport), not the page
+      const viewport = messagesEndRef.closest('[data-slot="scroll-area-viewport"]')
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight
+      }
     }
   })
 
