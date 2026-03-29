@@ -27,19 +27,62 @@ export function reconcileElements<T>(
 ): void {
   if (!container || !items) return
 
-  if (items.length === 0) {
-    container.innerHTML = ''
-    return
-  }
-
   // Build key -> element map from existing children
   const existingByKey = new Map<string, HTMLElement>()
+  let hasKeyedChildren = false
   for (const child of Array.from(container.children)) {
     const el = child as HTMLElement
     const key = el.dataset.key
     if (key !== undefined) {
       existingByKey.set(key, el)
+      hasKeyedChildren = true
     }
+  }
+
+  // When no keyed children exist (initial SSR render or all-unkeyed container),
+  // use the simple clear-and-replace path. Non-keyed children in this case are
+  // SSR-rendered loop items that haven't been through hydration yet.
+  if (!hasKeyedChildren) {
+    if (items.length === 0) {
+      container.innerHTML = ''
+      return
+    }
+
+    const fragment = document.createDocumentFragment()
+    for (let i = 0; i < items.length; i++) {
+      const el = (i === 0 && firstElement) ? firstElement : renderItem(items[i], i)
+      const key = getKey ? getKey(items[i], i) : String(i)
+      if (!el.dataset.key) el.setAttribute('data-key', key)
+      fragment.appendChild(el)
+    }
+    container.innerHTML = ''
+    container.appendChild(fragment)
+    return
+  }
+
+  // Find the boundary: the first non-keyed node after the keyed region.
+  // Non-keyed siblings (comment markers, ref divs) must be preserved —
+  // they belong to conditionals or other constructs sharing this container.
+  let insertBefore: Node | null = null
+  let foundKeyed = false
+  for (const child of Array.from(container.childNodes)) {
+    if (child.nodeType === Node.ELEMENT_NODE && (child as HTMLElement).dataset.key !== undefined) {
+      foundKeyed = true
+    } else if (foundKeyed) {
+      insertBefore = child
+      break
+    }
+  }
+
+  // Remove old keyed elements only (preserves comment markers, ref divs, etc.)
+  for (const child of Array.from(container.children)) {
+    if ((child as HTMLElement).dataset.key !== undefined) {
+      child.remove()
+    }
+  }
+
+  if (items.length === 0) {
+    return
   }
 
   const fragment = document.createDocumentFragment()
@@ -96,9 +139,8 @@ export function reconcileElements<T>(
     }
   }
 
-  // Clear container and append - unused elements are removed
-  container.innerHTML = ''
-  container.appendChild(fragment)
+  // Insert new keyed elements before non-keyed siblings
+  container.insertBefore(fragment, insertBefore)
 }
 
 /**

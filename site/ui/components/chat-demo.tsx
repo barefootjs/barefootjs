@@ -312,26 +312,23 @@ export function ChatDemo() {
                 </div>
               ))}
 
+              {/* Typing indicator — inside message list alongside the loop */}
+              {isTyping() ? (
+                <div className="typing-indicator flex justify-start">
+                  <div className="bg-muted rounded-2xl px-4 py-2">
+                    <div className="flex gap-1 items-center h-5">
+                      <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce" style="animation-delay: 0ms" />
+                      <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce" style="animation-delay: 150ms" />
+                      <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce" style="animation-delay: 300ms" />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {/* Scroll anchor for auto-scroll */}
               <div ref={(el) => { messagesEndRef = el }} />
             </div>
           </ScrollArea>
-
-          {/* Typing indicator — placed outside the message loop container
-              to avoid reconcileElements destroying the comment markers.
-              See: reconcileElements clears all non-keyed siblings in its
-              container, including conditional comment markers and ref divs. */}
-          {isTyping() ? (
-            <div className="typing-indicator flex justify-start px-4 pb-2">
-              <div className="bg-muted rounded-2xl px-4 py-2">
-                <div className="flex gap-1 items-center h-5">
-                  <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce" style="animation-delay: 0ms" />
-                  <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce" style="animation-delay: 150ms" />
-                  <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce" style="animation-delay: 300ms" />
-                </div>
-              </div>
-            </div>
-          ) : null}
 
           {/* Input area */}
           <div className="chat-input border-t border-border p-3 flex gap-2">

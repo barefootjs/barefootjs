@@ -37,8 +37,8 @@ describe('reconcileElements', () => {
     expect(container.children[1].textContent).toBe('B')
   })
 
-  test('clears container for empty array', () => {
-    container.innerHTML = '<li>old</li>'
+  test('clears keyed elements for empty array', () => {
+    container.innerHTML = '<li data-key="1">old</li>'
 
     reconcileElements(
       container,
@@ -48,6 +48,21 @@ describe('reconcileElements', () => {
     )
 
     expect(container.children.length).toBe(0)
+  })
+
+  test('preserves non-keyed siblings for empty array', () => {
+    container.innerHTML = '<li data-key="1">item</li><!--bf-cond-start:s0--><!--bf-cond-end:s0--><div class="anchor"></div>'
+
+    reconcileElements(
+      container,
+      [],
+      null,
+      () => document.createElement('li')
+    )
+
+    // Keyed element removed, but comment markers and anchor preserved
+    expect(container.children.length).toBe(1) // anchor div
+    expect(container.childNodes.length).toBe(3) // 2 comments + 1 div
   })
 
   test('reuses elements by key', () => {
