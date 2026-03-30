@@ -38,11 +38,20 @@ export const BF_PARENT_OWNED_PREFIX = '^'
 /** Comment-based scope marker prefix: `<!--bf-scope:ComponentName_abc123-->` */
 export const BF_SCOPE_COMMENT_PREFIX = 'bf-scope:'
 
-/** Key attribute for list reconciliation: `data-key="1"` */
+/**
+ * Key attribute for list reconciliation: `data-key="1"`
+ * @see packages/jsx/src/ir-to-client-js/utils.ts — DATA_KEY (compiler-side mirror)
+ */
 export const BF_KEY = 'data-key'
 
-/** Nested loop key attribute prefix: `data-key-1`, `data-key-2` */
+/**
+ * Nested loop key attribute prefix: `data-key-1`, `data-key-2`
+ * @see packages/jsx/src/ir-to-client-js/utils.ts — DATA_KEY_PREFIX (compiler-side mirror)
+ */
 export const BF_KEY_PREFIX = 'data-key-'
 
-/** Component placeholder in loop templates: `data-bf-ph="s5"` */
+/**
+ * Component placeholder in loop templates: `data-bf-ph="s5"`
+ * @see packages/jsx/src/ir-to-client-js/utils.ts — DATA_BF_PH (compiler-side mirror)
+ */
 export const BF_PLACEHOLDER = 'data-bf-ph'
