@@ -15,22 +15,16 @@ import {
   emitDeclaration,
   emitControlledSignalEffect,
   emitPropsEventHandlers,
-  emitDynamicTextUpdates,
-  emitClientOnlyExpressions,
-  emitReactiveAttributeUpdates,
-  emitConditionalUpdates,
-  emitClientOnlyConditionals,
-  emitLoopUpdates,
   emitEventHandlers,
   emitRestAttrApplications,
-  emitReactivePropBindings,
-  emitReactiveChildProps,
   emitRefCallbacks,
   emitEffectsAndOnMounts,
   emitProviderAndChildInits,
   emitStaticArrayChildInits,
-  emitRegistrationAndHydration,
 } from './emit-init-sections'
+import { emitConditionalUpdates, emitClientOnlyConditionals, emitLoopUpdates } from './emit-control-flow'
+import { emitDynamicTextUpdates, emitClientOnlyExpressions, emitReactiveAttributeUpdates, emitReactivePropBindings, emitReactiveChildProps } from './emit-reactive'
+import { emitRegistrationAndHydration } from './emit-registration'
 
 /**
  * Orchestrate client JS code generation: analyze dependencies, emit code sections,

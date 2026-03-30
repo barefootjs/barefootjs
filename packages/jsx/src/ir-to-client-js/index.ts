@@ -12,7 +12,7 @@ import { collectUsedIdentifiers, collectUsedFunctions, collectIdentifiersFromIRT
 import { valueReferencesReactiveData } from './prop-handling'
 import { canGenerateStaticTemplate, irToComponentTemplate, generateCsrTemplate } from './html-template'
 import { PROPS_PARAM } from './utils'
-import { buildInlinableConstants, buildSignalAndMemoMaps, buildCsrInlinableConstants } from './emit-init-sections'
+import { buildInlinableConstants, buildSignalAndMemoMaps, buildCsrInlinableConstants } from './emit-registration'
 import { IMPORT_PLACEHOLDER, detectUsedImports } from './imports'
 
 /** Public entry point: IR → client JS string. Returns '' if no client JS is needed. */
