@@ -57,7 +57,7 @@ const CommandContext = createContext<CommandContextValue>()
 
 // CSS classes (aligned with shadcn/ui)
 const commandRootClasses = 'flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground'
-const commandInputWrapperClasses = 'flex items-center border-b border-border px-3'
+const commandInputWrapperClasses = 'flex items-center border-b px-3'
 const commandInputClasses = 'flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50'
 const commandListClasses = 'max-h-[300px] overflow-y-auto overflow-x-hidden'
 const commandGroupClasses = 'overflow-hidden p-1 text-foreground [&_[data-slot=command-group-heading]]:px-2 [&_[data-slot=command-group-heading]]:py-1.5 [&_[data-slot=command-group-heading]]:text-xs [&_[data-slot=command-group-heading]]:font-medium [&_[data-slot=command-group-heading]]:text-muted-foreground'

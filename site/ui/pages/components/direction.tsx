@@ -139,7 +139,7 @@ export function DirectionRefPage() {
         <Section id="usage" title="Usage">
           <Example title="" code={usageCode}>
             <DirectionProvider dir="rtl">
-              <div className="rounded-md border border-border p-4">
+              <div className="rounded-md border p-4">
                 <p className="text-sm">This content will be right-to-left.</p>
               </div>
             </DirectionProvider>

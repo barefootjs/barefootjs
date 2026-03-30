@@ -79,12 +79,12 @@ function TabsPlayground(_props: {}) {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="account" selected={isAccountSelected()}>
-              <div className="p-4 rounded-lg border border-border bg-background">
+              <div className="p-4 rounded-lg border bg-background">
                 <p className="text-muted-foreground text-sm">Account settings content.</p>
               </div>
             </TabsContent>
             <TabsContent value="password" selected={isPasswordSelected()}>
-              <div className="p-4 rounded-lg border border-border bg-background">
+              <div className="p-4 rounded-lg border bg-background">
                 <p className="text-muted-foreground text-sm">Password settings content.</p>
               </div>
             </TabsContent>

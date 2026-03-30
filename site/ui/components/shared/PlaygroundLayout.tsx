@@ -22,7 +22,7 @@ interface PlaygroundLayoutProps {
 
 export function PlaygroundLayout({ previewDataAttr, previewContent, controls, copyButton }: PlaygroundLayoutProps) {
   return (
-    <div id="preview" className="border border-border rounded-lg overflow-hidden scroll-mt-16">
+    <div id="preview" className="border rounded-lg overflow-hidden scroll-mt-16">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px]">
         {/* Preview */}
         <div className="flex items-center justify-center min-h-[140px] p-8 bg-card relative overflow-hidden">
@@ -33,13 +33,13 @@ export function PlaygroundLayout({ previewDataAttr, previewContent, controls, co
         </div>
 
         {/* Controls */}
-        <div className="border-t lg:border-t-0 lg:border-l border-border p-6 space-y-4 bg-background">
+        <div className="border-t lg:border-t-0 lg:border-l p-6 space-y-4 bg-background">
           {controls}
         </div>
       </div>
 
       {/* Generated code */}
-      <div className="border-t border-border relative group">
+      <div className="border-t relative group">
         <pre className="m-0 p-4 pr-12 bg-muted overflow-x-auto text-sm font-mono">
           <code data-playground-code />
         </pre>

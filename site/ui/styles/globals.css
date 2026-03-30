@@ -38,7 +38,8 @@ html.theme-transition *::after {
     box-sizing: border-box;
     border-width: 0;
     border-style: solid;
-    border-color: var(--border);
+    /* border-color: var(--border) is set via UnoCSS custom preflight
+     * (uno.config.ts) to ensure it runs after preset-wind4's reset. */
   }
 
   body {

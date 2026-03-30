@@ -70,7 +70,7 @@ const ContextMenuRadioGroupContext = createContext<ContextMenuRadioGroupContextV
 const contentTriggerMap = new WeakMap<HTMLElement, HTMLElement>()
 
 // ContextMenuContent base classes
-const contextMenuContentBaseClasses = 'fixed z-50 min-w-[8rem] rounded-md border border-border bg-popover p-1 shadow-md transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
+const contextMenuContentBaseClasses = 'fixed z-50 min-w-[8rem] rounded-md border bg-popover p-1 shadow-md transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
 
 // ContextMenuContent open/closed classes
 const contextMenuContentOpenClasses = 'opacity-100 scale-100'
@@ -96,7 +96,7 @@ const contextMenuIndicatorClasses = 'absolute left-2 flex size-3.5 shrink-0 item
 const contextMenuSubTriggerClasses = 'relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden'
 
 // SubContent classes (absolute positioned, similar to Content)
-const contextMenuSubContentBaseClasses = 'absolute z-50 min-w-[8rem] rounded-md border border-border bg-popover p-1 shadow-md'
+const contextMenuSubContentBaseClasses = 'absolute z-50 min-w-[8rem] rounded-md border bg-popover p-1 shadow-md'
 
 // ContextMenuLabel classes
 const contextMenuLabelClasses = 'px-2 py-1.5 text-sm font-semibold text-foreground'

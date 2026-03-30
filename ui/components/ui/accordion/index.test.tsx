@@ -64,7 +64,7 @@ describe('AccordionItem', () => {
 
   test('has resolved CSS classes', () => {
     expect(result.root.classes).toContain('border-b')
-    expect(result.root.classes).toContain('border-border')
+
   })
 })
 

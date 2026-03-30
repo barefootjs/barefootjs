@@ -46,7 +46,7 @@ import {
 
 function ResizableHorizontal() {
   return (
-    <ResizablePanelGroup direction="horizontal" class="max-w-md rounded-lg border border-border">
+    <ResizablePanelGroup direction="horizontal" class="max-w-md rounded-lg border">
       <ResizablePanel defaultSize={50}>
         <div className="flex h-[200px] items-center justify-center p-6">
           <span className="font-semibold">One</span>
@@ -72,7 +72,7 @@ import {
 
 function ResizableVertical() {
   return (
-    <ResizablePanelGroup direction="vertical" class="min-h-[200px] max-w-md rounded-lg border border-border">
+    <ResizablePanelGroup direction="vertical" class="min-h-[200px] max-w-md rounded-lg border">
       <ResizablePanel defaultSize={25}>
         <div className="flex h-full items-center justify-center p-6">
           <span className="font-semibold">Header</span>
@@ -98,7 +98,7 @@ import {
 
 function ResizableWithHandle() {
   return (
-    <ResizablePanelGroup direction="horizontal" class="min-h-[200px] max-w-md rounded-lg border border-border">
+    <ResizablePanelGroup direction="horizontal" class="min-h-[200px] max-w-md rounded-lg border">
       <ResizablePanel defaultSize={25}>
         <div className="flex h-full items-center justify-center p-6">
           <span className="font-semibold">Sidebar</span>
@@ -124,7 +124,7 @@ import {
 
 function ResizableThreePanels() {
   return (
-    <ResizablePanelGroup direction="horizontal" class="min-h-[200px] rounded-lg border border-border">
+    <ResizablePanelGroup direction="horizontal" class="min-h-[200px] rounded-lg border">
       <ResizablePanel defaultSize={20} minSize={15} maxSize={40}>
         <div className="flex h-full items-center justify-center p-6">
           <span className="font-semibold">Sidebar</span>
@@ -156,7 +156,7 @@ import {
 
 function ResizableDemo() {
   return (
-    <ResizablePanelGroup direction="horizontal" class="min-h-[200px] rounded-lg border border-border">
+    <ResizablePanelGroup direction="horizontal" class="min-h-[200px] rounded-lg border">
       <ResizablePanel defaultSize={20} minSize={15} maxSize={40}>
         <div className="flex h-full items-center justify-center p-6">
           <span className="font-semibold">Sidebar</span>

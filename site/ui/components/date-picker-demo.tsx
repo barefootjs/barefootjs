@@ -175,7 +175,7 @@ export function DatePickerPresetsDemo() {
           <button
             type="button"
             data-preset={String(i)}
-            className="inline-flex items-center rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+            className="inline-flex items-center rounded-md border bg-background px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             {preset.label}
           </button>

@@ -60,7 +60,7 @@ import { DataTableColumnHeader } from '@/components/ui/data-table'
 
 function GroupIsland(props: { title: string; children: any }) {
   return (
-    <div className="rounded-xl border border-dashed border-border/40 bg-muted/20 p-3">
+    <div className="rounded-xl border border-dashed/40 bg-muted/20 p-3">
       <h2 className="text-xs font-semibold text-foreground mb-2">{props.title}</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
         {props.children}
@@ -351,7 +351,7 @@ export function StudioCanvas() {
         </PreviewItem>
 
         <PreviewItem name="Data Table">
-          <div className="w-full border border-border rounded-md overflow-hidden">
+          <div className="w-full border rounded-md overflow-hidden">
             <Table className="text-[10px]">
               <TableHeader>
                 <TableRow>
@@ -534,7 +534,7 @@ export function StudioCanvas() {
         <PreviewItem name="Context Menu">
           <ContextMenu open={contextMenuOpen()} onOpenChange={setContextMenuOpen}>
             <ContextMenuTrigger>
-              <div className="flex items-center justify-center w-full h-16 rounded-md border border-dashed border-border text-[11px] text-muted-foreground">
+              <div className="flex items-center justify-center w-full h-16 rounded-md border border-dashed text-[11px] text-muted-foreground">
                 Right-click here
               </div>
             </ContextMenuTrigger>
@@ -548,7 +548,7 @@ export function StudioCanvas() {
         </PreviewItem>
 
         <PreviewItem name="Command">
-          <div className="w-full rounded-md border border-border overflow-hidden">
+          <div className="w-full rounded-md border overflow-hidden">
             <Command>
               <CommandInput placeholder="Search..." />
               <CommandList>
@@ -649,9 +649,9 @@ export function StudioCanvas() {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="space-y-1 pt-1 text-[11px] text-muted-foreground">
-                <div className="rounded border border-border px-2 py-1">Item A</div>
-                <div className="rounded border border-border px-2 py-1">Item B</div>
-                <div className="rounded border border-border px-2 py-1">Item C</div>
+                <div className="rounded border px-2 py-1">Item A</div>
+                <div className="rounded border px-2 py-1">Item B</div>
+                <div className="rounded border px-2 py-1">Item C</div>
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -760,7 +760,7 @@ export function StudioCanvas() {
         </PreviewItem>
 
         <PreviewItem name="Scroll Area">
-          <ScrollArea className="h-20 w-full rounded-md border border-border" type="hover">
+          <ScrollArea className="h-20 w-full rounded-md border" type="hover">
             <div className="p-2 text-[11px]">
               <div className="font-medium mb-1">Tags</div>
               <div className="space-y-1 text-muted-foreground">
@@ -777,7 +777,7 @@ export function StudioCanvas() {
         </PreviewItem>
 
         <PreviewItem name="Resizable">
-          <div className="w-full rounded-md border border-border overflow-hidden">
+          <div className="w-full rounded-md border overflow-hidden">
             <ResizablePanelGroup direction="horizontal">
               <ResizablePanel defaultSize={50}>
                 <div className="flex h-16 items-center justify-center text-[11px] text-muted-foreground">A</div>

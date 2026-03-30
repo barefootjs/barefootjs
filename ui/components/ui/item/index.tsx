@@ -49,7 +49,7 @@ const itemBaseClasses = 'group/item flex flex-wrap items-center rounded-md borde
 
 const itemVariantClasses: Record<ItemVariant, string> = {
   default: 'bg-transparent',
-  outline: 'border-border',
+  outline: '',
   muted: 'bg-muted/50',
 }
 

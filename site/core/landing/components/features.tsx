@@ -34,11 +34,11 @@ const fiveFeatures = [
 
 export function FiveFeaturesSection() {
   return (
-    <section className="py-32 px-6 sm:px-12 border-t border-border">
+    <section className="py-32 px-6 sm:px-12 border-t">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-wrap">
           {fiveFeatures.map((feature) => (
-            <div className="w-full sm:w-1/2 md:w-1/3 lg:w-1/5 p-6 sm:p-8 flex flex-col border-b border-border lg:border-b-0 lg:border-r last:border-r-0 sm:[&:nth-child(2n)]:border-r-0 md:[&:nth-child(2n)]:border-r md:[&:nth-child(3n)]:border-r-0 lg:[&:nth-child(3n)]:border-r">
+            <div className="w-full sm:w-1/2 md:w-1/3 lg:w-1/5 p-6 sm:p-8 flex flex-col border-b lg:border-b-0 lg:border-r last:border-r-0 sm:[&:nth-child(2n)]:border-r-0 md:[&:nth-child(2n)]:border-r md:[&:nth-child(3n)]:border-r-0 lg:[&:nth-child(3n)]:border-r">
               <span className="text-xs font-mono text-[var(--gradient-start)] tracking-wider mb-4">
                 {feature.num}
               </span>
@@ -58,7 +58,7 @@ export function FiveFeaturesSection() {
 
 export function UIComponentsSection() {
   return (
-    <section className="py-24 px-6 sm:px-12 border-t border-border">
+    <section className="py-24 px-6 sm:px-12 border-t">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">
@@ -101,7 +101,7 @@ export function UIComponentsSection() {
               <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center text-xl font-semibold text-primary-foreground bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] rounded-full">JD</div>
               <h3 className="text-lg font-semibold">Jane Doe</h3>
               <p className="text-sm text-muted-foreground mt-1">Software Engineer</p>
-              <div className="flex justify-center gap-8 py-4 my-4 border-t border-b border-border">
+              <div className="flex justify-center gap-8 py-4 my-4 border-t border-b">
                 <div className="text-center">
                   <span className="block text-lg font-semibold">128</span>
                   <span className="text-xs text-muted-foreground">Posts</span>
@@ -126,7 +126,7 @@ export function UIComponentsSection() {
               <p className="text-sm text-muted-foreground">Manage your preferences</p>
             </div>
             <div className="px-6 flex flex-col">
-              <div className="flex items-center justify-between py-3 border-b border-border">
+              <div className="flex items-center justify-between py-3 border-b">
                 <div>
                   <div className="text-sm font-medium">Email alerts</div>
                   <div className="text-xs text-muted-foreground mt-0.5">Receive email notifications</div>
@@ -135,7 +135,7 @@ export function UIComponentsSection() {
                   <div className="w-4 h-4 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm" />
                 </div>
               </div>
-              <div className="flex items-center justify-between py-3 border-b border-border">
+              <div className="flex items-center justify-between py-3 border-b">
                 <div>
                   <div className="text-sm font-medium">Push notifications</div>
                   <div className="text-xs text-muted-foreground mt-0.5">Receive push alerts</div>
@@ -179,7 +179,7 @@ export function UIComponentsSection() {
 
           {/* Chat Card */}
           <div className="bg-card text-card-foreground flex flex-col rounded-xl border shadow-sm md:col-span-2 lg:col-span-2">
-            <div className="px-6 py-4 border-b border-border">
+            <div className="px-6 py-4 border-b">
               <h3 className="text-lg font-semibold leading-tight">Messages</h3>
             </div>
             <div className="px-6 py-4 flex flex-col gap-4 min-h-48">
@@ -223,7 +223,7 @@ export function UIComponentsSection() {
                 </div>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-border">
+            <div className="px-6 py-4 border-t">
               <div className="flex gap-2">
                 <input type="text" className="flex-1 h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs placeholder:text-muted-foreground" placeholder="Type a message..." />
                 <button className="h-9 px-4 inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90">Send</button>

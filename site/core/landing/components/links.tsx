@@ -33,7 +33,7 @@ export function Links() {
           <a
             key={link.title}
             href={link.href}
-            className="block p-4 rounded-lg border border-border hover:border-ring hover:bg-accent transition-colors"
+            className="block p-4 rounded-lg border hover:border-ring hover:bg-accent transition-colors"
           >
             <h3 className="font-semibold text-foreground">{link.title}</h3>
             <p className="text-sm text-muted-foreground mt-1">{link.description}</p>

@@ -33,7 +33,7 @@ function DirectionPlayground(_props: {}) {
       previewDataAttr="data-direction-preview"
       previewContent={
         <DirectionProvider dir={dir()}>
-          <div className="rounded-md border border-border p-4">
+          <div className="rounded-md border p-4">
             <p className="text-sm">Hello, World! مرحبا بالعالم</p>
           </div>
         </DirectionProvider>

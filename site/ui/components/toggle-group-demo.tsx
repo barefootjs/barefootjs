@@ -34,7 +34,7 @@ export function ToggleGroupBasicDemo() {
           </svg>
         </ToggleGroupItem>
       </ToggleGroup>
-      <div data-testid="alignment-preview" className={`${alignment() === 'left' ? 'text-left' : alignment() === 'right' ? 'text-right' : 'text-center'} rounded-md border border-border p-4 text-sm`}>
+      <div data-testid="alignment-preview" className={`${alignment() === 'left' ? 'text-left' : alignment() === 'right' ? 'text-right' : 'text-center'} rounded-md border p-4 text-sm`}>
         <p>The quick brown fox jumps over the lazy dog. This sentence demonstrates how text alignment affects the readability and visual flow of your content.</p>
       </div>
     </div>
@@ -60,7 +60,7 @@ export function ToggleGroupOutlineDemo() {
           L
         </ToggleGroupItem>
       </ToggleGroup>
-      <div data-testid="fontsize-preview" className={`${fontSize() === 'S' ? 'text-sm' : fontSize() === 'L' ? 'text-lg' : 'text-base'} rounded-md border border-border p-4`}>
+      <div data-testid="fontsize-preview" className={`${fontSize() === 'S' ? 'text-sm' : fontSize() === 'L' ? 'text-lg' : 'text-base'} rounded-md border p-4`}>
         <p>The quick brown fox jumps over the lazy dog.</p>
       </div>
     </div>
@@ -94,7 +94,7 @@ export function ToggleGroupMultipleDemo() {
           </svg>
         </ToggleGroupItem>
       </ToggleGroup>
-      <div data-testid="format-preview" className={`${formats().includes('Bold') ? 'font-bold' : ''} ${formats().includes('Italic') ? 'italic' : ''} ${formats().includes('Underline') ? 'underline' : ''} rounded-md border border-border p-4 text-sm`}>
+      <div data-testid="format-preview" className={`${formats().includes('Bold') ? 'font-bold' : ''} ${formats().includes('Italic') ? 'italic' : ''} ${formats().includes('Underline') ? 'underline' : ''} rounded-md border p-4 text-sm`}>
         <p>The quick brown fox jumps over the lazy dog. Toggle the formatting options above to see the effect on this text.</p>
       </div>
     </div>

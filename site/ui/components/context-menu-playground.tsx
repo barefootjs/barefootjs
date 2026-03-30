@@ -75,7 +75,7 @@ function ContextMenuPlayground(_props: {}) {
       previewContent={
         <ContextMenu open={open()} onOpenChange={setOpen}>
           <ContextMenuTrigger>
-            <div className="flex h-[120px] w-[250px] items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground">
+            <div className="flex h-[120px] w-[250px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
               Right-click here
             </div>
           </ContextMenuTrigger>

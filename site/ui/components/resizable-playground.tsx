@@ -51,7 +51,7 @@ function ResizablePlayground(_props: {}) {
         <>
           <style>{`[data-grip=hide] [data-slot=resizable-handle] div { display: none }`}</style>
           <div className="w-full max-w-md" data-grip="hide">
-            <ResizablePanelGroup direction="horizontal" className="rounded-lg border border-border">
+            <ResizablePanelGroup direction="horizontal" className="rounded-lg border">
               <ResizablePanel defaultSize={50}>
                 <div className="flex h-[200px] items-center justify-center p-6">
                   <span className="font-semibold">One</span>

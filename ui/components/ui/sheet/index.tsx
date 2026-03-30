@@ -66,10 +66,10 @@ const sheetContentBaseClasses = 'z-50 flex flex-col gap-4 bg-background p-6 shad
 
 // Side-specific positioning classes
 const sideClasses: Record<SheetSide, string> = {
-  top: 'fixed inset-x-0 top-0 w-full border-b border-border',
-  right: 'fixed inset-y-0 right-0 h-full w-3/4 border-l border-border sm:max-w-sm',
-  bottom: 'fixed inset-x-0 bottom-0 w-full border-t border-border',
-  left: 'fixed inset-y-0 left-0 h-full w-3/4 border-r border-border sm:max-w-sm',
+  top: 'fixed inset-x-0 top-0 w-full border-b',
+  right: 'fixed inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
+  bottom: 'fixed inset-x-0 bottom-0 w-full border-t',
+  left: 'fixed inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
 }
 
 // Side-specific open state classes (slide to final position)

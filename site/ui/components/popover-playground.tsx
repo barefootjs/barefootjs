@@ -56,7 +56,7 @@ function PopoverPlayground(_props: {}) {
           <Popover open={open()} onOpenChange={setOpen}>
             <PopoverTrigger>
               <span
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                className="inline-flex items-center justify-center gap-2 rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
               >
                 Open popover
               </span>
@@ -73,14 +73,14 @@ function PopoverPlayground(_props: {}) {
                   <div className="grid grid-cols-3 items-center gap-4">
                     <span className="text-sm">Width</span>
                     <input
-                      className="col-span-2 h-8 rounded-md border border-border bg-background px-3 text-sm"
+                      className="col-span-2 h-8 rounded-md border bg-background px-3 text-sm"
                       value="100%"
                     />
                   </div>
                   <div className="grid grid-cols-3 items-center gap-4">
                     <span className="text-sm">Height</span>
                     <input
-                      className="col-span-2 h-8 rounded-md border border-border bg-background px-3 text-sm"
+                      className="col-span-2 h-8 rounded-md border bg-background px-3 text-sm"
                       value="25px"
                     />
                   </div>

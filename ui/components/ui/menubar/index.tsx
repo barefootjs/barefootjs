@@ -72,11 +72,11 @@ const MenubarRadioGroupContext = createContext<MenubarRadioGroupContextValue>()
 const contentTriggerMap = new WeakMap<HTMLElement, HTMLElement>()
 
 // CSS classes
-const menubarClasses = 'flex h-9 items-center gap-1 rounded-md border border-border bg-background p-1 shadow-xs'
+const menubarClasses = 'flex h-9 items-center gap-1 rounded-md border bg-background p-1 shadow-xs'
 const menubarTriggerBaseClasses = 'flex items-center rounded-sm px-2 py-1 text-sm font-medium outline-hidden select-none cursor-pointer'
 const menubarTriggerDefaultClasses = 'text-foreground hover:bg-accent/50 focus:bg-accent'
 const menubarTriggerOpenClasses = 'bg-accent text-accent-foreground'
-const menubarContentBaseClasses = 'fixed z-50 min-w-[12rem] rounded-md border border-border bg-popover p-1 shadow-md transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
+const menubarContentBaseClasses = 'fixed z-50 min-w-[12rem] rounded-md border bg-popover p-1 shadow-md transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
 const menubarContentOpenClasses = 'opacity-100 scale-100'
 const menubarContentClosedClasses = 'opacity-0 scale-95 pointer-events-none'
 const menubarItemBaseClasses = 'relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden'
@@ -86,7 +86,7 @@ const menubarItemDestructiveClasses = 'text-destructive hover:bg-accent/50 focus
 const menubarCheckableItemClasses = 'relative flex cursor-pointer select-none items-center gap-2 rounded-sm py-1.5 pl-8 pr-2 text-sm outline-hidden'
 const menubarIndicatorClasses = 'absolute left-2 flex size-3.5 shrink-0 items-center justify-center'
 const menubarSubTriggerClasses = 'relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden'
-const menubarSubContentBaseClasses = 'absolute z-50 min-w-[8rem] rounded-md border border-border bg-popover p-1 shadow-md'
+const menubarSubContentBaseClasses = 'absolute z-50 min-w-[8rem] rounded-md border bg-popover p-1 shadow-md'
 const menubarLabelClasses = 'px-2 py-1.5 text-sm font-semibold text-foreground'
 const menubarSeparatorClasses = '-mx-1 my-1 h-px bg-border'
 const menubarShortcutClasses = 'ml-auto text-xs tracking-widest text-muted-foreground'

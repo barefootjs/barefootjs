@@ -111,7 +111,7 @@ export function TableOfContents(props: TableOfContentsProps) {
               <li key={item.id} className="list-none m-0 p-0">
                 <a
                   href={`#${item.id}`}
-                  className={`block py-1 pl-3 border-0 border-l border-solid border-border transition-colors no-underline ${
+                  className={`block py-1 pl-3 border-0 border-l border-solid transition-colors no-underline ${
                     item.branch ? 'ml-2' : ''
                   } ${
                     activeId() === item.id

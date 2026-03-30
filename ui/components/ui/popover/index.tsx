@@ -52,7 +52,7 @@ const popoverClasses = 'relative inline-block'
 const popoverTriggerClasses = 'inline-flex items-center disabled:pointer-events-none disabled:opacity-50'
 
 // PopoverContent base classes (from shadcn/ui)
-const popoverContentBaseClasses = 'fixed z-50 w-72 rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md outline-hidden transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
+const popoverContentBaseClasses = 'fixed z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-hidden transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
 
 // PopoverContent open/closed classes
 const popoverContentOpenClasses = 'opacity-100 scale-100'

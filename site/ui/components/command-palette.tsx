@@ -222,9 +222,9 @@ export function CommandPalette() {
         data-open="false"
         className="fixed left-1/2 top-[15%] z-dialog w-full max-w-lg -translate-x-1/2 transition-all duration-150 data-[open=false]:opacity-0 data-[open=false]:scale-95 data-[open=false]:pointer-events-none"
       >
-        <div className="mx-4 sm:mx-0 overflow-hidden rounded-lg border border-border bg-background shadow-2xl">
+        <div className="mx-4 sm:mx-0 overflow-hidden rounded-lg border bg-background shadow-2xl">
           {/* Search input */}
-          <div className="flex items-center gap-2 border-b border-border px-3">
+          <div className="flex items-center gap-2 border-b px-3">
             <SearchIcon size="sm" className="text-muted-foreground" />
             <input
               data-command-input

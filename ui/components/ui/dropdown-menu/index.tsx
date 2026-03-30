@@ -75,7 +75,7 @@ const dropdownMenuClasses = 'relative inline-block'
 const dropdownMenuTriggerClasses = 'inline-flex items-center disabled:pointer-events-none disabled:opacity-50'
 
 // DropdownMenuContent base classes
-const dropdownMenuContentBaseClasses = 'fixed z-50 min-w-[8rem] rounded-md border border-border bg-popover p-1 shadow-md transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
+const dropdownMenuContentBaseClasses = 'fixed z-50 min-w-[8rem] rounded-md border bg-popover p-1 shadow-md transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
 
 // DropdownMenuContent open/closed classes
 const dropdownMenuContentOpenClasses = 'opacity-100 scale-100'
@@ -101,7 +101,7 @@ const dropdownMenuIndicatorClasses = 'absolute left-2 flex size-3.5 shrink-0 ite
 const dropdownMenuSubTriggerClasses = 'relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden'
 
 // SubContent classes (absolute positioned, similar to Content)
-const dropdownMenuSubContentBaseClasses = 'absolute z-50 min-w-[8rem] rounded-md border border-border bg-popover p-1 shadow-md'
+const dropdownMenuSubContentBaseClasses = 'absolute z-50 min-w-[8rem] rounded-md border bg-popover p-1 shadow-md'
 
 // DropdownMenuLabel classes
 const dropdownMenuLabelClasses = 'px-2 py-1.5 text-sm font-semibold text-foreground'

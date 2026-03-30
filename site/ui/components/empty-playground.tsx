@@ -69,7 +69,7 @@ function EmptyPlayground(_props: {}) {
       previewDataAttr="data-empty-preview"
       previewContent={
         <div className="w-full max-w-md">
-          <Empty className="border border-border">
+          <Empty className="border">
             <EmptyHeader>
               <EmptyMedia variant={variant()}>
                 <PackageIcon />

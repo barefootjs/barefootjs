@@ -169,9 +169,9 @@ export function MultiStepFormDemo() {
         <Badge variant="outline" className="step-badge">Step {currentStep()} of {steps.length}</Badge>
       </div>
 
-      <div className="multi-step-form rounded-xl border border-border bg-card overflow-hidden">
+      <div className="multi-step-form rounded-xl border bg-card overflow-hidden">
         {/* Step indicator — loop with active/completed conditional */}
-        <div className="step-indicator flex border-b border-border">
+        <div className="step-indicator flex border-b">
           {steps.map(step => (
             <button
               key={step.id}

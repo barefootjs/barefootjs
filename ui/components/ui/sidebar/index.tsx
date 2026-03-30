@@ -204,7 +204,7 @@ function Sidebar(props: SidebarProps) {
     : 'right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]'
   const containerVariant = gapFloatingOrInset
     ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+1rem+2px)]'
-    : `group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] ${side === 'left' ? 'border-r border-border' : 'border-l border-border'}`
+    : `group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] ${side === 'left' ? 'border-r' : 'border-l'}`
 
   // Inner classes
   const innerClasses = `bg-background flex size-full flex-col ${variant === 'floating' ? 'rounded-lg shadow-sm ring-1 ring-border' : ''}`
@@ -320,7 +320,7 @@ function SidebarInput({ className = '', ...props }: SidebarInputProps) {
   return (
     <input
       data-slot="sidebar-input"
-      className={`bg-background h-8 w-full rounded-md border border-border px-3 py-1 text-sm shadow-none outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] ${className}`}
+      className={`bg-background h-8 w-full rounded-md border px-3 py-1 text-sm shadow-none outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] ${className}`}
       {...props}
     />
   )
@@ -628,7 +628,7 @@ function SidebarMenuSub({ className = '', children, ...props }: SidebarMenuSubPr
   return (
     <ul
       data-slot="sidebar-menu-sub"
-      className={`border-border mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l px-2.5 py-0.5 group-data-[collapsible=icon]:hidden ${className}`}
+      className={`mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l px-2.5 py-0.5 group-data-[collapsible=icon]:hidden ${className}`}
       {...props}
     >
       {children}

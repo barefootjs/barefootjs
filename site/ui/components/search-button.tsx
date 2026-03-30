@@ -50,7 +50,7 @@ export function SearchButton() {
       <button
         data-search-button
         type="button"
-        className="hidden sm:flex items-center gap-2 h-9 w-64 rounded-md border border-border bg-muted/50 px-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+        className="hidden sm:flex items-center gap-2 h-9 w-64 rounded-md border bg-muted/50 px-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
       >
         <SearchIcon size="sm" />
         <span className="flex-1 text-left">Search...</span>

@@ -37,7 +37,7 @@ export function ContextMenuBasicDemo() {
   return (
     <ContextMenu open={open()} onOpenChange={setOpen}>
       <ContextMenuTrigger>
-        <div className="flex h-[150px] w-[300px] items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground">
+        <div className="flex h-[150px] w-[300px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
           Right-click here
         </div>
       </ContextMenuTrigger>
@@ -79,7 +79,7 @@ export function ContextMenuCheckboxDemo() {
   return (
     <ContextMenu open={open()} onOpenChange={setOpen}>
       <ContextMenuTrigger>
-        <div className="flex h-[150px] w-[300px] items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground">
+        <div className="flex h-[150px] w-[300px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
           Right-click here
         </div>
       </ContextMenuTrigger>
@@ -109,7 +109,7 @@ export function ContextMenuFullDemo() {
   return (
     <ContextMenu open={open()} onOpenChange={setOpen}>
       <ContextMenuTrigger>
-        <div className="flex h-[150px] w-[300px] items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground">
+        <div className="flex h-[150px] w-[300px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
           Right-click here
         </div>
       </ContextMenuTrigger>

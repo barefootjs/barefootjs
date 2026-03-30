@@ -61,7 +61,7 @@ export function CodeDemo() {
 
       {/* Output */}
       <div className="code-block">
-        <div className="flex border-b border-border">
+        <div className="flex border-b">
           {tabs.map((tab) => (
             <button
               key={tab.id}

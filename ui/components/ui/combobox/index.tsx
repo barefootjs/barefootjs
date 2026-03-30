@@ -69,12 +69,12 @@ const triggerDisabledClasses = 'disabled:cursor-not-allowed disabled:opacity-50'
 const triggerDataStateClasses = 'data-[placeholder]:text-muted-foreground'
 
 // Content (portal dropdown)
-const contentBaseClasses = 'fixed z-50 max-h-[min(var(--radix-select-content-available-height,384px),384px)] min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover shadow-md transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
+const contentBaseClasses = 'fixed z-50 max-h-[min(var(--radix-select-content-available-height,384px),384px)] min-w-[8rem] overflow-hidden rounded-md border bg-popover shadow-md transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
 const contentOpenClasses = 'opacity-100 scale-100'
 const contentClosedClasses = 'opacity-0 scale-95 pointer-events-none'
 
 // Input (search)
-const inputWrapperClasses = 'flex items-center border-b border-border px-3'
+const inputWrapperClasses = 'flex items-center border-b px-3'
 const inputClasses = 'flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50'
 
 // Item

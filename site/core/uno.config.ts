@@ -4,7 +4,7 @@ export default defineConfig({
   presets: [presetWind4()],
   safelist: [
     'hidden', 'sm:block', 'sm:hidden', 'lg:block',
-    'border-input', 'border-border',
+    'border-input',
   ],
   theme: {
     colors: {

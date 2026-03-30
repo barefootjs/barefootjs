@@ -51,7 +51,7 @@ function ChevronRightSmall() {
   )
 }
 
-const navLinkClass = 'flex items-center px-2 py-1.5 bg-background/95 backdrop-blur rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors no-underline'
+const navLinkClass = 'flex items-center px-2 py-1.5 bg-background/95 backdrop-blur rounded-md border text-muted-foreground hover:text-foreground transition-colors no-underline'
 
 export function MobilePageNav({ prev, next }: MobilePageNavProps) {
   if (!prev && !next) return null

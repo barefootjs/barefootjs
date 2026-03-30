@@ -31,7 +31,7 @@ export function EmptyDemo() {
   return (
     <div className="w-full">
       {items().length === 0 ? (
-        <Empty className="border border-border">
+        <Empty className="border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <PackageIcon />
@@ -48,7 +48,7 @@ export function EmptyDemo() {
           </EmptyContent>
         </Empty>
       ) : (
-        <div className="flex flex-col items-center gap-4 p-6 border border-border rounded-lg">
+        <div className="flex flex-col items-center gap-4 p-6 border rounded-lg">
           <p className="text-sm text-muted-foreground">Items: {items().join(', ')}</p>
           <Button variant="outline" onClick={() => setItems([])}>
             Clear all

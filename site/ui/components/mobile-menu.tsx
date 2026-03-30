@@ -213,7 +213,7 @@ export function MobileMenu() {
               </details>
 
               {/* Components — grouped by category */}
-              <div className="pt-3 mt-3 border-t border-border">
+              <div className="pt-3 mt-3 border-t">
                 <span className="block px-4 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Components</span>
               </div>
               {categoryOrder.map((cat) => (
@@ -245,7 +245,7 @@ export function MobileMenu() {
               </details>
 
               {/* Patterns */}
-              <div className="pt-3 mt-3 border-t border-border">
+              <div className="pt-3 mt-3 border-t">
                 <span className="block px-4 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Patterns</span>
               </div>
               <details data-category="forms" className="mb-2 group">
@@ -274,7 +274,7 @@ export function MobileMenu() {
               </details>
 
               {/* Tools */}
-              <div className="pt-3 mt-3 border-t border-border">
+              <div className="pt-3 mt-3 border-t">
                 <span className="block px-4 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tools</span>
               </div>
               <a href="/docs/cli" className={menuLinkClass}>CLI</a>

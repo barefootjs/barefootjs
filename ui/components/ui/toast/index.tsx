@@ -77,10 +77,10 @@ const positionClasses: Record<ToastPosition, string> = {
 const toastProviderClasses = 'fixed z-50 flex flex-col gap-2 pointer-events-none'
 
 // Toast base classes
-const toastBaseClasses = 'items-start gap-3 w-80 p-4 rounded-lg border border-border shadow-lg pointer-events-auto transition-all duration-slow ease-out'
+const toastBaseClasses = 'items-start gap-3 w-80 p-4 rounded-lg border shadow-lg pointer-events-auto transition-all duration-slow ease-out'
 
 // Toast style (neutral for all variants — icons differentiate types)
-const toastVariantClass = 'bg-background border-border text-foreground'
+const toastVariantClass = 'bg-background text-foreground'
 
 // Toast variant icon color classes
 const toastIconClasses: Record<ToastVariant, string> = {

@@ -21,7 +21,7 @@ export function PortalBasicDemo() {
     }
 
     state.portal = createPortal(`
-      <div data-portal-content class="fixed bottom-4 right-4 bg-background border border-border rounded-lg p-4 shadow-lg z-50">
+      <div data-portal-content class="fixed bottom-4 right-4 bg-background border rounded-lg p-4 shadow-lg z-50">
         <p class="text-sm text-foreground mb-2">Portal content at document.body</p>
         <button data-portal-close class="text-sm text-primary hover:underline">Close</button>
       </div>
@@ -101,7 +101,7 @@ export function PortalCustomContainerDemo() {
           type="button"
           onClick={hidePortal}
           disabled={!open()}
-          className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-border bg-background hover:bg-accent h-10 px-4 py-2 disabled:pointer-events-none disabled:opacity-50"
+          className="inline-flex items-center justify-center rounded-md text-sm font-medium border bg-background hover:bg-accent h-10 px-4 py-2 disabled:pointer-events-none disabled:opacity-50"
         >
           Hide
         </button>
@@ -109,7 +109,7 @@ export function PortalCustomContainerDemo() {
       <div
         ref={setContainerRef}
         data-portal-container
-        className="min-h-20 border border-dashed border-border rounded-lg p-4 flex items-center justify-center"
+        className="min-h-20 border border-dashed rounded-lg p-4 flex items-center justify-center"
       >
         {!open() && <span className="text-muted-foreground text-sm">Portal container (empty)</span>}
       </div>

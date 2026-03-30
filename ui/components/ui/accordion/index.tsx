@@ -39,7 +39,7 @@ const AccordionItemContext = createContext<AccordionItemContextValue>()
 const accordionClasses = 'w-full'
 
 // AccordionItem classes
-const accordionItemClasses = 'border-b border-border last:border-b-0'
+const accordionItemClasses = 'border-b last:border-b-0'
 
 // AccordionTrigger base classes
 const accordionTriggerBaseClasses = 'flex flex-1 items-start justify-between gap-4 rounded-md py-4 text-left text-sm font-medium transition-all outline-none hover:underline disabled:pointer-events-none disabled:opacity-50'

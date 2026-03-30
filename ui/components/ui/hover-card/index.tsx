@@ -56,7 +56,7 @@ const contentRootMap = new WeakMap<HTMLElement, HTMLElement>()
 const hoverCardClasses = 'relative inline-block'
 
 // HoverCardContent base classes (from shadcn/ui)
-const hoverCardContentBaseClasses = 'fixed z-50 w-64 rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md outline-hidden transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
+const hoverCardContentBaseClasses = 'fixed z-50 w-64 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-hidden transform-gpu origin-top transition-[opacity,transform] duration-normal ease-out'
 
 // HoverCardContent open/closed classes
 const hoverCardContentOpenClasses = 'opacity-100 scale-100'

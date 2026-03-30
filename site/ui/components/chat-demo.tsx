@@ -231,9 +231,9 @@ export function ChatDemo() {
         )}
       </div>
 
-      <div className="chat-container flex rounded-xl border border-border bg-card overflow-hidden" style="height: 480px">
+      <div className="chat-container flex rounded-xl border bg-card overflow-hidden" style="height: 480px">
         {/* Contact list */}
-        <div className="contact-list w-[240px] border-r border-border flex flex-col">
+        <div className="contact-list w-[240px] border-r flex flex-col">
           <div className="p-3">
             <Input
               placeholder="Search contacts..."
@@ -279,7 +279,7 @@ export function ChatDemo() {
         {/* Message area */}
         <div className="message-area flex-1 flex flex-col">
           {/* Chat header */}
-          <div className="chat-header flex items-center gap-3 px-4 py-3 border-b border-border">
+          <div className="chat-header flex items-center gap-3 px-4 py-3 border-b">
             <Avatar>
               <AvatarFallback>
                 {contacts.find(c => c.id === activeContact())?.initials || '??'}
@@ -335,7 +335,7 @@ export function ChatDemo() {
           </ScrollArea>
 
           {/* Input area */}
-          <div className="chat-input border-t border-border p-3 flex gap-2">
+          <div className="chat-input border-t p-3 flex gap-2">
             <Input
               placeholder="Type a message..."
               value={inputText()}

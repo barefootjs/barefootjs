@@ -165,7 +165,7 @@ export function KanbanDemo() {
 
             <div className="space-y-2">
               {col.tasks.map(task => (
-                <div key={task.id} className="task-card rounded-xl border border-border bg-card p-3 space-y-2 shadow-sm">
+                <div key={task.id} className="task-card rounded-xl border bg-card p-3 space-y-2 shadow-sm">
                   <div className="flex items-start justify-between gap-2">
                     <p className="task-title text-sm font-medium">{task.title}</p>
                     <Button

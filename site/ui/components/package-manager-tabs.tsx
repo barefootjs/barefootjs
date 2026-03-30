@@ -42,7 +42,7 @@ export function PackageManagerTabs(props: PackageManagerTabsProps) {
         <button role="tab" aria-selected={selected() === 'yarn'} data-state={selected() === 'yarn' ? 'active' : 'inactive'} onClick={() => setSelected('yarn')} className={`${tabTriggerBase} ${tabTriggerFocus} ${selected() === 'yarn' ? tabTriggerActive : tabTriggerInactive}`} tabindex={selected() === 'yarn' ? 0 : -1}>yarn</button>
       </div>
       <div className="relative group">
-        <pre className="p-4 pr-12 bg-muted rounded-lg overflow-x-auto text-sm font-mono border border-border">
+        <pre className="p-4 pr-12 bg-muted rounded-lg overflow-x-auto text-sm font-mono border">
           <code>{fullCommand()}</code>
         </pre>
         <CopyButton code={fullCommand()} />

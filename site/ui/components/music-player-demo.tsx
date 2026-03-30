@@ -197,7 +197,7 @@ export function MusicPlayerDemo() {
         <span className="total-duration text-sm text-muted-foreground">{playlist.length} tracks · {formatTime(totalDuration())}</span>
       </div>
 
-      <div className="music-player rounded-xl border border-border bg-card overflow-hidden">
+      <div className="music-player rounded-xl border bg-card overflow-hidden">
         {/* Now playing + controls */}
         <div className="now-playing p-5 space-y-4">
           {/* Track info */}

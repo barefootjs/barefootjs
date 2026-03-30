@@ -544,20 +544,20 @@ function ColorSwatch({ name }: { name: string }) {
         className="flex items-center gap-2 py-0.5 w-full text-left hover:bg-muted/50 rounded-sm px-0.5 -mx-0.5 transition-colors"
         data-studio-color-edit={name}
       >
-        <div className="w-3.5 h-3.5 rounded-sm border border-border shrink-0" style={{ backgroundColor: `var(--${name})` }} data-studio-color-preview={name} />
+        <div className="w-3.5 h-3.5 rounded-sm border shrink-0" style={{ backgroundColor: `var(--${name})` }} data-studio-color-preview={name} />
         <span className="text-[11px] font-mono text-foreground">--{name}</span>
       </button>
       {/* Inline color editor — hidden by default */}
       <div className="hidden pl-1 pr-0.5 pb-1.5 pt-1 space-y-1" data-studio-color-editor={name}>
         <div className="flex items-center gap-1.5 mb-1">
-          <div className="w-5 h-5 rounded border border-border shrink-0" style={{ backgroundColor: `var(--${name})` }} data-studio-color-editor-preview={name} />
+          <div className="w-5 h-5 rounded border shrink-0" style={{ backgroundColor: `var(--${name})` }} data-studio-color-editor-preview={name} />
           <input
             type="text"
-            className="flex-1 text-[10px] font-mono text-muted-foreground bg-transparent border-b border-border focus:border-ring focus:outline-none px-0.5 py-0"
+            className="flex-1 text-[10px] font-mono text-muted-foreground bg-transparent border-b focus:border-ring focus:outline-none px-0.5 py-0"
             data-studio-color-text={name}
             placeholder="#000000"
           />
-          <button className="text-[8px] font-mono text-muted-foreground hover:text-foreground px-1 py-0.5 rounded border border-border transition-colors" data-studio-color-mode={name}>
+          <button className="text-[8px] font-mono text-muted-foreground hover:text-foreground px-1 py-0.5 rounded border transition-colors" data-studio-color-mode={name}>
             RGB
           </button>
         </div>
@@ -604,8 +604,8 @@ function ColorSwatch({ name }: { name: string }) {
 
 function TokenPanel() {
   return (
-    <div className="w-60 rounded-xl border border-border bg-card shadow-lg overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/50">
+    <div className="w-60 rounded-xl border bg-card shadow-lg overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/50">
         <div className="flex items-center gap-1.5">
           <IconSettings />
           <span className="text-xs font-medium text-foreground">Tokens</span>
@@ -615,14 +615,14 @@ function TokenPanel() {
       <div className="p-3 space-y-3 max-h-[calc(100vh-16rem)] overflow-y-auto">
         {/* Style Presets — compact: show selected, dropdown on hover */}
         <div className="relative" data-studio-style-container>
-          <button className="w-full flex items-center justify-between px-2 py-1.5 rounded-md border border-border hover:border-ring transition-colors" data-studio-style-trigger>
+          <button className="w-full flex items-center justify-between px-2 py-1.5 rounded-md border hover:border-ring transition-colors" data-studio-style-trigger>
             <div>
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Style</span>
               <div className="text-[11px] font-medium text-foreground" data-studio-style-label>Default</div>
             </div>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" className="text-muted-foreground"><path d="m6 9 6 6 6-6"/></svg>
           </button>
-          <div className="hidden absolute left-0 right-0 top-full z-20 mt-1 rounded-md border border-border bg-card shadow-lg" data-studio-style-dropdown>
+          <div className="hidden absolute left-0 right-0 top-full z-20 mt-1 rounded-md border bg-card shadow-lg" data-studio-style-dropdown>
             {stylePresets.map((preset, i) => (
               <button
                 className={`w-full text-left px-2 py-1.5 transition-colors first:rounded-t-md last:rounded-b-md hover:bg-accent ${
@@ -639,14 +639,14 @@ function TokenPanel() {
 
         {/* Font — below style, dropdown opens downward with room */}
         <div className="relative" data-studio-font-container>
-          <button className="w-full flex items-center justify-between px-2 py-1.5 rounded-md border border-border hover:border-ring transition-colors" data-studio-font-trigger>
+          <button className="w-full flex items-center justify-between px-2 py-1.5 rounded-md border hover:border-ring transition-colors" data-studio-font-trigger>
             <div>
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Font</span>
               <div className="text-[11px] font-medium text-foreground" data-studio-font-label>System Default</div>
             </div>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" className="text-muted-foreground"><path d="m6 9 6 6 6-6"/></svg>
           </button>
-          <div className="hidden absolute left-0 right-0 top-full z-20 mt-1 rounded-md border border-border bg-card shadow-lg" data-studio-font-dropdown>
+          <div className="hidden absolute left-0 right-0 top-full z-20 mt-1 rounded-md border bg-card shadow-lg" data-studio-font-dropdown>
             {[
               { key: 'system', name: 'System Default', desc: 'OS native font stack', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
               { key: 'inter', name: 'Inter', desc: 'Clean and neutral', family: '"Inter", sans-serif' },
@@ -704,7 +704,7 @@ function TokenPanel() {
       </div>
 
       {/* Reset — bottom, separated by border */}
-      <div className="hidden border-t border-border px-3 py-2" data-studio-reset-container>
+      <div className="hidden border-t px-3 py-2" data-studio-reset-container>
         <button className="w-full text-[10px] text-muted-foreground hover:text-destructive transition-colors text-center" data-studio-reset>
           Reset all customizations
         </button>
@@ -717,9 +717,9 @@ function TokenPanel() {
 
 function DetailPanel() {
   return (
-    <div className="fixed top-14 right-0 bottom-0 w-96 bg-card border-l border-border shadow-xl z-30 hidden" data-studio-detail-panel>
+    <div className="fixed top-14 right-0 bottom-0 w-96 bg-card border-l shadow-xl z-30 hidden" data-studio-detail-panel>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <div className="flex items-center justify-between px-4 py-3 border-b">
         <h2 className="text-sm font-semibold text-foreground" data-studio-detail-title>Component</h2>
         <button className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" data-studio-detail-close title="Close">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -733,7 +733,7 @@ function DetailPanel() {
             <div className="space-y-2">
               <h3 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Patterns</h3>
               {patterns.map(p => (
-                <div className="rounded-md border border-border p-3 space-y-2">
+                <div className="rounded-md border p-3 space-y-2">
                   <div className="text-xs font-medium text-foreground">{p.title}</div>
                   {p.render()}
                 </div>
@@ -753,7 +753,7 @@ function DetailPanel() {
 
 function ZoomControls() {
   return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card shadow-md p-1">
+    <div className="flex items-center gap-0.5 rounded-lg border bg-card shadow-md p-1">
       <button className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" data-studio-zoom="out" title="Zoom out">
         <IconZoomOut />
       </button>
@@ -773,8 +773,8 @@ function ZoomControls() {
 
 function ExportBar() {
   return (
-    <div className="flex items-center justify-center gap-3 px-4 py-2 bg-card border-t border-border">
-      <code className="rounded-md bg-muted border border-border px-3 py-1.5 font-mono text-[11px] text-foreground max-w-xl truncate" data-studio-export-code>
+    <div className="flex items-center justify-center gap-3 px-4 py-2 bg-card border-t">
+      <code className="rounded-md bg-muted border px-3 py-1.5 font-mono text-[11px] text-foreground max-w-xl truncate" data-studio-export-code>
         barefoot init --from "https://ui.barefootjs.dev/studio?c=..."
       </code>
       <button className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0" data-studio-copy>

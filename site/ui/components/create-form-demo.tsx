@@ -129,7 +129,7 @@ export function NotificationsFormDemo() {
           </p>
         </div>
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
               <label className="text-sm font-medium leading-none">Marketing emails</label>
               <p className="text-sm text-muted-foreground">
@@ -141,7 +141,7 @@ export function NotificationsFormDemo() {
               onCheckedChange={(checked) => marketing.setValue(checked)}
             />
           </div>
-          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
               <label className="text-sm font-medium leading-none">Security emails</label>
               <p className="text-sm text-muted-foreground">

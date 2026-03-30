@@ -364,7 +364,7 @@ export function SettingsDemo() {
             </CardHeader>
             <CardContent>
               <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-                <div className="rounded-lg border border-border divide-y divide-border">
+                <div className="rounded-lg border divide-y divide-border">
                   <div className="flex items-center justify-between p-4">
                     <div className="space-y-0.5">
                       <label className="text-sm font-medium">Email Notifications</label>

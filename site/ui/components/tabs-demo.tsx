@@ -44,13 +44,13 @@ export function TabsBasicDemo() {
         </TabsTrigger>
       </TabsList>
       <TabsContent value="account" selected={isAccountSelected()}>
-        <div className="p-4 rounded-lg border border-border bg-background">
+        <div className="p-4 rounded-lg border bg-background">
           <h4 className="font-medium mb-2">Account Settings</h4>
           <p className="text-muted-foreground text-sm">Make changes to your account here. Click save when you're done.</p>
         </div>
       </TabsContent>
       <TabsContent value="password" selected={isPasswordSelected()}>
-        <div className="p-4 rounded-lg border border-border bg-background">
+        <div className="p-4 rounded-lg border bg-background">
           <h4 className="font-medium mb-2">Password Settings</h4>
           <p className="text-muted-foreground text-sm">Change your password here. After saving, you'll be logged out.</p>
         </div>
@@ -107,22 +107,22 @@ export function TabsMultipleDemo() {
         </TabsTrigger>
       </TabsList>
       <TabsContent value="overview" selected={isOverviewSelected()}>
-        <div className="p-4 rounded-lg border border-border bg-background">
+        <div className="p-4 rounded-lg border bg-background">
           <p className="text-muted-foreground">Overview content goes here.</p>
         </div>
       </TabsContent>
       <TabsContent value="analytics" selected={isAnalyticsSelected()}>
-        <div className="p-4 rounded-lg border border-border bg-background">
+        <div className="p-4 rounded-lg border bg-background">
           <p className="text-muted-foreground">Analytics content goes here.</p>
         </div>
       </TabsContent>
       <TabsContent value="reports" selected={isReportsSelected()}>
-        <div className="p-4 rounded-lg border border-border bg-background">
+        <div className="p-4 rounded-lg border bg-background">
           <p className="text-muted-foreground">Reports content goes here.</p>
         </div>
       </TabsContent>
       <TabsContent value="notifications" selected={isNotificationsSelected()}>
-        <div className="p-4 rounded-lg border border-border bg-background">
+        <div className="p-4 rounded-lg border bg-background">
           <p className="text-muted-foreground">Notifications content goes here.</p>
         </div>
       </TabsContent>
@@ -167,12 +167,12 @@ export function TabsDisabledDemo() {
         </TabsTrigger>
       </TabsList>
       <TabsContent value="active" selected={isActiveSelected()}>
-        <div className="p-4 rounded-lg border border-border bg-background">
+        <div className="p-4 rounded-lg border bg-background">
           <p className="text-muted-foreground">This tab is active.</p>
         </div>
       </TabsContent>
       <TabsContent value="another" selected={isAnotherSelected()}>
-        <div className="p-4 rounded-lg border border-border bg-background">
+        <div className="p-4 rounded-lg border bg-background">
           <p className="text-muted-foreground">Another active tab.</p>
         </div>
       </TabsContent>

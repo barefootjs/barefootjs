@@ -61,7 +61,7 @@ export function PageHeader({ title, description, prev, next }: PageHeaderProps) 
 // Preview component wrapper with subtle dot pattern background
 export function Preview({ children }: { children: any }) {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-4 p-8 border border-border rounded-lg bg-card relative overflow-hidden">
+    <div className="flex flex-wrap items-center justify-center gap-4 p-8 border rounded-lg bg-card relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle,hsl(var(--muted)/0.5)_1px,transparent_1px)] bg-[length:16px_16px] pointer-events-none" />
       <div className="relative z-10 flex flex-wrap items-center justify-center gap-4">
         {children}
@@ -152,7 +152,7 @@ export interface PropDefinition {
 // Props table row
 function PropRow({ name, type, defaultValue, description }: PropDefinition) {
   return (
-    <tr className="border-b border-border last:border-b-0">
+    <tr className="border-b last:border-b-0">
       <td className="py-3 px-4 font-mono text-sm text-foreground whitespace-nowrap">{name}</td>
       <td className="py-3 px-4 font-mono text-sm text-muted-foreground whitespace-nowrap">{type}</td>
       <td className="py-3 px-4 font-mono text-sm text-muted-foreground whitespace-nowrap">{defaultValue || '-'}</td>
@@ -164,10 +164,10 @@ function PropRow({ name, type, defaultValue, description }: PropDefinition) {
 // Props table component with horizontal scroll for mobile
 export function PropsTable({ props }: { props: PropDefinition[] }) {
   return (
-    <div className="border border-border rounded-lg overflow-x-auto">
+    <div className="border rounded-lg overflow-x-auto">
       <table className="w-full text-left min-w-[600px]">
         <thead className="bg-muted">
-          <tr className="border-b border-border">
+          <tr className="border-b">
             <th className="py-3 px-4 text-sm font-medium text-foreground whitespace-nowrap">Prop</th>
             <th className="py-3 px-4 text-sm font-medium text-foreground whitespace-nowrap">Type</th>
             <th className="py-3 px-4 text-sm font-medium text-foreground whitespace-nowrap">Default</th>
@@ -230,7 +230,7 @@ export function Example({
           {title}
         </h3>
       )}
-      <div className="border border-solid border-border rounded-lg overflow-hidden">
+      <div className="border border-solid rounded-lg overflow-hidden">
         {/* Preview section */}
         <div className="flex flex-wrap items-center justify-center gap-4 px-8 py-32 bg-card relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle,hsl(var(--muted)/0.5)_1px,transparent_1px)] bg-[length:16px_16px] pointer-events-none" />

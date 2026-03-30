@@ -12,7 +12,7 @@ export function Footer({ className }: FooterProps) {
   const year = new Date().getFullYear()
 
   return (
-    <footer className={className || "py-8 border-t border-border mt-16"}>
+    <footer className={className || "py-8 border-t mt-16"}>
       <div className="text-center text-sm text-muted-foreground">
         <p>
           MIT License {year}{' '}

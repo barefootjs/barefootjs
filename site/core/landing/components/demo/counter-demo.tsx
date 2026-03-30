@@ -12,7 +12,7 @@ export function CounterDemo() {
   const [count, setCount] = createSignal(0)
 
   return (
-    <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-card">
+    <div className="flex items-center gap-4 p-4 rounded-lg border bg-card">
       <span className="text-lg font-mono text-foreground min-w-[3ch] text-center">
         {count()}
       </span>
@@ -24,7 +24,7 @@ export function CounterDemo() {
       </button>
       <button
         onClick={() => setCount(0)}
-        className="px-4 py-2 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent transition-colors"
+        className="px-4 py-2 text-sm font-medium rounded-md border text-foreground hover:bg-accent transition-colors"
       >
         Reset
       </button>

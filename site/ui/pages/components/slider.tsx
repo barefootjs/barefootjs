@@ -201,7 +201,7 @@ export function SliderStepDemo() {
         </div>
       </div>
       <div
-        className="rounded-md border border-border p-4 text-center text-sm"
+        className="rounded-md border p-4 text-center text-sm"
         style={\`font-size: \${fontSize()}px; opacity: \${opacity() / 100}\`}
       >
         Preview text

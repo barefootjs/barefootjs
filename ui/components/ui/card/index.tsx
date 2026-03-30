@@ -39,7 +39,7 @@ import type { Child } from '../../../types'
 
 // Card classes (has-data-[slot=card-image] removes top padding when image is present)
 // Card classes (group/card for hover state detection)
-const cardClasses = 'group/card bg-card text-card-foreground flex flex-col gap-6 rounded-xl border border-border py-6 shadow-sm has-data-[slot=card-image]:pt-0 has-data-[slot=card-image]:overflow-hidden'
+const cardClasses = 'group/card bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm has-data-[slot=card-image]:pt-0 has-data-[slot=card-image]:overflow-hidden'
 
 // CardImage classes (aspect-video for consistent height)
 const cardImageClasses = 'w-full aspect-video object-cover'

@@ -42,8 +42,8 @@ export function CodeExample() {
           <CounterDemo />
         </div>
         {/* Code */}
-        <div className="rounded-lg border border-border overflow-hidden bg-card">
-          <div className="px-4 py-2 border-b border-border bg-muted">
+        <div className="rounded-lg border overflow-hidden bg-card">
+          <div className="px-4 py-2 border-b bg-muted">
             <span className="text-sm text-muted-foreground font-mono">counter.tsx</span>
           </div>
           <pre className="p-4 overflow-x-auto text-sm">

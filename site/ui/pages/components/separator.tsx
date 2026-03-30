@@ -70,7 +70,7 @@ const menuCode = `import { Separator } from "@/components/ui/separator"
 
 function SeparatorMenu() {
   return (
-    <div className="w-48 rounded-md border border-border p-1">
+    <div className="w-48 rounded-md border p-1">
       <div className="px-2 py-1.5 text-sm font-semibold">My Account</div>
       <Separator className="my-1" />
       <div className="px-2 py-1.5 text-sm">Profile</div>
@@ -216,7 +216,7 @@ export function SeparatorRefPage() {
             </Example>
 
             <Example title="Menu" code={menuCode}>
-              <div className="w-48 rounded-md border border-border p-1">
+              <div className="w-48 rounded-md border p-1">
                 <div className="px-2 py-1.5 text-sm font-semibold">My Account</div>
                 <Separator className="my-1" />
                 <div className="px-2 py-1.5 text-sm">Profile</div>

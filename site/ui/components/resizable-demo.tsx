@@ -19,7 +19,7 @@ export function ResizableHorizontalDemo() {
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      className="max-w-md rounded-lg border border-border"
+      className="max-w-md rounded-lg border"
     >
       <ResizablePanel defaultSize={50}>
         <div className="flex h-[200px] items-center justify-center p-6">
@@ -43,7 +43,7 @@ export function ResizableVerticalDemo() {
   return (
     <ResizablePanelGroup
       direction="vertical"
-      className="min-h-[200px] max-w-md rounded-lg border border-border"
+      className="min-h-[200px] max-w-md rounded-lg border"
     >
       <ResizablePanel defaultSize={25}>
         <div className="flex h-full items-center justify-center p-6">
@@ -67,7 +67,7 @@ export function ResizableWithHandleDemo() {
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      className="min-h-[200px] max-w-md rounded-lg border border-border"
+      className="min-h-[200px] max-w-md rounded-lg border"
     >
       <ResizablePanel defaultSize={25}>
         <div className="flex h-full items-center justify-center p-6">
@@ -91,7 +91,7 @@ export function ResizableThreePanelDemo() {
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      className="min-h-[200px] rounded-lg border border-border"
+      className="min-h-[200px] rounded-lg border"
     >
       <ResizablePanel defaultSize={20} minSize={15} maxSize={40}>
         <div className="flex h-full items-center justify-center p-6">

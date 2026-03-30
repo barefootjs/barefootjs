@@ -19,7 +19,7 @@ export function SearchPlaceholder() {
   return (
     <>
       {/* Desktop: full search bar */}
-      <div className="hidden sm:flex items-center gap-2 h-9 w-64 rounded-md border border-border bg-muted/50 px-3 text-sm text-muted-foreground">
+      <div className="hidden sm:flex items-center gap-2 h-9 w-64 rounded-md border bg-muted/50 px-3 text-sm text-muted-foreground">
         <SearchPlaceholderIcon />
         <span className="flex-1 text-left">Search...</span>
       </div>

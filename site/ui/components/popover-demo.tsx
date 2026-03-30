@@ -24,7 +24,7 @@ export function PopoverPreviewDemo() {
     <Popover open={open()} onOpenChange={setOpen}>
       <PopoverTrigger>
         <span
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex items-center justify-center gap-2 rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
         >
           Open popover
         </span>
@@ -41,28 +41,28 @@ export function PopoverPreviewDemo() {
             <div className="grid grid-cols-3 items-center gap-4">
               <span className="text-sm">Width</span>
               <input
-                className="col-span-2 h-8 rounded-md border border-border bg-background px-3 text-sm"
+                className="col-span-2 h-8 rounded-md border bg-background px-3 text-sm"
                 value="100%"
               />
             </div>
             <div className="grid grid-cols-3 items-center gap-4">
               <span className="text-sm">Max. width</span>
               <input
-                className="col-span-2 h-8 rounded-md border border-border bg-background px-3 text-sm"
+                className="col-span-2 h-8 rounded-md border bg-background px-3 text-sm"
                 value="300px"
               />
             </div>
             <div className="grid grid-cols-3 items-center gap-4">
               <span className="text-sm">Height</span>
               <input
-                className="col-span-2 h-8 rounded-md border border-border bg-background px-3 text-sm"
+                className="col-span-2 h-8 rounded-md border bg-background px-3 text-sm"
                 value="25px"
               />
             </div>
             <div className="grid grid-cols-3 items-center gap-4">
               <span className="text-sm">Max. height</span>
               <input
-                className="col-span-2 h-8 rounded-md border border-border bg-background px-3 text-sm"
+                className="col-span-2 h-8 rounded-md border bg-background px-3 text-sm"
                 value="none"
               />
             </div>
@@ -83,7 +83,7 @@ export function PopoverBasicDemo() {
     <Popover open={open()} onOpenChange={setOpen}>
       <PopoverTrigger>
         <span
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex items-center justify-center gap-2 rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
         >
           Click me
         </span>
@@ -119,7 +119,7 @@ export function PopoverFormDemo() {
     <Popover open={open()} onOpenChange={setOpen}>
       <PopoverTrigger>
         <span
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex items-center justify-center gap-2 rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
         >
           <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
           <span>Settings</span>
@@ -140,14 +140,14 @@ export function PopoverFormDemo() {
                 id="popover-email"
                 type="email"
                 placeholder="you@example.com"
-                className="h-8 w-48 rounded-md border border-border bg-background px-3 text-sm"
+                className="h-8 w-48 rounded-md border bg-background px-3 text-sm"
               />
             </div>
             <div className="flex items-center justify-between">
               <label className="text-sm" for="popover-frequency">Frequency</label>
               <select
                 id="popover-frequency"
-                className="h-8 w-48 rounded-md border border-border bg-background px-3 text-sm"
+                className="h-8 w-48 rounded-md border bg-background px-3 text-sm"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -156,7 +156,7 @@ export function PopoverFormDemo() {
             </div>
           </div>
           <div className="flex justify-between">
-            <PopoverClose className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-accent">
+            <PopoverClose className="inline-flex items-center justify-center rounded-md border bg-background px-3 py-1.5 text-sm hover:bg-accent">
               <span>Cancel</span>
             </PopoverClose>
             <button

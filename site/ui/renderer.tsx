@@ -186,20 +186,20 @@ export const renderer = jsxRenderer(
             <CommandPalette />
             {currentPath !== '/studio' && (
               <nav
-                className="hidden sm:block fixed top-14 left-0 w-56 h-[calc(100vh-56px)] overflow-y-auto border-r border-border bg-background p-4"
+                className="hidden sm:block fixed top-14 left-0 w-56 h-[calc(100vh-56px)] overflow-y-auto border-r bg-background p-4"
                 aria-label="Main navigation"
                 data-sidebar-menu
               >
                 <SidebarNav entries={startEntries} currentPath={currentPath} />
-                <div className="pt-3 mt-3 border-t border-border">
+                <div className="pt-3 mt-3 border-t">
                   <span className="block px-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Components</span>
                 </div>
                 <SidebarNav entries={componentEntries} currentPath={currentPath} />
-                <div className="pt-3 mt-3 border-t border-border">
+                <div className="pt-3 mt-3 border-t">
                   <span className="block px-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Patterns</span>
                 </div>
                 <SidebarNav entries={patternEntries} currentPath={currentPath} />
-                <div className="pt-3 mt-3 border-t border-border">
+                <div className="pt-3 mt-3 border-t">
                   <span className="block px-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tools</span>
                 </div>
                 <SidebarNav entries={toolEntries} currentPath={currentPath} />

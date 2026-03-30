@@ -93,7 +93,7 @@ function PortalPlayground(_props: {}) {
             <div
               ref={setContainerRef}
               data-portal-container
-              className="min-h-16 border border-dashed border-border rounded-lg p-4 flex items-center justify-center"
+              className="min-h-16 border border-dashed rounded-lg p-4 flex items-center justify-center"
             >
               {!visible() && <span className="text-muted-foreground text-sm">Custom container</span>}
             </div>

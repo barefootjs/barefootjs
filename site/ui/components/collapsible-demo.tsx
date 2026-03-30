@@ -34,14 +34,14 @@ export function CollapsibleBasicDemo() {
             </Button>
           </CollapsibleTrigger>
         </div>
-        <div className="rounded-md border border-border px-4 py-2 font-mono text-sm shadow-xs">
+        <div className="rounded-md border px-4 py-2 font-mono text-sm shadow-xs">
           @barefootjs/dom
         </div>
         <CollapsibleContent className="space-y-2">
-          <div className="rounded-md border border-border px-4 py-2 font-mono text-sm shadow-xs">
+          <div className="rounded-md border px-4 py-2 font-mono text-sm shadow-xs">
             @barefootjs/jsx
           </div>
-          <div className="rounded-md border border-border px-4 py-2 font-mono text-sm shadow-xs">
+          <div className="rounded-md border px-4 py-2 font-mono text-sm shadow-xs">
             @barefootjs/hono
           </div>
         </CollapsibleContent>
@@ -71,14 +71,14 @@ export function CollapsibleControlledDemo() {
             </Button>
           </CollapsibleTrigger>
         </div>
-        <div className="rounded-md border border-border px-4 py-2 font-mono text-sm shadow-xs">
+        <div className="rounded-md border px-4 py-2 font-mono text-sm shadow-xs">
           solidjs/solid
         </div>
         <CollapsibleContent className="space-y-2">
-          <div className="rounded-md border border-border px-4 py-2 font-mono text-sm shadow-xs">
+          <div className="rounded-md border px-4 py-2 font-mono text-sm shadow-xs">
             honojs/hono
           </div>
-          <div className="rounded-md border border-border px-4 py-2 font-mono text-sm shadow-xs">
+          <div className="rounded-md border px-4 py-2 font-mono text-sm shadow-xs">
             unjs/nitro
           </div>
         </CollapsibleContent>
@@ -108,11 +108,11 @@ export function CollapsibleDisabledDemo() {
             </Button>
           </CollapsibleTrigger>
         </div>
-        <div className="rounded-md border border-border px-4 py-2 font-mono text-sm shadow-xs opacity-50">
+        <div className="rounded-md border px-4 py-2 font-mono text-sm shadow-xs opacity-50">
           @barefootjs/legacy
         </div>
         <CollapsibleContent className="space-y-2">
-          <div className="rounded-md border border-border px-4 py-2 font-mono text-sm shadow-xs">
+          <div className="rounded-md border px-4 py-2 font-mono text-sm shadow-xs">
             @barefootjs/old-adapter
           </div>
         </CollapsibleContent>

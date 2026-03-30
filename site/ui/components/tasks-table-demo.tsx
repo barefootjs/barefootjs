@@ -196,7 +196,7 @@ export function TasksTableDemo() {
         <span className="text-sm text-muted-foreground">{tasks().length} total</span>
       </div>
 
-      <div className="tasks-table rounded-xl border border-border bg-card overflow-hidden">
+      <div className="tasks-table rounded-xl border bg-card overflow-hidden">
         {/* Toolbar */}
         <div className="flex items-center gap-3 p-4">
           <Input
@@ -206,7 +206,7 @@ export function TasksTableDemo() {
             className="max-w-xs h-8 text-sm"
           />
           <select
-            className="status-filter h-8 rounded-md border border-border bg-background px-2 text-sm"
+            className="status-filter h-8 rounded-md border bg-background px-2 text-sm"
             value={statusFilter()}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}
           >
