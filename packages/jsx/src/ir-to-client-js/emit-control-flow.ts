@@ -5,7 +5,7 @@
  */
 
 import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, LoopChildEvent, LoopElement } from './types'
-import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName } from './utils'
+import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH } from './utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
 import { emitAttrUpdate } from './emit-reactive'
 
@@ -235,14 +235,14 @@ export function emitLoopUpdates(lines: string[], ctx: ClientJsContext): void {
         lines.push(`    const __renderItem = (${elem.param}, ${indexParamTemplate}) => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) }`)
       }
       // Hydration: preserve SSR elements, tag with data-key, track signals
-      lines.push(`    if (_${vLoop} && _${vLoop}.children.length > 0 && !_${vLoop}.firstElementChild?.hasAttribute('data-key')) {`)
+      lines.push(`    if (_${vLoop} && _${vLoop}.children.length > 0 && !_${vLoop}.firstElementChild?.hasAttribute('${DATA_KEY}')) {`)
       lines.push(`      Array.from(_${vLoop}.children).forEach((__hChild, ${indexParamTemplate}) => {`)
       lines.push(`        if (${indexParamTemplate} >= __arr.length) return`)
       lines.push(`        const ${elem.param} = __arr[${indexParamTemplate}]`)
       if (elem.key) {
-        lines.push(`        __hChild.setAttribute('data-key', String(${elem.key}))`)
+        lines.push(`        __hChild.setAttribute('${DATA_KEY}', String(${elem.key}))`)
       } else {
-        lines.push(`        __hChild.setAttribute('data-key', String(${indexParamTemplate}))`)
+        lines.push(`        __hChild.setAttribute('${DATA_KEY}', String(${indexParamTemplate}))`)
       }
       lines.push(`      })`)
       lines.push(`      if (__arr.length > 0) __renderItem(__arr[0], 0)`)
@@ -260,9 +260,9 @@ export function emitLoopUpdates(lines: string[], ctx: ClientJsContext): void {
         emitLoopEventDelegation(lines, `_${vLoop}`, elem.childEvents, (ls, ev, handlerCall) => {
           if (ev.nestedLoops.length === 0) {
             // Direct child of outer loop — single-level lookup
-            ls.push(`      const li = ${varSlotId(ev.childSlotId)}El.closest('[data-key]')`)
+            ls.push(`      const li = ${varSlotId(ev.childSlotId)}El.closest('[${DATA_KEY}]')`)
             ls.push(`      if (li) {`)
-            ls.push(`        const key = li.getAttribute('data-key')`)
+            ls.push(`        const key = li.getAttribute('${DATA_KEY}')`)
             ls.push(`        const ${elem.param} = ${elem.array}.find(item => String(${keyWithItem}) === key)`)
             ls.push(`        if (${elem.param}) ${handlerCall}`)
             ls.push(`      }`)
@@ -271,13 +271,13 @@ export function emitLoopUpdates(lines: string[], ctx: ClientJsContext): void {
             const evVar = varSlotId(ev.childSlotId)
             // Resolve inner loop keys (innermost first)
             for (const nested of ev.nestedLoops) {
-              const dataAttr = `data-key-${nested.depth}`
+              const dataAttr = `${DATA_KEY_PREFIX}${nested.depth}`
               ls.push(`      const innerLi${nested.depth} = ${evVar}El.closest('[${dataAttr}]')`)
               ls.push(`      const innerKey${nested.depth} = innerLi${nested.depth}?.getAttribute('${dataAttr}')`)
             }
             // Resolve outer loop key
-            ls.push(`      const outerLi = ${evVar}El.closest('[data-key]')`)
-            ls.push(`      const outerKey = outerLi?.getAttribute('data-key')`)
+            ls.push(`      const outerLi = ${evVar}El.closest('[${DATA_KEY}]')`)
+            ls.push(`      const outerKey = outerLi?.getAttribute('${DATA_KEY}')`)
             // Resolve outer loop variable
             ls.push(`      const ${elem.param} = ${elem.array}.find(item => String(${keyWithItem}) === outerKey)`)
             // Resolve inner loop variables via the outer param's nested array
@@ -383,7 +383,7 @@ function emitCompositeElementReconciliation(
       const propsExpr = buildPropsExpr(comp)
       const keyProp = comp.props.find(p => p.name === 'key')
       const keyArg = keyProp ? `, ${keyProp.value}` : ''
-      ls.push(`${indent}{ const __ph = __el.querySelector('[data-bf-ph="${phId}"]'); if (__ph) __ph.replaceWith(createComponent('${comp.name}', ${propsExpr}${keyArg})) }`)
+      ls.push(`${indent}{ const __ph = __el.querySelector('[${DATA_BF_PH}="${phId}"]'); if (__ph) __ph.replaceWith(createComponent('${comp.name}', ${propsExpr}${keyArg})) }`)
     }
 
     // Set up outer-level events
@@ -397,7 +397,7 @@ function emitCompositeElementReconciliation(
       ls.push(`${indent}// Initialize inner loop components and events`)
       ls.push(`${indent}${inner.array}.forEach((${inner.param}) => {`)
       if (inner.key) {
-        ls.push(`${indent}  const __innerEl = __el.querySelector('[data-key-${inner.depth}="' + ${inner.key} + '"]')`)
+        ls.push(`${indent}  const __innerEl = __el.querySelector('[${DATA_KEY_PREFIX}${inner.depth}="' + ${inner.key} + '"]')`)
       } else {
         ls.push(`${indent}  const __innerEl = null`)
       }
@@ -407,7 +407,7 @@ function emitCompositeElementReconciliation(
         const propsExpr = buildPropsExpr(comp)
         const keyProp = comp.props.find(p => p.name === 'key')
         const keyArg = keyProp ? `, ${keyProp.value}` : ''
-        ls.push(`${indent}  { const __ph = __innerEl.querySelector('[data-bf-ph="${phId}"]'); if (__ph) __ph.replaceWith(createComponent('${comp.name}', ${propsExpr}${keyArg})) }`)
+        ls.push(`${indent}  { const __ph = __innerEl.querySelector('[${DATA_BF_PH}="${phId}"]'); if (__ph) __ph.replaceWith(createComponent('${comp.name}', ${propsExpr}${keyArg})) }`)
       }
       for (const ev of innerEvents) {
         emitEventSetup(ls, `${indent}  `, '__innerEl', ev)
@@ -428,14 +428,14 @@ function emitCompositeElementReconciliation(
   lines.push(`    }`)
   lines.push('')
   lines.push(`    // Hydration: preserve SSR elements, init components/events, track signals`)
-  lines.push(`    if (_${vLoop} && _${vLoop}.children.length > 0 && !_${vLoop}.firstElementChild?.hasAttribute('data-key')) {`)
+  lines.push(`    if (_${vLoop} && _${vLoop}.children.length > 0 && !_${vLoop}.firstElementChild?.hasAttribute('${DATA_KEY}')) {`)
   lines.push(`      Array.from(_${vLoop}.children).forEach((__hChild, ${indexParam}) => {`)
   lines.push(`        if (${indexParam} >= __arr.length) return`)
   lines.push(`        const ${elem.param} = __arr[${indexParam}]`)
   if (elem.key) {
-    lines.push(`        __hChild.setAttribute('data-key', String(${elem.key}))`)
+    lines.push(`        __hChild.setAttribute('${DATA_KEY}', String(${elem.key}))`)
   } else {
-    lines.push(`        __hChild.setAttribute('data-key', String(${indexParam}))`)
+    lines.push(`        __hChild.setAttribute('${DATA_KEY}', String(${indexParam}))`)
   }
   // Initialize outer-level child components in SSR markup
   // Use both suffix match (for components with slotSuffix in bf-s, e.g. ~Badge_hash_s2)
@@ -463,7 +463,7 @@ function emitCompositeElementReconciliation(
     lines.push(`          const __innerEl = __ic.children[__innerIdx]`)
     lines.push(`          if (!__innerEl) return`)
     if (inner.key) {
-      lines.push(`          __innerEl.setAttribute('data-key-${inner.depth}', String(${inner.key}))`)
+      lines.push(`          __innerEl.setAttribute('${DATA_KEY_PREFIX}${inner.depth}', String(${inner.key}))`)
     }
     for (const comp of innerComps) {
       const selector = comp.slotId

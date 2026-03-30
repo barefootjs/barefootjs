@@ -9,7 +9,7 @@ import { getTemplate } from './template'
 import { getComponentInit } from './registry'
 import { hydratedScopes } from './hydration-state'
 import { untrack } from './reactive'
-import { BF_SCOPE } from './attrs'
+import { BF_SCOPE, BF_KEY } from './attrs'
 import type { ComponentDef } from './types'
 
 // Parent scope ID context for renderChild() inside insert() branch templates.
@@ -114,7 +114,7 @@ export function createComponent(
   const scopeId = `${name}_${generateId()}`
   element.setAttribute(BF_SCOPE, scopeId)
   if (key !== undefined) {
-    element.setAttribute('data-key', String(key))
+    element.setAttribute(BF_KEY, String(key))
   }
 
   // 7. Initialize the component synchronously
@@ -202,7 +202,7 @@ export function renderChild(
   const scopePrefix = (_parentScopeId && slotSuffix)
     ? _parentScopeId
     : `${name}_${generateId()}`
-  const keyAttr = key !== undefined ? ` data-key="${key}"` : ''
+  const keyAttr = key !== undefined ? ` ${BF_KEY}="${key}"` : ''
 
   if (!templateFn) {
     // Fallback: empty placeholder (for components without registered templates)
@@ -238,7 +238,7 @@ function createPlaceholder(name: string, key?: string | number): HTMLElement {
   const el = document.createElement('div')
   el.setAttribute(BF_SCOPE, `${name}_placeholder`)
   if (key !== undefined) {
-    el.setAttribute('data-key', String(key))
+    el.setAttribute(BF_KEY, String(key))
   }
   el.textContent = `[${name}]`
   el.style.cssText = 'color: red; border: 1px dashed red; padding: 4px;'
@@ -365,7 +365,7 @@ function createComponentFromDef(
   const scopeId = `${name}_${generateId()}`
   element.setAttribute(BF_SCOPE, scopeId)
   if (key !== undefined) {
-    element.setAttribute('data-key', String(key))
+    element.setAttribute(BF_KEY, String(key))
   }
 
   // Initialize

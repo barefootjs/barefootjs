@@ -13,6 +13,18 @@ import type { LoopElement } from './types'
 export const PROPS_PARAM = '_p'
 
 /**
+ * HTML attribute constants for compiler-generated code.
+ * These are the same values as the runtime constants in packages/dom/src/attrs.ts
+ * (BF_KEY, BF_KEY_PREFIX, BF_PLACEHOLDER). Duplicated here because the compiler
+ * package cannot depend on the runtime package.
+ *
+ * @see packages/dom/src/attrs.ts — runtime-side definitions
+ */
+export const DATA_KEY = 'data-key'
+export const DATA_KEY_PREFIX = 'data-key-'
+export const DATA_BF_PH = 'data-bf-ph'
+
+/**
  * Strip ^ prefix from slot ID for use as JavaScript variable name.
  * `^s3` → `s3` (since `_^s3` is not a valid identifier)
  */

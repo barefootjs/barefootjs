@@ -4,7 +4,7 @@
 
 import type { IRNode } from '../types'
 import { isBooleanAttr } from '../html-constants'
-import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM } from './utils'
+import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM, DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH } from './utils'
 
 /**
  * Protect string literals from regex-based replacements.
@@ -71,7 +71,7 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
           }
           // Convert JSX `key` to `data-key` (or `data-key-N` for nested loops)
           const attrName = a.name === 'key'
-            ? (loopDepth > 0 ? `data-key-${loopDepth}` : 'data-key')
+            ? (loopDepth > 0 ? `${DATA_KEY_PREFIX}${loopDepth}` : DATA_KEY)
             : toHtmlAttrName(a.name)
           if (a.value === null) return attrName
           // Resolve IRTemplateLiteral to string expression for use in template literals
@@ -194,7 +194,7 @@ export function irToPlaceholderTemplate(node: IRNode, restSpreadNames?: Set<stri
             return `\${spreadAttrs(${spreadValue})}`
           }
           const attrName = a.name === 'key'
-            ? (loopDepth > 0 ? `data-key-${loopDepth}` : 'data-key')
+            ? (loopDepth > 0 ? `${DATA_KEY_PREFIX}${loopDepth}` : DATA_KEY)
             : toHtmlAttrName(a.name)
           if (a.value === null) return attrName
           const valExpr = typeof a.value === 'string' ? a.value : (attrValueToString(a.value) ?? '')
@@ -244,7 +244,7 @@ export function irToPlaceholderTemplate(node: IRNode, restSpreadNames?: Set<stri
       }
       // Emit a placeholder div that will be replaced with createComponent() at runtime
       const phId = node.slotId || node.name
-      return `<div data-bf-ph="${phId}"></div>`
+      return `<div ${DATA_BF_PH}="${phId}"></div>`
     }
 
     case 'loop': {
@@ -437,8 +437,8 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
           if (a.name === 'key') {
             if (loopDepth === 0) return ''  // outer loop: skip (runtime handles it)
             const valStr = attrValueToString(a.value)
-            if (valStr && a.dynamic) return templateAttrExpr(`data-key-${loopDepth}`, transformExpr(valStr), a)
-            if (valStr) return `data-key-${loopDepth}="${valStr}"`
+            if (valStr && a.dynamic) return templateAttrExpr(`${DATA_KEY_PREFIX}${loopDepth}`, transformExpr(valStr), a)
+            if (valStr) return `${DATA_KEY_PREFIX}${loopDepth}="${valStr}"`
             return ''
           }
           const attrName = toHtmlAttrName(a.name)
@@ -731,7 +731,7 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
             return `\${spreadAttrs(${transformExpr(spreadValue)})}`
           }
           const attrName = a.name === 'key'
-            ? (loopDepth > 0 ? `data-key-${loopDepth}` : 'data-key')
+            ? (loopDepth > 0 ? `${DATA_KEY_PREFIX}${loopDepth}` : DATA_KEY)
             : toHtmlAttrName(a.name)
           if (a.value === null) return attrName
           const valueStr = attrValueToString(a.value)

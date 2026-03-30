@@ -6,7 +6,7 @@
  */
 
 import { hydratedScopes } from './hydration-state'
-import { BF_SCOPE, BF_SLOT, BF_COND } from './attrs'
+import { BF_SCOPE, BF_SLOT, BF_COND, BF_KEY } from './attrs'
 
 /**
  * Reconcile a list container using HTMLElement mode (for createComponent).
@@ -52,7 +52,7 @@ export function reconcileElements<T>(
     for (let i = 0; i < items.length; i++) {
       const el = (i === 0 && firstElement) ? firstElement : renderItem(items[i], i)
       const key = getKey ? getKey(items[i], i) : String(i)
-      if (!el.dataset.key) el.setAttribute('data-key', key)
+      if (!el.dataset.key) el.setAttribute(BF_KEY, key)
       fragment.appendChild(el)
     }
     container.innerHTML = ''
@@ -103,7 +103,7 @@ export function reconcileElements<T>(
         // For SSR elements, create new element with proper initialization
         const newEl = createEl()
         if (!newEl.dataset.key) {
-          newEl.setAttribute('data-key', key)
+          newEl.setAttribute(BF_KEY, key)
         }
         fragment.appendChild(newEl)
       } else {
@@ -124,7 +124,7 @@ export function reconcileElements<T>(
           // No focus to preserve - use the temp element directly
           const tempEl = createEl()
           if (!tempEl.dataset.key) {
-            tempEl.setAttribute('data-key', key)
+            tempEl.setAttribute(BF_KEY, key)
           }
           fragment.appendChild(tempEl)
         }
@@ -133,7 +133,7 @@ export function reconcileElements<T>(
       // Create new element via renderItem (which calls createComponent)
       const el = createEl()
       if (!el.dataset.key) {
-        el.setAttribute('data-key', key)
+        el.setAttribute(BF_KEY, key)
       }
       fragment.appendChild(el)
     }
