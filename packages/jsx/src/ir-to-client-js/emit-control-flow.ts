@@ -411,7 +411,7 @@ function emitComponentAndEventSetup(
       ls.push(`${indent}{ const __ph = ${elVar}.querySelector('[${DATA_BF_PH}="${phId}"]'); if (__ph) __ph.replaceWith(createComponent('${comp.name}', ${propsExpr}${keyArg})) }`)
     } else {
       const selector = buildCompSelector(comp)
-      ls.push(`${indent}{ const __c = ${elVar}.querySelector('${selector}'); if (__c) initChild('${comp.name}', ${elVar}, ${propsExpr}) }`)
+      ls.push(`${indent}{ const __c = ${elVar}.querySelector('${selector}'); if (__c) initChild('${comp.name}', __c, ${propsExpr}) }`)
     }
   }
   for (const ev of events) {
