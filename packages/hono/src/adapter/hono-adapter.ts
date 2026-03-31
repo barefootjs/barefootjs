@@ -738,8 +738,9 @@ export class HonoAdapter implements TemplateAdapter {
       if (prop.name === '...') {
         parts.push(`{...${prop.value}}`)
       } else if (prop.name === 'key') {
-        // JSX key prop - also add data-key for reconciliation
-        parts.push(`${prop.name}={${prop.value}}`)
+        // JSX key → data-key only. Hono JSX strips `key` from HTML output
+        // (delete props["key"]), so emitting key={} is a no-op. We only need
+        // data-key which the BarefootJS client runtime uses for reconciliation.
         keyValue = prop.value
       } else if (prop.dynamic) {
         parts.push(`${prop.name}={${prop.value}}`)
