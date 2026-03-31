@@ -392,21 +392,13 @@ export function $c(scope: Element | null, ...ids: string[]): (Element | null)[] 
  * Resolve a single child component scope by slot ID or component name.
  *
  * Two ID formats:
- *   - Slot ID ('s0', 's1', ...): Suffix match [bf-s$="_s0"]. Ambiguous because
- *     both "_s0" (direct child) and "_s5_s0" (nested grandchild) share the suffix.
- *     Disambiguation uses the parent scope ID to verify direct parentage.
+ *   - Slot ID ('s0', 's1', ...): Uses parent scope ID for precise suffix match.
+ *     e.g., [bf-s$="Parent_abc_s3"] — matches "Parent_abc_s3" but NOT "Parent_abc_s4_s3".
  *   - Component name ('Counter'): Prefix match [bf-s^="Counter_"]. Unambiguous.
  *
- * Slot ID resolution steps:
- *   1. find() returns the first suffix-matching scope element
- *   2. If result IS scope itself → fragment root / inlined, accept
- *   3. If no parent scope ID known → accept (no disambiguation possible)
- *   4. Verify result's scope ID = "{parentScopeId}_{slotId}" (direct child)
- *   5. If verification fails → fall back to findDirectChild() which checks all candidates
- *
- * Dual-scope complication: A proxy element can be registered in both the comment
- * scope registry (for the fragment-root parent) and have a bf-s attribute (for the
- * proxied child). getDualScopeIds() returns both IDs so steps 4-5 try each.
+ * Dual-scope: A proxy element can host both a comment scope (fragment-root parent)
+ * and a bf-s scope (proxied child). getDualScopeIds() returns both IDs so the
+ * search tries each parent identity.
  */
 function $cSingle(scope: Element | null, id: string): Element | null {
   // Strip ^ prefix defensively — component slot IDs should never have it,
@@ -415,37 +407,25 @@ function $cSingle(scope: Element | null, id: string): Element | null {
 
   // --- Component name path (unambiguous) ---
   if (!/^s\d/.test(cleanId)) {
-    // Support both child (~Name_) and root (Name_) scopes
     return find(scope, `[${BF_SCOPE}^="${BF_CHILD_PREFIX}${cleanId}_"], [${BF_SCOPE}^="${cleanId}_"]`)
   }
 
-  // --- Slot ID path (needs disambiguation) ---
-
-  // Step 1: Find first suffix match
-  const result = find(scope, `[${BF_SCOPE}$="_${cleanId}"]`)
-  if (!result) return null
-
-  // Step 2: Self-match means fragment root / inlined component
-  if (result === scope) return result
-
-  // Step 3: Get parent scope IDs for direct-child verification
+  // --- Slot ID path: precise suffix match using parent scope ID ---
+  // The parent scope ID is already embedded in child scope IDs (e.g., "Parent_abc_s3").
+  // By including it in the CSS selector, we avoid matching nested grandchildren
+  // (e.g., "Parent_abc_s4_s3") that share the same short suffix "_s3".
   const parentScopeIds = getDualScopeIds(scope)
-  if (parentScopeIds.length === 0) return result
 
-  // Step 4: Quick check — does the first result's scope ID confirm direct parentage?
-  const childScopeId = getScopeId(result) ?? ''
   for (const parentId of parentScopeIds) {
-    if (childScopeId.endsWith(`${parentId}_${cleanId}`)) return result
+    const result = find(scope, `[${BF_SCOPE}$="${parentId}_${cleanId}"]`)
+    if (result) return result
   }
 
-  // Step 5: First result was a nested grandchild. Search all candidates for the direct child.
-  const selector = `[${BF_SCOPE}$="_${cleanId}"]`
-  for (const parentId of parentScopeIds) {
-    const directChild = findDirectChild(scope, selector, parentId, cleanId)
-    if (directChild) return directChild
-  }
-
-  return null
+  // Fallback: short suffix match.
+  // Covers two cases:
+  //   1. No parent scope ID available (scope has no bf-s or comment scope)
+  //   2. Scope element itself matches the suffix (fragment root / inlined component)
+  return find(scope, `[${BF_SCOPE}$="_${cleanId}"]`)
 }
 
 /**
@@ -471,32 +451,6 @@ function getDualScopeIds(scope: Element | null): string[] {
 
   const id = commentScopeId ?? bfScopeId
   return id ? [id] : []
-}
-
-/**
- * Find a direct child scope element when suffix match is ambiguous.
- * Uses candidatesInScope to enumerate, then picks the candidate whose
- * scope ID ends with "{parentScopeId}_{slotId}".
- */
-function findDirectChild(
-  scope: Element | null,
-  selector: string,
-  parentScopeId: string,
-  slotId: string
-): Element | null {
-  if (!scope) return null
-  const expectedSuffix = `${parentScopeId}_${slotId}`
-
-  for (const candidate of candidatesInScope(scope, selector)) {
-    const id = getScopeId(candidate) ?? ''
-    if (id.endsWith(expectedSuffix)) return candidate
-  }
-
-  // Search portals
-  const commentInfo = commentScopeRegistry.get(scope)
-  const scopeId = commentInfo?.scopeId ?? getScopeId(scope)
-  if (scopeId) return findInPortals(scopeId, selector)
-  return null
 }
 
 // --- $t: text node finder via comment markers ---
