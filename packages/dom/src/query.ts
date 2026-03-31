@@ -171,12 +171,58 @@ function findScopeByComment(
   return null
 }
 
-// --- find ---
+// --- candidate enumeration ---
+
+/**
+ * Lazily enumerate DOM elements matching `selector` within a scope's DOM range.
+ * Covers comment-range siblings (for fragment roots), regular descendants,
+ * and fragment siblings. Portals are searched separately via findInPortals.
+ *
+ * This generator separates "where to search" from "how to filter",
+ * allowing find() and findDirectChild() to share enumeration logic
+ * while applying different acceptance criteria.
+ */
+function* candidatesInScope(scope: Element, selector: string): Generator<Element> {
+  const commentInfo = commentScopeRegistry.get(scope)
+
+  if (commentInfo) {
+    // Comment-based scope: walk siblings in the comment range
+    const boundary = getCommentScopeBoundary(commentInfo.commentNode)
+    let node: Node | null = commentInfo.commentNode.nextSibling
+    while (node && node !== boundary) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element
+        if (el.matches?.(selector)) yield el
+        yield* el.querySelectorAll(selector)
+      }
+      node = node.nextSibling
+    }
+    return
+  }
+
+  // Regular scope: descendants then fragment siblings
+  yield* scope.querySelectorAll(selector)
+
+  const scopeId = scope.getAttribute(BF_SCOPE)
+  if (!scopeId) return
+  const parent = scope.parentElement
+  if (!parent) return
+  const siblings = parent.querySelectorAll(`[${BF_SCOPE}="${scopeId}"]`)
+  for (const sibling of siblings) {
+    if (sibling === scope) continue
+    if (sibling.matches?.(selector)) yield sibling
+    yield* sibling.querySelectorAll(selector)
+  }
+}
+
+// --- scope membership ---
 
 /**
  * Check if an element belongs directly to a scope (not in a nested scope).
  * Returns true only if the element's nearest scope is exactly the given scope.
  * Elements inside nested child scopes (which have their own bf-s) return false.
+ *
+ * Used by find() for the regular (non-comment) scope path.
  */
 function belongsToScope(
   element: Element,
@@ -236,29 +282,17 @@ function isInCommentScopeRange(element: Element, commentNode: Comment): boolean 
   return false
 }
 
-/**
- * Find the first matching element in a NodeList that belongs to the given scope.
- */
-function findFirstInScope(
-  matches: NodeListOf<Element>,
-  scope: Element,
-  isLookingForScope = false
-): Element | null {
-  for (const element of matches) {
-    if (belongsToScope(element, scope, isLookingForScope)) {
-      return element
-    }
-  }
-  return null
-}
+// --- find ---
 
 /**
  * Find an element within a scope.
- * Checks if the scope element itself matches first, then searches descendants.
- * Excludes elements that are inside nested scopes.
+ * Enumerates candidates via candidatesInScope generator, then applies
+ * context-specific filtering (scope-aware, ignoreScope, or comment-scope).
+ * Portals are searched as a final fallback via findInPortals.
  *
  * @param scope - The scope element to search within
  * @param selector - CSS selector to match
+ * @param ignoreScope - Skip scope boundary checks (for parent-owned ^-prefixed slots)
  * @returns The matching element or null
  */
 export function find(
@@ -268,95 +302,36 @@ export function find(
 ): Element | null {
   if (!scope) return null
 
-  // Detect if we're looking for scope elements (child components)
-  // vs slot elements (internal structure)
   const isLookingForScope = selector.includes(BF_SCOPE)
-
-  // Check if scope was resolved via comment-based marker
   const commentInfo = commentScopeRegistry.get(scope)
-  if (commentInfo) {
-    // Search within the comment scope range (siblings between comment markers)
-    const found = findInCommentScopeRange(commentInfo.commentNode, selector, isLookingForScope, ignoreScope)
-    if (found) return found
 
-    // Also search portals owned by this scope
-    return findInPortals(commentInfo.scopeId, selector)
-  }
+  // Self-match: for non-scope, non-comment selectors, check scope element first
+  if (!commentInfo && !isLookingForScope && scope.matches?.(selector)) return scope
 
-  // For non-scope selectors, check if scope itself matches first
-  if (!isLookingForScope && scope.matches?.(selector)) return scope
-
-  // Search descendants.
-  // When ignoreScope is true (parent-owned slots), skip scope boundary checks
-  // because the ^ prefix guarantees the element is owned by the calling scope.
-  const found = ignoreScope
-    ? scope.querySelector(selector)
-    : findFirstInScope(scope.querySelectorAll(selector), scope, isLookingForScope)
-  if (found) return found
-
-  // For scope selectors, if no descendant found, check if scope itself matches
-  // This handles cases where the component root IS the slot element (e.g., ButtonDemo)
-  // Only falls back to self-match when no child was found (child priority)
-  if (isLookingForScope && scope.matches?.(selector)) return scope
-
-  // For fragment roots, elements may be in sibling scope elements
-  // Search siblings that share the EXACT SAME scope ID
-  const scopeId = scope.getAttribute(BF_SCOPE)
-  if (scopeId) {
-    const parent = scope.parentElement
-    if (parent) {
-      const siblings = parent.querySelectorAll(`[${BF_SCOPE}="${scopeId}"]`)
-      for (const sibling of siblings) {
-        if (sibling === scope) continue
-        if (sibling.matches?.(selector)) return sibling
-        const siblingFound = ignoreScope
-          ? sibling.querySelector(selector)
-          : findFirstInScope(sibling.querySelectorAll(selector), sibling, isLookingForScope)
-        if (siblingFound) return siblingFound
-      }
+  // Enumerate candidates and apply filter
+  for (const candidate of candidatesInScope(scope, selector)) {
+    if (ignoreScope) return candidate
+    if (commentInfo) {
+      // Comment scope: for scope searches accept any match.
+      // For slot searches: top-level siblings in the comment range are always
+      // accepted (even if they have bf-s, like proxy elements). Descendants
+      // are accepted only if not inside a nested bf-s scope.
+      if (isLookingForScope) return candidate
+      if (candidate.parentElement === commentInfo.commentNode.parentElement) return candidate
+      if (!candidate.closest(`[${BF_SCOPE}]`)) return candidate
+    } else {
+      if (belongsToScope(candidate, scope, isLookingForScope)) return candidate
     }
-
-    // Search in portals owned by this scope
-    return findInPortals(scopeId, selector)
   }
 
-  return null
-}
+  // Self-match fallback: for scope selectors, check scope element after descendants
+  // (child priority — e.g., ButtonDemo where component root IS the slot element)
+  if (!commentInfo && isLookingForScope && scope.matches?.(selector)) return scope
 
-/**
- * Search for an element within a comment-based scope range.
- * Walks siblings from the comment node to the next bf-scope: comment.
- */
-function findInCommentScopeRange(
-  commentNode: Comment,
-  selector: string,
-  isLookingForScope: boolean,
-  ignoreScope?: boolean
-): Element | null {
-  const boundary = getCommentScopeBoundary(commentNode)
-  let node: Node | null = commentNode.nextSibling
+  // Portal search (outside scope's DOM subtree)
+  const scopeId = commentInfo?.scopeId ?? getScopeId(scope)
+  if (scopeId) return findInPortals(scopeId, selector)
 
-  while (node && node !== boundary) {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as Element
-      // Check if this element matches
-      if (el.matches?.(selector)) return el
-      // Search within this element
-      if (!isLookingForScope && !ignoreScope) {
-        // For slot searches, find first match that's not in a nested scope
-        const matches = el.querySelectorAll(selector)
-        for (const match of matches) {
-          const nearestScope = match.closest(`[${BF_SCOPE}]`)
-          if (!nearestScope) return match
-        }
-      } else {
-        // For scope searches or ignoreScope, just find matching descendants
-        const match = el.querySelector(selector)
-        if (match) return match
-      }
-    }
-    node = node.nextSibling
-  }
   return null
 }
 
@@ -493,7 +468,7 @@ function getDualScopeIds(scope: Element | null): string[] {
 
 /**
  * Find a direct child scope element when suffix match is ambiguous.
- * Searches all elements matching the selector and picks the one whose
+ * Uses candidatesInScope to enumerate, then picks the candidate whose
  * scope ID ends with "{parentScopeId}_{slotId}".
  */
 function findDirectChild(
@@ -505,36 +480,15 @@ function findDirectChild(
   if (!scope) return null
   const expectedSuffix = `${parentScopeId}_${slotId}`
 
-  // Check comment scope range
-  const commentInfo = commentScopeRegistry.get(scope)
-  if (commentInfo) {
-    const boundary = getCommentScopeBoundary(commentInfo.commentNode)
-    let node: Node | null = commentInfo.commentNode.nextSibling
-    while (node && node !== boundary) {
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const candidates = (node as Element).querySelectorAll(selector)
-        for (const candidate of candidates) {
-          const id = getScopeId(candidate) ?? ''
-          if (id.endsWith(expectedSuffix)) return candidate
-        }
-      }
-      node = node.nextSibling
-    }
-    return null
-  }
-
-  // Regular scope — search descendants
-  const candidates = scope.querySelectorAll(selector)
-  for (const candidate of candidates) {
+  for (const candidate of candidatesInScope(scope, selector)) {
     const id = getScopeId(candidate) ?? ''
     if (id.endsWith(expectedSuffix)) return candidate
   }
 
   // Search portals
-  const scopeId = scope.getAttribute(BF_SCOPE)
-  if (scopeId) {
-    return findInPortals(scopeId, selector)
-  }
+  const commentInfo = commentScopeRegistry.get(scope)
+  const scopeId = commentInfo?.scopeId ?? getScopeId(scope)
+  if (scopeId) return findInPortals(scopeId, selector)
   return null
 }
 
