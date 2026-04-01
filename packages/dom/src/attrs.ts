@@ -62,4 +62,4 @@ export const BF_PLACEHOLDER = 'data-bf-ph'
  * @see packages/jsx/src/ir-to-client-js/utils.ts — BF_LOOP_START, BF_LOOP_END (compiler-side mirror)
  */
 export const BF_LOOP_START = 'bf-loop'
-export const BF_LOOP_END = '/bf-loop'
+export const BF_LOOP_END = 'bf-/loop'
