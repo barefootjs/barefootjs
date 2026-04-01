@@ -275,9 +275,13 @@ function emitHydrationTagging(
   indexParam: string,
   afterTag?: (lines: string[]) => void,
 ): void {
-  lines.push(`    if (_${vLoop} && _${vLoop}.children.length > 0 && !_${vLoop}.firstElementChild?.hasAttribute('${DATA_KEY}')) {`)
-  lines.push(`      ensureLoopMarkers(_${vLoop}, __arr.length)`)
-  lines.push(`      getLoopChildren(_${vLoop}).forEach((__hChild, ${indexParam}) => {`)
+  // Hydration guard: check if loop children already have data-key.
+  // Use getLoopChildren (respects bf-loop markers) instead of firstElementChild
+  // to avoid false positives from non-loop siblings (e.g., stats bar).
+  lines.push(`    ensureLoopMarkers(_${vLoop}, __arr.length)`)
+  lines.push(`    const __loopChildren = getLoopChildren(_${vLoop})`)
+  lines.push(`    if (__loopChildren.length > 0 && !__loopChildren[0]?.hasAttribute('${DATA_KEY}')) {`)
+  lines.push(`      __loopChildren.forEach((__hChild, ${indexParam}) => {`)
   lines.push(`        if (${indexParam} >= __arr.length) return`)
   lines.push(`        const ${elem.param} = __arr[${indexParam}]`)
   if (elem.key) {
