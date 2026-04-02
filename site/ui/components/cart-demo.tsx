@@ -78,52 +78,50 @@ export function CartDemo() {
         <Badge variant="secondary">{itemCount()} items</Badge>
       </div>
 
-      {/* Cart item list — outside conditional so reconcileElements works */}
-      <div className="rounded-lg border divide-y">
-        {items().map(item => (
-          <div key={item.id} className="flex items-center gap-3 p-3">
-            <span className="text-2xl">{item.image}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{item.name}</p>
-              <p className="text-sm text-muted-foreground">{formatPrice(item.price)} each</p>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={() => updateQuantity(item.id, -1)}
-              >
-                −
-              </Button>
-              <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={() => updateQuantity(item.id, 1)}
-              >
-                +
-              </Button>
-            </div>
-            <p className="text-sm font-semibold w-16 text-right">
-              {formatPrice(item.price * item.quantity)}
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-              onClick={() => removeItem(item.id)}
-            >
-              ✕
-            </Button>
-          </div>
-        ))}
-      </div>
-
-      {/* Summary — conditional on non-empty cart */}
+      {/* Cart items — loop inside conditional, reactive via bindEvents reconcileElements */}
       {items().length > 0 ? (
         <div className="space-y-3">
+          <div className="rounded-lg border divide-y">
+            {items().map(item => (
+              <div key={item.id} className="flex items-center gap-3 p-3">
+                <span className="text-2xl">{item.image}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{item.name}</p>
+                  <p className="text-sm text-muted-foreground">{formatPrice(item.price)} each</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => updateQuantity(item.id, -1)}
+                  >
+                    −
+                  </Button>
+                  <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => updateQuantity(item.id, 1)}
+                  >
+                    +
+                  </Button>
+                </div>
+                <p className="text-sm font-semibold w-16 text-right">
+                  {formatPrice(item.price * item.quantity)}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => removeItem(item.id)}
+                >
+                  ✕
+                </Button>
+              </div>
+            ))}
+          </div>
           <div className="rounded-lg border p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Subtotal</span>

@@ -3,7 +3,7 @@
  */
 
 import { type IRNode, type IRElement, type IRProp, pickAttrMeta } from '../types'
-import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchTextEffect, LoopChildEvent, LoopChildReactiveAttr, NestedLoopInfo } from './types'
+import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchLoop, ConditionalBranchTextEffect, LoopChildEvent, LoopChildReactiveAttr, NestedLoopInfo } from './types'
 import { attrValueToString, quotePropName, PROPS_PARAM } from './utils'
 import { needsEffectWrapper, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs } from './reactivity'
 import { irToHtmlTemplate, irToPlaceholderTemplate, irChildrenToJsExpr } from './html-template'
@@ -182,6 +182,8 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
           whenFalseChildComponents,
           whenTrueTextEffects: collectBranchTextEffects(node.whenTrue),
           whenFalseTextEffects: collectBranchTextEffects(node.whenFalse),
+          whenTrueLoops: collectBranchLoops(node.whenTrue),
+          whenFalseLoops: collectBranchLoops(node.whenFalse),
         })
       } else if (node.reactive && node.slotId) {
         const whenTrueEvents = collectConditionalBranchEvents(node.whenTrue)
@@ -207,6 +209,8 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
           whenFalseChildComponents,
           whenTrueTextEffects,
           whenFalseTextEffects,
+          whenTrueLoops: collectBranchLoops(node.whenTrue),
+          whenFalseLoops: collectBranchLoops(node.whenFalse),
         })
       }
       // Recurse into conditional branches with insideConditional = true
@@ -517,4 +521,52 @@ function collectBranchTextEffects(node: IRNode): ConditionalBranchTextEffect[] {
   }
   walk(node)
   return effects
+}
+
+/**
+ * Collect loop info from a conditional branch for reactive reconciliation.
+ * Finds IRLoop nodes in the branch and extracts their metadata.
+ * Only collects top-level loops (not nested loops inside other loops).
+ */
+function collectBranchLoops(node: IRNode): ConditionalBranchLoop[] {
+  const loops: ConditionalBranchLoop[] = []
+  let parentSlotId: string | null = null
+
+  function walk(n: IRNode): void {
+    switch (n.type) {
+      case 'element':
+        const prevSlot = parentSlotId
+        if (n.slotId) parentSlotId = n.slotId
+        for (const child of n.children) walk(child)
+        parentSlotId = prevSlot
+        break
+      case 'loop': {
+        if (!parentSlotId) break
+        // Build the item template from loop children
+        const childTemplate = n.children.map(c => irToHtmlTemplate(c)).join('')
+        loops.push({
+          array: n.array,
+          param: n.param,
+          index: n.index,
+          key: n.key,
+          template: childTemplate,
+          containerSlotId: parentSlotId,
+          mapPreamble: n.mapPreamble ?? null,
+        })
+        // Don't recurse into the loop — nested loops are handled by the loop's own reconciliation
+        break
+      }
+      case 'fragment':
+      case 'component':
+      case 'provider':
+        for (const child of n.children) walk(child)
+        break
+      // Don't recurse into nested conditionals
+      case 'conditional':
+      case 'if-statement':
+        break
+    }
+  }
+  walk(node)
+  return loops
 }

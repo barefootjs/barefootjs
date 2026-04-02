@@ -100,6 +100,17 @@ export interface ConditionalBranchTextEffect {
   expression: string
 }
 
+/** Loop info extracted from a conditional branch for reactive reconciliation. */
+export interface ConditionalBranchLoop {
+  array: string       // Array expression (e.g., 'items()')
+  param: string       // Loop parameter name (e.g., 'item')
+  index: string | null // Index parameter (e.g., 'i')
+  key: string | null   // Key expression (e.g., 'item.id')
+  template: string     // HTML template for each item
+  containerSlotId: string // bf slot ID of the container element (e.g., 's1' for <ul bf="s1">)
+  mapPreamble: string | null
+}
+
 export interface ConditionalElement {
   slotId: string
   condition: string
@@ -113,6 +124,8 @@ export interface ConditionalElement {
   whenFalseChildComponents: ConditionalBranchChildComponent[]
   whenTrueTextEffects: ConditionalBranchTextEffect[]
   whenFalseTextEffects: ConditionalBranchTextEffect[]
+  whenTrueLoops: ConditionalBranchLoop[]
+  whenFalseLoops: ConditionalBranchLoop[]
 }
 
 export interface NestedLoopInfo {
@@ -201,6 +214,8 @@ export interface ClientOnlyConditional {
   whenFalseChildComponents: ConditionalBranchChildComponent[]
   whenTrueTextEffects: ConditionalBranchTextEffect[]
   whenFalseTextEffects: ConditionalBranchTextEffect[]
+  whenTrueLoops: ConditionalBranchLoop[]
+  whenFalseLoops: ConditionalBranchLoop[]
 }
 
 export interface RestAttrElement {

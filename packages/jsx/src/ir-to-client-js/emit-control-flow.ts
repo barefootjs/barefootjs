@@ -4,7 +4,7 @@
  * and event delegation within loop containers.
  */
 
-import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, LoopChildEvent, LoopElement } from './types'
+import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, ConditionalBranchLoop, LoopChildEvent, LoopElement } from './types'
 import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_BF_PH, keyAttrName } from './utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
 import { emitAttrUpdate } from './emit-reactive'
@@ -19,7 +19,8 @@ function emitBranchBindings(
   refs: ConditionalBranchRef[],
   childComponents: ConditionalBranchChildComponent[],
   eventNameFn: (eventName: string) => string,
-  textEffects: ConditionalBranchTextEffect[] = []
+  textEffects: ConditionalBranchTextEffect[] = [],
+  branchLoops: ConditionalBranchLoop[] = []
 ): void {
   const allSlotIds = new Set<string>()
   for (const event of events) allSlotIds.add(event.slotId)
@@ -62,11 +63,12 @@ function emitBranchBindings(
     lines.push(`      if (${varName}) initChild('${comp.name}', ${varName}, ${comp.propsExpr})`)
   }
 
-  // Emit disposable text effects scoped to this branch.
+  // Emit disposable effects scoped to this branch (text effects + loop reconciliation).
   // These only run while the branch is active and are disposed on branch switch.
-  // Text node is resolved once (stable while branch is active) and closed over.
-  if (textEffects.length > 0) {
+  const hasDisposables = textEffects.length > 0 || branchLoops.length > 0
+  if (hasDisposables) {
     lines.push(`      const __disposers = []`)
+
     for (const te of textEffects) {
       const v = varSlotId(te.slotId)
       lines.push(`      const [__el_${v}] = $t(__branchScope, '${te.slotId}')`)
@@ -75,6 +77,25 @@ function emitBranchBindings(
       lines.push(`        if (__el_${v} && !__val?.__isSlot) __el_${v}.nodeValue = String(__val ?? '')`)
       lines.push(`      }))`)
     }
+
+    // Emit loop reconciliation effects for loops inside this branch.
+    // The loop's container is found via $() and updated reactively via reconcileElements.
+    for (const loop of branchLoops) {
+      const cv = varSlotId(loop.containerSlotId)
+      lines.push(`      const [__loop_${cv}] = $(__branchScope, '${loop.containerSlotId}')`)
+      const keyFn = loop.key
+        ? `(${loop.param}${loop.index ? `, ${loop.index}` : ''}) => String(${loop.key})`
+        : 'null'
+      const indexParam = loop.index || '__idx'
+      lines.push(`      if (__loop_${cv}) __disposers.push(createDisposableEffect(() => {`)
+      if (loop.mapPreamble) {
+        lines.push(`        reconcileElements(__loop_${cv}, ${loop.array}, ${keyFn}, (${loop.param}, ${indexParam}) => { ${loop.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+      } else {
+        lines.push(`        reconcileElements(__loop_${cv}, ${loop.array}, ${keyFn}, (${loop.param}, ${indexParam}) => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+      }
+      lines.push(`      }))`)
+    }
+
     lines.push(`      return () => __disposers.forEach(d => d())`)
   }
 }
@@ -88,12 +109,12 @@ export function emitConditionalUpdates(lines: string[], ctx: ClientJsContext): v
     lines.push(`  insert(__scope, '${elem.slotId}', () => ${elem.condition}, {`)
     lines.push(`    template: () => \`${whenTrueWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, elem.whenTrueChildComponents, toDomEventName, elem.whenTrueTextEffects)
+    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, elem.whenTrueChildComponents, toDomEventName, elem.whenTrueTextEffects, elem.whenTrueLoops)
     lines.push(`    }`)
     lines.push(`  }, {`)
     lines.push(`    template: () => \`${whenFalseWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, elem.whenFalseChildComponents, toDomEventName, elem.whenFalseTextEffects)
+    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, elem.whenFalseChildComponents, toDomEventName, elem.whenFalseTextEffects, elem.whenFalseLoops)
     lines.push(`    }`)
     lines.push(`  })`)
     lines.push('')
@@ -111,12 +132,12 @@ export function emitClientOnlyConditionals(lines: string[], ctx: ClientJsContext
     lines.push(`  insert(__scope, '${elem.slotId}', () => ${elem.condition}, {`)
     lines.push(`    template: () => \`${whenTrueWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, elem.whenTrueChildComponents, rawEventName, elem.whenTrueTextEffects)
+    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, elem.whenTrueChildComponents, rawEventName, elem.whenTrueTextEffects, elem.whenTrueLoops)
     lines.push(`    }`)
     lines.push(`  }, {`)
     lines.push(`    template: () => \`${whenFalseWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, elem.whenFalseChildComponents, rawEventName, elem.whenFalseTextEffects)
+    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, elem.whenFalseChildComponents, rawEventName, elem.whenFalseTextEffects, elem.whenFalseLoops)
     lines.push(`    }`)
     lines.push(`  })`)
     lines.push('')
