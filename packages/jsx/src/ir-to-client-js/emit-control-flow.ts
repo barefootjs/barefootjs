@@ -4,7 +4,7 @@
  * and event delegation within loop containers.
  */
 
-import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, ConditionalBranchLoop, LoopChildEvent, LoopElement } from './types'
+import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, ConditionalBranchLoop, ConditionalBranchConditional, LoopChildEvent, LoopElement } from './types'
 import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH, keyAttrName } from './utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
 import { emitAttrUpdate } from './emit-reactive'
@@ -20,7 +20,8 @@ function emitBranchBindings(
   childComponents: ConditionalBranchChildComponent[],
   eventNameFn: (eventName: string) => string,
   textEffects: ConditionalBranchTextEffect[] = [],
-  branchLoops: ConditionalBranchLoop[] = []
+  branchLoops: ConditionalBranchLoop[] = [],
+  branchConditionals: ConditionalBranchConditional[] = []
 ): void {
   const allSlotIds = new Set<string>()
   for (const event of events) allSlotIds.add(event.slotId)
@@ -63,9 +64,9 @@ function emitBranchBindings(
     lines.push(`      if (${varName}) initChild('${comp.name}', ${varName}, ${comp.propsExpr})`)
   }
 
-  // Emit disposable effects scoped to this branch (text effects + loop reconciliation).
+  // Emit disposable effects scoped to this branch (text effects, loop reconciliation, nested conditionals).
   // These only run while the branch is active and are disposed on branch switch.
-  const hasDisposables = textEffects.length > 0 || branchLoops.length > 0
+  const hasDisposables = textEffects.length > 0 || branchLoops.length > 0 || branchConditionals.length > 0
   if (hasDisposables) {
     lines.push(`      const __disposers = []`)
 
@@ -86,14 +87,18 @@ function emitBranchBindings(
     for (const loop of branchLoops) {
       const cv = varSlotId(loop.containerSlotId)
       lines.push(`      const [__loop_${cv}] = $(__branchScope, '${loop.containerSlotId}')`)
-      // Rename SSR data-key-1 → data-key for reconcileElements compatibility
-      lines.push(`      if (__loop_${cv}) getLoopChildren(__loop_${cv}).forEach(__el => { if (__el.hasAttribute('${DATA_KEY_PREFIX}1') && !__el.hasAttribute('${DATA_KEY}')) { __el.setAttribute('${DATA_KEY}', __el.getAttribute('${DATA_KEY_PREFIX}1')); __el.removeAttribute('${DATA_KEY_PREFIX}1') } })`)
 
       if (loop.useElementReconciliation && loop.nestedComponents?.length) {
-        // Composite loop: items contain child components — use createComponent in renderItem
+        // Composite loop: items contain child components — use createComponent in renderItem.
+        // Do NOT rename data-key-1 → data-key here: the hydration guard inside the
+        // disposable effect checks !hasAttribute('data-key') to detect template-generated
+        // elements and initialize child components via initChild. Premature rename would
+        // skip hydration, leaving components uninitialized.
         emitCompositeBranchLoop(lines, loop, cv)
       } else {
-        // Simple loop: basic template clone
+        // Simple loop: rename SSR data-key-1 → data-key for reconcileElements compatibility.
+        // Safe for simple loops (no child components to initialize).
+        lines.push(`      if (__loop_${cv}) getLoopChildren(__loop_${cv}).forEach(__el => { if (__el.hasAttribute('${DATA_KEY_PREFIX}1') && !__el.hasAttribute('${DATA_KEY}')) { __el.setAttribute('${DATA_KEY}', __el.getAttribute('${DATA_KEY_PREFIX}1')); __el.removeAttribute('${DATA_KEY_PREFIX}1') } })`)
         const keyFn = loop.key
           ? `(${loop.param}${loop.index ? `, ${loop.index}` : ''}) => String(${loop.key})`
           : 'null'
@@ -108,8 +113,40 @@ function emitBranchBindings(
       }
     }
 
+    // Emit nested conditionals as insert() calls inside this branch.
+    // These are disposed when the parent branch switches, ensuring inner
+    // conditionals are re-set-up each time the parent branch activates.
+    for (const cond of branchConditionals) {
+      emitNestedBranchConditional(lines, cond, eventNameFn)
+    }
+
     lines.push(`      return () => __disposers.forEach(d => d())`)
   }
+}
+
+/**
+ * Emit a nested conditional as an insert() call inside a parent branch's bindEvents.
+ * The insert is wrapped so its effects are disposed when the parent branch deactivates.
+ */
+function emitNestedBranchConditional(
+  lines: string[],
+  elem: ConditionalBranchConditional,
+  eventNameFn: (eventName: string) => string,
+): void {
+  const whenTrueWithCond = addCondAttrToTemplate(elem.whenTrueHtml, elem.slotId)
+  const whenFalseWithCond = addCondAttrToTemplate(elem.whenFalseHtml, elem.slotId)
+
+  lines.push(`      insert(__branchScope, '${elem.slotId}', () => ${elem.condition}, {`)
+  lines.push(`        template: () => \`${whenTrueWithCond}\`,`)
+  lines.push(`        bindEvents: (__branchScope) => {`)
+  emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, elem.whenTrueChildComponents, eventNameFn, elem.whenTrueTextEffects, elem.whenTrueLoops, elem.whenTrueConditionals)
+  lines.push(`        }`)
+  lines.push(`      }, {`)
+  lines.push(`        template: () => \`${whenFalseWithCond}\`,`)
+  lines.push(`        bindEvents: (__branchScope) => {`)
+  emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, elem.whenFalseChildComponents, eventNameFn, elem.whenFalseTextEffects, elem.whenFalseLoops, elem.whenFalseConditionals)
+  lines.push(`        }`)
+  lines.push(`      })`)
 }
 
 /**
@@ -172,28 +209,12 @@ function emitCompositeBranchLoop(
   emitCompositeRenderItemBody(lines, '          ', ctx)
   lines.push(`        }`)
 
-  // SSR hydration: tag existing children with data-key and initialize components
-  lines.push(`        const __loopChildren = getLoopChildren(__loop_${cv})`)
-  lines.push(`        if (__loopChildren.length > 0 && !__loopChildren[0]?.hasAttribute('${DATA_KEY}')) {`)
-  lines.push(`          __loopChildren.forEach((__hChild, ${indexParam}) => {`)
-  lines.push(`            if (${indexParam} >= __arr.length) return`)
-  lines.push(`            const ${loop.param} = __arr[${indexParam}]`)
-  if (loop.key) {
-    lines.push(`            __hChild.setAttribute('${DATA_KEY}', String(${loop.key}))`)
-  } else {
-    lines.push(`            __hChild.setAttribute('${DATA_KEY}', String(${indexParam}))`)
-  }
-  // Initialize components on SSR elements (hydration)
-  emitComponentAndEventSetup(lines, '            ', '__hChild', outerComps, outerEvents, 'ssr')
-  emitInnerLoopSetup(lines, '            ', '__hChild', depthLevels, 0, 'ssr')
-  lines.push(`          })`)
-  // Pre-render first item to initialize createComponent paths
-  lines.push(`          if (__arr.length > 0) __renderItem(__arr[0], 0)`)
-  lines.push(`          return`)
-  lines.push(`        }`)
-
-  // Blur active element before reconciliation to avoid syncElementState issues
-  lines.push(`        if (__loop_${cv}?.contains(document.activeElement)) document.activeElement?.blur()`)
+  // Clear template-generated children so reconcileElements creates fresh elements
+  // with properly initialized components via createComponent in renderItem.
+  // Unlike top-level composite loops (which need SSR hydration on initial load),
+  // branch loops always start with template-generated content that lacks
+  // initialized components — reconcileElements must rebuild them.
+  lines.push(`        getLoopChildren(__loop_${cv}).forEach(__el => __el.remove())`)
   lines.push(`        reconcileElements(__loop_${cv}, __arr, ${keyFn}, __renderItem)`)
   lines.push(`      }))`)
 }
@@ -207,12 +228,12 @@ export function emitConditionalUpdates(lines: string[], ctx: ClientJsContext): v
     lines.push(`  insert(__scope, '${elem.slotId}', () => ${elem.condition}, {`)
     lines.push(`    template: () => \`${whenTrueWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, elem.whenTrueChildComponents, toDomEventName, elem.whenTrueTextEffects, elem.whenTrueLoops)
+    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, elem.whenTrueChildComponents, toDomEventName, elem.whenTrueTextEffects, elem.whenTrueLoops, elem.whenTrueConditionals)
     lines.push(`    }`)
     lines.push(`  }, {`)
     lines.push(`    template: () => \`${whenFalseWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, elem.whenFalseChildComponents, toDomEventName, elem.whenFalseTextEffects, elem.whenFalseLoops)
+    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, elem.whenFalseChildComponents, toDomEventName, elem.whenFalseTextEffects, elem.whenFalseLoops, elem.whenFalseConditionals)
     lines.push(`    }`)
     lines.push(`  })`)
     lines.push('')
@@ -230,12 +251,12 @@ export function emitClientOnlyConditionals(lines: string[], ctx: ClientJsContext
     lines.push(`  insert(__scope, '${elem.slotId}', () => ${elem.condition}, {`)
     lines.push(`    template: () => \`${whenTrueWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, elem.whenTrueChildComponents, rawEventName, elem.whenTrueTextEffects, elem.whenTrueLoops)
+    emitBranchBindings(lines, elem.whenTrueEvents, elem.whenTrueRefs, elem.whenTrueChildComponents, rawEventName, elem.whenTrueTextEffects, elem.whenTrueLoops, elem.whenTrueConditionals)
     lines.push(`    }`)
     lines.push(`  }, {`)
     lines.push(`    template: () => \`${whenFalseWithCond}\`,`)
     lines.push(`    bindEvents: (__branchScope) => {`)
-    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, elem.whenFalseChildComponents, rawEventName, elem.whenFalseTextEffects, elem.whenFalseLoops)
+    emitBranchBindings(lines, elem.whenFalseEvents, elem.whenFalseRefs, elem.whenFalseChildComponents, rawEventName, elem.whenFalseTextEffects, elem.whenFalseLoops, elem.whenFalseConditionals)
     lines.push(`    }`)
     lines.push(`  })`)
     lines.push('')

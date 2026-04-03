@@ -81,6 +81,12 @@ test.describe('Checkout Block', () => {
     await expect(section.locator('text=Wireless Headphones')).toBeVisible()
     await expect(section.locator('text=USB-C Hub Adapter')).toBeVisible()
     await expect(section.locator('text=Mechanical Keyboard')).toBeVisible()
+    // Remove button works (composite loop inside conditional is reactive)
+    const removeBtn = section.locator('button:has-text("✕")').first()
+    await removeBtn.click()
+    // Should have 2 items after removing one
+    await expect(section.locator('text=USB-C Hub Adapter')).toBeVisible()
+    await expect(section.locator('text=Mechanical Keyboard')).toBeVisible()
     // Shipping summary
     await expect(section.locator('text=Alice Smith')).toBeVisible()
 

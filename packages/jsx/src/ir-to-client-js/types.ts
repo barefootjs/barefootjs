@@ -131,7 +131,16 @@ export interface ConditionalElement {
   whenFalseTextEffects: ConditionalBranchTextEffect[]
   whenTrueLoops: ConditionalBranchLoop[]
   whenFalseLoops: ConditionalBranchLoop[]
+  whenTrueConditionals: ConditionalBranchConditional[]
+  whenFalseConditionals: ConditionalBranchConditional[]
 }
+
+/**
+ * Nested conditional info extracted from a branch.
+ * Emitted as insert() inside the parent's bindEvents (not top-level)
+ * so that the inner conditional is set up when the parent branch activates.
+ */
+export type ConditionalBranchConditional = ConditionalElement
 
 export interface NestedLoopInfo {
   depth: number    // 1 for first nesting level, 2 for second, etc.
@@ -221,6 +230,8 @@ export interface ClientOnlyConditional {
   whenFalseTextEffects: ConditionalBranchTextEffect[]
   whenTrueLoops: ConditionalBranchLoop[]
   whenFalseLoops: ConditionalBranchLoop[]
+  whenTrueConditionals: ConditionalBranchConditional[]
+  whenFalseConditionals: ConditionalBranchConditional[]
 }
 
 export interface RestAttrElement {
