@@ -106,6 +106,7 @@ export function CommentsDemo() {
   const [comments, setComments] = createSignal<Comment[]>(initialComments)
   const [sortMode, setSortMode] = createSignal<SortMode>('newest')
   const [newCommentText, setNewCommentText] = createSignal('')
+  const [editText, setEditText] = createSignal('')
 
   // Memo chain stage 1: sort comments
   const sortedComments = createMemo(() => {
@@ -154,21 +155,26 @@ export function CommentsDemo() {
   }
 
   const startEditing = (commentId: number) => {
+    const comment = comments().find(c => c.id === commentId)
+    if (comment) setEditText(comment.text)
     setComments(prev => prev.map(c =>
       c.id === commentId ? { ...c, editing: true } : c
     ))
   }
 
   const cancelEditing = (commentId: number) => {
+    setEditText('')
     setComments(prev => prev.map(c =>
       c.id === commentId ? { ...c, editing: false } : c
     ))
   }
 
-  const saveEdit = (commentId: number, newText: string) => {
-    if (!newText.trim()) return
+  const saveEdit = (commentId: number) => {
+    const text = editText().trim()
+    if (!text) return
+    setEditText('')
     setComments(prev => prev.map(c =>
-      c.id === commentId ? { ...c, text: newText.trim(), editing: false } : c
+      c.id === commentId ? { ...c, text, editing: false } : c
     ))
   }
 
@@ -313,17 +319,12 @@ export function CommentsDemo() {
                 {comment.editing ? (
                   <div className="mt-2 space-y-2">
                     <Textarea
-                      value={comment.text}
+                      value={editText()}
                       className="text-sm min-h-[60px]"
-                      onInput={(e) => {
-                        const val = (e.target as HTMLTextAreaElement).value
-                        setComments(prev => prev.map(c =>
-                          c.id === comment.id ? { ...c, text: val } : c
-                        ))
-                      }}
+                      onInput={(e) => setEditText((e.target as HTMLTextAreaElement).value)}
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => saveEdit(comment.id, comment.text)}>Save</Button>
+                      <Button size="sm" onClick={() => saveEdit(comment.id)}>Save</Button>
                       <Button variant="outline" size="sm" onClick={() => cancelEditing(comment.id)}>Cancel</Button>
                     </div>
                   </div>
