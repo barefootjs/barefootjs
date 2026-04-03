@@ -3,7 +3,7 @@
  */
 
 import type { ComponentIR, ConstantInfo, FunctionInfo, IRNode } from '../types'
-import type { ClientJsContext } from './types'
+import type { ClientJsContext, ConditionalBranchConditional, ConditionalBranchLoop } from './types'
 import { varSlotId, bodyReferencesComponentScope, PROPS_PARAM } from './utils'
 import { collectUsedIdentifiers, collectUsedFunctions, collectIdentifiersFromIRTree } from './identifiers'
 import { valueReferencesReactiveData, getControlledPropName, detectPropsWithPropertyAccess } from './prop-handling'
@@ -53,6 +53,10 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   }
   for (const child of ctx.childInits) {
     childComponentNames.add(child.name)
+  }
+  // Collect from conditional branch loops and nested conditionals
+  for (const cond of [...ctx.conditionalElements, ...ctx.clientOnlyConditionals]) {
+    collectChildNamesFromBranches(cond, childComponentNames)
   }
   for (const childName of childComponentNames) {
     if (!siblingSet.has(childName)) {
@@ -171,7 +175,7 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   const componentScopeNames = new Set<string>()
   for (const s of ctx.signals) {
     componentScopeNames.add(s.getter)
-    componentScopeNames.add(s.setter)
+    if (s.setter) componentScopeNames.add(s.setter)
   }
   for (const m of ctx.memos) componentScopeNames.add(m.name)
   for (const c of ctx.localConstants) componentScopeNames.add(c.name)
@@ -442,6 +446,25 @@ export function collectComponentNamesFromIR(nodes: IRNode[], names: Set<string>)
         }
       }
     }
+  }
+}
+
+/**
+ * Collect child component names from conditional branch loops and nested conditionals.
+ * Ensures @bf-child import markers are generated for components inside
+ * composite loops within conditional branches (e.g., Badge inside a branch loop).
+ */
+function collectChildNamesFromBranches(
+  cond: { whenTrueLoops: ConditionalBranchLoop[]; whenFalseLoops: ConditionalBranchLoop[]; whenTrueConditionals?: ConditionalBranchConditional[]; whenFalseConditionals?: ConditionalBranchConditional[] },
+  names: Set<string>,
+): void {
+  for (const loop of [...cond.whenTrueLoops, ...cond.whenFalseLoops]) {
+    if (loop.nestedComponents) {
+      for (const comp of loop.nestedComponents) names.add(comp.name)
+    }
+  }
+  for (const nested of [...(cond.whenTrueConditionals ?? []), ...(cond.whenFalseConditionals ?? [])]) {
+    collectChildNamesFromBranches(nested, names)
   }
 }
 

@@ -225,4 +225,23 @@ describe('analyzeComponent', () => {
     expect(letConstant!.declarationKind).toBe('let')
     expect(letConstant!.value).toBeUndefined()
   })
+
+  test('extracts signal with getter only (no setter)', () => {
+    const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function ReadOnlyList() {
+          const [items] = createSignal([1, 2, 3])
+          return <div>{items().length}</div>
+        }
+      `
+
+    const ctx = analyzeComponent(source, 'ReadOnlyList.tsx')
+
+    expect(ctx.signals).toHaveLength(1)
+    expect(ctx.signals[0].getter).toBe('items')
+    expect(ctx.signals[0].setter).toBeNull()
+    expect(ctx.signals[0].initialValue).toBe('[1, 2, 3]')
+  })
 })

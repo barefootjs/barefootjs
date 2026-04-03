@@ -136,7 +136,11 @@ export function emitDeclaration(
         }
       }
 
-      lines.push(`  const [${signal.getter}, ${signal.setter}] = createSignal(${initialValue})`)
+      if (signal.setter) {
+        lines.push(`  const [${signal.getter}, ${signal.setter}] = createSignal(${initialValue})`)
+      } else {
+        lines.push(`  const [${signal.getter}] = createSignal(${initialValue})`)
+      }
       break
     }
     case 'memo': {
@@ -163,6 +167,7 @@ export function emitControlledSignalEffect(
   const accessor = prop?.defaultValue
     ? `(${PROPS_PARAM}.${propName} ?? ${prop.defaultValue})`
     : `${PROPS_PARAM}.${propName}`
+  if (!signal.setter) return // read-only signal, no controlled sync needed
   lines.push(`  createEffect(() => {`)
   lines.push(`    const __val = ${accessor}`)
   lines.push(`    if (__val !== undefined) ${signal.setter}(__val)`)

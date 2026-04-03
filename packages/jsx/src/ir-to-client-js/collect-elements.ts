@@ -3,7 +3,7 @@
  */
 
 import { type IRNode, type IRElement, type IRProp, pickAttrMeta } from '../types'
-import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchLoop, ConditionalBranchTextEffect, LoopChildEvent, LoopChildReactiveAttr, NestedLoopInfo } from './types'
+import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchConditional, ConditionalBranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildEvent, LoopChildReactiveAttr, NestedLoopInfo } from './types'
 import { attrValueToString, quotePropName, PROPS_PARAM } from './utils'
 import { needsEffectWrapper, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs } from './reactivity'
 import { irToHtmlTemplate, irToPlaceholderTemplate, irChildrenToJsExpr } from './html-template'
@@ -162,56 +162,14 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
 
     case 'conditional':
       if (node.clientOnly && node.slotId) {
-        const whenTrueEvents = collectConditionalBranchEvents(node.whenTrue)
-        const whenFalseEvents = collectConditionalBranchEvents(node.whenFalse)
-        const whenTrueRefs = collectConditionalBranchRefs(node.whenTrue)
-        const whenFalseRefs = collectConditionalBranchRefs(node.whenFalse)
-        const whenTrueChildComponents = buildBranchChildComponents(collectConditionalBranchChildComponents(node.whenTrue), ctx)
-        const whenFalseChildComponents = buildBranchChildComponents(collectConditionalBranchChildComponents(node.whenFalse), ctx)
-        const restNames = buildRestSpreadNames(ctx)
-        ctx.clientOnlyConditionals.push({
-          slotId: node.slotId,
-          condition: node.condition,
-          whenTrueHtml: irToHtmlTemplate(node.whenTrue, restNames),
-          whenFalseHtml: irToHtmlTemplate(node.whenFalse, restNames),
-          whenTrueEvents,
-          whenFalseEvents,
-          whenTrueRefs,
-          whenFalseRefs,
-          whenTrueChildComponents,
-          whenFalseChildComponents,
-          whenTrueTextEffects: collectBranchTextEffects(node.whenTrue),
-          whenFalseTextEffects: collectBranchTextEffects(node.whenFalse),
-          whenTrueLoops: collectBranchLoops(node.whenTrue, ctx),
-          whenFalseLoops: collectBranchLoops(node.whenFalse, ctx),
-        })
+        ctx.clientOnlyConditionals.push(buildConditionalMetadata(node, ctx))
       } else if (node.reactive && node.slotId) {
-        const whenTrueEvents = collectConditionalBranchEvents(node.whenTrue)
-        const whenFalseEvents = collectConditionalBranchEvents(node.whenFalse)
-        const whenTrueRefs = collectConditionalBranchRefs(node.whenTrue)
-        const whenFalseRefs = collectConditionalBranchRefs(node.whenFalse)
-        const whenTrueChildComponents = buildBranchChildComponents(collectConditionalBranchChildComponents(node.whenTrue), ctx)
-        const whenFalseChildComponents = buildBranchChildComponents(collectConditionalBranchChildComponents(node.whenFalse), ctx)
-        const whenTrueTextEffects = collectBranchTextEffects(node.whenTrue)
-        const whenFalseTextEffects = collectBranchTextEffects(node.whenFalse)
-
-        const restNames = buildRestSpreadNames(ctx)
-        ctx.conditionalElements.push({
-          slotId: node.slotId,
-          condition: node.condition,
-          whenTrueHtml: irToHtmlTemplate(node.whenTrue, restNames),
-          whenFalseHtml: irToHtmlTemplate(node.whenFalse, restNames),
-          whenTrueEvents,
-          whenFalseEvents,
-          whenTrueRefs,
-          whenFalseRefs,
-          whenTrueChildComponents,
-          whenFalseChildComponents,
-          whenTrueTextEffects,
-          whenFalseTextEffects,
-          whenTrueLoops: collectBranchLoops(node.whenTrue, ctx),
-          whenFalseLoops: collectBranchLoops(node.whenFalse, ctx),
-        })
+        if (insideConditional) {
+          // Nested conditionals are collected by the parent via collectBranchConditionals.
+          // Don't push to ctx.conditionalElements — they'll be emitted inside the parent's bindEvents.
+        } else {
+          ctx.conditionalElements.push(buildConditionalMetadata(node, ctx))
+        }
       }
       // Recurse into conditional branches with insideConditional = true
       // to collect nested conditionals, events, refs, child components, and reactive attrs
@@ -596,4 +554,61 @@ function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): ConditionalBra
   }
   walk(node)
   return loops
+}
+
+/**
+ * Build full conditional metadata for a reactive conditional node.
+ * Shared by top-level conditionals and nested branch conditionals.
+ */
+function buildConditionalMetadata(node: IRNode & { type: 'conditional' }, ctx: ClientJsContext): ConditionalElement {
+  const restNames = buildRestSpreadNames(ctx)
+  return {
+    slotId: node.slotId!,
+    condition: node.condition,
+    whenTrueHtml: irToHtmlTemplate(node.whenTrue, restNames),
+    whenFalseHtml: irToHtmlTemplate(node.whenFalse, restNames),
+    whenTrueEvents: collectConditionalBranchEvents(node.whenTrue),
+    whenFalseEvents: collectConditionalBranchEvents(node.whenFalse),
+    whenTrueRefs: collectConditionalBranchRefs(node.whenTrue),
+    whenFalseRefs: collectConditionalBranchRefs(node.whenFalse),
+    whenTrueChildComponents: buildBranchChildComponents(collectConditionalBranchChildComponents(node.whenTrue), ctx),
+    whenFalseChildComponents: buildBranchChildComponents(collectConditionalBranchChildComponents(node.whenFalse), ctx),
+    whenTrueTextEffects: collectBranchTextEffects(node.whenTrue),
+    whenFalseTextEffects: collectBranchTextEffects(node.whenFalse),
+    whenTrueLoops: collectBranchLoops(node.whenTrue, ctx),
+    whenFalseLoops: collectBranchLoops(node.whenFalse, ctx),
+    whenTrueConditionals: collectBranchConditionals(node.whenTrue, ctx),
+    whenFalseConditionals: collectBranchConditionals(node.whenFalse, ctx),
+  }
+}
+
+/**
+ * Collect nested reactive conditionals from a branch for emission inside bindEvents.
+ * Finds reactive conditional nodes within a branch subtree (not recursing into loops).
+ */
+function collectBranchConditionals(node: IRNode, ctx: ClientJsContext): ConditionalElement[] {
+  const result: ConditionalElement[] = []
+
+  function walk(n: IRNode): void {
+    switch (n.type) {
+      case 'conditional':
+        if (n.reactive && n.slotId) {
+          result.push(buildConditionalMetadata(n, ctx))
+        }
+        // Don't recurse further — the nested conditional handles its own branches
+        break
+      case 'element':
+      case 'fragment':
+      case 'component':
+      case 'provider':
+        for (const child of n.children) walk(child)
+        break
+      // Don't recurse into loops (they handle their own reconciliation)
+      case 'loop':
+      case 'if-statement':
+        break
+    }
+  }
+  walk(node)
+  return result
 }

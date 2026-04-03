@@ -770,7 +770,7 @@ export class GoTemplateAdapter extends BaseAdapter {
    */
   private resolveDynamicPropValue(
     expr: string,
-    signals: { getter: string; setter: string; initialValue: string; type: TypeInfo }[],
+    signals: { getter: string; setter: string | null; initialValue: string; type: TypeInfo }[],
     memos: { name: string; computation: string; deps: string[] }[],
     propsParams: { name: string }[]
   ): string | null {

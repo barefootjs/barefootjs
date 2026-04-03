@@ -71,6 +71,7 @@ import { TasksTableRefPage } from './pages/components/tasks-table'
 import { SocialFeedRefPage } from './pages/components/social-feed'
 import { FileBrowserRefPage } from './pages/components/file-browser'
 import { CartRefPage } from './pages/components/cart'
+import { CheckoutRefPage } from './pages/components/checkout'
 import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
@@ -492,6 +493,11 @@ export function createApp() {
   // Cart block page
   app.get('/components/cart', (c) => {
     return c.render(<CartRefPage />)
+  })
+
+  // Checkout block page
+  app.get('/components/checkout', (c) => {
+    return c.render(<CheckoutRefPage />)
   })
 
   // Bar Chart reference page

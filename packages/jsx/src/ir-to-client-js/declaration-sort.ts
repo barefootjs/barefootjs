@@ -29,7 +29,7 @@ export function providedNames(decl: Declaration): string[] {
     case 'constant':
       return [decl.info.name]
     case 'signal':
-      return [decl.info.getter, decl.info.setter]
+      return decl.info.setter ? [decl.info.getter, decl.info.setter] : [decl.info.getter]
     case 'memo':
       return [decl.info.name]
     case 'function':

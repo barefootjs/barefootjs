@@ -499,17 +499,24 @@ function collectSignal(node: ts.VariableDeclaration, ctx: AnalyzerContext): void
 
   const elements = pattern.elements
   if (
-    elements.length !== 2 ||
+    elements.length < 1 || elements.length > 2 ||
     !ts.isBindingElement(elements[0]) ||
-    !ts.isBindingElement(elements[1]) ||
-    !ts.isIdentifier(elements[0].name) ||
-    !ts.isIdentifier(elements[1].name)
+    !ts.isIdentifier(elements[0].name)
   ) {
+    return
+  }
+  // Validate second element if present
+  if (elements.length === 2 && (
+    !ts.isBindingElement(elements[1]) ||
+    !ts.isIdentifier(elements[1].name)
+  )) {
     return
   }
 
   const getter = elements[0].name.text
-  const setter = elements[1].name.text
+  const setter = elements.length === 2 && ts.isBindingElement(elements[1]) && ts.isIdentifier(elements[1].name)
+    ? elements[1].name.text
+    : null
   const initialValue = callExpr.arguments[0] ? ctx.getJS(callExpr.arguments[0]) : ''
 
   // Try to infer type from initial value or type argument

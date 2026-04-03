@@ -105,12 +105,12 @@ export function buildInlinableConstants(ctx: ClientJsContext): {
   const unsafeLocalNames = new Set<string>()
 
   const signalGetters = new Set(ctx.signals.map(s => s.getter))
-  const signalSetters = new Set(ctx.signals.map(s => s.setter))
+  const signalSetters = new Set(ctx.signals.filter(s => s.setter).map(s => s.setter!))
   const memoNames = new Set(ctx.memos.map(m => m.name))
 
   const componentScopeNames = new Set<string>()
   for (const c of ctx.localConstants) componentScopeNames.add(c.name)
-  for (const s of ctx.signals) { componentScopeNames.add(s.getter); componentScopeNames.add(s.setter) }
+  for (const s of ctx.signals) { componentScopeNames.add(s.getter); if (s.setter) componentScopeNames.add(s.setter) }
   for (const m of ctx.memos) componentScopeNames.add(m.name)
   for (const f of ctx.localFunctions) componentScopeNames.add(f.name)
   for (const p of ctx.propsParams) componentScopeNames.add(p.name)

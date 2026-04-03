@@ -136,10 +136,7 @@ describe('composite loops inside conditional branches (#724)', () => {
     expect(clientJs).toBeDefined()
     const js = clientJs!.content
 
-    // SSR hydration should call initChild for existing elements
-    expect(js).toContain("initChild('Badge'")
-
-    // CSR path should call createComponent for new elements
+    // CSR path should call createComponent for elements (branch loops use CSR rendering)
     expect(js).toContain("createComponent('Badge'")
   })
 })

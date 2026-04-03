@@ -183,7 +183,7 @@ export class TestAdapter extends BaseAdapter {
     for (const signal of ir.metadata.signals) {
       const initialValue = signal.initialValue.trim().startsWith('{') ? `(${signal.initialValue})` : signal.initialValue
       lines.push(`  const ${signal.getter} = () => ${initialValue}`)
-      lines.push(`  const ${signal.setter} = () => {}`)
+      if (signal.setter) lines.push(`  const ${signal.setter} = () => {}`)
     }
 
     for (const memo of ir.metadata.memos) {

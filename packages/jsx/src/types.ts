@@ -353,7 +353,7 @@ export interface IRProp extends AttrMeta {
 
 export interface SignalInfo {
   getter: string
-  setter: string
+  setter: string | null
   initialValue: string
   type: TypeInfo
   loc: SourceLocation
