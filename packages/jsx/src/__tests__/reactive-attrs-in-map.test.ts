@@ -92,7 +92,7 @@ describe('reactive attributes inside .map() callbacks', () => {
     const clientJs = result.files.find(f => f.type === 'clientJs')
     expect(clientJs).toBeDefined()
     // Dynamic arrays use reconcileElements which re-creates items on signal change
-    expect(clientJs!.content).toContain('reconcileElements')
+    expect(clientJs!.content).toContain('mapArray')
   })
 
   test('static array: multiple reactive attrs on same element groups correctly', () => {

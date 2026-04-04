@@ -224,7 +224,7 @@ describe('child components inside .map() (#344)', () => {
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
     expect(clientJs).toBeDefined()
-    expect(clientJs!.content).toContain('reconcileElements')
+    expect(clientJs!.content).toContain('mapArray')
     expect(clientJs!.content).toContain("createComponent('RadioGroupItem'")
   })
 
@@ -315,7 +315,7 @@ describe('child components inside .map() (#344)', () => {
 
     // Component slot ref ($c) and reconcileElements should both be present
     expect(content).toContain('$c(__scope')
-    expect(content).toContain('reconcileElements')
+    expect(content).toContain('mapArray')
   })
 
   test('dynamic signal array: component with component children emits nested createComponent (#481)', () => {
@@ -348,7 +348,7 @@ describe('child components inside .map() (#344)', () => {
     const content = clientJs!.content
 
     // Should use reconcileElements with createComponent
-    expect(content).toContain('reconcileElements')
+    expect(content).toContain('mapArray')
     expect(content).toContain("createComponent('TableRow'")
 
     // Children should be emitted as nested createComponent calls
@@ -643,7 +643,7 @@ describe('child components inside .map() (#344)', () => {
     const content = clientJs!.content
 
     // Dynamic array should use reconcileElements and event delegation
-    expect(content).toContain('reconcileElements')
+    expect(content).toContain('mapArray')
     expect(content).toContain(".addEventListener('click', (e) => {")
     expect(content).toContain('handleClick(item.id)')
   })

@@ -27,6 +27,9 @@ type EffectContext = {
   fn: EffectFn
   cleanup: CleanupFn | null
   dependencies: Set<Set<EffectContext>>
+  owner: EffectContext | null   // Parent scope for hierarchical disposal
+  children: EffectContext[]     // Owned child effects/roots
+  disposed: boolean
 }
 
 let Owner: EffectContext | null = null
@@ -99,12 +102,20 @@ export function createEffect(fn: EffectFn): void {
     fn,
     cleanup: null,
     dependencies: new Set(),
+    owner: Owner,
+    children: [],
+    disposed: false,
   }
+
+  // Register with parent owner for hierarchical disposal
+  if (Owner) Owner.children.push(effect)
 
   runEffect(effect)
 }
 
 function runEffect(effect: EffectContext): void {
+  if (effect.disposed) return
+
   effectDepth++
   if (effectDepth > MAX_EFFECT_RUNS) {
     effectDepth = 0
@@ -139,6 +150,75 @@ function runEffect(effect: EffectContext): void {
 }
 
 /**
+ * Recursively dispose an effect and all its owned children.
+ * Removes from parent's children list, clears signal subscriptions, runs cleanup.
+ */
+function disposeEffect(effect: EffectContext): void {
+  if (effect.disposed) return
+  effect.disposed = true
+
+  // Dispose children first (depth-first)
+  for (const child of effect.children) {
+    disposeEffect(child)
+  }
+  effect.children.length = 0
+
+  // Run cleanup
+  if (effect.cleanup) {
+    effect.cleanup()
+    effect.cleanup = null
+  }
+
+  // Unsubscribe from all signals
+  for (const dep of effect.dependencies) {
+    dep.delete(effect)
+  }
+  effect.dependencies.clear()
+
+  // Remove from parent's children list
+  if (effect.owner) {
+    const idx = effect.owner.children.indexOf(effect)
+    if (idx >= 0) effect.owner.children.splice(idx, 1)
+    effect.owner = null
+  }
+}
+
+/**
+ * Create an isolated reactive scope with explicit disposal.
+ * All effects/memos created inside run within this root and are
+ * disposed together when the returned dispose function is called.
+ *
+ * Used internally by mapArray for per-item reactive scopes.
+ *
+ * @param fn - Function to run in the new scope. Receives a dispose function.
+ * @returns The return value of fn
+ */
+export function createRoot<T>(fn: (dispose: () => void) => T): T {
+  const root: EffectContext = {
+    fn: () => {},
+    cleanup: null,
+    dependencies: new Set(),
+    owner: Owner,
+    children: [],
+    disposed: false,
+  }
+
+  if (Owner) Owner.children.push(root)
+
+  const prevOwner = Owner
+  const prevListener = Listener
+  Owner = root
+  Listener = null  // Isolate: signal reads inside root don't track in parent effect
+
+  try {
+    return fn(() => disposeEffect(root))
+  } finally {
+    Owner = prevOwner
+    Listener = prevListener
+  }
+}
+
+/**
  * Create an effect that can be explicitly disposed (unsubscribed from all signals).
  * Used for effects inside conditional branches that need cleanup on branch switch.
  *
@@ -154,20 +234,17 @@ export function createDisposableEffect(fn: EffectFn): () => void {
     },
     cleanup: null,
     dependencies: new Set(),
+    owner: Owner,
+    children: [],
+    disposed: false,
   }
+
+  if (Owner) Owner.children.push(effect)
 
   runEffect(effect)
 
   return () => {
-    disposed = true
-    if (effect.cleanup) {
-      effect.cleanup()
-      effect.cleanup = null
-    }
-    for (const dep of effect.dependencies) {
-      dep.delete(effect)
-    }
-    effect.dependencies.clear()
+    disposeEffect(effect)
   }
 }
 

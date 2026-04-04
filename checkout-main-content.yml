@@ -1,0 +1,182 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link [ref=e5] [cursor=pointer]:
+          - /url: http://localhost:3001/
+          - img [ref=e6]
+        - navigation [ref=e24]:
+          - link "Core" [ref=e25] [cursor=pointer]:
+            - /url: http://localhost:3001/docs/introduction
+          - link "UI" [ref=e26] [cursor=pointer]:
+            - /url: /
+            - text: UI
+      - generic [ref=e28]:
+        - button "Search... ⌘ K" [ref=e29]:
+          - img [ref=e30]
+          - generic [ref=e33]: Search...
+          - generic:
+            - generic: ⌘
+            - text: K
+        - link "View on GitHub" [ref=e34] [cursor=pointer]:
+          - /url: https://github.com/kfly8/barefootjs
+          - img [ref=e35]
+        - button "Switch to dark mode" [ref=e37]:
+          - img [ref=e38]
+  - generic:
+    - generic:
+      - generic:
+        - img
+        - textbox "Search pages..."
+        - generic: ESC
+      - generic:
+        - generic:
+          - generic: Get Started
+          - generic: Introduction
+        - generic:
+          - generic: Components
+          - generic: Accordion
+          - generic: Badge
+          - generic: Button
+          - generic: Card
+          - generic: Checkbox
+          - generic: Command
+          - generic: Dialog
+          - generic: Dropdown Menu
+          - generic: Input
+          - generic: Select
+          - generic: Switch
+          - generic: Table
+          - generic: Tabs
+          - generic: Toast
+          - generic: Tooltip
+        - generic:
+          - generic: Forms
+          - generic: Controlled Input
+          - generic: Field Arrays
+          - generic: Submit
+          - generic: Validation
+  - navigation "Main navigation" [ref=e40]:
+    - group [ref=e42]:
+      - generic "Docs" [ref=e43] [cursor=pointer]:
+        - generic [ref=e44]: Docs
+        - img [ref=e45]
+      - link "Introduction" [ref=e48] [cursor=pointer]:
+        - /url: /
+    - generic [ref=e50]: Components
+    - generic [ref=e51]:
+      - group [ref=e52]:
+        - generic "Input" [ref=e53] [cursor=pointer]:
+          - generic [ref=e54]: Input
+          - img [ref=e55]
+      - group [ref=e57]:
+        - generic "Display" [ref=e58] [cursor=pointer]:
+          - generic [ref=e59]: Display
+          - img [ref=e60]
+      - group [ref=e62]:
+        - generic "Feedback" [ref=e63] [cursor=pointer]:
+          - generic [ref=e64]: Feedback
+          - img [ref=e65]
+      - group [ref=e67]:
+        - generic "Navigation" [ref=e68] [cursor=pointer]:
+          - generic [ref=e69]: Navigation
+          - img [ref=e70]
+      - group [ref=e72]:
+        - generic "Layout" [ref=e73] [cursor=pointer]:
+          - generic [ref=e74]: Layout
+          - img [ref=e75]
+      - group [ref=e77]:
+        - generic "Charts" [ref=e78] [cursor=pointer]:
+          - generic [ref=e79]: Charts
+          - img [ref=e80]
+    - generic [ref=e83]: Patterns
+    - generic [ref=e84]:
+      - group [ref=e85]:
+        - generic "Forms" [ref=e86] [cursor=pointer]:
+          - generic [ref=e87]: Forms
+          - img [ref=e88]
+      - group [ref=e90]:
+        - generic "Blocks" [ref=e91] [cursor=pointer]:
+          - generic [ref=e92]: Blocks
+          - img [ref=e93]
+        - generic [ref=e95]:
+          - link "Dashboard" [ref=e96] [cursor=pointer]:
+            - /url: /components/dashboard
+          - link "Mail" [ref=e97] [cursor=pointer]:
+            - /url: /components/mail
+          - link "Kanban Board" [ref=e98] [cursor=pointer]:
+            - /url: /components/kanban
+          - link "Login" [ref=e99] [cursor=pointer]:
+            - /url: /components/login
+          - link "Settings" [ref=e100] [cursor=pointer]:
+            - /url: /components/settings
+          - link "Sidebar" [ref=e101] [cursor=pointer]:
+            - /url: /components/sidebar
+          - link "Chat" [ref=e102] [cursor=pointer]:
+            - /url: /components/chat
+          - link "Music Player" [ref=e103] [cursor=pointer]:
+            - /url: /components/music-player
+          - link "Multi-Step Form" [ref=e104] [cursor=pointer]:
+            - /url: /components/multi-step-form
+          - link "Tasks Table" [ref=e105] [cursor=pointer]:
+            - /url: /components/tasks-table
+          - link "Social Feed" [ref=e106] [cursor=pointer]:
+            - /url: /components/social-feed
+          - link "File Browser" [ref=e107] [cursor=pointer]:
+            - /url: /components/file-browser
+          - link "Cart" [ref=e108] [cursor=pointer]:
+            - /url: /components/cart
+          - link "Checkout" [ref=e109] [cursor=pointer]:
+            - /url: /components/checkout
+    - generic [ref=e111]: Tools
+    - generic [ref=e112]:
+      - link "CLI" [ref=e113] [cursor=pointer]:
+        - /url: /docs/cli
+      - link "Studio" [ref=e114] [cursor=pointer]:
+        - /url: /studio
+  - main [ref=e116]:
+    - generic [ref=e117]:
+      - generic [ref=e118]:
+        - generic [ref=e119]:
+          - heading "Checkout" [level=1] [ref=e121]
+          - paragraph [ref=e122]: A multi-step checkout flow with shipping address, payment method selection, and order review. Demonstrates composite loops inside conditionals, controlled RadioGroup/Select, and derived validation.
+        - generic [ref=e123]:
+          - heading "Link to Preview Preview" [level=2] [ref=e124]:
+            - link "Link to Preview" [ref=e125] [cursor=pointer]:
+              - /url: "#preview"
+            - text: Preview
+          - generic [ref=e127]:
+            - generic [ref=e130]
+            - generic [ref=e184]
+        - generic [ref=e282]:
+          - heading "Link to Features Features" [level=2] [ref=e283]:
+            - link "Link to Features" [ref=e284] [cursor=pointer]:
+              - /url: "#features"
+            - text: Features
+          - list [ref=e285]:
+            - listitem [ref=e286]
+            - listitem [ref=e288]
+            - listitem [ref=e290]
+            - listitem [ref=e292]
+            - listitem [ref=e294]
+            - listitem [ref=e296]
+            - listitem [ref=e298]
+            - listitem [ref=e300]
+      - navigation "Table of contents" [ref=e302]:
+        - generic [ref=e303]:
+          - paragraph [ref=e304]: On This Page
+          - list [ref=e307]:
+            - listitem [ref=e308]
+            - listitem [ref=e310]
+  - listbox:
+    - option "United States"
+    - option "Canada"
+    - option "United Kingdom"
+    - option "Germany"
+    - option "Japan"
+  - listbox:
+    - option "United States"
+    - option "Canada"
+    - option "United Kingdom"
+    - option "Germany"
+    - option "Japan"

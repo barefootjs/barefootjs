@@ -1,0 +1,312 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link [ref=e5] [cursor=pointer]:
+          - /url: http://localhost:3001/
+          - img [ref=e6]
+        - navigation [ref=e24]:
+          - link "Core" [ref=e25] [cursor=pointer]:
+            - /url: http://localhost:3001/docs/introduction
+          - link "UI" [ref=e26] [cursor=pointer]:
+            - /url: /
+            - text: UI
+      - generic [ref=e28]:
+        - button "Search... ⌘ K" [ref=e29]:
+          - img [ref=e30]
+          - generic [ref=e33]: Search...
+          - generic:
+            - generic: ⌘
+            - text: K
+        - link "View on GitHub" [ref=e34] [cursor=pointer]:
+          - /url: https://github.com/kfly8/barefootjs
+          - img [ref=e35]
+        - button "Switch to dark mode" [ref=e37]:
+          - img [ref=e38]
+  - generic:
+    - generic:
+      - generic:
+        - img
+        - textbox "Search pages..."
+        - generic: ESC
+      - generic:
+        - generic:
+          - generic: Get Started
+          - generic: Introduction
+        - generic:
+          - generic: Components
+          - generic: Accordion
+          - generic: Badge
+          - generic: Button
+          - generic: Card
+          - generic: Checkbox
+          - generic: Command
+          - generic: Dialog
+          - generic: Dropdown Menu
+          - generic: Input
+          - generic: Select
+          - generic: Switch
+          - generic: Table
+          - generic: Tabs
+          - generic: Toast
+          - generic: Tooltip
+        - generic:
+          - generic: Forms
+          - generic: Controlled Input
+          - generic: Field Arrays
+          - generic: Submit
+          - generic: Validation
+  - navigation "Main navigation" [ref=e40]:
+    - group [ref=e42]:
+      - generic "Docs" [ref=e43] [cursor=pointer]:
+        - generic [ref=e44]: Docs
+        - img [ref=e45]
+      - link "Introduction" [ref=e48] [cursor=pointer]:
+        - /url: /
+    - generic [ref=e50]: Components
+    - generic [ref=e51]:
+      - group [ref=e52]:
+        - generic "Input" [ref=e53] [cursor=pointer]:
+          - generic [ref=e54]: Input
+          - img [ref=e55]
+      - group [ref=e57]:
+        - generic "Display" [ref=e58] [cursor=pointer]:
+          - generic [ref=e59]: Display
+          - img [ref=e60]
+      - group [ref=e62]:
+        - generic "Feedback" [ref=e63] [cursor=pointer]:
+          - generic [ref=e64]: Feedback
+          - img [ref=e65]
+      - group [ref=e67]:
+        - generic "Navigation" [ref=e68] [cursor=pointer]:
+          - generic [ref=e69]: Navigation
+          - img [ref=e70]
+      - group [ref=e72]:
+        - generic "Layout" [ref=e73] [cursor=pointer]:
+          - generic [ref=e74]: Layout
+          - img [ref=e75]
+      - group [ref=e77]:
+        - generic "Charts" [ref=e78] [cursor=pointer]:
+          - generic [ref=e79]: Charts
+          - img [ref=e80]
+    - generic [ref=e83]: Patterns
+    - generic [ref=e84]:
+      - group [ref=e85]:
+        - generic "Forms" [ref=e86] [cursor=pointer]:
+          - generic [ref=e87]: Forms
+          - img [ref=e88]
+      - group [ref=e90]:
+        - generic "Blocks" [ref=e91] [cursor=pointer]:
+          - generic [ref=e92]: Blocks
+          - img [ref=e93]
+        - generic [ref=e95]:
+          - link "Dashboard" [ref=e96] [cursor=pointer]:
+            - /url: /components/dashboard
+          - link "Mail" [ref=e97] [cursor=pointer]:
+            - /url: /components/mail
+          - link "Kanban Board" [ref=e98] [cursor=pointer]:
+            - /url: /components/kanban
+          - link "Login" [ref=e99] [cursor=pointer]:
+            - /url: /components/login
+          - link "Settings" [ref=e100] [cursor=pointer]:
+            - /url: /components/settings
+          - link "Sidebar" [ref=e101] [cursor=pointer]:
+            - /url: /components/sidebar
+          - link "Chat" [ref=e102] [cursor=pointer]:
+            - /url: /components/chat
+          - link "Music Player" [ref=e103] [cursor=pointer]:
+            - /url: /components/music-player
+          - link "Multi-Step Form" [ref=e104] [cursor=pointer]:
+            - /url: /components/multi-step-form
+          - link "Tasks Table" [ref=e105] [cursor=pointer]:
+            - /url: /components/tasks-table
+          - link "Social Feed" [ref=e106] [cursor=pointer]:
+            - /url: /components/social-feed
+          - link "File Browser" [ref=e107] [cursor=pointer]:
+            - /url: /components/file-browser
+          - link "Cart" [ref=e108] [cursor=pointer]:
+            - /url: /components/cart
+          - link "Checkout" [ref=e109] [cursor=pointer]:
+            - /url: /components/checkout
+    - generic [ref=e111]: Tools
+    - generic [ref=e112]:
+      - link "CLI" [ref=e113] [cursor=pointer]:
+        - /url: /docs/cli
+      - link "Studio" [ref=e114] [cursor=pointer]:
+        - /url: /studio
+  - main [ref=e116]:
+    - generic [ref=e117]:
+      - generic [ref=e118]:
+        - generic [ref=e119]:
+          - heading "Checkout" [level=1] [ref=e121]
+          - paragraph [ref=e122]: A multi-step checkout flow with shipping address, payment method selection, and order review. Demonstrates composite loops inside conditionals, controlled RadioGroup/Select, and derived validation.
+        - generic [ref=e123]:
+          - heading "Link to Preview Preview" [level=2] [ref=e124]:
+            - link "Link to Preview" [ref=e125] [cursor=pointer]:
+              - /url: "#preview"
+              - text: "#"
+            - text: Preview
+          - generic [ref=e127]:
+            - generic [ref=e130]:
+              - generic [ref=e131]:
+                - generic [ref=e132]:
+                  - button "1" [ref=e133]
+                  - generic [ref=e134]: Shipping
+                - generic [ref=e135]:
+                  - button "2" [ref=e137]
+                  - generic [ref=e138]: Payment
+                - generic [ref=e139]:
+                  - button "3" [ref=e141]
+                  - generic [ref=e142]: Confirm
+              - generic [ref=e143]:
+                - heading "Shipping Information" [level=3] [ref=e144]
+                - generic [ref=e145]:
+                  - generic [ref=e146]:
+                    - generic [ref=e147]: Full Name
+                    - textbox "John Doe" [ref=e148]
+                  - generic [ref=e149]:
+                    - generic [ref=e150]: Email
+                    - textbox "john@example.com" [ref=e151]
+                - generic [ref=e152]:
+                  - generic [ref=e153]: Address
+                  - textbox "123 Main St" [ref=e154]
+                - generic [ref=e155]:
+                  - generic [ref=e156]:
+                    - generic [ref=e157]: City
+                    - textbox "New York" [ref=e158]
+                  - generic [ref=e159]:
+                    - generic [ref=e160]: ZIP Code
+                    - textbox "10001" [ref=e161]
+                  - generic [ref=e162]:
+                    - generic [ref=e163]: Country
+                    - combobox [ref=e164]:
+                      - option "Select..." [selected]
+                      - option "United States"
+                      - option "Canada"
+                      - option "United Kingdom"
+                      - option "Germany"
+                      - option "Japan"
+                - generic [ref=e165]:
+                  - generic [ref=e166]: Shipping Method
+                  - radiogroup [ref=e167]:
+                    - generic [ref=e168]:
+                      - radio [checked] [ref=e169]
+                      - generic [ref=e172]:
+                        - paragraph [ref=e173]: Standard
+                        - paragraph [ref=e174]: Free · 5-7 business days
+                    - generic [ref=e175]:
+                      - radio [ref=e176]
+                      - generic [ref=e177]:
+                        - paragraph [ref=e178]: Express
+                        - paragraph [ref=e179]: Free · 2-3 business days
+                - generic [ref=e180]:
+                  - button "Continue to Payment" [disabled]
+            - generic [ref=e181]:
+              - code [ref=e183]:
+                - generic [ref=e184]:
+                  - generic [ref=e185]: "1"
+                  - generic [ref=e187]: "\"use client\""
+                - generic [ref=e189]: "2"
+                - generic [ref=e191]:
+                  - generic [ref=e192]: "3"
+                  - generic [ref=e194]: "import { createSignal, createMemo } from '@barefootjs/dom'"
+                - generic [ref=e196]: "4"
+                - generic [ref=e198]:
+                  - generic [ref=e199]: "5"
+                  - generic [ref=e201]: "function Checkout() {"
+                - generic [ref=e202]:
+                  - generic [ref=e203]: "6"
+                  - generic [ref=e205]: const [step, setStep] = createSignal(1)
+                - generic [ref=e206]:
+                  - generic [ref=e207]: "7"
+                  - generic [ref=e209]: const [name, setName] = createSignal('')
+                - generic [ref=e210]:
+                  - generic [ref=e211]: "8"
+                  - generic [ref=e213]: const [paymentMethod, setPaymentMethod] = createSignal('credit-card')
+                - generic [ref=e215]: "9"
+                - generic [ref=e217]:
+                  - generic [ref=e218]: "10"
+                  - generic [ref=e220]: const shippingValid = createMemo(() => name().length > 0 && ...)
+                - generic [ref=e221]:
+                  - generic [ref=e222]: "11"
+                  - generic [ref=e224]: const total = createMemo(() => subtotal() + shippingCost() + tax())
+                - generic [ref=e226]: "12"
+                - generic [ref=e228]:
+                  - generic [ref=e229]: "13"
+                  - generic [ref=e231]: return (
+                - generic [ref=e232]:
+                  - generic [ref=e233]: "14"
+                  - generic [ref=e235]: <div>
+                - generic [ref=e236]:
+                  - generic [ref=e237]: "15"
+                  - generic [ref=e239]: "{step() === 1 ? ("
+                - generic [ref=e240]:
+                  - generic [ref=e241]: "16"
+                  - generic [ref=e243]: <ShippingForm />
+                - generic [ref=e244]:
+                  - generic [ref=e245]: "17"
+                  - generic [ref=e247]: ") : step() === 2 ? ("
+                - generic [ref=e248]:
+                  - generic [ref=e249]: "18"
+                  - generic [ref=e251]: <PaymentForm />
+                - generic [ref=e252]:
+                  - generic [ref=e253]: "19"
+                  - generic [ref=e255]: ") : ("
+                - generic [ref=e256]:
+                  - generic [ref=e257]: "20"
+                  - generic [ref=e259]: "<ReviewOrder items={items()} total={total()} />"
+                - generic [ref=e260]:
+                  - generic [ref=e261]: "21"
+                  - generic [ref=e263]: ")}"
+                - generic [ref=e264]:
+                  - generic [ref=e265]: "22"
+                  - generic [ref=e267]: </div>
+                - generic [ref=e268]:
+                  - generic [ref=e269]: "23"
+                  - generic [ref=e271]: )
+                - generic [ref=e272]:
+                  - generic [ref=e273]: "24"
+                  - generic [ref=e275]: "}"
+              - button "Copy code" [ref=e276]:
+                - img [ref=e277]
+        - generic [ref=e279]:
+          - heading "Link to Features Features" [level=2] [ref=e280]:
+            - link "Link to Features" [ref=e281] [cursor=pointer]:
+              - /url: "#features"
+              - text: "#"
+            - text: Features
+          - list [ref=e282]:
+            - listitem [ref=e283]:
+              - strong [ref=e284]: "Multi-step flow:"
+              - text: 3-step wizard (Shipping → Payment → Review) via nested ternary
+            - listitem [ref=e285]:
+              - strong [ref=e286]: "Form validation:"
+              - text: Per-step validation memos disable the Continue button until all fields are valid
+            - listitem [ref=e287]:
+              - strong [ref=e288]: "Controlled Select:"
+              - text: Country picker with signal binding
+            - listitem [ref=e289]:
+              - strong [ref=e290]: "Controlled RadioGroup:"
+              - text: Shipping method and payment method selection
+            - listitem [ref=e291]:
+              - strong [ref=e292]: "Conditional card form:"
+              - text: Credit card fields appear/hide based on payment method
+            - listitem [ref=e293]:
+              - strong [ref=e294]: "Composite loop in conditional:"
+              - text: Order items with Badge components inside the review step (#724)
+            - listitem [ref=e295]:
+              - strong [ref=e296]: "Derived pricing chain:"
+              - text: subtotal → shipping → tax → total via chained createMemo
+            - listitem [ref=e297]:
+              - strong [ref=e298]: "Cross-step state:"
+              - text: Form data persists when navigating between steps
+      - navigation "Table of contents" [ref=e299]:
+        - generic [ref=e300]:
+          - paragraph [ref=e301]: On This Page
+          - list [ref=e304]:
+            - listitem [ref=e305]:
+              - link "Preview" [ref=e306] [cursor=pointer]:
+                - /url: "#preview"
+            - listitem [ref=e307]:
+              - link "Features" [ref=e308] [cursor=pointer]:
+                - /url: "#features"

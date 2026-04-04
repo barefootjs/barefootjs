@@ -1,0 +1,476 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link [ref=e5] [cursor=pointer]:
+          - /url: http://localhost:3001/
+          - img [ref=e6]
+        - navigation [ref=e24]:
+          - link "Core" [ref=e25] [cursor=pointer]:
+            - /url: http://localhost:3001/docs/introduction
+          - link "UI" [ref=e26] [cursor=pointer]:
+            - /url: /
+            - text: UI
+      - generic [ref=e28]:
+        - button "Search... ⌘ K" [ref=e29]:
+          - img [ref=e30]
+          - generic [ref=e33]: Search...
+          - generic:
+            - generic: ⌘
+            - text: K
+        - link "View on GitHub" [ref=e34] [cursor=pointer]:
+          - /url: https://github.com/kfly8/barefootjs
+          - img [ref=e35]
+        - button "Switch to dark mode" [ref=e37]:
+          - img [ref=e38]
+  - generic:
+    - generic:
+      - generic:
+        - img
+        - textbox "Search pages..."
+        - generic: ESC
+      - generic:
+        - generic:
+          - generic: Get Started
+          - generic: Introduction
+        - generic:
+          - generic: Components
+          - generic: Accordion
+          - generic: Badge
+          - generic: Button
+          - generic: Card
+          - generic: Checkbox
+          - generic: Command
+          - generic: Dialog
+          - generic: Dropdown Menu
+          - generic: Input
+          - generic: Select
+          - generic: Switch
+          - generic: Table
+          - generic: Tabs
+          - generic: Toast
+          - generic: Tooltip
+        - generic:
+          - generic: Forms
+          - generic: Controlled Input
+          - generic: Field Arrays
+          - generic: Submit
+          - generic: Validation
+  - navigation "Main navigation" [ref=e40]:
+    - group [ref=e42]:
+      - generic "Docs" [ref=e43] [cursor=pointer]:
+        - generic [ref=e44]: Docs
+        - img [ref=e45]
+      - link "Introduction" [ref=e48] [cursor=pointer]:
+        - /url: /
+    - generic [ref=e50]: Components
+    - generic [ref=e51]:
+      - group [ref=e52]:
+        - generic "Input" [ref=e53] [cursor=pointer]:
+          - generic [ref=e54]: Input
+          - img [ref=e55]
+      - group [ref=e57]:
+        - generic "Display" [ref=e58] [cursor=pointer]:
+          - generic [ref=e59]: Display
+          - img [ref=e60]
+      - group [ref=e62]:
+        - generic "Feedback" [ref=e63] [cursor=pointer]:
+          - generic [ref=e64]: Feedback
+          - img [ref=e65]
+      - group [ref=e67]:
+        - generic "Navigation" [ref=e68] [cursor=pointer]:
+          - generic [ref=e69]: Navigation
+          - img [ref=e70]
+      - group [ref=e72]:
+        - generic "Layout" [ref=e73] [cursor=pointer]:
+          - generic [ref=e74]: Layout
+          - img [ref=e75]
+      - group [ref=e77]:
+        - generic "Charts" [ref=e78] [cursor=pointer]:
+          - generic [ref=e79]: Charts
+          - img [ref=e80]
+    - generic [ref=e83]: Patterns
+    - generic [ref=e84]:
+      - group [ref=e85]:
+        - generic "Forms" [ref=e86] [cursor=pointer]:
+          - generic [ref=e87]: Forms
+          - img [ref=e88]
+      - group [ref=e90]:
+        - generic "Blocks" [ref=e91] [cursor=pointer]:
+          - generic [ref=e92]: Blocks
+          - img [ref=e93]
+        - generic [ref=e95]:
+          - link "Dashboard" [ref=e96] [cursor=pointer]:
+            - /url: /components/dashboard
+          - link "Mail" [ref=e97] [cursor=pointer]:
+            - /url: /components/mail
+          - link "Kanban Board" [ref=e98] [cursor=pointer]:
+            - /url: /components/kanban
+          - link "Login" [ref=e99] [cursor=pointer]:
+            - /url: /components/login
+          - link "Settings" [ref=e100] [cursor=pointer]:
+            - /url: /components/settings
+          - link "Sidebar" [ref=e101] [cursor=pointer]:
+            - /url: /components/sidebar
+          - link "Chat" [ref=e102] [cursor=pointer]:
+            - /url: /components/chat
+          - link "Music Player" [ref=e103] [cursor=pointer]:
+            - /url: /components/music-player
+          - link "Multi-Step Form" [ref=e104] [cursor=pointer]:
+            - /url: /components/multi-step-form
+          - link "Tasks Table" [ref=e105] [cursor=pointer]:
+            - /url: /components/tasks-table
+          - link "Social Feed" [ref=e106] [cursor=pointer]:
+            - /url: /components/social-feed
+          - link "File Browser" [ref=e107] [cursor=pointer]:
+            - /url: /components/file-browser
+          - link "Cart" [ref=e108] [cursor=pointer]:
+            - /url: /components/cart
+          - link "Checkout" [ref=e109] [cursor=pointer]:
+            - /url: /components/checkout
+          - link "Comments" [ref=e110] [cursor=pointer]:
+            - /url: /components/comments
+    - generic [ref=e112]: Tools
+    - generic [ref=e113]:
+      - link "CLI" [ref=e114] [cursor=pointer]:
+        - /url: /docs/cli
+      - link "Studio" [ref=e115] [cursor=pointer]:
+        - /url: /studio
+  - main [ref=e117]:
+    - generic [ref=e118]:
+      - generic [ref=e119]:
+        - generic [ref=e120]:
+          - heading "Comments" [level=1] [ref=e122]
+          - paragraph [ref=e123]: A comment thread with inline editing, sorting, nested replies, and emoji reactions. Exercises conditional swap in loops, full-list reconciliation on sort change, and multi-level event handling.
+        - generic [ref=e124]:
+          - heading "Link to Preview Preview" [level=2] [ref=e125]:
+            - link "Link to Preview" [ref=e126] [cursor=pointer]:
+              - /url: "#preview"
+              - text: "#"
+            - text: Preview
+          - generic [ref=e128]:
+            - generic [ref=e131]:
+              - generic [ref=e132]:
+                - generic [ref=e133]:
+                  - generic [ref=e134]: "4"
+                  - text: comments
+                - generic [ref=e135]:
+                  - generic [ref=e136]: "6"
+                  - text: replies
+                - generic [ref=e137]:
+                  - generic [ref=e138]: "52"
+                  - text: reactions
+              - generic [ref=e139]:
+                - generic [ref=e140]:
+                  - generic [ref=e142]: ME
+                  - textbox "Write a comment..." [ref=e143]
+                - generic [ref=e144]:
+                  - button "Post Comment" [disabled]
+              - generic [ref=e145]:
+                - generic [ref=e146]: "Sort by:"
+                - button "Newest" [ref=e147]
+                - button "Oldest" [ref=e148]
+                - button "Popular" [ref=e149]
+              - generic [ref=e150]:
+                - generic [ref=e152]:
+                  - generic [ref=e154]: AC
+                  - generic [ref=e155]:
+                    - generic [ref=e156]:
+                      - generic [ref=e157]:
+                        - generic [ref=e158]: Alice Chen
+                        - generic [ref=e159]: 2h ago
+                      - generic [ref=e160]:
+                        - button "Delete" [ref=e524]
+                        - button [ref=e525]
+                    - paragraph [ref=e163]: The new signal-based reactivity model is much cleaner than the previous approach. Fine-grained updates make a huge difference for performance.
+                    - generic [ref=e164]:
+                      - button "👍12" [ref=e165]
+                      - button "❤️3" [ref=e166]
+                      - generic [ref=e167]:
+                        - button "👍" [ref=e168]
+                        - button "❤️" [ref=e169]
+                        - button "😂" [ref=e170]
+                        - button "🎉" [ref=e171]
+                        - button "🤔" [ref=e172]
+                - button "Hide replies (2)" [ref=e174]
+                - generic [ref=e175]:
+                  - generic [ref=e176]:
+                    - generic [ref=e177]: Save
+                    - generic [ref=e180]:
+                      - generic [ref=e181]:
+                        - generic [ref=e182]:
+                          - generic [ref=e183]: Bob Park
+                          - generic [ref=e184]: 1h ago
+                        - button "Delete" [ref=e185]
+                      - paragraph [ref=e186]: Agreed! The createMemo pattern especially feels natural.
+                  - generic [ref=e187]:
+                    - generic [ref=e188]: BP
+                    - generic [ref=e191]:
+                      - generic [ref=e192]:
+                        - generic [ref=e193]:
+                          - generic [ref=e194]: Carol Liu
+                          - generic [ref=e195]: 45m ago
+                        - button "Delete" [ref=e196]
+                      - paragraph [ref=e197]: How does it compare to SolidJS signals?
+                  - generic [ref=e198]:
+                    - generic [ref=e199]: CL
+                    - textbox "Write a reply..." [ref=e201]
+              - generic [ref=e526]:
+                - generic [ref=e528]:
+                  - generic [ref=e530]: DK
+                  - generic [ref=e531]:
+                    - generic [ref=e532]:
+                      - generic [ref=e533]:
+                        - generic [ref=e534]: Dave Kim
+                        - generic [ref=e535]: 5h ago
+                      - generic [ref=e536]:
+                        - button "Edit" [ref=e537]
+                        - button "Delete" [ref=e538]
+                    - paragraph [ref=e539]: Found an edge case with nested loops inside conditionals — the reconciler loses track of elements when the parent branch toggles. Filing an issue now.
+                    - generic [ref=e540]:
+                      - button "🤔5" [ref=e541]
+                      - button "👍2" [ref=e542]
+                      - generic [ref=e543]:
+                        - button "👍" [ref=e544]
+                        - button "❤️" [ref=e545]
+                        - button "😂" [ref=e546]
+                        - button "🎉" [ref=e547]
+                        - button "🤔" [ref=e548]
+                - button "Show replies (1)" [ref=e550]
+              - generic [ref=e551]:
+                - generic [ref=e553]:
+                  - generic [ref=e555]: EZ
+                  - generic [ref=e556]:
+                    - generic [ref=e557]:
+                      - generic [ref=e558]:
+                        - generic [ref=e559]: Eve Zhang
+                        - generic [ref=e560]: 1d ago
+                      - generic [ref=e561]:
+                        - button "Edit" [ref=e562]
+                        - button "Delete" [ref=e563]
+                    - paragraph [ref=e564]: Just shipped a PR using the new composite loop pattern. The template generation handles child components correctly now after the latest fix.
+                    - generic [ref=e565]:
+                      - button "🎉8" [ref=e566]
+                      - button "👍15" [ref=e567]
+                      - button "❤️6" [ref=e568]
+                      - generic [ref=e569]:
+                        - button "👍" [ref=e570]
+                        - button "❤️" [ref=e571]
+                        - button "😂" [ref=e572]
+                        - button "🎉" [ref=e573]
+                        - button "🤔" [ref=e574]
+                - button "Show replies (0)" [ref=e576]
+              - generic [ref=e577]:
+                - generic [ref=e579]:
+                  - generic [ref=e581]: FL
+                  - generic [ref=e582]:
+                    - generic [ref=e583]:
+                      - generic [ref=e584]:
+                        - generic [ref=e585]: Frank Lee
+                        - generic [ref=e586]: 3d ago
+                      - generic [ref=e587]:
+                        - button "Edit" [ref=e588]
+                        - button "Delete" [ref=e589]
+                    - paragraph [ref=e590]: "Quick question: does createEffect automatically track all signal reads inside it, or do we need to explicitly declare dependencies?"
+                    - generic [ref=e591]:
+                      - button "👍1" [ref=e592]
+                      - generic [ref=e593]:
+                        - button "👍" [ref=e594]
+                        - button "❤️" [ref=e595]
+                        - button "😂" [ref=e596]
+                        - button "🎉" [ref=e597]
+                        - button "🤔" [ref=e598]
+                - button "Show replies (3)" [ref=e600]
+            - generic [ref=e277]:
+              - code [ref=e279]:
+                - generic [ref=e280]:
+                  - generic [ref=e281]: "1"
+                  - generic [ref=e283]: "\"use client\""
+                - generic [ref=e285]: "2"
+                - generic [ref=e287]:
+                  - generic [ref=e288]: "3"
+                  - generic [ref=e290]: "import { createSignal, createMemo } from '@barefootjs/dom'"
+                - generic [ref=e291]:
+                  - generic [ref=e292]: "4"
+                  - generic [ref=e294]: "import { Button } from '@/components/ui/button'"
+                - generic [ref=e295]:
+                  - generic [ref=e296]: "5"
+                  - generic [ref=e298]: "import { Textarea } from '@/components/ui/textarea'"
+                - generic [ref=e300]: "6"
+                - generic [ref=e302]:
+                  - generic [ref=e303]: "7"
+                  - generic [ref=e305]: "function Comments() {"
+                - generic [ref=e306]:
+                  - generic [ref=e307]: "8"
+                  - generic [ref=e309]: const [comments, setComments] = createSignal([...])
+                - generic [ref=e310]:
+                  - generic [ref=e311]: "9"
+                  - generic [ref=e313]: const [sortMode, setSortMode] = createSignal('newest')
+                - generic [ref=e315]: "10"
+                - generic [ref=e317]:
+                  - generic [ref=e318]: "11"
+                  - generic [ref=e320]: "// Memo chain: sorted view + derived stats"
+                - generic [ref=e321]:
+                  - generic [ref=e322]: "12"
+                  - generic [ref=e324]: "const sortedComments = createMemo(() => {"
+                - generic [ref=e325]:
+                  - generic [ref=e326]: "13"
+                  - generic [ref=e328]: const items = [...comments()]
+                - generic [ref=e329]:
+                  - generic [ref=e330]: "14"
+                  - generic [ref=e332]: if (sortMode() === 'newest') return items.sort(...)
+                - generic [ref=e333]:
+                  - generic [ref=e334]: "15"
+                  - generic [ref=e336]: return items.sort(...)
+                - generic [ref=e337]:
+                  - generic [ref=e338]: "16"
+                  - generic [ref=e340]: "})"
+                - generic [ref=e341]:
+                  - generic [ref=e342]: "17"
+                  - generic [ref=e344]: const totalReactions = createMemo(() =>
+                - generic [ref=e345]:
+                  - generic [ref=e346]: "18"
+                  - generic [ref=e348]: comments().reduce((sum, c) => sum + c.reactions.length, 0)
+                - generic [ref=e349]:
+                  - generic [ref=e350]: "19"
+                  - generic [ref=e352]: )
+                - generic [ref=e354]: "20"
+                - generic [ref=e356]:
+                  - generic [ref=e357]: "21"
+                  - generic [ref=e359]: return (
+                - generic [ref=e360]:
+                  - generic [ref=e361]: "22"
+                  - generic [ref=e363]: <div>
+                - generic [ref=e364]:
+                  - generic [ref=e365]: "23"
+                  - generic [ref=e367]: "{/* Sort controls — full list reconciliation */}"
+                - generic [ref=e368]:
+                  - generic [ref=e369]: "24"
+                  - generic [ref=e371]: <div>
+                - generic [ref=e372]:
+                  - generic [ref=e373]: "25"
+                  - generic [ref=e375]: "<Button onClick={() => setSortMode('newest')}>Newest</Button>"
+                - generic [ref=e376]:
+                  - generic [ref=e377]: "26"
+                  - generic [ref=e379]: "<Button onClick={() => setSortMode('popular')}>Popular</Button>"
+                - generic [ref=e380]:
+                  - generic [ref=e381]: "27"
+                  - generic [ref=e383]: </div>
+                - generic [ref=e385]: "28"
+                - generic [ref=e387]:
+                  - generic [ref=e388]: "29"
+                  - generic [ref=e390]: "{sortedComments().map(comment => ("
+                - generic [ref=e391]:
+                  - generic [ref=e392]: "30"
+                  - generic [ref=e394]: "<div key={comment.id}>"
+                - generic [ref=e395]:
+                  - generic [ref=e396]: "31"
+                  - generic [ref=e398]: "{/* Conditional swap: edit mode vs view mode */}"
+                - generic [ref=e399]:
+                  - generic [ref=e400]: "32"
+                  - generic [ref=e402]: "{comment.editing ? ("
+                - generic [ref=e403]:
+                  - generic [ref=e404]: "33"
+                  - generic [ref=e406]: "<Textarea value={comment.text} />"
+                - generic [ref=e407]:
+                  - generic [ref=e408]: "34"
+                  - generic [ref=e410]: ") : ("
+                - generic [ref=e411]:
+                  - generic [ref=e412]: "35"
+                  - generic [ref=e414]: "<p>{comment.text}</p>"
+                - generic [ref=e415]:
+                  - generic [ref=e416]: "36"
+                  - generic [ref=e418]: ")}"
+                - generic [ref=e420]: "37"
+                - generic [ref=e422]:
+                  - generic [ref=e423]: "38"
+                  - generic [ref=e425]: "{/* Reactions — nested loop with toggle */}"
+                - generic [ref=e426]:
+                  - generic [ref=e427]: "39"
+                  - generic [ref=e429]: "{comment.reactions.map(r => ("
+                - generic [ref=e430]:
+                  - generic [ref=e431]: "40"
+                  - generic [ref=e433]: "<button key={r.emoji}>{r.emoji} {r.count}</button>"
+                - generic [ref=e434]:
+                  - generic [ref=e435]: "41"
+                  - generic [ref=e437]: "))}"
+                - generic [ref=e439]: "42"
+                - generic [ref=e441]:
+                  - generic [ref=e442]: "43"
+                  - generic [ref=e444]: "{/* Replies — conditional section with loop */}"
+                - generic [ref=e445]:
+                  - generic [ref=e446]: "44"
+                  - generic [ref=e448]: "{comment.showReplies ? ("
+                - generic [ref=e449]:
+                  - generic [ref=e450]: "45"
+                  - generic [ref=e452]: <div>
+                - generic [ref=e453]:
+                  - generic [ref=e454]: "46"
+                  - generic [ref=e456]: "{comment.replies.map(reply => ("
+                - generic [ref=e457]:
+                  - generic [ref=e458]: "47"
+                  - generic [ref=e460]: "<div key={reply.id}>{reply.text}</div>"
+                - generic [ref=e461]:
+                  - generic [ref=e462]: "48"
+                  - generic [ref=e464]: "))}"
+                - generic [ref=e465]:
+                  - generic [ref=e466]: "49"
+                  - generic [ref=e468]: </div>
+                - generic [ref=e469]:
+                  - generic [ref=e470]: "50"
+                  - generic [ref=e472]: ") : null}"
+                - generic [ref=e473]:
+                  - generic [ref=e474]: "51"
+                  - generic [ref=e476]: </div>
+                - generic [ref=e477]:
+                  - generic [ref=e478]: "52"
+                  - generic [ref=e480]: "))}"
+                - generic [ref=e481]:
+                  - generic [ref=e482]: "53"
+                  - generic [ref=e484]: </div>
+                - generic [ref=e485]:
+                  - generic [ref=e486]: "54"
+                  - generic [ref=e488]: )
+                - generic [ref=e489]:
+                  - generic [ref=e490]: "55"
+                  - generic [ref=e492]: "}"
+              - button "Copy code" [ref=e493]:
+                - img [ref=e494]
+        - generic [ref=e496]:
+          - heading "Link to Features Features" [level=2] [ref=e497]:
+            - link "Link to Features" [ref=e498] [cursor=pointer]:
+              - /url: "#features"
+              - text: "#"
+            - text: Features
+          - list [ref=e499]:
+            - listitem [ref=e500]:
+              - strong [ref=e501]: "Inline editing:"
+              - text: Conditional swap (view → textarea) inside a loop item, testing conditional-in-loop reconciliation
+            - listitem [ref=e502]:
+              - strong [ref=e503]: "Sort toggle:"
+              - text: Newest / Oldest / Popular re-orders the entire list, triggering full reconciliation with key-based diffing
+            - listitem [ref=e504]:
+              - strong [ref=e505]: "Reactions:"
+              - text: Per-comment emoji reactions with toggle — nested loop of reaction badges, dynamic add/remove
+            - listitem [ref=e506]:
+              - strong [ref=e507]: "Nested replies:"
+              - text: Expandable reply thread per comment (conditional section with inner loop)
+            - listitem [ref=e508]:
+              - strong [ref=e509]: "Delete at every level:"
+              - text: Remove comments and replies, exercising loop item removal reconciliation
+            - listitem [ref=e510]:
+              - strong [ref=e511]: "Derived stats:"
+              - text: Total comments, replies, and reactions via createMemo chain
+            - listitem [ref=e512]:
+              - strong [ref=e513]: "Empty state:"
+              - text: Conditional rendering when all comments are deleted
+      - navigation "Table of contents" [ref=e514]:
+        - generic [ref=e515]:
+          - paragraph [ref=e516]: On This Page
+          - list [ref=e519]:
+            - listitem [ref=e520]:
+              - link "Preview" [ref=e521] [cursor=pointer]:
+                - /url: "#preview"
+            - listitem [ref=e522]:
+              - link "Features" [ref=e523] [cursor=pointer]:
+                - /url: "#features"

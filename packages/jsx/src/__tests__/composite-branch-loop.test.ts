@@ -53,13 +53,10 @@ describe('composite loops inside conditional branches (#724)', () => {
     const js = clientJs!.content
 
     // Should use reconcileElements inside the branch's bindEvents
-    expect(js).toContain('reconcileElements(')
+    expect(js).toContain('mapArray(')
 
     // Should use createComponent for Button inside renderItem (CSR path)
     expect(js).toContain("createComponent('Button'")
-
-    // Should use createDisposableEffect for branch-scoped disposal
-    expect(js).toContain('createDisposableEffect(')
 
     // Should use placeholder template (data-bf-ph) instead of inline renderChild
     expect(js).toContain('data-bf-ph')
@@ -94,9 +91,8 @@ describe('composite loops inside conditional branches (#724)', () => {
     expect(clientJs).toBeDefined()
     const js = clientJs!.content
 
-    // Should still use reconcileElements for simple loop
-    expect(js).toContain('reconcileElements(')
-    expect(js).toContain('createDisposableEffect(')
+    // Should use mapArray for per-item reactivity
+    expect(js).toContain('mapArray(')
 
     // Should NOT use createComponent (no child components)
     expect(js).not.toContain('createComponent(')

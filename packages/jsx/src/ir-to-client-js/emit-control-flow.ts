@@ -97,20 +97,18 @@ function emitBranchBindings(
         // skip hydration, leaving components uninitialized.
         emitCompositeBranchLoop(lines, loop, cv)
       } else {
-        // Simple loop: rename SSR data-key-1 → data-key for reconcileElements compatibility.
+        // Simple loop: rename SSR data-key-1 → data-key for mapArray compatibility.
         // Safe for simple loops (no child components to initialize).
         lines.push(`      if (__loop_${cv}) getLoopChildren(__loop_${cv}).forEach(__el => { if (__el.hasAttribute('${DATA_KEY_PREFIX}1') && !__el.hasAttribute('${DATA_KEY}')) { __el.setAttribute('${DATA_KEY}', __el.getAttribute('${DATA_KEY_PREFIX}1')); __el.removeAttribute('${DATA_KEY_PREFIX}1') } })`)
         const keyFn = loop.key
           ? `(${loop.param}${loop.index ? `, ${loop.index}` : ''}) => String(${loop.key})`
           : 'null'
         const indexParam = loop.index || '__idx'
-        lines.push(`      if (__loop_${cv}) __disposers.push(createDisposableEffect(() => {`)
         if (loop.mapPreamble) {
-          lines.push(`        reconcileElements(__loop_${cv}, ${loop.array}, ${keyFn}, (${loop.param}, ${indexParam}) => { ${loop.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+          lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}) => { ${loop.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
         } else {
-          lines.push(`        reconcileElements(__loop_${cv}, ${loop.array}, ${keyFn}, (${loop.param}, ${indexParam}) => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+          lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}) => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
         }
-        lines.push(`      }))`)
       }
     }
 
@@ -188,20 +186,12 @@ function emitCompositeBranchLoop(
     : 'null'
 
   // Wrap everything in a disposable effect for branch cleanup
-  lines.push(`      if (__loop_${cv}) __disposers.push(createDisposableEffect(() => {`)
-  lines.push(`        const __arr = ${loop.array}`)
-  lines.push(`        const __renderItem = (${loop.param}, ${indexParam}) => {`)
-  emitCompositeRenderItemBody(lines, '          ', ctx)
-  lines.push(`        }`)
-
-  // Clear template-generated children so reconcileElements creates fresh elements
+  // Clear template-generated children so mapArray creates fresh elements
   // with properly initialized components via createComponent in renderItem.
-  // Unlike top-level composite loops (which need SSR hydration on initial load),
-  // branch loops always start with template-generated content that lacks
-  // initialized components — reconcileElements must rebuild them.
-  lines.push(`        getLoopChildren(__loop_${cv}).forEach(__el => __el.remove())`)
-  lines.push(`        reconcileElements(__loop_${cv}, __arr, ${keyFn}, __renderItem)`)
-  lines.push(`      }))`)
+  lines.push(`      if (__loop_${cv}) getLoopChildren(__loop_${cv}).forEach(__el => __el.remove())`)
+  lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}) => {`)
+  emitCompositeRenderItemBody(lines, '        ', ctx)
+  lines.push(`      })`)
 }
 
 /** Emit insert() calls for server-rendered reactive conditionals with branch configs. */
@@ -372,7 +362,7 @@ function buildComponentPropsExpr(
   return entries.length > 0 ? `{ ${entries.join(', ')} }` : '{}'
 }
 
-/** Emit reconcileElements for a loop whose body is a single child component. */
+/** Emit mapArray for a loop whose body is a single child component. */
 function emitComponentLoopReconciliation(lines: string[], elem: LoopElement, keyFn: string): void {
   const { name } = elem.childComponent!
   const vLoop = varSlotId(elem.slotId)
@@ -381,11 +371,9 @@ function emitComponentLoopReconciliation(lines: string[], elem: LoopElement, key
   const indexParam = elem.index || '__idx'
   const chainedExpr = buildChainedArrayExpr(elem)
 
-  lines.push(`  createEffect(() => {`)
-  lines.push(`    reconcileElements(_${vLoop}, ${chainedExpr}, ${keyFn}, (${elem.param}, ${indexParam}) =>`)
-  lines.push(`      createComponent('${name}', ${propsExpr}, ${keyExpr})`)
-  lines.push(`    )`)
-  lines.push(`  })`)
+  lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}) =>`)
+  lines.push(`    createComponent('${name}', ${propsExpr}, ${keyExpr})`)
+  lines.push(`  )`)
 }
 
 /**
@@ -420,22 +408,17 @@ function emitHydrationTagging(
   lines.push(`    }`)
 }
 
-/** Emit reconcileElements for a plain element loop with hydration support. */
+/** Emit mapArray for a plain element loop with hydration support. */
 function emitPlainElementLoopReconciliation(lines: string[], elem: LoopElement, keyFn: string): void {
   const vLoop = varSlotId(elem.slotId)
   const chainedExpr = buildChainedArrayExpr(elem)
   const indexParam = elem.index || '__idx'
 
-  lines.push(`  createEffect(() => {`)
-  lines.push(`    const __arr = ${chainedExpr}`)
   if (elem.mapPreamble) {
-    lines.push(`    const __renderItem = (${elem.param}, ${indexParam}) => { ${elem.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) }`)
+    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}) => { ${elem.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
   } else {
-    lines.push(`    const __renderItem = (${elem.param}, ${indexParam}) => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) }`)
+    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}) => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
   }
-  emitHydrationTagging(lines, elem, vLoop, indexParam)
-  lines.push(`    reconcileElements(_${vLoop}, __arr, ${keyFn}, __renderItem)`)
-  lines.push(`  })`)
 }
 
 /** Emit event delegation for dynamic (non-static) loop child events. */
@@ -687,17 +670,11 @@ function emitCompositeElementReconciliation(
     depthLevels,
   }
 
-  lines.push(`  createEffect(() => {`)
-  lines.push(`    const __arr = ${chainedExpr}`)
-  lines.push(`    const __renderItem = (${elem.param}, ${indexParam}) => {`)
-  emitCompositeRenderItemBody(lines, '      ', ctx)
-  lines.push(`    }`)
-  lines.push('')
-  emitHydrationTagging(lines, elem, vLoop, indexParam, (ls) => {
-    emitCompositeHydrationSetup(ls, ctx)
-  })
-  lines.push('')
-  lines.push(`    reconcileElements(_${vLoop}, __arr, ${keyFn}, __renderItem)`)
+  lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}) => {`)
+  emitCompositeRenderItemBody(lines, '    ', ctx)
+  lines.push(`  }, (__hChild, ${elem.param}, ${indexParam}) => {`)
+  // onHydrate callback: initialize components and events on SSR-rendered elements
+  emitCompositeHydrationSetup(lines, ctx)
   lines.push(`  })`)
 }
 
