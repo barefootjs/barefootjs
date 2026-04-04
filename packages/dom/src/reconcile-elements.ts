@@ -93,6 +93,9 @@ export function ensureLoopMarkers(container: HTMLElement, itemCount: number): vo
  * @param renderItem - Function that returns an HTMLElement for each item
  * @param firstElement - Pre-created element for first item (avoids duplicate creation when caller already rendered item 0)
  */
+// Track previous items array per container to skip reconciliation when unchanged.
+const prevItemsMap = new WeakMap<HTMLElement, unknown[]>()
+
 export function reconcileElements<T>(
   container: HTMLElement | null,
   items: T[],
@@ -101,6 +104,13 @@ export function reconcileElements<T>(
   firstElement?: HTMLElement
 ): void {
   if (!container || !items) return
+
+  // Fast path: if the items array reference is identical to the previous call,
+  // the list data hasn't changed — skip all DOM work. This prevents unnecessary
+  // reconciliation when unrelated signals (e.g., editText inside a loop body)
+  // trigger the parent effect but the memo-cached array stays the same.
+  if (prevItemsMap.get(container) === items) return
+  prevItemsMap.set(container, items)
 
   // Find loop boundary markers if present.
   // When markers exist, only elements between <!--bf-loop--> and <!--/bf-loop-->
@@ -189,6 +199,7 @@ export function reconcileElements<T>(
   // Track old elements to remove explicitly — no bulk remove-all.
   const desiredElements: HTMLElement[] = []
   const toRemove: Element[] = []
+  let focusTarget: FocusTransferInfo | null = null
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
@@ -207,11 +218,11 @@ export function reconcileElements<T>(
         toRemove.push(existing)
       } else if (focusedKey === key) {
         // Element contains a focused text input. Create the new element (with
-        // updated inner loops, conditionals, etc.), then transplant the focused
-        // input from the old element so focus and user state are preserved.
+        // updated inner loops, conditionals, etc.), copy input state now,
+        // defer focus() to after DOM insertion to avoid flicker.
         const newEl = createEl()
         if (!newEl.dataset.key) newEl.setAttribute(BF_KEY, key)
-        transferInputFocus(existing, newEl)
+        focusTarget = prepareInputTransfer(existing, newEl)
         desiredElements.push(newEl)
         toRemove.push(existing)
       } else {
@@ -244,37 +255,47 @@ export function reconcileElements<T>(
   for (const el of desiredElements) {
     container.insertBefore(el, insertAnchor)
   }
+
+  // --- Phase 5: Restore focus synchronously (element is now in DOM) ---
+  if (focusTarget) {
+    focusTarget.target.focus()
+    if (typeof focusTarget.selectionStart === 'number') {
+      focusTarget.target.selectionStart = focusTarget.selectionStart
+      focusTarget.target.selectionEnd = focusTarget.selectionEnd
+    }
+  }
+}
+
+interface FocusTransferInfo {
+  target: HTMLInputElement
+  selectionStart: number | null
+  selectionEnd: number | null
 }
 
 /**
- * Transfer focus and user input state from the old element's focused input
- * to the corresponding input in the new element.
- * Copies value and selection position, then re-focuses after DOM insertion.
- * Does NOT transplant DOM nodes — the new element keeps its own event handlers.
+ * Prepare focus transfer: copy value + selection state from old focused input
+ * to the matching input in newEl. Returns info needed to call focus() later
+ * (after the new element is inserted into the DOM).
  */
-function transferInputFocus(oldEl: HTMLElement, newEl: HTMLElement): void {
+function prepareInputTransfer(oldEl: HTMLElement, newEl: HTMLElement): FocusTransferInfo | null {
   const focused = oldEl.contains(document.activeElement) ? document.activeElement as HTMLInputElement : null
-  if (!focused) return
+  if (!focused) return null
 
   const tag = focused.tagName
   const oldInputs = Array.from(oldEl.querySelectorAll(tag))
   const idx = oldInputs.indexOf(focused)
-  if (idx < 0) return
+  if (idx < 0) return null
 
   const newInputs = Array.from(newEl.querySelectorAll(tag)) as HTMLInputElement[]
   const target = newInputs[idx]
-  if (!target) return
+  if (!target) return null
 
-  // Copy user's in-progress input state
   target.value = focused.value
-  // Schedule focus after DOM insertion (before next paint, no flicker)
-  queueMicrotask(() => {
-    target.focus()
-    if (typeof focused.selectionStart === 'number') {
-      target.selectionStart = focused.selectionStart
-      target.selectionEnd = focused.selectionEnd
-    }
-  })
+  return {
+    target,
+    selectionStart: focused.selectionStart,
+    selectionEnd: focused.selectionEnd,
+  }
 }
 
 /**
