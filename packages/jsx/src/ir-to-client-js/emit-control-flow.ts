@@ -255,12 +255,35 @@ export function emitLoopUpdates(lines: string[], ctx: ClientJsContext): void {
  * independently when the signal it reads changes.
  * Used by both plain element and composite element dynamic loops.
  */
+/** Emit initChild calls for components inside a conditional branch. */
+function emitBranchChildComponentInits(
+  lines: string[],
+  indent: string,
+  components: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[] }>,
+): void {
+  for (const comp of components) {
+    const selector = comp.slotId
+      ? `[bf-s$="_${comp.slotId}"], [bf-s^="~${comp.name}_"], [bf-s^="${comp.name}_"]`
+      : `[bf-s^="~${comp.name}_"], [bf-s^="${comp.name}_"]`
+    const propsEntries = comp.props
+      .filter(p => p.name !== 'key')
+      .map(p => {
+        if (p.name.startsWith('on') && p.name.length > 2) return `${quotePropName(p.name)}: ${p.value}`
+        if (p.isLiteral) return `get ${quotePropName(p.name)}() { return ${JSON.stringify(p.value)} }`
+        return `get ${quotePropName(p.name)}() { return ${p.value} }`
+      })
+    const propsExpr = propsEntries.length > 0 ? `{ ${propsEntries.join(', ')} }` : '{}'
+    lines.push(`${indent}{ const __c = __branchScope.querySelector('${selector}'); if (__c) initChild('${comp.name}', __c, ${propsExpr}) }`)
+  }
+}
+
 function emitLoopChildReactiveEffects(
   lines: string[],
   indent: string,
   elVar: string,
   attrs: LoopElement['childReactiveAttrs'],
   texts: LoopElement['childReactiveTexts'],
+  conditionals?: LoopElement['childConditionals'],
 ): void {
   // Reactive attribute effects
   const attrsBySlot = new Map<string, typeof attrs>()
@@ -290,6 +313,26 @@ function emitLoopChildReactiveEffects(
     const varName = `__rt_${varSlotId(text.slotId)}`
     lines.push(`${indent}{ const ${varName} = (() => { const w = document.createTreeWalker(${elVar}, NodeFilter.SHOW_COMMENT); while (w.nextNode()) { if (w.currentNode.nodeValue === 'bf:${text.slotId}') return w.currentNode.nextSibling }; return null })()`)
     lines.push(`${indent}if (${varName}) createEffect(() => { ${varName}.textContent = String(${text.expression}) }) }`)
+  }
+
+  // Reactive conditional effects
+  // Use insert() scoped to the loop item element for conditional switching
+  if (conditionals) {
+    for (const cond of conditionals) {
+      const whenTrueWithCond = addCondAttrToTemplate(cond.whenTrueHtml, cond.slotId)
+      const whenFalseWithCond = addCondAttrToTemplate(cond.whenFalseHtml, cond.slotId)
+      lines.push(`${indent}insert(${elVar}, '${cond.slotId}', () => ${cond.condition}, {`)
+      lines.push(`${indent}  template: () => \`${whenTrueWithCond}\`,`)
+      lines.push(`${indent}  bindEvents: (__branchScope) => {`)
+      emitBranchChildComponentInits(lines, `${indent}    `, cond.whenTrueComponents)
+      lines.push(`${indent}  }`)
+      lines.push(`${indent}}, {`)
+      lines.push(`${indent}  template: () => \`${whenFalseWithCond}\`,`)
+      lines.push(`${indent}  bindEvents: (__branchScope) => {`)
+      emitBranchChildComponentInits(lines, `${indent}    `, cond.whenFalseComponents)
+      lines.push(`${indent}  }`)
+      lines.push(`${indent}})`)
+    }
   }
 }
 
@@ -476,7 +519,7 @@ function emitPlainElementLoopReconciliation(lines: string[], elem: LoopElement, 
     lines.push(`    const __tpl = document.createElement('template')`)
     lines.push(`    __tpl.innerHTML = \`${elem.template}\``)
     lines.push(`    const __el = __tpl.content.firstElementChild.cloneNode(true)`)
-    emitLoopChildReactiveEffects(lines, '    ', '__el', elem.childReactiveAttrs, elem.childReactiveTexts)
+    emitLoopChildReactiveEffects(lines, '    ', '__el', elem.childReactiveAttrs, elem.childReactiveTexts, elem.childConditionals)
     lines.push(`    return __el`)
     lines.push(`  })`)
   }
@@ -641,11 +684,12 @@ function emitCompositeRenderItemBody(ls: string[], indent: string, ctx: Composit
   // Inner loop levels (depth 1, 2, ...) — each level nests inside the previous
   emitInnerLoopSetup(ls, indent, '__el', ctx.depthLevels, 'csr')
 
-  // Fine-grained effects for reactive attrs and text inside composite loop items
+  // Fine-grained effects for reactive attrs, text, and conditionals
   const reactiveAttrs = ctx.elem.childReactiveAttrs ?? []
   const reactiveTexts = ctx.elem.childReactiveTexts ?? []
-  if (reactiveAttrs.length > 0 || reactiveTexts.length > 0) {
-    emitLoopChildReactiveEffects(ls, indent, '__el', reactiveAttrs, reactiveTexts)
+  const reactiveConditionals = ctx.elem.childConditionals ?? []
+  if (reactiveAttrs.length > 0 || reactiveTexts.length > 0 || reactiveConditionals.length > 0) {
+    emitLoopChildReactiveEffects(ls, indent, '__el', reactiveAttrs, reactiveTexts, reactiveConditionals)
   }
 
   ls.push(`${indent}return __el`)
