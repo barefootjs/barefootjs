@@ -250,6 +250,50 @@ export function emitLoopUpdates(lines: string[], ctx: ClientJsContext): void {
 }
 
 /**
+ * Emit fine-grained createEffect calls for reactive attributes inside a loop
+ * item's renderItem body. Each reactive attr gets its own effect so it updates
+ * independently when the signal it reads changes.
+ * Used by both plain element and composite element dynamic loops.
+ */
+function emitLoopChildReactiveEffects(
+  lines: string[],
+  indent: string,
+  elVar: string,
+  attrs: LoopElement['childReactiveAttrs'],
+  texts: LoopElement['childReactiveTexts'],
+): void {
+  // Reactive attribute effects
+  const attrsBySlot = new Map<string, typeof attrs>()
+  for (const attr of attrs) {
+    if (!attrsBySlot.has(attr.childSlotId)) {
+      attrsBySlot.set(attr.childSlotId, [])
+    }
+    attrsBySlot.get(attr.childSlotId)!.push(attr)
+  }
+  for (const [slotId, slotAttrs] of attrsBySlot) {
+    const varName = `__ra_${varSlotId(slotId)}`
+    lines.push(`${indent}{ const ${varName} = qsa(${elVar}, '[bf="${slotId}"]')`)
+    lines.push(`${indent}if (${varName}) {`)
+    for (const attr of slotAttrs) {
+      lines.push(`${indent}  createEffect(() => {`)
+      for (const stmt of emitAttrUpdate(varName, attr.attrName, attr.expression, attr)) {
+        lines.push(`${indent}    ${stmt}`)
+      }
+      lines.push(`${indent}  })`)
+    }
+    lines.push(`${indent}} }`)
+  }
+
+  // Reactive text content effects
+  // Find text nodes by their comment marker (<!--bf:slotId-->) and update via createEffect
+  for (const text of texts) {
+    const varName = `__rt_${varSlotId(text.slotId)}`
+    lines.push(`${indent}{ const ${varName} = (() => { const w = document.createTreeWalker(${elVar}, NodeFilter.SHOW_COMMENT); while (w.nextNode()) { if (w.currentNode.nodeValue === 'bf:${text.slotId}') return w.currentNode.nextSibling }; return null })()`)
+    lines.push(`${indent}if (${varName}) createEffect(() => { ${varName}.textContent = String(${text.expression}) }) }`)
+  }
+}
+
+/**
  * Emit reactive attribute effects and event delegation for static arrays.
  * Static arrays are server-rendered once; only signal-dependent attributes
  * and event handlers need client-side setup.
@@ -414,10 +458,27 @@ function emitPlainElementLoopReconciliation(lines: string[], elem: LoopElement, 
   const chainedExpr = buildChainedArrayExpr(elem)
   const indexParam = elem.index || '__idx'
 
-  if (elem.mapPreamble) {
-    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}) => { ${elem.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+  const hasReactiveEffects = elem.childReactiveAttrs.length > 0 || elem.childReactiveTexts.length > 0
+
+  if (!hasReactiveEffects) {
+    // Simple case: no reactive effects, single-line renderItem
+    if (elem.mapPreamble) {
+      lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}) => { ${elem.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+    } else {
+      lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}) => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+    }
   } else {
-    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}) => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+    // Multi-line renderItem with fine-grained effects
+    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}) => {`)
+    if (elem.mapPreamble) {
+      lines.push(`    ${elem.mapPreamble}`)
+    }
+    lines.push(`    const __tpl = document.createElement('template')`)
+    lines.push(`    __tpl.innerHTML = \`${elem.template}\``)
+    lines.push(`    const __el = __tpl.content.firstElementChild.cloneNode(true)`)
+    emitLoopChildReactiveEffects(lines, '    ', '__el', elem.childReactiveAttrs, elem.childReactiveTexts)
+    lines.push(`    return __el`)
+    lines.push(`  })`)
   }
 }
 
@@ -579,6 +640,13 @@ function emitCompositeRenderItemBody(ls: string[], indent: string, ctx: Composit
 
   // Inner loop levels (depth 1, 2, ...) — each level nests inside the previous
   emitInnerLoopSetup(ls, indent, '__el', ctx.depthLevels, 'csr')
+
+  // Fine-grained effects for reactive attrs and text inside composite loop items
+  const reactiveAttrs = ctx.elem.childReactiveAttrs ?? []
+  const reactiveTexts = ctx.elem.childReactiveTexts ?? []
+  if (reactiveAttrs.length > 0 || reactiveTexts.length > 0) {
+    emitLoopChildReactiveEffects(ls, indent, '__el', reactiveAttrs, reactiveTexts)
+  }
 
   ls.push(`${indent}return __el`)
 }

@@ -5,7 +5,7 @@
 import { type IRNode, type IRElement, type IRProp, pickAttrMeta } from '../types'
 import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchConditional, ConditionalBranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildEvent, LoopChildReactiveAttr, NestedLoopInfo } from './types'
 import { attrValueToString, quotePropName, PROPS_PARAM } from './utils'
-import { needsEffectWrapper, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs } from './reactivity'
+import { needsEffectWrapper, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts } from './reactivity'
 import { irToHtmlTemplate, irToPlaceholderTemplate, irChildrenToJsExpr } from './html-template'
 import { expandDynamicPropValue, expandConstantForReactivity } from './prop-handling'
 
@@ -185,10 +185,12 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         const childHandlers: string[] = []
         const childEvents: LoopChildEvent[] = []
         const childReactiveAttrs: LoopChildReactiveAttr[] = []
+        const childReactiveTexts: import('./types').LoopChildReactiveText[] = []
         for (const child of node.children) {
           childHandlers.push(...collectEventHandlersFromIR(child))
           childEvents.push(...collectLoopChildEventsWithNesting(child))
           childReactiveAttrs.push(...collectLoopChildReactiveAttrs(child, ctx))
+          childReactiveTexts.push(...collectLoopChildReactiveTexts(child, ctx))
         }
 
         if (node.childComponent) {
@@ -224,6 +226,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
           childEventHandlers: childHandlers,
           childEvents,
           childReactiveAttrs,
+          childReactiveTexts,
           childComponent: node.childComponent,
           nestedComponents: node.nestedComponents,
           isStaticArray: node.isStaticArray,

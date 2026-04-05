@@ -9,6 +9,7 @@ import type {
   ConditionalBranchRef,
   LoopChildEvent,
   LoopChildReactiveAttr,
+  LoopChildReactiveText,
   NestedLoopInfo,
 } from './types'
 import { attrValueToString } from './utils'
@@ -311,6 +312,40 @@ function traverseForComponents(
       }
       break
   }
+}
+
+/**
+ * Collect reactive text interpolations from loop children.
+ * These are expression nodes with a slotId that read signals, needing
+ * createEffect to update text content when signals change.
+ */
+export function collectLoopChildReactiveTexts(
+  node: IRNode,
+  ctx: ClientJsContext,
+): LoopChildReactiveText[] {
+  const texts: LoopChildReactiveText[] = []
+
+  function walk(n: IRNode): void {
+    if (n.type === 'expression' && n.slotId && n.reactive) {
+      const expanded = expandConstantForReactivity(n.expr, ctx)
+      if (needsEffectWrapper(expanded, ctx)) {
+        texts.push({ slotId: n.slotId, expression: expanded })
+      }
+    }
+    if (n.type === 'element') {
+      for (const child of n.children) walk(child)
+    }
+    if (n.type === 'fragment' || n.type === 'component' || n.type === 'provider') {
+      for (const child of n.children) walk(child)
+    }
+    if (n.type === 'conditional') {
+      walk(n.whenTrue)
+      walk(n.whenFalse)
+    }
+  }
+
+  walk(node)
+  return texts
 }
 
 /**

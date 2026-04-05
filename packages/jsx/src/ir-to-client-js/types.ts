@@ -164,6 +164,11 @@ export interface LoopChildReactiveAttr extends AttrMeta {
   expression: string // Expression that reads signals
 }
 
+export interface LoopChildReactiveText {
+  slotId: string // bf comment marker slot ID (e.g., 's7' → <!--bf:s7-->)
+  expression: string // Expression that reads signals
+}
+
 export interface LoopElement {
   slotId: string
   array: string
@@ -174,6 +179,7 @@ export interface LoopElement {
   childEventHandlers: string[] // Event handlers from child elements (for identifier extraction)
   childEvents: LoopChildEvent[] // Detailed event info for delegation
   childReactiveAttrs: LoopChildReactiveAttr[] // Reactive attributes in loop children
+  childReactiveTexts: LoopChildReactiveText[] // Reactive text interpolations in loop children
   childComponent?: IRLoopChildComponent // For createComponent-based rendering
   nestedComponents?: IRLoopChildComponent[] // For nested components in loop bodies
   isStaticArray: boolean // True if array is a static prop (not a signal)

@@ -206,12 +206,15 @@ export function createRoot<T>(fn: (dispose: () => void) => T): T {
   if (Owner) Owner.children.push(root)
 
   const prevOwner = Owner
+  const prevListener = Listener
   Owner = root
+  Listener = null  // Isolate: signal reads inside root don't track in parent effect
 
   try {
     return fn(() => disposeEffect(root))
   } finally {
     Owner = prevOwner
+    Listener = prevListener
   }
 }
 
