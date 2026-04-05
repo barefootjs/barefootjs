@@ -54,3 +54,4 @@ test-results/
 
 # Render temp files (adapter-tests)
 .render-temp/
+.playwright-mcp/

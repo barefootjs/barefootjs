@@ -16,6 +16,7 @@ export {
   createEffect,
   createDisposableEffect,
   createMemo,
+  createRoot,
   onCleanup,
   onMount,
   untrack,
@@ -39,6 +40,7 @@ export {
 
 export { reconcileList, type RenderItemFn } from './list'
 export { reconcileElements, getLoopChildren } from './reconcile-elements'
+export { mapArray } from './map-array'
 
 export { createContext, useContext, provideContext, type Context } from './context'
 
