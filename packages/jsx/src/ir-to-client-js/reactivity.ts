@@ -10,6 +10,7 @@ import type {
   LoopChildEvent,
   LoopChildReactiveAttr,
   LoopChildReactiveText,
+  LoopChildConditional,
   NestedLoopInfo,
 } from './types'
 import { attrValueToString } from './utils'
@@ -346,6 +347,50 @@ export function collectLoopChildReactiveTexts(
 
   walk(node)
   return texts
+}
+
+/**
+ * Collect reactive conditionals from loop children.
+ * These are conditional nodes with a slotId that have reactive conditions,
+ * needing insert() calls for fine-grained conditional switching.
+ */
+export function collectLoopChildConditionals(
+  node: IRNode,
+  ctx: ClientJsContext,
+): LoopChildConditional[] {
+  const conditionals: LoopChildConditional[] = []
+  const { irToHtmlTemplate } = require('./html-template')
+
+  function walk(n: IRNode): void {
+    if (n.type === 'conditional' && n.slotId && n.reactive) {
+      const expanded = expandConstantForReactivity(n.condition, ctx)
+      if (needsEffectWrapper(expanded, ctx)) {
+        const whenTrueHtml = irToHtmlTemplate(n.whenTrue)
+        const whenFalseHtml = irToHtmlTemplate(n.whenFalse)
+        conditionals.push({
+          slotId: n.slotId,
+          condition: expanded,
+          whenTrueHtml,
+          whenFalseHtml,
+          whenTrueComponents: collectConditionalBranchChildComponents(n.whenTrue),
+          whenFalseComponents: collectConditionalBranchChildComponents(n.whenFalse),
+        })
+      }
+      // Don't recurse into conditional branches — nested conditionals
+      // inside branches will be handled by insert()'s own bindEvents
+      return
+    }
+    if (n.type === 'element') {
+      for (const child of n.children) walk(child)
+    }
+    if (n.type === 'fragment' || n.type === 'component' || n.type === 'provider') {
+      for (const child of n.children) walk(child)
+    }
+    // Don't recurse into nested loops — they have their own mapArray
+  }
+
+  walk(node)
+  return conditionals
 }
 
 /**

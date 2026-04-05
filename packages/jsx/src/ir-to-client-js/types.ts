@@ -169,6 +169,15 @@ export interface LoopChildReactiveText {
   expression: string // Expression that reads signals
 }
 
+export interface LoopChildConditional {
+  slotId: string       // bf-c slot ID for insert() targeting
+  condition: string    // Reactive condition expression
+  whenTrueHtml: string // HTML template for true branch
+  whenFalseHtml: string // HTML template for false branch (usually comment markers)
+  whenTrueComponents: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[] }>
+  whenFalseComponents: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[] }>
+}
+
 export interface LoopElement {
   slotId: string
   array: string
@@ -180,6 +189,7 @@ export interface LoopElement {
   childEvents: LoopChildEvent[] // Detailed event info for delegation
   childReactiveAttrs: LoopChildReactiveAttr[] // Reactive attributes in loop children
   childReactiveTexts: LoopChildReactiveText[] // Reactive text interpolations in loop children
+  childConditionals?: LoopChildConditional[] // Reactive conditionals in loop children
   childComponent?: IRLoopChildComponent // For createComponent-based rendering
   nestedComponents?: IRLoopChildComponent[] // For nested components in loop bodies
   isStaticArray: boolean // True if array is a static prop (not a signal)

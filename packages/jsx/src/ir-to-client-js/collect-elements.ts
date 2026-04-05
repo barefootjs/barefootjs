@@ -5,7 +5,7 @@
 import { type IRNode, type IRElement, type IRProp, pickAttrMeta } from '../types'
 import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchConditional, ConditionalBranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildEvent, LoopChildReactiveAttr, NestedLoopInfo } from './types'
 import { attrValueToString, quotePropName, PROPS_PARAM } from './utils'
-import { needsEffectWrapper, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts } from './reactivity'
+import { needsEffectWrapper, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts, collectLoopChildConditionals } from './reactivity'
 import { irToHtmlTemplate, irToPlaceholderTemplate, irChildrenToJsExpr } from './html-template'
 import { expandDynamicPropValue, expandConstantForReactivity } from './prop-handling'
 
@@ -186,11 +186,13 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         const childEvents: LoopChildEvent[] = []
         const childReactiveAttrs: LoopChildReactiveAttr[] = []
         const childReactiveTexts: import('./types').LoopChildReactiveText[] = []
+        const childConditionals: import('./types').LoopChildConditional[] = []
         for (const child of node.children) {
           childHandlers.push(...collectEventHandlersFromIR(child))
           childEvents.push(...collectLoopChildEventsWithNesting(child))
           childReactiveAttrs.push(...collectLoopChildReactiveAttrs(child, ctx))
           childReactiveTexts.push(...collectLoopChildReactiveTexts(child, ctx))
+          childConditionals.push(...collectLoopChildConditionals(child, ctx))
         }
 
         if (node.childComponent) {
@@ -227,6 +229,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
           childEvents,
           childReactiveAttrs,
           childReactiveTexts,
+          childConditionals,
           childComponent: node.childComponent,
           nestedComponents: node.nestedComponents,
           isStaticArray: node.isStaticArray,
