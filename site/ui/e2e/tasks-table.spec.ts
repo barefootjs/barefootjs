@@ -90,8 +90,7 @@ test.describe('Tasks Table Block', () => {
   })
 
   test.describe('Row Selection', () => {
-    // TODO(#730): per-item signals — pending deeper loop reactivity fixes
-    test.skip('clicking row checkbox shows selected count', async ({ page }) => {
+    test('clicking row checkbox shows selected count', async ({ page }) => {
       const s = section(page)
       const checkboxes = s.locator('.task-row button[role="checkbox"]')
 
@@ -110,8 +109,7 @@ test.describe('Tasks Table Block', () => {
   })
 
   test.describe('Bulk Actions', () => {
-    // TODO(#730): per-item signals — pending deeper loop reactivity fixes
-    test.skip('delete selected removes tasks', async ({ page }) => {
+    test('delete selected removes tasks', async ({ page }) => {
       const s = section(page)
       // Select first row
       await s.locator('.task-row button[role="checkbox"]').first().click()

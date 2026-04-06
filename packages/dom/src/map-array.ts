@@ -109,8 +109,13 @@ export function mapArray<T>(
         ? elementsBetween(startMarker, endMarker!)
         : Array.from(container.children) as HTMLElement[]
 
-      // SSR elements without data-key need initialization.
-      if (existingChildren.length > 0 && !existingChildren[0]?.hasAttribute('data-key')) {
+      // SSR elements need initialization when they haven't been adopted into scopes yet.
+      // Check both: elements without data-key (legacy) OR elements with data-key but no scopes
+      // (component loops render data-key in SSR template but haven't been hydrated).
+      const needsHydration = existingChildren.length > 0
+        && (!existingChildren[0]?.hasAttribute('data-key') || scopes.size === 0)
+      if (needsHydration) {
+        console.log('[BF DEBUG] mapArray SSR hydration: processing', existingChildren.length, 'items')
         // Hydrate in place: tag keys, create per-item scopes with renderItem(existing)
         for (let i = 0; i < existingChildren.length && i < items.length; i++) {
           const child = existingChildren[i]

@@ -466,10 +466,26 @@ function emitComponentLoopReconciliation(lines: string[], elem: LoopElement, key
   const keyExpr = wrapLoopParamAsAccessor(elem.key || '__idx', elem.param)
   const indexParam = elem.index || '__idx'
   const chainedExpr = buildChainedArrayExpr(elem)
+  const nestedComps = elem.nestedComponents ?? []
 
   lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}, __existing) => {`)
-  lines.push(`    if (__existing) { initChild('${name}', __existing, ${propsExpr}); return __existing }`)
-  lines.push(`    return createComponent('${name}', ${propsExpr}, ${keyExpr})`)
+  if (nestedComps.length > 0) {
+    // Unified renderItem: SSR hydrates nested components, CSR creates from scratch
+    lines.push(`    if (__existing) {`)
+    lines.push(`      initChild('${name}', __existing, ${propsExpr})`)
+    // Initialize nested child components within the SSR-rendered element
+    for (const comp of nestedComps) {
+      const selector = buildCompSelector(comp)
+      const nestedPropsExpr = wrapLoopParamAsAccessor(buildComponentPropsExpr(comp), elem.param)
+      lines.push(`      { const __c = __existing.querySelector('${selector}'); if (__c) initChild('${comp.name}', __c, ${nestedPropsExpr}) }`)
+    }
+    lines.push(`      return __existing`)
+    lines.push(`    }`)
+    lines.push(`    return createComponent('${name}', ${propsExpr}, ${keyExpr})`)
+  } else {
+    lines.push(`    if (__existing) { initChild('${name}', __existing, ${propsExpr}); return __existing }`)
+    lines.push(`    return createComponent('${name}', ${propsExpr}, ${keyExpr})`)
+  }
   lines.push(`  })`)
 }
 
