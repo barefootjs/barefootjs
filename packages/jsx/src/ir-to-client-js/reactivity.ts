@@ -317,19 +317,25 @@ function traverseForComponents(
 
 /**
  * Collect reactive text interpolations from loop children.
- * These are expression nodes with a slotId that read signals, needing
- * createEffect to update text content when signals change.
+ * Includes expressions that read signals OR reference the loop parameter.
+ * With per-item signals, loop param access (item().text) is reactive
+ * because item is a signal accessor.
  */
 export function collectLoopChildReactiveTexts(
   node: IRNode,
   ctx: ClientJsContext,
+  loopParam?: string,
 ): LoopChildReactiveText[] {
   const texts: LoopChildReactiveText[] = []
 
   function walk(n: IRNode): void {
-    if (n.type === 'expression' && n.slotId && n.reactive) {
+    if (n.type === 'expression' && n.slotId) {
       const expanded = expandConstantForReactivity(n.expr, ctx)
-      if (needsEffectWrapper(expanded, ctx)) {
+      // Include if expression reads signals OR references the loop parameter
+      // (loop param becomes a signal accessor via per-item signals)
+      const isReactive = needsEffectWrapper(expanded, ctx)
+      const refsLoopParam = loopParam ? new RegExp(`\\b${loopParam}\\b`).test(expanded) : false
+      if (isReactive || refsLoopParam) {
         texts.push({ slotId: n.slotId, expression: expanded })
       }
     }
@@ -357,12 +363,17 @@ export function collectLoopChildReactiveTexts(
 export function collectLoopChildConditionals(
   node: IRNode,
   ctx: ClientJsContext,
+  loopParam?: string,
 ): LoopChildConditional[] {
   const conditionals: LoopChildConditional[] = []
   const { irToHtmlTemplate } = require('./html-template')
 
   function walk(n: IRNode): void {
-    if (n.type === 'conditional' && n.slotId && n.reactive) {
+    if (n.type === 'conditional' && n.slotId) {
+      // Include conditionals that are reactive OR reference the loop param
+      const isReactive = n.reactive
+      const refsLoopParam = loopParam ? new RegExp(`\\b${loopParam}\\b`).test(n.condition) : false
+      if (!isReactive && !refsLoopParam) return
       const expanded = expandConstantForReactivity(n.condition, ctx)
       if (needsEffectWrapper(expanded, ctx)) {
         const whenTrueHtml = irToHtmlTemplate(n.whenTrue)
@@ -401,6 +412,7 @@ export function collectLoopChildConditionals(
 export function collectLoopChildReactiveAttrs(
   node: IRNode,
   ctx: ClientJsContext,
+  loopParam?: string,
 ): LoopChildReactiveAttr[] {
   const attrs: LoopChildReactiveAttr[] = []
   traverseElements(node, (el) => {
@@ -410,7 +422,9 @@ export function collectLoopChildReactiveAttrs(
         const valueStr = attrValueToString(attr.value)
         if (!valueStr) continue
         const expanded = expandConstantForReactivity(valueStr, ctx)
-        if (needsEffectWrapper(expanded, ctx)) {
+        const isReactive = needsEffectWrapper(expanded, ctx)
+        const refsLoopParam = loopParam ? new RegExp(`\\b${loopParam}\\b`).test(expanded) : false
+        if (isReactive || refsLoopParam) {
           attrs.push({
             childSlotId: el.slotId,
             attrName: attr.name,

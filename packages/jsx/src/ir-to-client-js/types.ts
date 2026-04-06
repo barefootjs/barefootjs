@@ -112,6 +112,9 @@ export interface ConditionalBranchLoop {
   // Composite loop fields (loops whose body contains child components)
   nestedComponents?: IRLoopChildComponent[]
   childEvents?: LoopChildEvent[]
+  childReactiveTexts?: LoopChildReactiveText[]
+  childReactiveAttrs?: LoopChildReactiveAttr[]
+  childConditionals?: LoopChildConditional[]
   innerLoops?: NestedLoopInfo[]
   useElementReconciliation?: boolean
 }

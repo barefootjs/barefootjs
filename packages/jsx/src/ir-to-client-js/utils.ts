@@ -184,3 +184,14 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/**
+ * Transform loop param references to signal accessor calls in an expression.
+ * e.g., "item.text" → "item().text", "item" → "item()"
+ * Does not double-wrap: "item().text" stays "item().text"
+ */
+export function wrapLoopParamAsAccessor(expr: string, paramName: string): string {
+  // Match word boundary + paramName + NOT followed by ( (avoid double-wrapping)
+  // or - (avoid corrupting CSS class names like "comment-item")
+  return expr.replace(new RegExp(`\\b${escapeRegExp(paramName)}\\b(?!\\s*\\()(?!-)`, 'g'), `${paramName}()`)
+}
+

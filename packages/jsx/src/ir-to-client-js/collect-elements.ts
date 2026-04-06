@@ -190,9 +190,9 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         for (const child of node.children) {
           childHandlers.push(...collectEventHandlersFromIR(child))
           childEvents.push(...collectLoopChildEventsWithNesting(child))
-          childReactiveAttrs.push(...collectLoopChildReactiveAttrs(child, ctx))
-          childReactiveTexts.push(...collectLoopChildReactiveTexts(child, ctx))
-          childConditionals.push(...collectLoopChildConditionals(child, ctx))
+          childReactiveAttrs.push(...collectLoopChildReactiveAttrs(child, ctx, node.param))
+          childReactiveTexts.push(...collectLoopChildReactiveTexts(child, ctx, node.param))
+          childConditionals.push(...collectLoopChildConditionals(child, ctx, node.param))
         }
 
         if (node.childComponent) {
@@ -523,11 +523,17 @@ function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): ConditionalBra
           childTemplate = n.children.map(c => irToHtmlTemplate(c, undefined, 0)).join('')
         }
 
-        // Collect child events for composite loops
+        // Collect child events and reactive fields for composite loops
         const childEvents: LoopChildEvent[] = []
-        if (useElementReconciliation) {
+        const childReactiveTexts: import('./types').LoopChildReactiveText[] = []
+        const childReactiveAttrs: import('./types').LoopChildReactiveAttr[] = []
+        const childConditionals: import('./types').LoopChildConditional[] = []
+        if (useElementReconciliation && ctx) {
           for (const child of n.children) {
             childEvents.push(...collectLoopChildEventsWithNesting(child))
+            childReactiveTexts.push(...collectLoopChildReactiveTexts(child, ctx, n.param))
+            childReactiveAttrs.push(...collectLoopChildReactiveAttrs(child, ctx, n.param))
+            childConditionals.push(...collectLoopChildConditionals(child, ctx, n.param))
           }
         }
 
@@ -541,6 +547,9 @@ function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): ConditionalBra
           mapPreamble: n.mapPreamble ?? null,
           nestedComponents: useElementReconciliation ? n.nestedComponents : undefined,
           childEvents: useElementReconciliation ? childEvents : undefined,
+          childReactiveTexts: useElementReconciliation ? childReactiveTexts : undefined,
+          childReactiveAttrs: useElementReconciliation ? childReactiveAttrs : undefined,
+          childConditionals: useElementReconciliation ? childConditionals : undefined,
           innerLoops: useElementReconciliation ? collectInnerLoops(n.children) : undefined,
           useElementReconciliation: useElementReconciliation || undefined,
         })

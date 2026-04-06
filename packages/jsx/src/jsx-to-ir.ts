@@ -55,6 +55,8 @@ interface TransformContext {
   getJS(node: ts.Node): string
   /** Cached set of reactive getter names (signal getters + memo names) for O(1) lookup */
   _reactiveGetterNames?: Set<string>
+  /** Active loop parameter names for slotId assignment to loop-param-dependent expressions */
+  loopParams: Set<string>
 }
 
 /**
@@ -106,6 +108,7 @@ function createTransformContext(analyzer: AnalyzerContext): TransformContext {
     slotIdCounter: 0,
     isRoot: true,
     insideComponentChildren: false,
+    loopParams: new Set(),
     patterns: {
       signals: analyzer.signals.map(s => ({
         getter: s.getter,
@@ -720,7 +723,11 @@ function transformExpression(
   const exprText = ctx.getJS(expr)
   const reactive = isReactiveExpression(exprText, ctx, expr)
   // @client expressions always need slotId and are treated as reactive for client-side evaluation
-  const needsSlot = reactive || isClientOnly
+  // Expressions inside loops that reference the loop parameter need slotId
+  // so fine-grained effects can target them for per-item signal updates
+  const refsLoopParam = ctx.loopParams.size > 0
+    && Array.from(ctx.loopParams).some(p => new RegExp(`\\b${p}\\b`).test(exprText))
+  const needsSlot = reactive || isClientOnly || refsLoopParam
   const slotId = needsSlot ? generateSlotId(ctx) : null
 
   // Compute AST-derived flags for Phase 2 optimization
@@ -1323,6 +1330,10 @@ function transformMapCall(
       index = secondParam.name.getText(ctx.sourceFile)
     }
 
+    // Register loop params so expressions referencing them get slotId
+    ctx.loopParams.add(param)
+    if (index) ctx.loopParams.add(index)
+
     // Transform callback body
     const body = callback.body
     if (ts.isJsxElement(body) || ts.isJsxSelfClosingElement(body) || ts.isJsxFragment(body)) {
@@ -1340,13 +1351,11 @@ function transformMapCall(
       }
     } else if (ts.isBlock(body)) {
       // Block body: (item) => { const label = ...; return <div>{label}</div> }
-      // Find the last return statement and extract JSX from it
       const returnStmt = body.statements.find(
         (s): s is ts.ReturnStatement => ts.isReturnStatement(s) && s.expression != null
       )
       if (returnStmt && returnStmt.expression) {
         let returnExpr = returnStmt.expression
-        // Unwrap parenthesized expression if present
         while (ts.isParenthesizedExpression(returnExpr)) {
           returnExpr = returnExpr.expression
         }
@@ -1356,7 +1365,6 @@ function transformMapCall(
             children = [transformed]
           }
         }
-        // Collect pre-return statements as mapPreamble
         const preambleStmts: string[] = []
         for (const stmt of body.statements) {
           if (stmt === returnStmt) break
@@ -1368,6 +1376,10 @@ function transformMapCall(
         }
       }
     }
+
+    // Unregister loop params
+    ctx.loopParams.delete(param)
+    if (index) ctx.loopParams.delete(index)
   }
 
   // If no JSX children were found (e.g., callback returns a function call),
