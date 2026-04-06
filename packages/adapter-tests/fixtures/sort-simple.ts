@@ -13,6 +13,6 @@ export function SortSimple() {
 }
 `,
   expectedHtml: `
-    <ul bf-s="test" bf="s0"></ul>
+    <ul bf-s="test" bf="s1"></ul>
   `,
 })
