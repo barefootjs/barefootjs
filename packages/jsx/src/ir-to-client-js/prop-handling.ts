@@ -4,7 +4,7 @@
 
 import type { ConstantInfo, ParamInfo, SignalInfo } from '../types'
 import type { ClientJsContext } from './types'
-import { PROPS_PARAM } from './utils'
+import { PROPS_PARAM, exprReferencesIdent } from './utils'
 
 /**
  * Expand dynamic prop value by resolving local constants.
@@ -49,7 +49,7 @@ export function valueReferencesReactiveData(
   let usesMemos = false
 
   for (const prop of ctx.propsParams) {
-    if (new RegExp(`\\b${prop.name}\\b`).test(value)) {
+    if (exprReferencesIdent(value, prop.name)) {
       usedProps.push(prop.name)
     }
   }

@@ -13,7 +13,7 @@ import type {
   LoopChildConditional,
   NestedLoopInfo,
 } from './types'
-import { attrValueToString } from './utils'
+import { attrValueToString, exprReferencesIdent } from './utils'
 import { expandConstantForReactivity } from './prop-handling'
 
 /**
@@ -46,7 +46,7 @@ export function needsEffectWrapper(expr: string, ctx: ClientJsContext): boolean 
   // and should not trigger effect wrapping on the client)
   for (const prop of ctx.propsParams) {
     if (prop.name === 'children') continue
-    if (new RegExp(`\\b${prop.name}\\b`).test(expr)) {
+    if (exprReferencesIdent(expr, prop.name)) {
       return true
     }
   }
@@ -334,7 +334,7 @@ export function collectLoopChildReactiveTexts(
       // Include if expression reads signals OR references the loop parameter
       // (loop param becomes a signal accessor via per-item signals)
       const isReactive = needsEffectWrapper(expanded, ctx)
-      const refsLoopParam = loopParam ? new RegExp(`\\b${loopParam}\\b`).test(expanded) : false
+      const refsLoopParam = loopParam ? exprReferencesIdent(expanded, loopParam) : false
       if (isReactive || refsLoopParam) {
         texts.push({ slotId: n.slotId, expression: expanded })
       }
@@ -372,7 +372,7 @@ export function collectLoopChildConditionals(
     if (n.type === 'conditional' && n.slotId) {
       // Include conditionals that are reactive OR reference the loop param
       const isReactive = n.reactive
-      const refsLoopParam = loopParam ? new RegExp(`\\b${loopParam}\\b`).test(n.condition) : false
+      const refsLoopParam = loopParam ? exprReferencesIdent(n.condition, loopParam) : false
       if (!isReactive && !refsLoopParam) return
       const expanded = expandConstantForReactivity(n.condition, ctx)
       // Loop-param conditionals are reactive via per-item signal accessors;
@@ -426,7 +426,7 @@ export function collectLoopChildReactiveAttrs(
         if (!valueStr) continue
         const expanded = expandConstantForReactivity(valueStr, ctx)
         const isReactive = needsEffectWrapper(expanded, ctx)
-        const refsLoopParam = loopParam ? new RegExp(`\\b${loopParam}\\b`).test(expanded) : false
+        const refsLoopParam = loopParam ? exprReferencesIdent(expanded, loopParam) : false
         if (isReactive || refsLoopParam) {
           attrs.push({
             childSlotId: el.slotId,

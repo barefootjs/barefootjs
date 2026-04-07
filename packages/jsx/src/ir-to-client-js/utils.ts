@@ -175,9 +175,17 @@ export function inferDefaultValue(type: { kind: string; primitive?: string }): s
  */
 export function bodyReferencesComponentScope(body: string, scopeNames: Set<string>): boolean {
   for (const name of scopeNames) {
-    if (new RegExp(`\\b${escapeRegExp(name)}\\b`).test(body)) return true
+    if (exprReferencesIdent(body, name)) return true
   }
   return false
+}
+
+/**
+ * Check if a JS expression string references a given identifier.
+ * Uses word-boundary matching with proper regex escaping.
+ */
+export function exprReferencesIdent(expr: string, ident: string): boolean {
+  return new RegExp(`\\b${escapeRegExp(ident)}\\b`).test(expr)
 }
 
 function escapeRegExp(s: string): string {

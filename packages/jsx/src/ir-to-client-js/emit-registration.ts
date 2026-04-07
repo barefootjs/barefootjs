@@ -6,7 +6,7 @@
 
 import type { ComponentIR, IRFragment } from '../types'
 import type { ClientJsContext } from './types'
-import { bodyReferencesComponentScope, PROPS_PARAM, inferDefaultValue } from './utils'
+import { bodyReferencesComponentScope, PROPS_PARAM, inferDefaultValue, exprReferencesIdent } from './utils'
 import { canGenerateStaticTemplate, irToComponentTemplate, generateCsrTemplate, createStringProtector } from './html-template'
 
 // JavaScript built-in identifiers that are always available at any scope
@@ -204,7 +204,7 @@ export function buildInlinableConstants(ctx: ClientJsContext): {
     // original source, not the resolved string.
     if (!isUnsafe) {
       for (const unsafeName of unsafeLocalNames) {
-        if (new RegExp(`\\b${unsafeName}\\b`).test(constValue)) {
+        if (exprReferencesIdent(constValue, unsafeName)) {
           isUnsafe = true
           break
         }

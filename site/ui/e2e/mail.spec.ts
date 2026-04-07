@@ -64,8 +64,7 @@ test.describe('Mail Inbox Block', () => {
       await expect(section.locator('.mail-body')).toContainText('Q4 roadmap')
     })
 
-    // TODO(#730): per-item signals — loop-param conditional/event accessor not yet reactive
-    test.skip('selecting a mail marks it as read', async ({ page }) => {
+    test('selecting a mail marks it as read', async ({ page }) => {
       const section = page.locator('[bf-s^="MailInboxDemo_"]:not([data-slot])').first()
       const firstRow = section.locator('.mail-row').first()
       await expect(firstRow.locator('[data-slot="badge"]:has-text("New")')).toBeVisible()
@@ -135,8 +134,7 @@ test.describe('Mail Inbox Block', () => {
   })
 
   test.describe('Star Toggle', () => {
-    // TODO(#730): per-item signals — loop-param conditional/event accessor not yet reactive
-    test.skip('clicking star toggles starred state', async ({ page }) => {
+    test('clicking star toggles starred state', async ({ page }) => {
       const section = page.locator('[bf-s^="MailInboxDemo_"]:not([data-slot])').first()
       // Bob (2nd row) is initially not starred
       const bobRow = section.locator('.mail-row').nth(1)
@@ -152,8 +150,7 @@ test.describe('Mail Inbox Block', () => {
       await expect(starButton).toContainText('\u2605')
     })
 
-    // TODO(#730): per-item signals — loop-param conditional/event accessor not yet reactive
-    test.skip('unstar a starred mail', async ({ page }) => {
+    test('unstar a starred mail', async ({ page }) => {
       const section = page.locator('[bf-s^="MailInboxDemo_"]:not([data-slot])').first()
       // Alice (1st row) is initially starred
       const aliceRow = section.locator('.mail-row').first()

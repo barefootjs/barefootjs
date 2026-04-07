@@ -6,7 +6,7 @@
 
 import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, ConditionalBranchLoop, ConditionalBranchConditional, LoopChildEvent, LoopElement, NestedLoopInfo } from './types'
 import type { IRLoopChildComponent } from '../types'
-import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor } from './utils'
+import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent } from './utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
 import { emitAttrUpdate } from './emit-reactive'
 
@@ -477,7 +477,20 @@ function emitComponentLoopReconciliation(lines: string[], elem: LoopElement, key
     for (const comp of nestedComps) {
       const selector = buildCompSelector(comp)
       const nestedPropsExpr = wrapLoopParamAsAccessor(buildComponentPropsExpr(comp), elem.param)
-      lines.push(`      { const __c = __existing.querySelector('${selector}'); if (__c) initChild('${comp.name}', __c, ${nestedPropsExpr}) }`)
+      // Check if children are text-only and reference the loop param.
+      // Only text-only children can safely use textContent update;
+      // children containing elements/components would be destroyed.
+      const isTextOnly = comp.children?.length
+        ? comp.children.every(c => c.type === 'expression' || c.type === 'text')
+        : false
+      const rawChildrenExpr = isTextOnly ? irChildrenToJsExpr(comp.children!) : null
+      const childrenRefsLoop = rawChildrenExpr != null && exprReferencesIdent(rawChildrenExpr, elem.param)
+      if (childrenRefsLoop) {
+        const wrappedChildren = wrapLoopParamAsAccessor(rawChildrenExpr, elem.param)
+        lines.push(`      { const __c = __existing.querySelector('${selector}'); if (__c) { initChild('${comp.name}', __c, ${nestedPropsExpr}); createEffect(() => { const __v = ${wrappedChildren}; __c.textContent = Array.isArray(__v) ? __v.join('') : String(__v ?? '') }) } }`)
+      } else {
+        lines.push(`      { const __c = __existing.querySelector('${selector}'); if (__c) initChild('${comp.name}', __c, ${nestedPropsExpr}) }`)
+      }
     }
     lines.push(`      return __existing`)
     lines.push(`    }`)

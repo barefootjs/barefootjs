@@ -4,7 +4,7 @@
 
 import type { IRNode } from '../types'
 import { isBooleanAttr } from '../html-constants'
-import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM, DATA_BF_PH, keyAttrName, BF_LOOP_START, BF_LOOP_END } from './utils'
+import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM, DATA_BF_PH, keyAttrName, BF_LOOP_START, BF_LOOP_END, exprReferencesIdent } from './utils'
 
 /**
  * Protect string literals from regex-based replacements.
@@ -538,7 +538,7 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
  */
 function expressionReferencesAny(expr: string, names: Set<string>): boolean {
   for (const name of names) {
-    if (new RegExp(`\\b${name}\\b`).test(expr)) {
+    if (exprReferencesIdent(expr, name)) {
       return true
     }
   }
