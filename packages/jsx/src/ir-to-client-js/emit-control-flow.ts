@@ -285,6 +285,72 @@ function emitBranchChildComponentInits(
   }
 }
 
+/**
+ * Emit mapArray calls for inner loops inside a conditional branch's bindEvents.
+ * When a loop item has a conditional (e.g., showReplies ? replies : null),
+ * the inner loop container only exists when the branch is active.
+ * This sets up mapArray each time the branch activates.
+ */
+function emitBranchInnerLoops(
+  lines: string[],
+  indent: string,
+  scopeVar: string,
+  innerLoops: import('./types').NestedLoopInfo[] | undefined,
+  outerLoopParam?: string,
+): void {
+  if (!innerLoops || !outerLoopParam) return
+  const wrapOuter = (expr: string) => wrapLoopParamAsAccessor(expr, outerLoopParam)
+
+  for (let i = 0; i < innerLoops.length; i++) {
+    const inner = innerLoops[i]
+    if (!inner.refsOuterParam || !inner.itemTemplate) continue
+
+    const uid = `br_${i}`
+    const arrayExpr = wrapOuter(inner.array)
+    const keyFn = inner.key
+      ? `(${inner.param}) => String(${inner.key})`
+      : 'null'
+    const wrapBoth = (expr: string) => wrapLoopParamAsAccessor(wrapOuter(expr), inner.param)
+    const wrappedTemplate = wrapBoth(inner.itemTemplate)
+    const containerSelector = inner.containerSlotId ? `'[bf="${inner.containerSlotId}"]'` : 'null'
+
+    lines.push(`${indent}{ const __bic${uid} = ${containerSelector !== 'null' ? `${scopeVar}.querySelector(${containerSelector})` : scopeVar}`)
+    lines.push(`${indent}if (__bic${uid}) mapArray(() => ${arrayExpr} || [], __bic${uid}, ${keyFn}, (${inner.param}, __bidx${uid}, __existing) => {`)
+    lines.push(`${indent}  const __bel${uid} = __existing ?? (() => { const __t = document.createElement('template'); __t.innerHTML = \`${wrappedTemplate}\`; return __t.content.firstElementChild.cloneNode(true) })()`)
+    if (inner.key) {
+      const wrappedKey = wrapLoopParamAsAccessor(inner.key, inner.param)
+      lines.push(`${indent}  __bel${uid}.setAttribute('${keyAttrName(1)}', String(${wrappedKey}))`)
+    }
+    // Components and events inside inner loop items
+    const wrapInner = (expr: string) => wrapLoopParamAsAccessor(expr, inner.param)
+    const comps = (inner.childComponents ?? []).map(comp => ({
+      ...comp,
+      props: comp.props.map(p => p.isLiteral ? p : ({ ...p, value: wrapInner(p.value) })),
+    }))
+    const events = (inner.childEvents ?? []).map(ev => ({
+      ...ev,
+      handler: wrapInner(ev.handler),
+    }))
+    if (comps.length > 0 || events.length > 0) {
+      lines.push(`${indent}  if (!__existing) {`)
+      emitComponentAndEventSetup(lines, `${indent}    `, `__bel${uid}`, comps, events, 'csr', outerLoopParam)
+      lines.push(`${indent}  } else {`)
+      emitComponentAndEventSetup(lines, `${indent}    `, `__bel${uid}`, comps, events, 'ssr', outerLoopParam)
+      lines.push(`${indent}  }`)
+    }
+    // Reactive text effects for inner loop items
+    if (inner.reactiveTexts && inner.reactiveTexts.length > 0) {
+      for (const text of inner.reactiveTexts) {
+        const wrappedExpr = wrapBoth(text.expression)
+        lines.push(`${indent}  { const [__rt] = $t(__bel${uid}, '${text.slotId}')`)
+        lines.push(`${indent}  if (__rt) createEffect(() => { __rt.textContent = String(${wrappedExpr}) }) }`)
+      }
+    }
+    lines.push(`${indent}  return __bel${uid}`)
+    lines.push(`${indent}}) }`)
+  }
+}
+
 function emitLoopChildReactiveEffects(
   lines: string[],
   indent: string,
@@ -333,11 +399,13 @@ function emitLoopChildReactiveEffects(
       lines.push(`${indent}  template: () => \`${whenTrueWithCond}\`,`)
       lines.push(`${indent}  bindEvents: (__branchScope) => {`)
       emitBranchChildComponentInits(lines, `${indent}    `, cond.whenTrueComponents, loopParam)
+      emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenTrueInnerLoops, loopParam)
       lines.push(`${indent}  }`)
       lines.push(`${indent}}, {`)
       lines.push(`${indent}  template: () => \`${whenFalseWithCond}\`,`)
       lines.push(`${indent}  bindEvents: (__branchScope) => {`)
       emitBranchChildComponentInits(lines, `${indent}    `, cond.whenFalseComponents, loopParam)
+      emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenFalseInnerLoops, loopParam)
       lines.push(`${indent}  }`)
       lines.push(`${indent}})`)
     }
@@ -617,7 +685,7 @@ function emitDynamicLoopEventDelegation(lines: string[], elem: LoopElement): voi
 interface DepthLevel {
   comps: (LoopElement['nestedComponents'] & {})[number][]
   events: LoopChildEvent[]
-  loopInfo: { array: string; param: string; key: string; depth: number; containerSlotId?: string | null; itemTemplate?: string; refsOuterParam?: boolean; reactiveTexts?: Array<{ slotId: string; expression: string }> } | null
+  loopInfo: { array: string; param: string; key: string; depth: number; containerSlotId?: string | null; itemTemplate?: string; refsOuterParam?: boolean; reactiveTexts?: Array<{ slotId: string; expression: string }>; insideConditional?: boolean } | null
 }
 
 /**
@@ -778,6 +846,9 @@ function emitInnerLoopSetup(
     const level = levels[i]
     const inner = level.loopInfo
     if (!inner) { i++; continue }
+    // Skip loops inside conditionals — they are handled by emitBranchInnerLoops
+    // inside insert() bindEvents to avoid duplicate mapArray initialization
+    if (inner.insideConditional) { i++; continue }
 
     // Collect child levels (immediately following with depth > current)
     const childLevels: DepthLevel[] = []
@@ -792,12 +863,7 @@ function emitInnerLoopSetup(
     const arrayExpr = wrapOuter(inner.array)
     const containerSelector = inner.containerSlotId ? `'[bf="${inner.containerSlotId}"]'` : 'null'
 
-    // Use reactive mapArray only for inner loops that:
-    // 1. Reference the outer loop param (need reactivity)
-    // 2. Have an item template (for CSR element creation)
-    // 3. Don't contain child components (components need initChild which is complex to re-run)
-    const hasComps = level.comps.length > 0
-    if (inner.refsOuterParam && inner.itemTemplate && outerLoopParam && !hasComps) {
+    if (inner.refsOuterParam && inner.itemTemplate && outerLoopParam) {
       // Reactive inner loop: use mapArray for proper add/remove/update
       // Key function receives plain item value (not accessor) per mapArray contract
       const keyFn = inner.key
@@ -816,17 +882,24 @@ function emitInnerLoopSetup(
         const wrappedKey = wrapLoopParamAsAccessor(inner.key, inner.param)
         ls.push(`${indent}  __innerEl${uid}.setAttribute('${keyAttrName(inner.depth)}', String(${wrappedKey}))`)
       }
-      // Set up events — wrap both outer and inner loop params as accessors
-      if (level.events.length > 0) {
-        // Pre-wrap event handlers with inner loop param before passing to emitEventSetup
+      // Set up components and events — wrap inner loop param as accessor
+      if (level.comps.length > 0 || level.events.length > 0) {
+        // Pre-wrap both component props and event handlers with inner loop param
+        const wrapInner = (expr: string) => wrapLoopParamAsAccessor(expr, inner.param)
+        const wrappedComps = level.comps.map(comp => ({
+          ...comp,
+          props: comp.props.map(p => p.isLiteral ? p : ({ ...p, value: wrapInner(p.value) })),
+          children: comp.children?.map(c => c.type === 'expression' && c.expr
+            ? { ...c, expr: wrapInner(c.expr) } : c),
+        }))
         const wrappedEvents = level.events.map(ev => ({
           ...ev,
-          handler: wrapLoopParamAsAccessor(ev.handler, inner.param),
+          handler: wrapInner(ev.handler),
         }))
         ls.push(`${indent}  if (!__existing) {`)
-        emitComponentAndEventSetup(ls, `${indent}    `, `__innerEl${uid}`, [], wrappedEvents, 'csr', outerLoopParam)
+        emitComponentAndEventSetup(ls, `${indent}    `, `__innerEl${uid}`, wrappedComps, wrappedEvents, 'csr', outerLoopParam)
         ls.push(`${indent}  } else {`)
-        emitComponentAndEventSetup(ls, `${indent}    `, `__innerEl${uid}`, [], wrappedEvents, 'ssr', outerLoopParam)
+        emitComponentAndEventSetup(ls, `${indent}    `, `__innerEl${uid}`, wrappedComps, wrappedEvents, 'ssr', outerLoopParam)
         ls.push(`${indent}  }`)
       }
       // Recurse for child levels

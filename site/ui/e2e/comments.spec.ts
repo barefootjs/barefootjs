@@ -120,7 +120,7 @@ test.describe('Comments Block', () => {
     await expect(replies).toHaveCount(3)
   })
 
-  test.skip('add reply via input inside nested loop', async ({ page }) => {
+  test('add reply via input inside nested loop', async ({ page }) => {
     const section = page.locator('[bf-s^="CommentsDemo_"]:not([data-slot])').first()
 
     await section.locator('button:has-text("Oldest")').click()
@@ -135,7 +135,7 @@ test.describe('Comments Block', () => {
     await expect(frankComment.locator('text=Great explanation!')).toBeVisible()
   })
 
-  test.skip('delete reply removes from nested list', async ({ page }) => {
+  test('delete reply removes from nested list', async ({ page }) => {
     const section = page.locator('[bf-s^="CommentsDemo_"]:not([data-slot])').first()
 
     const aliceComment = section.locator('.comment-item').first()

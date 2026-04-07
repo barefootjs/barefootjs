@@ -157,6 +157,12 @@ export interface NestedLoopInfo {
   refsOuterParam?: boolean
   /** Reactive text expressions inside inner loop items (slotId → expression) */
   reactiveTexts?: Array<{ slotId: string; expression: string }>
+  /** Child components inside inner loop items (for initChild/createComponent) */
+  childComponents?: import('../types').IRLoopChildComponent[]
+  /** Event handlers inside inner loop items */
+  childEvents?: LoopChildEvent[]
+  /** True when this loop is inside a conditional branch (handled by insert() bindEvents instead) */
+  insideConditional?: boolean
 }
 
 export interface LoopChildEvent {
@@ -185,6 +191,10 @@ export interface LoopChildConditional {
   whenFalseHtml: string // HTML template for false branch (usually comment markers)
   whenTrueComponents: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[] }>
   whenFalseComponents: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[] }>
+  /** Inner loops inside whenTrue branch that need mapArray setup */
+  whenTrueInnerLoops?: NestedLoopInfo[]
+  /** Inner loops inside whenFalse branch that need mapArray setup */
+  whenFalseInnerLoops?: NestedLoopInfo[]
 }
 
 export interface LoopElement {
