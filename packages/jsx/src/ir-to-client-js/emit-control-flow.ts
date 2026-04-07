@@ -321,7 +321,7 @@ function emitLoopChildReactiveEffects(
   // Reactive text content effects
   for (const text of texts) {
     const varName = `__rt_${varSlotId(text.slotId)}`
-    lines.push(`${indent}{ const ${varName} = $tn(${elVar}, '${text.slotId}')`)
+    lines.push(`${indent}{ const [${varName}] = $t(${elVar}, '${text.slotId}')`)
     lines.push(`${indent}if (${varName}) createEffect(() => { ${varName}.textContent = String(${wrap(text.expression)}) }) }`)
   }
 

@@ -459,6 +459,10 @@ export function $t(scope: Element | null, ...ids: string[]): (Text | null)[] {
   const commentInfo = commentScopeRegistry.get(scope)
   const searchRoot: Node = commentInfo ? (commentInfo.commentNode.parentNode ?? scope) : scope
 
+  // When the element is not a component scope (e.g. a loop item element),
+  // skip ownership checks — all markers inside it belong to this element.
+  const isComponentScope = scope.hasAttribute(BF_SCOPE) || commentInfo != null
+
   // Build marker → index map for O(1) lookup during walk
   const markerMap = new Map<string, { index: number; isParentOwned: boolean }>()
   for (let i = 0; i < ids.length; i++) {
@@ -475,28 +479,13 @@ export function $t(scope: Element | null, ...ids: string[]): (Text | null)[] {
     const entry = markerMap.get(comment.nodeValue ?? '')
     if (!entry || results[entry.index] !== null) continue
 
-    if (!entry.isParentOwned && !commentBelongsToScope(comment, scope, commentInfo)) {
+    if (isComponentScope && !entry.isParentOwned && !commentBelongsToScope(comment, scope, commentInfo)) {
       continue
     }
     results[entry.index] = textNodeAfterComment(comment)
     remaining--
   }
   return results
-}
-
-/**
- * Find or create a reactive text node inside an element by its slot ID.
- * Used by per-item loop effects where $t() scope-based lookup is not available.
- */
-export function $tn(parent: Element, slotId: string): Text | null {
-  const marker = `bf:${slotId}`
-  const walker = document.createTreeWalker(parent, NodeFilter.SHOW_COMMENT)
-  while (walker.nextNode()) {
-    if (walker.currentNode.nodeValue === marker) {
-      return textNodeAfterComment(walker.currentNode as Comment)
-    }
-  }
-  return null
 }
 
 /**

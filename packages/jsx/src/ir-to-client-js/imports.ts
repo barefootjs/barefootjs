@@ -33,10 +33,6 @@ export function detectUsedImports(code: string): Set<string> {
   if (/\$c\s*\(/.test(code)) {
     used.add('$c')
   }
-  // Match $tn( for loop text node finders (must check before $t)
-  if (/\$tn\s*\(/.test(code)) {
-    used.add('$tn')
-  }
   // Match $t( for text node finders
   if (/\$t\s*\(/.test(code)) {
     used.add('$t')
