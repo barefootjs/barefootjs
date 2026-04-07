@@ -18,6 +18,7 @@ function collectInnerLoops(nodes: IRNode[], outerLoopParam?: string, ctx?: Clien
   const result: NestedLoopInfo[] = []
   let depth = 0
   let lastSlotId: string | null = null
+  let insideCond = false
 
   function walk(n: IRNode): void {
     switch (n.type) {
@@ -49,6 +50,7 @@ function collectInnerLoops(nodes: IRNode[], outerLoopParam?: string, ctx?: Clien
           itemTemplate,
           refsOuterParam: refsOuter,
           reactiveTexts: innerReactiveTexts.length > 0 ? innerReactiveTexts : undefined,
+          insideConditional: insideCond || undefined,
         })
         for (const child of n.children) walk(child)
         depth--
@@ -58,10 +60,14 @@ function collectInnerLoops(nodes: IRNode[], outerLoopParam?: string, ctx?: Clien
       case 'provider':
         for (const child of n.children) walk(child)
         break
-      case 'conditional':
+      case 'conditional': {
+        const prev = insideCond
+        insideCond = true
         walk(n.whenTrue)
         walk(n.whenFalse)
+        insideCond = prev
         break
+      }
     }
   }
 

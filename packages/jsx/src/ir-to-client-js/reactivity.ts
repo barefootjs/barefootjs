@@ -388,6 +388,8 @@ export function collectLoopChildConditionals(
           whenFalseHtml,
           whenTrueComponents: collectConditionalBranchChildComponents(n.whenTrue),
           whenFalseComponents: collectConditionalBranchChildComponents(n.whenFalse),
+          whenTrueInnerLoops: collectBranchInnerLoops(n.whenTrue, loopParam, ctx),
+          whenFalseInnerLoops: collectBranchInnerLoops(n.whenFalse, loopParam, ctx),
         })
       }
       // Don't recurse into conditional branches — nested conditionals
@@ -405,6 +407,79 @@ export function collectLoopChildConditionals(
 
   walk(node)
   return conditionals
+}
+
+/**
+ * Collect inner loop info from a conditional branch IR node.
+ * Used to set up mapArray inside insert() bindEvents for loops
+ * that are inside conditional branches of loop items.
+ */
+function collectBranchInnerLoops(
+  node: IRNode,
+  outerLoopParam?: string,
+  ctx?: ClientJsContext,
+): LoopChildConditional['whenTrueInnerLoops'] {
+  const { irToPlaceholderTemplate } = require('./html-template')
+  const loops: import('./types').NestedLoopInfo[] = []
+  let lastSlotId: string | null = null
+
+  function walk(n: IRNode): void {
+    if (n.type === 'element') {
+      if (n.slotId) lastSlotId = n.slotId
+      for (const child of n.children) walk(child)
+    } else if (n.type === 'loop') {
+      const itemTemplate = n.children.map((c: IRNode) => irToPlaceholderTemplate(c, undefined, 1)).join('')
+      const refsOuter = outerLoopParam
+        ? new RegExp(`\\b${outerLoopParam}\\b`).test(n.array)
+        : false
+      const reactiveTexts: Array<{ slotId: string; expression: string }> = []
+      if (refsOuter && ctx) {
+        for (const child of n.children) {
+          reactiveTexts.push(...collectLoopChildReactiveTexts(child, ctx, n.param))
+        }
+      }
+      // Collect child components and events inside inner loop items
+      // Walk loop body children (not the loop node itself, which traverseForComponents skips)
+      const rawComps: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[] }> = []
+      for (const child of n.children) {
+        rawComps.push(...collectConditionalBranchChildComponents(child))
+      }
+      const childComponents = rawComps.map(c => ({
+        name: c.name,
+        slotId: c.slotId,
+        props: c.props.map(p => ({
+          name: p.name,
+          value: p.value,
+          dynamic: p.dynamic ?? false,
+          isLiteral: p.isLiteral ?? false,
+          isEventHandler: p.name.startsWith('on') && p.name.length > 2 && p.name[2] === p.name[2].toUpperCase(),
+        })),
+        children: [] as import('../types').IRNode[],
+        loopDepth: 1,
+      }))
+      const childEvents: import('./types').LoopChildEvent[] = []
+      for (const child of n.children) {
+        childEvents.push(...collectLoopChildEventsWithNesting(child))
+      }
+      loops.push({
+        depth: 1,
+        array: n.array,
+        param: n.param,
+        key: n.key ?? '',
+        containerSlotId: lastSlotId,
+        itemTemplate,
+        refsOuterParam: refsOuter,
+        reactiveTexts: reactiveTexts.length > 0 ? reactiveTexts : undefined,
+        childComponents: childComponents.length > 0 ? childComponents : undefined,
+        childEvents: childEvents.length > 0 ? childEvents : undefined,
+      })
+    } else if (n.type === 'fragment' || n.type === 'component' || n.type === 'provider') {
+      for (const child of n.children) walk(child)
+    }
+  }
+
+  walk(node)
+  return loops.length > 0 ? loops : undefined
 }
 
 /**
