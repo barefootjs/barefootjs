@@ -15,6 +15,83 @@ import {
   type TocItem,
 } from '../../components/shared/docs'
 
+const previewCode = `"use client"
+
+import { createSignal, createMemo } from '@barefootjs/dom'
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+
+export function UserProfile() {
+  const [profile, setProfile] = createSignal(initialProfile)
+  const [activeTab, setActiveTab] = createSignal('overview')
+  const [editingField, setEditingField] = createSignal(null)
+  const [repoFilter, setRepoFilter] = createSignal('all')
+  const [repoSort, setRepoSort] = createSignal('stars')
+  const [repoSearch, setRepoSearch] = createSignal('')
+
+  const totalStars = createMemo(() => profile().repos.reduce((s, r) => s + r.stars, 0))
+  const filteredRepos = createMemo(() => {
+    let repos = profile().repos
+    if (repoFilter() !== 'all') repos = repos.filter(r => r.language === repoFilter())
+    const q = repoSearch().toLowerCase()
+    if (q) repos = repos.filter(r => r.name.includes(q))
+    return repos
+  })
+  const sortedRepos = createMemo(() => {
+    const items = [...filteredRepos()]
+    if (repoSort() === 'stars') return items.sort((a, b) => b.stars - a.stars)
+    return items.sort((a, b) => a.name.localeCompare(b.name))
+  })
+
+  const toggleStar = (id) => {
+    setProfile(prev => ({
+      ...prev,
+      repos: prev.repos.map(r =>
+        r.id === id ? { ...r, starred: !r.starred, stars: r.starred ? r.stars - 1 : r.stars + 1 } : r
+      ),
+    }))
+  }
+
+  return (
+    <div>
+      {/* Profile header with inline editing */}
+      <Avatar><AvatarFallback>AC</AvatarFallback></Avatar>
+      <h2>{profile().displayName}</h2>
+      {profile().verified ? <Badge>Verified</Badge> : null}
+
+      {/* Stats */}
+      <span>{profile().repos.length} repos</span>
+      <span>{totalStars()} stars</span>
+
+      {/* Tabs */}
+      <Tabs value={activeTab()} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="repos">Repositories</TabsTrigger>
+        </TabsList>
+        <TabsContent value="repos">
+          <Input value={repoSearch()} onInput={e => setRepoSearch(e.target.value)} />
+          {sortedRepos().map(repo => (
+            <div key={repo.id}>
+              <span>{repo.name}</span>
+              <Badge variant="outline">{repo.language}</Badge>
+              <span>{repo.stars} stars</span>
+              <Button onClick={() => toggleStar(repo.id)}>
+                {repo.starred ? 'Unstar' : 'Star'}
+              </Button>
+            </div>
+          ))}
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}`
+
 const tocItems: TocItem[] = [
   { id: 'preview', title: 'Preview' },
   { id: 'features', title: 'Features' },
@@ -33,7 +110,7 @@ export function UserProfileRefPage() {
       />
 
       <Section id="preview" title="Preview">
-        <Example code="">
+        <Example code={previewCode}>
           <UserProfileDemo />
         </Example>
       </Section>
