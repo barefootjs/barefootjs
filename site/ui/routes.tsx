@@ -59,6 +59,7 @@ import { DirectionRefPage } from './pages/components/direction'
 import { DrawerRefPage } from './pages/components/drawer'
 import { SheetRefPage } from './pages/components/sheet'
 import { DashboardRefPage } from './pages/components/dashboard'
+import { AnalyticsDashboardRefPage } from './pages/components/analytics-dashboard'
 import { MailRefPage } from './pages/components/mail'
 import { KanbanRefPage } from './pages/components/kanban'
 import { LoginRefPage } from './pages/components/login'
@@ -434,6 +435,11 @@ export function createApp() {
   // Dashboard block page
   app.get('/components/dashboard', (c) => {
     return c.render(<DashboardRefPage />)
+  })
+
+  // Analytics Dashboard block page
+  app.get('/components/analytics-dashboard', (c) => {
+    return c.render(<AnalyticsDashboardRefPage />)
   })
 
   // Mail block page

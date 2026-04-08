@@ -261,8 +261,10 @@ export function buildSignalAndMemoMaps(ctx: ClientJsContext): {
     if (arrowMatch) {
       const body = arrowMatch[1].trim()
       if (body.startsWith('{')) {
-        // Block body: extract return expression
-        const returnMatch = body.match(/return\s+(.+?)\s*[;}]?\s*}$/)
+        // Block body: extract return expression.
+        // Use greedy .+ to capture the full return value including nested braces
+        // (e.g., return { a, b, c } must capture the entire object literal).
+        const returnMatch = body.match(/return\s+(.+)\s*[;}]?\s*}$/)
         expr = returnMatch ? returnMatch[1] : expr
       } else {
         expr = body
