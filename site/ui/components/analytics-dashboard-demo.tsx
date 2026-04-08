@@ -183,12 +183,6 @@ export function AnalyticsDashboardDemo() {
     return { totalViews, totalVisitors, totalRevenue, totalConversions, avgBounce, avgDuration, conversionRate }
   })
 
-  // Derived scalar memos for footer text expressions.
-  // Using filteredData() directly avoids the compiler inlining aggregateStats()'s
-  // object literal into SSR template expressions (which breaks ${...} parsing).
-  const totalConversions = createMemo(() => filteredData().reduce((s, r) => s + r.conversions, 0))
-  const totalRevenue = createMemo(() => filteredData().reduce((s, r) => s + r.revenue, 0))
-
   // L5: Chart data (group by month)
   const chartData = createMemo(() => {
     const byMonth = new Map<string, { month: string; views: number; visitors: number }>()
@@ -460,9 +454,9 @@ export function AnalyticsDashboardDemo() {
       <div className="analytics-footer flex items-center gap-4 text-sm text-muted-foreground">
         <span>{filteredData().length} of {allData.length} pages</span>
         <Separator orientation="vertical" decorative className="h-4" />
-        <span>{totalConversions().toLocaleString()} conversions</span>
+        <span>{aggregateStats().totalConversions.toLocaleString()} conversions</span>
         <Separator orientation="vertical" decorative className="h-4" />
-        <span>{formatCurrency(totalRevenue())} total revenue</span>
+        <span>{formatCurrency(aggregateStats().totalRevenue)} total revenue</span>
       </div>
     </div>
   )
