@@ -172,6 +172,17 @@ test.describe('Inventory Manager Block', () => {
       await expect(s.locator('.row-name').first()).toContainText(nameBefore!)
     })
 
+    test('undo after save restores original name', async ({ page }) => {
+      const s = section(page)
+      const nameBefore = await s.locator('.row-name').first().textContent()
+      await s.locator('.edit-btn').first().click()
+      await s.locator('.edit-name').fill('CHANGED')
+      await s.locator('.save-btn').click()
+      // Single undo to revert save
+      await s.locator('.undo-btn').click()
+      await expect(s.locator('.row-name').first()).toContainText(nameBefore!)
+    })
+
     test('redo re-applies action', async ({ page }) => {
       const s = section(page)
       await s.locator('.delete-btn').first().click()
