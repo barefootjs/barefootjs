@@ -8,13 +8,13 @@ import {
 import { XYPanZoom } from '@xyflow/system'
 import type {
   Viewport,
-  InternalNodeBase,
-  NodeBase,
   Transform,
 } from '@xyflow/system'
 
 import { createFlowStore } from './store'
 import { FlowContext } from './context'
+import { createNodeRenderer } from './node-wrapper'
+import { createEdgeRenderer } from './edge-renderer'
 import type { FlowProps, FlowStore } from './types'
 
 /**
@@ -151,51 +151,11 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
     viewportEl.style.transform = `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`
   })
 
-  // --- Reactive node rendering ---
-  // Track which node DOM elements exist
-  const nodeElements = new Map<string, HTMLElement>()
+  // --- Reactive node rendering (delegated to node-wrapper.ts) ---
+  createNodeRenderer(store as FlowStore, nodesEl)
 
-  createEffect(() => {
-    // Read nodesInitialized to ensure nodes are processed
-    store.nodesInitialized()
-
-    const lookup = store.nodeLookup()
-    const existingIds = new Set(nodeElements.keys())
-
-    // Create or update nodes
-    for (const [id, internalNode] of lookup) {
-      existingIds.delete(id)
-
-      let nodeEl = nodeElements.get(id)
-      if (!nodeEl) {
-        // Create new node element
-        nodeEl = document.createElement('div')
-        nodeEl.className = 'bf-flow__node'
-        nodeEl.dataset.id = id
-        nodeEl.style.position = 'absolute'
-        nodeEl.style.transformOrigin = '0 0'
-        nodesEl.appendChild(nodeEl)
-        nodeElements.set(id, nodeEl)
-
-        // Render default node content
-        renderDefaultNode(nodeEl, internalNode)
-      }
-
-      // Update position
-      const pos = internalNode.internals.positionAbsolute
-      nodeEl.style.transform = `translate(${pos.x}px, ${pos.y}px)`
-      nodeEl.style.zIndex = String(internalNode.internals.z ?? 0)
-    }
-
-    // Remove nodes that no longer exist
-    for (const removedId of existingIds) {
-      const el = nodeElements.get(removedId)
-      if (el) {
-        el.remove()
-        nodeElements.delete(removedId)
-      }
-    }
-  })
+  // --- Reactive edge rendering (delegated to edge-renderer.ts) ---
+  createEdgeRenderer(store as FlowStore, edgesSvg)
 
   // --- Fit view on mount if requested ---
   if (flowProps.fitView) {
@@ -205,29 +165,5 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
         store.fitView(flowProps.fitViewOptions)
       })
     })
-  }
-}
-
-/**
- * Render default node content (simple box with label).
- */
-function renderDefaultNode(el: HTMLElement, node: InternalNodeBase<NodeBase>): void {
-  el.style.padding = '10px 20px'
-  el.style.border = '1px solid #1a192b'
-  el.style.borderRadius = '3px'
-  el.style.backgroundColor = '#fff'
-  el.style.fontSize = '12px'
-  el.style.color = '#222'
-  el.style.cursor = 'default'
-  el.style.userSelect = 'none'
-
-  const data = node.internals.userNode.data as Record<string, unknown>
-  const label = data?.label ?? node.internals.userNode.id
-  el.textContent = String(label)
-
-  // Set measured dimensions
-  if (!node.measured.width) {
-    node.measured.width = el.offsetWidth || 150
-    node.measured.height = el.offsetHeight || 40
   }
 }

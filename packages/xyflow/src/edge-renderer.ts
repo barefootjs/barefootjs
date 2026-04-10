@@ -1,0 +1,153 @@
+import {
+  createEffect,
+  onCleanup,
+} from '@barefootjs/dom'
+import {
+  getBezierPath,
+  getSmoothStepPath,
+  getStraightPath,
+  getEdgePosition,
+  ConnectionMode,
+} from '@xyflow/system'
+import type {
+  NodeBase,
+  EdgeBase,
+} from '@xyflow/system'
+import type { FlowStore } from './types'
+
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+/**
+ * Reactively renders all edges as SVG paths.
+ * A single effect re-draws all edges when edges or node positions change.
+ */
+export function createEdgeRenderer<
+  NodeType extends NodeBase = NodeBase,
+  EdgeType extends EdgeBase = EdgeBase,
+>(
+  store: FlowStore<NodeType, EdgeType>,
+  svgContainer: SVGSVGElement,
+): void {
+  // Reusable SVG group for edge paths
+  const edgeGroup = document.createElementNS(SVG_NS, 'g')
+  edgeGroup.setAttribute('class', 'bf-flow__edge-group')
+  svgContainer.appendChild(edgeGroup)
+
+  // Track edge path elements by edge id
+  const edgeElements = new Map<string, SVGPathElement>()
+
+  createEffect(() => {
+    const edges = store.edges()
+    const nodeLookup = store.nodeLookup()
+    const existingIds = new Set(edgeElements.keys())
+
+    for (const edge of edges) {
+      if (edge.hidden) continue
+
+      existingIds.delete(edge.id)
+
+      const sourceNode = nodeLookup.get(edge.source)
+      const targetNode = nodeLookup.get(edge.target)
+
+      if (!sourceNode || !targetNode) continue
+
+      // Get source/target positions from @xyflow/system
+      const edgePos = getEdgePosition({
+        id: edge.id,
+        sourceNode,
+        sourceHandle: edge.sourceHandle ?? null,
+        targetNode,
+        targetHandle: edge.targetHandle ?? null,
+        connectionMode: ConnectionMode.Loose,
+      })
+
+      if (!edgePos) continue
+
+      // Calculate path based on edge type (default: bezier)
+      const pathData = getEdgePath(edge, edgePos)
+      if (!pathData) continue
+
+      const [path] = pathData
+
+      // Create or update path element
+      let pathEl = edgeElements.get(edge.id)
+      if (!pathEl) {
+        pathEl = document.createElementNS(SVG_NS, 'path')
+        pathEl.setAttribute('class', 'bf-flow__edge')
+        pathEl.dataset.id = edge.id
+        pathEl.setAttribute('fill', 'none')
+        pathEl.setAttribute('stroke', '#b1b1b7')
+        pathEl.setAttribute('stroke-width', '1')
+        edgeGroup.appendChild(pathEl)
+        edgeElements.set(edge.id, pathEl)
+      }
+
+      pathEl.setAttribute('d', path)
+
+      // Update selection styling
+      if (edge.selected) {
+        pathEl.setAttribute('stroke', '#555')
+        pathEl.setAttribute('stroke-width', '2')
+      } else {
+        pathEl.setAttribute('stroke', '#b1b1b7')
+        pathEl.setAttribute('stroke-width', '1')
+      }
+
+      // Animated edges
+      if (edge.animated) {
+        pathEl.setAttribute('stroke-dasharray', '5')
+        pathEl.classList.add('bf-flow__edge--animated')
+      }
+    }
+
+    // Remove edges that no longer exist
+    for (const removedId of existingIds) {
+      const el = edgeElements.get(removedId)
+      if (el) {
+        el.remove()
+        edgeElements.delete(removedId)
+      }
+    }
+  })
+
+  onCleanup(() => {
+    edgeGroup.remove()
+    edgeElements.clear()
+  })
+}
+
+/**
+ * Calculate edge path based on edge type.
+ * Returns [path, labelX, labelY, offsetX, offsetY] or null.
+ */
+function getEdgePath(
+  edge: EdgeBase,
+  pos: { sourceX: number; sourceY: number; targetX: number; targetY: number; sourcePosition: any; targetPosition: any },
+): [string, number, number, number, number] | null {
+  const params = {
+    sourceX: pos.sourceX,
+    sourceY: pos.sourceY,
+    sourcePosition: pos.sourcePosition,
+    targetX: pos.targetX,
+    targetY: pos.targetY,
+    targetPosition: pos.targetPosition,
+  }
+
+  // Determine edge type from data or default to bezier
+  const edgeType = (edge as any).type ?? 'default'
+
+  switch (edgeType) {
+    case 'straight':
+      return getStraightPath(params) as [string, number, number, number, number]
+    case 'smoothstep':
+    case 'step':
+      return getSmoothStepPath({
+        ...params,
+        borderRadius: edgeType === 'step' ? 0 : undefined,
+      }) as [string, number, number, number, number]
+    case 'default':
+    case 'bezier':
+    default:
+      return getBezierPath(params)
+  }
+}

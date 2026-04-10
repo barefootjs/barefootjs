@@ -2,6 +2,8 @@
 export { initFlow } from './flow'
 export { createFlowStore } from './store'
 export { FlowContext } from './context'
+export { createNodeWrapper, createNodeRenderer } from './node-wrapper'
+export { createEdgeRenderer } from './edge-renderer'
 
 // Types
 export type {
