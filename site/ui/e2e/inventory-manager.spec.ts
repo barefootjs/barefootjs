@@ -149,6 +149,16 @@ test.describe('Inventory Manager Block', () => {
       await expect(s.locator('.inventory-row')).toHaveCount(8)
     })
 
+    test('undo restored item has edit/delete buttons', async ({ page }) => {
+      const s = section(page)
+      await s.locator('.delete-btn').first().click()
+      await s.locator('.undo-btn').click()
+      // The restored first row should have working Edit and Delete buttons
+      const firstRow = s.locator('.inventory-row').first()
+      await expect(firstRow.locator('.edit-btn')).toBeVisible()
+      await expect(firstRow.locator('.delete-btn')).toBeVisible()
+    })
+
     test('undo cancels edit mode and restores state', async ({ page }) => {
       const s = section(page)
       const nameBefore = await s.locator('.row-name').first().textContent()

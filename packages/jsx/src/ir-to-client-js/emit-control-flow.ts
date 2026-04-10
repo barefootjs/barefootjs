@@ -281,7 +281,10 @@ function emitBranchChildComponentInits(
         return `get ${quotePropName(p.name)}() { return ${wrap(p.value)} }`
       })
     const propsExpr = propsEntries.length > 0 ? `{ ${propsEntries.join(', ')} }` : '{}'
-    lines.push(`${indent}{ const __c = __branchScope.querySelector('${selector}'); if (__c) initChild('${comp.name}', __c, ${propsExpr}) }`)
+    // SSR: element has bf-s attribute → initChild.
+    // CSR: element is a placeholder (data-bf-ph) → createComponent to replace it.
+    const phId = comp.slotId || comp.name
+    lines.push(`${indent}{ let __c = __branchScope.querySelector('${selector}'); if (!__c) { const __ph = __branchScope.querySelector('[${DATA_BF_PH}="${phId}"]'); if (__ph) { __c = createComponent('${comp.name}', ${propsExpr}); __ph.replaceWith(__c) } } if (__c) initChild('${comp.name}', __c, ${propsExpr}) }`)
   }
 }
 
