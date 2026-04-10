@@ -46,6 +46,9 @@ export type {
   NodeComponentProps,
 } from './types'
 
+// Compat layer (React Flow API shims for desk migration)
+export { useNodesState, useEdgesState, useReactFlow, addEdge, reconnectEdge } from './compat'
+
 // Re-export useful utilities from @xyflow/system
 export {
   getBezierPath,
