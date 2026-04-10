@@ -9,6 +9,7 @@ import {
   updateAbsolutePositions,
   updateConnectionLookup,
   fitViewport,
+  panBy as panByUtil,
 } from '@xyflow/system'
 import type {
   NodeBase,
@@ -24,6 +25,8 @@ import type {
   NodeOrigin,
   Transform,
   PanZoomInstance,
+  NodeDragItem,
+  XYPosition,
 } from '@xyflow/system'
 import type { FlowStoreOptions, FlowStore, FitViewOptions } from './types'
 
@@ -117,11 +120,130 @@ export function createFlowStore<
     setConnectionLookup(() => connLookup)
   })
 
+  // --- Selection state ---
+  const [multiSelectionActive, setMultiSelectionActive] = createSignal(false)
+
   // --- Actions ---
 
   function getTransform(): Transform {
     const vp = untrack(viewport)
     return [vp.x, vp.y, vp.zoom]
+  }
+
+  /**
+   * Update node positions during drag operations.
+   * Called by XYDrag with the current drag items.
+   */
+  function updateNodePositions(
+    dragItems: Map<string, NodeDragItem | InternalNodeBase>,
+    isDragging = true,
+  ) {
+    const lookup = untrack(nodeLookup)
+
+    for (const [id, item] of dragItems) {
+      const internalNode = lookup.get(id)
+      if (!internalNode) continue
+
+      internalNode.internals.positionAbsolute = item.internals
+        ? (item as InternalNodeBase).internals.positionAbsolute
+        : { x: (item as NodeDragItem).position.x, y: (item as NodeDragItem).position.y }
+
+      // Update position on the user node
+      const userNode = internalNode.internals.userNode
+      if ('position' in item) {
+        userNode.position = (item as any).position
+      }
+
+      userNode.dragging = isDragging
+    }
+
+    // Force re-render by triggering nodeLookup signal
+    setNodeLookup(() => lookup)
+  }
+
+  /**
+   * Deselect all nodes and edges, or specific ones.
+   */
+  function unselectNodesAndEdges(params?: {
+    nodes?: NodeBase[]
+    edges?: EdgeBase[]
+  }) {
+    const currentNodes = untrack(nodes)
+    const currentEdges = untrack(edges)
+
+    if (params?.nodes) {
+      const idsToDeselect = new Set(params.nodes.map((n) => n.id))
+      setNodes(
+        currentNodes.map((n) =>
+          idsToDeselect.has(n.id) ? { ...n, selected: false } : n,
+        ) as NodeType[],
+      )
+    } else {
+      setNodes(
+        currentNodes.map((n) =>
+          n.selected ? { ...n, selected: false } : n,
+        ) as NodeType[],
+      )
+    }
+
+    if (params?.edges) {
+      const idsToDeselect = new Set(params.edges.map((e) => e.id))
+      setEdges(
+        currentEdges.map((e) =>
+          idsToDeselect.has(e.id) ? { ...e, selected: false } : e,
+        ) as EdgeType[],
+      )
+    } else {
+      setEdges(
+        currentEdges.map((e) =>
+          e.selected ? { ...e, selected: false } : e,
+        ) as EdgeType[],
+      )
+    }
+  }
+
+  /**
+   * Pan the viewport by a delta amount.
+   */
+  async function panByDelta(delta: XYPosition): Promise<boolean> {
+    return panByUtil({
+      delta,
+      panZoom: untrack(panZoom),
+      transform: getTransform(),
+      translateExtent: infiniteExtent,
+      width: untrack(width),
+      height: untrack(height),
+    })
+  }
+
+  /**
+   * Add a new edge to the store.
+   */
+  function addEdge(edge: EdgeType) {
+    setEdges((prev) => [...prev, edge])
+  }
+
+  /**
+   * Delete nodes and edges from the store.
+   */
+  function deleteElements(params: {
+    nodes?: NodeType[]
+    edges?: EdgeType[]
+  }) {
+    if (params.nodes?.length) {
+      const idsToRemove = new Set(params.nodes.map((n) => n.id))
+      setNodes((prev) => prev.filter((n) => !idsToRemove.has(n.id)))
+      // Also remove connected edges
+      setEdges((prev) =>
+        prev.filter(
+          (e) => !idsToRemove.has(e.source) && !idsToRemove.has(e.target),
+        ),
+      )
+    }
+    if (params.edges?.length) {
+      const idsToRemove = new Set(params.edges.map((e) => e.id))
+      setEdges((prev) => prev.filter((e) => !idsToRemove.has(e.id)))
+    }
   }
 
   function fitView(fitViewOptions?: FitViewOptions) {
@@ -172,13 +294,22 @@ export function createFlowStore<
     setWidth,
     setHeight,
 
+    // Selection state
+    multiSelectionActive,
+
     // Internal setters (not on public FlowStore type, but needed by initFlow)
     setDragging,
     setPanZoom,
     setDomNode,
+    setMultiSelectionActive,
 
     // Actions
     fitView,
+    updateNodePositions,
+    unselectNodesAndEdges,
+    panByDelta,
+    addEdge,
+    deleteElements,
 
     // Configuration
     minZoom,
@@ -192,9 +323,13 @@ export function createFlowStore<
 
     // Callbacks
     onConnect: options.onConnect,
+    onConnectStart: options.onConnectStart,
+    onConnectEnd: options.onConnectEnd,
+    isValidConnection: options.isValidConnection,
   } as FlowStore<NodeType, EdgeType> & {
     setDragging: typeof setDragging
     setPanZoom: typeof setPanZoom
     setDomNode: typeof setDomNode
+    setMultiSelectionActive: typeof setMultiSelectionActive
   }
 }

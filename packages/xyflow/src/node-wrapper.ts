@@ -2,8 +2,9 @@ import {
   createRoot,
   createEffect,
   onCleanup,
+  untrack,
 } from '@barefootjs/dom'
-import { updateNodeInternals } from '@xyflow/system'
+import { updateNodeInternals, XYDrag } from '@xyflow/system'
 import type {
   NodeBase,
   InternalNodeBase,
@@ -13,7 +14,7 @@ import type { FlowStore } from './types'
 
 /**
  * Per-node reactive scope: manages a single node's DOM element,
- * position updates, dimension measurement, and cleanup.
+ * position updates, dimension measurement, drag, and cleanup.
  */
 export type NodeInstance = {
   element: HTMLElement
@@ -54,11 +55,9 @@ export function createNodeWrapper<NodeType extends NodeBase>(
         const { width, height } = entry.contentRect
         if (width === 0 && height === 0) continue
 
-        // Update measured dimensions on the internal node
         internalNode.measured.width = width
         internalNode.measured.height = height
 
-        // Tell @xyflow/system to recalculate internals
         const updates = new Map<string, InternalNodeUpdate>()
         updates.set(internalNode.id, {
           id: internalNode.id,
@@ -82,6 +81,43 @@ export function createNodeWrapper<NodeType extends NodeBase>(
     resizeObserver.observe(element)
     onCleanup(() => resizeObserver.disconnect())
 
+    // --- XYDrag integration ---
+    const isDraggable = internalNode.draggable !== false
+
+    if (isDraggable) {
+      const dragInstance = XYDrag({
+        getStoreItems: () => ({
+          nodes: untrack(store.nodes),
+          nodeLookup: untrack(store.nodeLookup),
+          edges: untrack(store.edges),
+          nodeExtent: store.nodeExtent,
+          snapGrid: store.snapGrid,
+          snapToGrid: store.snapToGrid,
+          nodeOrigin: store.nodeOrigin,
+          multiSelectionActive: untrack(store.multiSelectionActive),
+          domNode: untrack(store.domNode) ?? undefined,
+          transform: store.getTransform(),
+          autoPanOnNodeDrag: true,
+          nodesDraggable: true,
+          selectNodesOnDrag: true,
+          nodeDragThreshold: 1,
+          panBy: store.panByDelta,
+          unselectNodesAndEdges: store.unselectNodesAndEdges as any,
+          updateNodePositions: store.updateNodePositions as any,
+        }),
+      })
+
+      // Attach drag to this node's DOM element
+      dragInstance.update({
+        domNode: element,
+        nodeId: internalNode.id,
+        isSelectable: internalNode.selectable !== false,
+        noDragClassName: 'nodrag',
+      })
+
+      onCleanup(() => dragInstance.destroy())
+    }
+
     // Reactive position update
     createEffect(() => {
       const lookup = store.nodeLookup()
@@ -91,6 +127,13 @@ export function createNodeWrapper<NodeType extends NodeBase>(
       const pos = current.internals.positionAbsolute
       element.style.transform = `translate(${pos.x}px, ${pos.y}px)`
       element.style.zIndex = String(current.internals.z ?? 0)
+
+      // Selection styling
+      if (current.selected) {
+        element.classList.add('bf-flow__node--selected')
+      } else {
+        element.classList.remove('bf-flow__node--selected')
+      }
     })
 
     onCleanup(() => {
@@ -115,7 +158,7 @@ function renderNodeContent<NodeType extends NodeBase>(
   el.style.backgroundColor = '#fff'
   el.style.fontSize = '12px'
   el.style.color = '#222'
-  el.style.cursor = 'default'
+  el.style.cursor = 'grab'
   el.style.userSelect = 'none'
 
   const data = node.internals.userNode.data as Record<string, unknown>
@@ -133,13 +176,11 @@ export function createNodeRenderer<NodeType extends NodeBase>(
   const nodeInstances = new Map<string, NodeInstance>()
 
   createEffect(() => {
-    // Trigger on nodesInitialized to ensure nodes are processed
     store.nodesInitialized()
 
     const lookup = store.nodeLookup()
     const existingIds = new Set(nodeInstances.keys())
 
-    // Create new nodes
     for (const [id, internalNode] of lookup) {
       existingIds.delete(id)
 
@@ -153,7 +194,6 @@ export function createNodeRenderer<NodeType extends NodeBase>(
       }
     }
 
-    // Remove nodes that no longer exist
     for (const removedId of existingIds) {
       const instance = nodeInstances.get(removedId)
       if (instance) {
@@ -163,7 +203,6 @@ export function createNodeRenderer<NodeType extends NodeBase>(
     }
   })
 
-  // Cleanup all on teardown
   onCleanup(() => {
     for (const instance of nodeInstances.values()) {
       instance.dispose()

@@ -109,8 +109,25 @@ export type FlowStore<
   setWidth: Signal<number>[1]
   setHeight: Signal<number>[1]
 
+  // Selection state
+  multiSelectionActive: Signal<boolean>[0]
+
   // Actions
   fitView: (options?: FitViewOptions) => void
+  updateNodePositions: (
+    dragItems: Map<string, NodeDragItem | InternalNodeBase<NodeType>>,
+    dragging?: boolean,
+  ) => void
+  unselectNodesAndEdges: (params?: {
+    nodes?: NodeType[]
+    edges?: EdgeType[]
+  }) => void
+  panByDelta: (delta: XYPosition) => Promise<boolean>
+  addEdge: (edge: EdgeType) => void
+  deleteElements: (params: {
+    nodes?: NodeType[]
+    edges?: EdgeType[]
+  }) => void
 
   // Configuration
   minZoom: number
@@ -125,6 +142,9 @@ export type FlowStore<
 
   // Callbacks
   onConnect?: OnConnect
+  onConnectStart?: OnConnectStart
+  onConnectEnd?: OnConnectEnd
+  isValidConnection?: IsValidConnection
 }
 
 /**

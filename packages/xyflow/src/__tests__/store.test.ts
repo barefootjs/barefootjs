@@ -171,4 +171,80 @@ describe('createFlowStore', () => {
       expect(store.nodeOrigin).toEqual([0.5, 0.5])
     })
   })
+
+  test('addEdge adds to edges', () => {
+    createRoot(() => {
+      const store = createFlowStore()
+      expect(store.edges()).toHaveLength(0)
+
+      store.addEdge({ id: 'e1', source: '1', target: '2' })
+      expect(store.edges()).toHaveLength(1)
+      expect(store.edges()[0].id).toBe('e1')
+    })
+  })
+
+  test('deleteElements removes nodes and connected edges', () => {
+    createRoot(() => {
+      const store = createFlowStore({
+        nodes: [
+          { id: '1', position: { x: 0, y: 0 }, data: {} },
+          { id: '2', position: { x: 100, y: 0 }, data: {} },
+          { id: '3', position: { x: 200, y: 0 }, data: {} },
+        ],
+        edges: [
+          { id: 'e1-2', source: '1', target: '2' },
+          { id: 'e2-3', source: '2', target: '3' },
+        ],
+      })
+
+      store.deleteElements({ nodes: [{ id: '2', position: { x: 100, y: 0 }, data: {} }] })
+
+      expect(store.nodes()).toHaveLength(2)
+      expect(store.nodes().map((n) => n.id)).toEqual(['1', '3'])
+      // Both edges connected to node 2 should be removed
+      expect(store.edges()).toHaveLength(0)
+    })
+  })
+
+  test('deleteElements removes only specified edges', () => {
+    createRoot(() => {
+      const store = createFlowStore({
+        edges: [
+          { id: 'e1', source: '1', target: '2' },
+          { id: 'e2', source: '2', target: '3' },
+        ],
+      })
+
+      store.deleteElements({ edges: [{ id: 'e1', source: '1', target: '2' }] })
+
+      expect(store.edges()).toHaveLength(1)
+      expect(store.edges()[0].id).toBe('e2')
+    })
+  })
+
+  test('unselectNodesAndEdges deselects all', () => {
+    createRoot(() => {
+      const store = createFlowStore({
+        nodes: [
+          { id: '1', position: { x: 0, y: 0 }, data: {}, selected: true },
+          { id: '2', position: { x: 100, y: 0 }, data: {}, selected: true },
+        ],
+        edges: [
+          { id: 'e1', source: '1', target: '2', selected: true },
+        ],
+      })
+
+      store.unselectNodesAndEdges()
+
+      expect(store.nodes().every((n) => !n.selected)).toBe(true)
+      expect(store.edges().every((e) => !e.selected)).toBe(true)
+    })
+  })
+
+  test('multiSelectionActive defaults to false', () => {
+    createRoot(() => {
+      const store = createFlowStore()
+      expect(store.multiSelectionActive()).toBe(false)
+    })
+  })
 })
