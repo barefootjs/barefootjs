@@ -4,6 +4,8 @@ export { createFlowStore } from './store'
 export { FlowContext } from './context'
 export { createNodeWrapper, createNodeRenderer } from './node-wrapper'
 export { createEdgeRenderer } from './edge-renderer'
+export { createHandle, initHandle } from './handle'
+export type { HandleType, HandleProps } from './handle'
 
 // Types
 export type {
