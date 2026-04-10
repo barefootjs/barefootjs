@@ -79,6 +79,7 @@ import { CartRefPage } from './pages/components/cart'
 import { CheckoutRefPage } from './pages/components/checkout'
 import { CommentsRefPage } from './pages/components/comments'
 import { NotificationsCenterRefPage } from './pages/components/notifications-center'
+import { InventoryManagerRefPage } from './pages/components/inventory-manager'
 import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
@@ -540,6 +541,11 @@ export function createApp() {
   // Notifications Center block page
   app.get('/components/notifications-center', (c) => {
     return c.render(<NotificationsCenterRefPage />)
+  })
+
+  // Inventory Manager block page
+  app.get('/components/inventory-manager', (c) => {
+    return c.render(<InventoryManagerRefPage />)
   })
 
   // Bar Chart reference page
