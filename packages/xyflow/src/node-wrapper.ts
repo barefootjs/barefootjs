@@ -10,8 +10,10 @@ import type {
   InternalNodeBase,
   InternalNodeUpdate,
 } from '@xyflow/system'
+import { render } from '@barefootjs/dom'
+import type { ComponentDef } from '@barefootjs/dom'
 import { setupNodeSelection } from './selection'
-import type { FlowStore } from './types'
+import type { FlowStore, NodeComponentProps } from './types'
 
 /**
  * Per-node reactive scope: manages a single node's DOM element,
@@ -44,8 +46,8 @@ export function createNodeWrapper<NodeType extends NodeBase>(
     element.style.position = 'absolute'
     element.style.transformOrigin = '0 0'
 
-    // Render content
-    renderNodeContent(element, internalNode)
+    // Render content (custom type or default)
+    renderNodeContent(element, internalNode, store)
 
     // Append to container
     nodesContainer.appendChild(element)
@@ -149,13 +151,48 @@ export function createNodeWrapper<NodeType extends NodeBase>(
 }
 
 /**
- * Render default node content (label or id).
- * Custom node types will override this via the nodeTypes mechanism.
+ * Render node content — uses custom type if registered, otherwise default.
  */
 function renderNodeContent<NodeType extends NodeBase>(
   el: HTMLElement,
   node: InternalNodeBase<NodeType>,
+  store: FlowStore<NodeType>,
 ): void {
+  const nodeType = (node.internals.userNode as any).type as string | undefined
+  const customType = nodeType && store.nodeTypes?.[nodeType]
+
+  if (customType) {
+    // Build node component props
+    const nodeProps: NodeComponentProps<NodeType> = {
+      id: node.id,
+      data: node.internals.userNode.data,
+      type: nodeType,
+      selected: node.selected ?? false,
+      dragging: node.dragging ?? false,
+      positionAbsoluteX: node.internals.positionAbsolute.x,
+      positionAbsoluteY: node.internals.positionAbsolute.y,
+      width: node.measured.width,
+      height: node.measured.height,
+      isConnectable: node.connectable !== false,
+    }
+
+    if (typeof customType === 'function') {
+      // Plain init function
+      customType(nodeProps)
+    } else {
+      // ComponentDef — render via CSR
+      const contentEl = document.createElement('div')
+      contentEl.className = 'bf-flow__node-content'
+      el.appendChild(contentEl)
+      render(contentEl, customType as ComponentDef, nodeProps as unknown as Record<string, unknown>)
+    }
+
+    el.style.cursor = 'grab'
+    el.style.userSelect = 'none'
+    return
+  }
+
+  // Default rendering
   el.style.padding = '10px 20px'
   el.style.border = '1px solid #1a192b'
   el.style.borderRadius = '3px'

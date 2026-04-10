@@ -321,6 +321,10 @@ export function createFlowStore<
 
     getTransform,
 
+    // Custom types
+    nodeTypes: options.nodeTypes,
+    edgeTypes: options.edgeTypes,
+
     // Callbacks
     onConnect: options.onConnect,
     onConnectStart: options.onConnectStart,

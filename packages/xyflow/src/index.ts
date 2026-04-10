@@ -43,6 +43,7 @@ export type {
   IsValidConnection,
   NodeDragItem,
   ConnectionMode,
+  NodeComponentProps,
 } from './types'
 
 // Re-export useful utilities from @xyflow/system

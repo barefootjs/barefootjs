@@ -21,7 +21,7 @@ import type {
   NodeDragItem,
   ConnectionMode,
 } from '@xyflow/system'
-import type { Signal, Memo } from '@barefootjs/dom'
+import type { Signal, Memo, ComponentDef } from '@barefootjs/dom'
 
 // Re-export commonly used types from @xyflow/system
 export type FitViewOptions = FitViewOptionsBase
@@ -68,6 +68,10 @@ export type FlowStoreOptions<
   snapGrid?: SnapGrid
   fitView?: boolean
   fitViewOptions?: FitViewOptions
+
+  // Custom component types
+  nodeTypes?: Record<string, ComponentDef | ((props: NodeComponentProps<NodeType>) => void)>
+  edgeTypes?: Record<string, ComponentDef>
 
   // Callbacks
   onConnect?: OnConnect
@@ -140,11 +144,31 @@ export type FlowStore<
   // Viewport transform as [tx, ty, scale]
   getTransform: () => Transform
 
+  // Custom component types
+  nodeTypes?: Record<string, ComponentDef | ((props: NodeComponentProps<NodeType>) => void)>
+  edgeTypes?: Record<string, ComponentDef>
+
   // Callbacks
   onConnect?: OnConnect
   onConnectStart?: OnConnectStart
   onConnectEnd?: OnConnectEnd
   isValidConnection?: IsValidConnection
+}
+
+/**
+ * Props passed to custom node components.
+ */
+export type NodeComponentProps<NodeType extends NodeBase = NodeBase> = {
+  id: string
+  data: NodeType['data']
+  type: string
+  selected: boolean
+  dragging: boolean
+  positionAbsoluteX: number
+  positionAbsoluteY: number
+  width?: number
+  height?: number
+  isConnectable: boolean
 }
 
 /**
