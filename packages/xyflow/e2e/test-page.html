@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>@barefootjs/xyflow E2E Tests</title>
   <script type="importmap">
-    { "imports": { "@barefootjs/dom": "/barefoot-dom.js", "@barefootjs/xyflow": "/barefoot-xyflow.js" } }
+    { "imports": { "@barefootjs/client": "/barefoot-client.js", "@barefootjs/client-runtime": "/barefoot-client-runtime.js", "@barefootjs/xyflow": "/barefoot-xyflow.js" } }
   </script>
   <style>
     body { margin: 0; font-family: sans-serif; }
@@ -31,7 +31,7 @@
 <div id="stress" class="test-container" style="height:500px"></div>
 
 <script type="module">
-import { createRoot } from '@barefootjs/dom'
+import { createRoot } from '@barefootjs/client'
 import { initFlow, initBackground, initControls } from '@barefootjs/xyflow'
 
 // Basic Flow

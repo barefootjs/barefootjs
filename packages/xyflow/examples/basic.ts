@@ -11,7 +11,7 @@
  * To run: import and call setupBasicFlow(containerElement)
  */
 
-import { createRoot } from '@barefootjs/dom'
+import { createRoot } from '@barefootjs/client'
 import { initFlow, initBackground, initControls } from '../src/index'
 
 export function setupBasicFlow(container: HTMLElement) {

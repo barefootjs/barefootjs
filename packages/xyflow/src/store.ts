@@ -3,7 +3,7 @@ import {
   createEffect,
   createMemo,
   untrack,
-} from '@barefootjs/dom'
+} from '@barefootjs/client'
 import {
   adoptUserNodes,
   updateAbsolutePositions,

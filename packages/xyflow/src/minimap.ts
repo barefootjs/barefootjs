@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, useContext, untrack } from '@barefootjs/dom'
+import { createEffect, onCleanup, useContext, untrack } from '@barefootjs/client-runtime'
 import { XYMinimap } from '@xyflow/system'
 import { FlowContext } from './context'
 import type { FlowStore } from './types'

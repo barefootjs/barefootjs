@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, useContext } from '@barefootjs/dom'
+import { createEffect, onCleanup, useContext } from '@barefootjs/client-runtime'
 import { FlowContext } from './context'
 import type { FlowStore } from './types'
 

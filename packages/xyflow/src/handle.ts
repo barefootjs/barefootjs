@@ -1,4 +1,4 @@
-import { untrack, useContext, createSignal } from '@barefootjs/dom'
+import { untrack, useContext, createSignal } from '@barefootjs/client-runtime'
 import { Position, XYHandle, ConnectionMode } from '@xyflow/system'
 import type { HandleType, HandleProps, ConnectionState } from '@xyflow/system'
 import { FlowContext } from './context'

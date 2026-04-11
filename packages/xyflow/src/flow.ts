@@ -4,7 +4,7 @@ import {
   onMount,
   provideContext,
   untrack,
-} from '@barefootjs/dom'
+} from '@barefootjs/client-runtime'
 import { XYPanZoom } from '@xyflow/system'
 import type {
   Viewport,

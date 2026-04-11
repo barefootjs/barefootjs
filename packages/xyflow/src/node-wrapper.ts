@@ -3,15 +3,15 @@ import {
   createEffect,
   onCleanup,
   untrack,
-} from '@barefootjs/dom'
+} from '@barefootjs/client'
 import { updateNodeInternals, XYDrag } from '@xyflow/system'
 import type {
   NodeBase,
   InternalNodeBase,
   InternalNodeUpdate,
 } from '@xyflow/system'
-import { render } from '@barefootjs/dom'
-import type { ComponentDef } from '@barefootjs/dom'
+import { render } from '@barefootjs/client-runtime'
+import type { ComponentDef } from '@barefootjs/client-runtime'
 import { setupNodeSelection } from './selection'
 import type { FlowStore, NodeComponentProps } from './types'
 
@@ -109,7 +109,7 @@ export function createNodeWrapper<NodeType extends NodeBase>(
           autoPanOnNodeDrag: true,
           nodesDraggable: true,
           selectNodesOnDrag: true,
-          nodeDragThreshold: 1,
+          nodeDragThreshold: 0,
           panBy: store.panByDelta,
           unselectNodesAndEdges: store.unselectNodesAndEdges as any,
           updateNodePositions: store.updateNodePositions as any,

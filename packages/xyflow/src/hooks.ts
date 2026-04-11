@@ -1,7 +1,7 @@
-import { useContext } from '@barefootjs/dom'
+import { useContext } from '@barefootjs/client-runtime'
 import { FlowContext } from './context'
 import type { FlowStore, Viewport, NodeBase, EdgeBase } from './types'
-import type { Signal, Memo } from '@barefootjs/dom'
+import type { Signal, Memo } from '@barefootjs/client'
 
 /**
  * Access the flow store from any child component.

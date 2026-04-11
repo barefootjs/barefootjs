@@ -21,7 +21,8 @@ import type {
   NodeDragItem,
   ConnectionMode,
 } from '@xyflow/system'
-import type { Signal, Memo, ComponentDef } from '@barefootjs/dom'
+import type { Signal, Memo } from '@barefootjs/client'
+import type { ComponentDef } from '@barefootjs/client-runtime'
 
 // Re-export commonly used types from @xyflow/system
 export type FitViewOptions = FitViewOptionsBase

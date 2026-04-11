@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { createRoot } from '@barefootjs/dom'
+import { createRoot } from '@barefootjs/client'
 import { createFlowStore } from '../store'
 
 describe('Edge processing in store', () => {
