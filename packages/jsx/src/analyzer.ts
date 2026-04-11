@@ -170,11 +170,19 @@ function findDefaultExportedComponent(sourceFile: ts.SourceFile): string | undef
   let defaultExportName: string | undefined
 
   function findDefaultExport(node: ts.Node): void {
-    // export default ComponentName
+    // Pattern 1: export default ComponentName
     if (ts.isExportAssignment(node) && !node.isExportEquals) {
       if (ts.isIdentifier(node.expression)) {
         defaultExportName = node.expression.text
       }
+    }
+    // Pattern 2: export default function ComponentName() { ... }
+    if (
+      ts.isFunctionDeclaration(node) &&
+      node.name &&
+      node.modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword)
+    ) {
+      defaultExportName = node.name.text
     }
     ts.forEachChild(node, findDefaultExport)
   }
@@ -222,6 +230,10 @@ function visit(
         ctx.componentName = node.name.text
         ctx.componentNode = node
         analyzeComponentBody(node, ctx)
+        // Detect: export default function ComponentName() { ... }
+        if (node.modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword)) {
+          ctx.hasDefaultExport = true
+        }
       }
     } else {
       // Skip recursion into non-target component bodies

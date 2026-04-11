@@ -244,4 +244,56 @@ describe('analyzeComponent', () => {
     expect(ctx.signals[0].setter).toBeNull()
     expect(ctx.signals[0].initialValue).toBe('[1, 2, 3]')
   })
+
+  test('detects export default function pattern', () => {
+    const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export default function Counter() {
+          const [count, setCount] = createSignal(0)
+          return <button onClick={() => setCount(count() + 1)}>{count()}</button>
+        }
+      `
+
+    const ctx = analyzeComponent(source, 'Counter.tsx')
+
+    expect(ctx.componentName).toBe('Counter')
+    expect(ctx.hasDefaultExport).toBe(true)
+  })
+
+  test('detects export default ComponentName pattern', () => {
+    const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        function Counter() {
+          const [count, setCount] = createSignal(0)
+          return <button onClick={() => setCount(count() + 1)}>{count()}</button>
+        }
+        export default Counter
+      `
+
+    const ctx = analyzeComponent(source, 'Counter.tsx')
+
+    expect(ctx.componentName).toBe('Counter')
+    expect(ctx.hasDefaultExport).toBe(true)
+  })
+
+  test('hasDefaultExport is false when no default export', () => {
+    const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function Counter() {
+          const [count, setCount] = createSignal(0)
+          return <button onClick={() => setCount(count() + 1)}>{count()}</button>
+        }
+      `
+
+    const ctx = analyzeComponent(source, 'Counter.tsx')
+
+    expect(ctx.componentName).toBe('Counter')
+    expect(ctx.hasDefaultExport).toBe(false)
+  })
 })
