@@ -90,6 +90,22 @@ test.describe('Spreadsheet Block', () => {
       await s.locator('.cell-input').press('Escape')
       await expect(a2.locator('.cell-value')).toContainText('Widget')
     })
+
+    test('switching cell while editing commits the value', async ({ page }) => {
+      const s = section(page)
+      const row2 = s.locator('.spreadsheet-row').nth(1)
+      const a2 = row2.locator('.spreadsheet-cell').first()
+      await a2.click()
+      await s.locator('.cell-formula').click()
+      await s.locator('.cell-input').fill('Committed')
+      // Click a different cell — should commit and switch
+      await s.locator('.spreadsheet-row').nth(2).locator('.spreadsheet-cell').first().click()
+      // Formula bar should show new cell ref, not edit input
+      await expect(s.locator('.cell-ref')).toContainText('A3')
+      await expect(s.locator('.cell-input')).not.toBeVisible()
+      // Previous cell should have committed value
+      await expect(a2.locator('.cell-value')).toContainText('Committed')
+    })
   })
 
   test.describe('Formula Evaluation', () => {

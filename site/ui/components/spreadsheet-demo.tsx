@@ -116,8 +116,8 @@ export function SpreadsheetDemo() {
 
   const selectCell = (id: string) => {
     if (editingCell() === id) return
+    if (editingCell()) commitEdit()
     setSelectedCell(id)
-    setEditingCell(null)
   }
 
   const startEditing = (id: string) => {
