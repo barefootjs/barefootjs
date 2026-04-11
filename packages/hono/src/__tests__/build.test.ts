@@ -28,6 +28,31 @@ export function Counter(props: CounterProps) {
     expect(result).toBeDefined()
   })
 
+  test('uses custom scriptBasePath', () => {
+    const input = `import { jsx } from 'hono/jsx'
+
+export function Counter() {
+  return (<div>hello</div>)
+}`
+
+    const result = addScriptCollection(input, 'Counter', 'Counter.client.js', '/assets/js/')
+    expect(result).toContain('/assets/js/barefoot.js')
+    expect(result).toContain('/assets/js/Counter.client.js')
+    expect(result).not.toContain('/static/components/')
+  })
+
+  test('normalizes scriptBasePath without trailing slash', () => {
+    const input = `import { jsx } from 'hono/jsx'
+
+export function Counter() {
+  return (<div>hello</div>)
+}`
+
+    const result = addScriptCollection(input, 'Counter', 'Counter.client.js', '/assets/js')
+    expect(result).toContain('/assets/js/barefoot.js')
+    expect(result).toContain('/assets/js/Counter.client.js')
+  })
+
   test('handles destructured params with arrow function defaults', () => {
     const input = `import { jsx } from 'hono/jsx'
 
@@ -63,12 +88,37 @@ describe('createConfig()', () => {
 
   test('sets transformMarkedTemplate by default', () => {
     const config = createConfig()
-    expect(config.transformMarkedTemplate).toBe(addScriptCollection)
+    expect(typeof config.transformMarkedTemplate).toBe('function')
   })
 
   test('disables transformMarkedTemplate when scriptCollection is false', () => {
     const config = createConfig({ scriptCollection: false })
     expect(config.transformMarkedTemplate).toBeUndefined()
+  })
+
+  test('uses custom scriptBasePath in transformMarkedTemplate', () => {
+    const config = createConfig({ scriptBasePath: '/assets/js/' })
+    const input = `import { jsx } from 'hono/jsx'
+
+export function Counter() {
+  return (<div>hello</div>)
+}`
+    const result = config.transformMarkedTemplate!(input, 'Counter', 'Counter.client.js')
+    expect(result).toContain('/assets/js/barefoot.js')
+    expect(result).toContain('/assets/js/Counter.client.js')
+    expect(result).not.toContain('/static/components/')
+  })
+
+  test('uses default scriptBasePath in transformMarkedTemplate', () => {
+    const config = createConfig()
+    const input = `import { jsx } from 'hono/jsx'
+
+export function Counter() {
+  return (<div>hello</div>)
+}`
+    const result = config.transformMarkedTemplate!(input, 'Counter', 'Counter.client.js')
+    expect(result).toContain('/static/components/barefoot.js')
+    expect(result).toContain('/static/components/Counter.client.js')
   })
 
   test('passes through build options', () => {

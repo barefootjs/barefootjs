@@ -7,6 +7,8 @@ import type { HonoAdapterOptions } from './adapter'
 export interface HonoBuildOptions extends BuildOptions {
   /** Inject Hono script collection wrapper (default: true) */
   scriptCollection?: boolean
+  /** Base path for client JS script URLs (default: '/static/components/') */
+  scriptBasePath?: string
   /** Adapter-specific options passed to HonoAdapter */
   adapterOptions?: HonoAdapterOptions
 }
@@ -27,7 +29,10 @@ export function createConfig(options: HonoBuildOptions = {}) {
     minify: options.minify,
     contentHash: options.contentHash,
     clientOnly: options.clientOnly,
-    transformMarkedTemplate: useScriptCollection ? addScriptCollection : undefined,
+    transformMarkedTemplate: useScriptCollection
+      ? (content: string, componentId: string, clientJsPath: string) =>
+          addScriptCollection(content, componentId, clientJsPath, options.scriptBasePath)
+      : undefined,
   }
 }
 
@@ -36,7 +41,8 @@ export function createConfig(options: HonoBuildOptions = {}) {
  * Injects imports, a helper function, and script collector into each
  * exported component function.
  */
-export function addScriptCollection(content: string, componentId: string, clientJsPath: string): string {
+export function addScriptCollection(content: string, componentId: string, clientJsPath: string, scriptBasePath: string = '/static/components/'): string {
+  const basePath = scriptBasePath.endsWith('/') ? scriptBasePath : scriptBasePath + '/'
   const importStatement = "import { useRequestContext } from 'hono/jsx-renderer'\nimport { Fragment } from 'hono/jsx'\n"
 
   // Find the last import statement and add our import after it
@@ -70,13 +76,13 @@ function __bfWrap(jsx: any, scripts: string[]) {
     const __bfRendered = __c.get('bfScriptsRendered')
     if (!__outputScripts.has('__barefoot__')) {
       __outputScripts.add('__barefoot__')
-      if (__bfRendered) __bfInlineScripts.push('/static/components/barefoot.js')
-      else __scripts.push({ src: '/static/components/barefoot.js' })
+      if (__bfRendered) __bfInlineScripts.push('${basePath}barefoot.js')
+      else __scripts.push({ src: '${basePath}barefoot.js' })
     }
     if (!__outputScripts.has('${componentId}')) {
       __outputScripts.add('${componentId}')
-      if (__bfRendered) __bfInlineScripts.push('/static/components/${clientJsPath}')
-      else __scripts.push({ src: '/static/components/${clientJsPath}' })
+      if (__bfRendered) __bfInlineScripts.push('${basePath}${clientJsPath}')
+      else __scripts.push({ src: '${basePath}${clientJsPath}' })
     }
     __c.set('bfCollectedScripts', __scripts)
     __c.set('bfOutputScripts', __outputScripts)
