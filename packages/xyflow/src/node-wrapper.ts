@@ -102,12 +102,12 @@ export function createNodeWrapper<NodeType extends NodeBase>(
       let startMouseY = 0
       let startNodeX = 0
       let startNodeY = 0
+      let rafId = 0
 
       const onMouseDown = (e: MouseEvent) => {
         if (e.button !== 0) return // left button only
         e.stopPropagation() // prevent D3 zoom pan
 
-        const [tx, ty, scale] = store.getTransform()
         startMouseX = e.clientX
         startMouseY = e.clientY
 
@@ -142,18 +142,32 @@ export function createNodeWrapper<NodeType extends NodeBase>(
           // Update DOM directly for immediate visual feedback
           element.style.transform = `translate(${newX}px, ${newY}px)`
 
-          // Update internal state
+          // Update internal state + trigger edge re-render via rAF throttle
           const lookup = untrack(store.nodeLookup)
           const node = lookup.get(internalNode.id)
           if (node) {
             node.internals.positionAbsolute = { x: newX, y: newY }
             node.internals.userNode.position = { x: newX, y: newY }
           }
+          if (!rafId) {
+            rafId = requestAnimationFrame(() => {
+              rafId = 0
+              // Trigger reactive edge re-render by updating nodes signal
+              store.setNodes((prev) =>
+                prev.map((n) =>
+                  n.id === internalNode.id
+                    ? { ...n, position: { x: newX, y: newY } }
+                    : n,
+                ),
+              )
+            })
+          }
         }
 
         const onMouseUp = (e: MouseEvent) => {
           dragging = false
           element.style.cursor = 'grab'
+          if (rafId) { cancelAnimationFrame(rafId); rafId = 0 }
 
           const [, , scale] = store.getTransform()
           const dx = (e.clientX - startMouseX) / scale
