@@ -40,7 +40,7 @@ export { analyzeComponent, listExportedComponents, type AnalyzerContext } from '
 export { jsxToIR } from './jsx-to-ir'
 
 // Module exports generation (compiler layer)
-export { generateModuleExports, extractFunctionParams } from './module-exports'
+export { generateModuleExports, extractFunctionParams, formatParamWithType, findReachableNames } from './module-exports'
 
 // Adapters
 export { BaseAdapter } from './adapters/interface'

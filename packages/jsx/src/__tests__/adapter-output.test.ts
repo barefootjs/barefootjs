@@ -228,7 +228,7 @@ describe('Adapter output', () => {
       const content = template.content
 
       // Exported helper function should be at module level
-      expect(content).toContain('export function helperFn(x)')
+      expect(content).toContain('export function helperFn(x: number)')
 
       // It should appear before the component
       const helperIndex = content.indexOf('export function helperFn')
@@ -328,6 +328,210 @@ describe('Adapter output', () => {
       const template = result.files.find(f => f.type === 'markedTemplate')!
       expect(template).toBeDefined()
       expect(template.content).toContain("export const formatDate = (d) => d.toISOString().split('T')[0]")
+    })
+  })
+
+  describe('strict TypeScript compliance (#762)', () => {
+    test('signal setter accepts arguments in generated SSR template (HonoAdapter)', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function Counter() {
+          const [count, setCount] = createSignal(0)
+          return <button onClick={() => setCount(n => n + 1)}>Count: {count()}</button>
+        }
+      `
+      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      // No-op setter must accept arguments
+      expect(template.content).toContain('(..._args: any[]) => {}')
+      expect(template.content).not.toMatch(/const \w+ = \(\) => \{\}/)
+    })
+
+    test('signal setter accepts arguments in generated SSR template (TestAdapter)', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function Counter() {
+          const [count, setCount] = createSignal(0)
+          return <button onClick={() => setCount(n => n + 1)}>Count: {count()}</button>
+        }
+      `
+      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      expect(template.content).toContain('(..._args: any[]) => {}')
+    })
+
+    test('local function parameters preserve type annotations', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        function formatNum(n: number): string { return n.toFixed(2) }
+
+        export function Display() {
+          const [val, setVal] = createSignal(0)
+          return <span>{formatNum(val())}</span>
+        }
+      `
+      const result = compileJSXSync(source, 'Display.tsx', { adapter: honoAdapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      expect(template.content).toContain('function formatNum(n: number)')
+    })
+
+    test('exported function parameters preserve type annotations in module exports', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function helperFn(x: number, label: string) { return label + x }
+
+        export function MyComponent() {
+          const [val, setVal] = createSignal(0)
+          return <div>{helperFn(val(), 'value: ')}</div>
+        }
+      `
+      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter: honoAdapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      expect(template.content).toContain('export function helperFn(x: number, label: string)')
+    })
+
+    test('SolidJS-style props do not generate unused PropsWithHydration type', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        interface CounterProps { initial?: number }
+
+        export function Counter(props: CounterProps) {
+          const [count, setCount] = createSignal(props.initial ?? 0)
+          return <button onClick={() => setCount(n => n + 1)}>{count()}</button>
+        }
+      `
+      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      // SolidJS-style uses inline type, should not generate PropsWithHydration
+      expect(template.content).not.toContain('CounterPropsWithHydration')
+    })
+
+    test('unused signal setter is prefixed with _ when only used in event handlers', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function Counter() {
+          const [count, setCount] = createSignal(0)
+          return <button onClick={() => setCount(n => n + 1)}>Count: {count()}</button>
+        }
+      `
+      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      // setCount is only used in onClick which becomes () => {} in SSR
+      expect(template.content).toContain('_setCount')
+      expect(template.content).not.toMatch(/\bconst setCount\b/)
+    })
+
+    test('event handler functions not emitted when only used in event handlers', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function MembersPanel() {
+          const [members, setMembers] = createSignal<string[]>([])
+
+          function handleGrant(id: string) {
+            setMembers(prev => [...prev, id])
+          }
+
+          function handleRevoke(id: string) {
+            setMembers(prev => prev.filter(m => m !== id))
+          }
+
+          return (
+            <div>
+              <button onClick={() => handleGrant('user1')}>Grant</button>
+              <button onClick={() => handleRevoke('user1')}>Revoke</button>
+              <span>{members().length}</span>
+            </div>
+          )
+        }
+      `
+      const result = compileJSXSync(source, 'MembersPanel.tsx', { adapter: honoAdapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      // Functions only used in event handlers should not be emitted
+      expect(template.content).not.toContain('function handleGrant')
+      expect(template.content).not.toContain('function handleRevoke')
+    })
+
+    test('function used in JSX body is preserved even if also used in events', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function Display() {
+          const [val, setVal] = createSignal(0)
+
+          function formatVal(n: number): string { return n.toFixed(2) }
+
+          return (
+            <div>
+              <span>{formatVal(val())}</span>
+              <button onClick={() => setVal(v => v + 1)}>Inc</button>
+            </div>
+          )
+        }
+      `
+      const result = compileJSXSync(source, 'Display.tsx', { adapter: honoAdapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      // formatVal is used in JSX body, must be preserved
+      expect(template.content).toContain('function formatVal(n: number)')
+    })
+
+    test('unused hydration params get _ prefix (Hono interactive component)', () => {
+      const honoAdapter = new HonoAdapter()
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/dom'
+
+        export function Counter() {
+          const [count, setCount] = createSignal(0)
+          return <button onClick={() => setCount(n => n + 1)}>{count()}</button>
+        }
+      `
+      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      // Hono interactive components don't use __bfScope in their scopeId generation
+      // so it should be aliased with _ prefix
+      expect(template.content).toContain('__bfScope: _bfScope')
+      // __bfParentProps should also be aliased (no props to serialize)
+      expect(template.content).toContain('__bfParentProps: _bfParentProps')
     })
   })
 })

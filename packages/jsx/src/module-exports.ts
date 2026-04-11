@@ -5,7 +5,7 @@
  * This is a compiler-layer concern, not adapter-specific.
  */
 
-import type { ComponentIR } from './types'
+import type { ComponentIR, ParamInfo } from './types'
 
 /**
  * Generate module-level export statements for constants and functions.
@@ -30,11 +30,53 @@ export function generateModuleExports(ir: ComponentIR): string | null {
 
   for (const func of ir.metadata.localFunctions) {
     if (!func.isExported) continue
-    const params = func.params.map((p) => p.name).join(', ')
+    const params = func.params.map(formatParamWithType).join(', ')
     lines.push(`export function ${func.name}(${params}) ${func.body}`)
   }
 
   return lines.length > 0 ? lines.join('\n') : null
+}
+
+/**
+ * Format a ParamInfo for .tsx output, preserving type annotations when available.
+ */
+export function formatParamWithType(p: ParamInfo): string {
+  const typeAnnotation = p.type?.raw && p.type.raw !== 'unknown' ? `: ${p.type.raw}` : ''
+  return `${p.name}${typeAnnotation}`
+}
+
+/**
+ * Find names reachable from primary reference text via transitive dependency analysis.
+ * Used to determine which SSR declarations are actually needed (vs. only used in event handlers).
+ */
+export function findReachableNames(
+  primaryRefs: string,
+  declarations: { name: string; body: string }[],
+): Set<string> {
+  const allNames = new Set(declarations.map(d => d.name))
+  const bodyMap = new Map(declarations.map(d => [d.name, d.body]))
+  const reachable = new Set<string>()
+  const queue: string[] = []
+
+  for (const name of allNames) {
+    if (new RegExp(`\\b${name}\\b`).test(primaryRefs)) {
+      reachable.add(name)
+      queue.push(name)
+    }
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    const body = bodyMap.get(current) || ''
+    for (const name of allNames) {
+      if (!reachable.has(name) && new RegExp(`\\b${name}\\b`).test(body)) {
+        reachable.add(name)
+        queue.push(name)
+      }
+    }
+  }
+
+  return reachable
 }
 
 /**

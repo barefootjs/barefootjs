@@ -22,6 +22,8 @@ import {
   type TemplateSections,
   type TemplateAdapter,
   isBooleanAttr,
+  formatParamWithType,
+  findReachableNames,
 } from '@barefootjs/jsx'
 
 export interface HonoAdapterOptions {
@@ -162,9 +164,10 @@ export class HonoAdapter implements TemplateAdapter {
       lines.push(typeDef.definition)
     }
 
-    // Generate hydration props type
+    // Generate hydration props type (only when destructured-props pattern uses it;
+    // SolidJS-style props use inline type annotation instead)
     const propsTypeName = this.getPropsTypeName(ir)
-    if (propsTypeName) {
+    if (propsTypeName && !ir.metadata.propsObjectName) {
       lines.push('')
       lines.push(`type ${this.componentName}PropsWithHydration = ${propsTypeName} & {`)
       lines.push('  __instanceId?: string')
@@ -228,40 +231,14 @@ export class HonoAdapter implements TemplateAdapter {
       typeAnnotation = propsTypeName
         ? `: ${propsTypeName} & { __instanceId?: string; __bfScope?: string; __bfChild?: boolean; __bfParentProps?: string; "data-key"?: string | number }`
         : `: Record<string, unknown> & { __instanceId?: string; __bfScope?: string; __bfChild?: boolean; __bfParentProps?: string; "data-key"?: string | number }`
-      // Extract hydration props and create the props object for component use
-      propsExtraction = `  const { __instanceId, __bfScope, __bfChild, __bfParentProps, "data-key": __dataKey, ...${propsObjectName} } = __allProps`
+      // propsExtraction is rebuilt after jsxBody generation with unused-aware aliases
     } else {
-      // Destructured props pattern (current behavior)
-      // Convert 'class' to 'className' (React convention, avoids JS reserved word)
-      const propsParams = ir.metadata.propsParams
-        .map((p: ParamInfo) => {
-          const paramName = p.name === 'class' ? 'className' : p.name
-          return p.defaultValue ? `${paramName} = ${p.defaultValue}` : paramName
-        })
-        .join(', ')
-
-      const restPropsName = ir.metadata.restPropsName
-
-      // Build full destructure with hydration props
-      // Rest props must be at the end in TypeScript
-      const hydrationProps = '__instanceId, __bfScope, __bfChild, __bfParentProps, "data-key": __dataKey'
-      const parts: string[] = []
-      if (propsParams) {
-        parts.push(propsParams)
-      }
-      parts.push(hydrationProps)
-      if (restPropsName) {
-        parts.push(`...${restPropsName}`)
-      }
-      fullPropsDestructure = `{ ${parts.join(', ')} }`
-
+      // Destructured props pattern — fullPropsDestructure rebuilt after jsxBody with unused-aware aliases
+      fullPropsDestructure = '' // placeholder, rebuilt below
       typeAnnotation = propsTypeName
         ? `: ${name}PropsWithHydration`
         : ': { __instanceId?: string; __bfScope?: string; __bfChild?: boolean }'
     }
-
-    // Generate signal initializers for SSR
-    const signalInits = this.generateSignalInitializers(ir)
 
     // Generate props serialization for hydration (for components with props)
     // Only serialize props that the client JS init function actually reads
@@ -298,6 +275,50 @@ export class HonoAdapter implements TemplateAdapter {
         ? '${__bfPropsJson ? `|${__bfPropsJson}` : ""}'
         : ''
       jsxBody = `<>{bfComment(\`scope:${scopeExpr}${propsExpr}\`)}${jsxBody}</>`
+    }
+
+    // Generate signal initializers with unused-aware prefixing (needs jsxBody for reference analysis)
+    const signalInits = this.generateSignalInitializers(ir, jsxBody)
+
+    // Determine which hydration params are actually used in the generated body
+    // Include scopeId line content for accurate reference checking
+    const scopeIdLine = hasClientInteractivity
+      ? `__instanceId`
+      : `__bfScope || __instanceId`
+    const bodyRefText = [
+      jsxBody,
+      signalInits,
+      scopeIdLine,
+      // Props serialization references __bfParentProps
+      (hasPropsToSerialize || (hasClientInteractivity && isRootComponent)) ? '__bfParentProps' : '',
+    ].join('\n')
+
+    // Rebuild hydration props with _ prefix for unused ones
+    const bfScopeAlias = /\b__bfScope\b/.test(bodyRefText) ? '__bfScope' : '__bfScope: _bfScope'
+    const bfChildAlias = /\b__bfChild\b/.test(bodyRefText) ? '__bfChild' : '__bfChild: _bfChild'
+    const bfParentPropsAlias = /\b__bfParentProps\b/.test(bodyRefText) ? '__bfParentProps' : '__bfParentProps: _bfParentProps'
+    const dataKeyAlias = /\b__dataKey\b/.test(bodyRefText) ? '"data-key": __dataKey' : '"data-key": _dataKey'
+
+    if (propsObjectName) {
+      propsExtraction = `  const { __instanceId, ${bfScopeAlias}, ${bfChildAlias}, ${bfParentPropsAlias}, ${dataKeyAlias}, ...${propsObjectName} } = __allProps`
+    } else {
+      const hydrationProps = `__instanceId, ${bfScopeAlias}, ${bfChildAlias}, ${bfParentPropsAlias}, ${dataKeyAlias}`
+      const parts: string[] = []
+      const propsParams = ir.metadata.propsParams
+        .map((p: ParamInfo) => {
+          const paramName = p.name === 'class' ? 'className' : p.name
+          return p.defaultValue ? `${paramName} = ${p.defaultValue}` : paramName
+        })
+        .join(', ')
+      if (propsParams) {
+        parts.push(propsParams)
+      }
+      parts.push(hydrationProps)
+      const restPropsName = ir.metadata.restPropsName
+      if (restPropsName) {
+        parts.push(`...${restPropsName}`)
+      }
+      fullPropsDestructure = `{ ${parts.join(', ')} }`
     }
 
     const lines: string[] = []
@@ -359,15 +380,48 @@ export class HonoAdapter implements TemplateAdapter {
     return lines.join('\n')
   }
 
-  private generateSignalInitializers(ir: ComponentIR): string {
+  private generateSignalInitializers(ir: ComponentIR, jsxBody: string): string {
     const lines: string[] = []
+
+    // Build primary reference text for reachability analysis:
+    // jsxBody + signal initial values + memo computations (these are the "consumers")
+    const primaryRefs = [jsxBody]
+    for (const signal of ir.metadata.signals) {
+      primaryRefs.push(signal.initialValue)
+    }
+    for (const memo of ir.metadata.memos) {
+      primaryRefs.push(memo.computation)
+    }
+    const primaryRefText = primaryRefs.join('\n')
+
+    // Collect local declarations and their bodies for dependency analysis
+    const localFunctions = ir.metadata.localFunctions.filter(f => !f.isExported)
+    const localConstants = ir.metadata.localConstants.filter(c => !c.isExported && c.value)
+    const declarations = [
+      ...localFunctions.map(f => ({ name: f.name, body: f.body })),
+      ...localConstants.map(c => ({ name: c.name, body: c.value! })),
+    ]
+
+    // Find reachable declarations via transitive dependency analysis
+    const reachable = findReachableNames(primaryRefText, declarations)
+
+    // Also check which signal setters are referenced
+    const reachableBodies = [...reachable].map(name => {
+      const func = localFunctions.find(f => f.name === name)
+      if (func) return func.body
+      const constant = localConstants.find(c => c.name === name)
+      return constant?.value ?? ''
+    }).join('\n')
+    const setterRefText = primaryRefText + '\n' + reachableBodies
 
     for (const signal of ir.metadata.signals) {
       // Create a getter that returns the initial value for SSR
       const initialValue = signal.initialValue.trim().startsWith('{') ? `(${signal.initialValue})` : signal.initialValue
       lines.push(`  const ${signal.getter} = () => ${initialValue}`)
-      // Create a no-op setter for SSR (in case it's passed to child components)
-      lines.push(`  const ${signal.setter} = () => {}`)
+      // Create a no-op setter for SSR — prefix with _ if not referenced anywhere
+      const setterUsed = new RegExp(`\\b${signal.setter}\\b`).test(setterRefText)
+      const setterName = setterUsed ? signal.setter : `_${signal.setter}`
+      lines.push(`  const ${setterName} = (..._args: any[]) => {}`)
     }
 
     for (const memo of ir.metadata.memos) {
@@ -392,10 +446,10 @@ export class HonoAdapter implements TemplateAdapter {
       lines.push(`  ${keyword} ${constant.name} = ${constant.value}`)
     }
 
-    // Include local functions (skip exported ones — they are at module level)
-    for (const func of ir.metadata.localFunctions) {
-      if (func.isExported) continue
-      const params = func.params.map((p) => p.name).join(', ')
+    // Include local functions — skip unreachable ones (only used in event handlers)
+    for (const func of localFunctions) {
+      if (!reachable.has(func.name)) continue
+      const params = func.params.map(formatParamWithType).join(', ')
       lines.push(`  function ${func.name}(${params}) ${func.body}`)
     }
 

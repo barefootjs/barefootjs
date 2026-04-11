@@ -18,6 +18,7 @@ import type {
   ParamInfo,
 } from '../types'
 import { type AdapterOutput, type TemplateSections, BaseAdapter } from './interface'
+import { formatParamWithType, findReachableNames } from '../module-exports'
 
 export class TestAdapter extends BaseAdapter {
   name = 'test'
@@ -109,8 +110,9 @@ export class TestAdapter extends BaseAdapter {
       lines.push(typeDef.definition)
     }
 
+    // Only generate PropsWithHydration when destructured-props pattern uses it
     const propsTypeName = ir.metadata.propsType?.raw
-    if (propsTypeName) {
+    if (propsTypeName && !ir.metadata.propsObjectName) {
       lines.push('')
       lines.push(`type ${this.componentName}PropsWithHydration = ${propsTypeName} & {`)
       lines.push('  __instanceId?: string')
@@ -127,13 +129,27 @@ export class TestAdapter extends BaseAdapter {
     const hasClientInteractivity = ir.metadata.signals.length > 0 ||
       ir.metadata.memos.length > 0
 
+    const typeAnnotation = propsTypeName
+      ? `: ${name}PropsWithHydration`
+      : ': { __instanceId?: string; __bfScope?: string }'
+
+    const jsxBody = this.renderNode(ir.root)
+    const signalInits = this.generateSignalInitializers(ir, jsxBody)
+
+    // Determine which hydration params are used in the generated body
+    // Include the scopeId line content for accurate reference checking
+    const scopeIdLine = hasClientInteractivity
+      ? `(/_s\\d/.test(__bfScope || '') ? __bfScope : null) || __instanceId`
+      : `__bfScope || __instanceId`
+    const bodyRefText = [jsxBody, signalInits, scopeIdLine].join('\n')
+    const bfScopeAlias = /\b__bfScope\b/.test(bodyRefText) ? '__bfScope' : '__bfScope: _bfScope'
+
     const propsParams = ir.metadata.propsParams
       .map((p: ParamInfo) => (p.defaultValue ? `${p.name} = ${p.defaultValue}` : p.name))
       .join(', ')
 
     const restPropsName = ir.metadata.restPropsName
-
-    const hydrationProps = '__instanceId, __bfScope'
+    const hydrationProps = `__instanceId, ${bfScopeAlias}`
     const parts: string[] = []
     if (propsParams) {
       parts.push(propsParams)
@@ -143,13 +159,6 @@ export class TestAdapter extends BaseAdapter {
       parts.push(`...${restPropsName}`)
     }
     const fullPropsDestructure = `{ ${parts.join(', ')} }`
-
-    const typeAnnotation = propsTypeName
-      ? `: ${name}PropsWithHydration`
-      : ': { __instanceId?: string; __bfScope?: string }'
-
-    const signalInits = this.generateSignalInitializers(ir)
-    const jsxBody = this.renderNode(ir.root)
 
     const lines: string[] = []
     lines.push(`export function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
@@ -177,13 +186,45 @@ export class TestAdapter extends BaseAdapter {
     return lines.join('\n')
   }
 
-  private generateSignalInitializers(ir: ComponentIR): string {
+  private generateSignalInitializers(ir: ComponentIR, jsxBody: string): string {
     const lines: string[] = []
+
+    // Build primary reference text for reachability analysis
+    const primaryRefs = [jsxBody]
+    for (const signal of ir.metadata.signals) {
+      primaryRefs.push(signal.initialValue)
+    }
+    for (const memo of ir.metadata.memos) {
+      primaryRefs.push(memo.computation)
+    }
+    const primaryRefText = primaryRefs.join('\n')
+
+    // Collect local declarations for dependency analysis
+    const localFunctions = ir.metadata.localFunctions.filter(f => !f.isExported)
+    const localConstants = ir.metadata.localConstants.filter(c => !c.isExported && c.value)
+    const declarations = [
+      ...localFunctions.map(f => ({ name: f.name, body: f.body })),
+      ...localConstants.map(c => ({ name: c.name, body: c.value! })),
+    ]
+    const reachable = findReachableNames(primaryRefText, declarations)
+
+    // Build text for setter reference checking
+    const reachableBodies = [...reachable].map(name => {
+      const func = localFunctions.find(f => f.name === name)
+      if (func) return func.body
+      const constant = localConstants.find(c => c.name === name)
+      return constant?.value ?? ''
+    }).join('\n')
+    const setterRefText = primaryRefText + '\n' + reachableBodies
 
     for (const signal of ir.metadata.signals) {
       const initialValue = signal.initialValue.trim().startsWith('{') ? `(${signal.initialValue})` : signal.initialValue
       lines.push(`  const ${signal.getter} = () => ${initialValue}`)
-      if (signal.setter) lines.push(`  const ${signal.setter} = () => {}`)
+      if (signal.setter) {
+        const setterUsed = new RegExp(`\\b${signal.setter}\\b`).test(setterRefText)
+        const setterName = setterUsed ? signal.setter : `_${signal.setter}`
+        lines.push(`  const ${setterName} = (..._args: any[]) => {}`)
+      }
     }
 
     for (const memo of ir.metadata.memos) {
@@ -200,10 +241,10 @@ export class TestAdapter extends BaseAdapter {
       lines.push(`  ${keyword} ${constant.name} = ${constant.value}`)
     }
 
-    // Include local functions (skip exported ones — they are at module level)
-    for (const func of ir.metadata.localFunctions) {
-      if (func.isExported) continue
-      const params = func.params.map((p) => p.name).join(', ')
+    // Include local functions — skip unreachable ones (only used in event handlers)
+    for (const func of localFunctions) {
+      if (!reachable.has(func.name)) continue
+      const params = func.params.map(formatParamWithType).join(', ')
       lines.push(`  function ${func.name}(${params}) ${func.body}`)
     }
 
