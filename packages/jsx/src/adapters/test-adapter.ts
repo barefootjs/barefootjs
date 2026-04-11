@@ -238,6 +238,8 @@ export class TestAdapter extends BaseAdapter {
         lines.push(`  ${keyword} ${constant.name}`)
         continue
       }
+      // Skip unreachable constants (only used in event handler code paths)
+      if (!reachable.has(constant.name)) continue
       lines.push(`  ${keyword} ${constant.name} = ${constant.value}`)
     }
 

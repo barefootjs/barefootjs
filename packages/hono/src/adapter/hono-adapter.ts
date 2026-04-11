@@ -434,7 +434,7 @@ export class HonoAdapter implements TemplateAdapter {
       lines.push(`  const ${memo.name} = ${memo.computation}`)
     }
 
-    // Include local constants (skip exported ones — they are at module level)
+    // Include local constants — skip unreachable ones (only used in event handlers)
     for (const constant of ir.metadata.localConstants) {
       if (constant.isExported) continue
       const keyword = constant.declarationKind ?? 'const'
@@ -447,6 +447,9 @@ export class HonoAdapter implements TemplateAdapter {
       // - createContext() — only used client-side via provideContext/useContext
       // - new WeakMap() — client-side cross-component shared state
       if (/^createContext\b/.test(value) || /^new WeakMap\b/.test(value)) continue
+
+      // Skip unreachable constants (only used in event handler code paths)
+      if (!reachable.has(constant.name)) continue
 
       lines.push(`  ${keyword} ${constant.name} = ${constant.value}`)
     }
