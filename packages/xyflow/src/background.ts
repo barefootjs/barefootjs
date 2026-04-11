@@ -62,6 +62,7 @@ export function initBackground(scope: Element, props: Record<string, unknown>): 
   createEffect(() => {
     const vp = store.viewport()
     const scaledGap = gap * vp.zoom
+    if (!scaledGap || !isFinite(scaledGap)) return
 
     pattern.setAttribute('width', String(scaledGap))
     pattern.setAttribute('height', String(scaledGap))

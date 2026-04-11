@@ -52,7 +52,7 @@ export function createEdgeRenderer<
       if (!sourceNode || !targetNode) continue
 
       // Get source/target positions from @xyflow/system
-      const edgePos = getEdgePosition({
+      let edgePos = getEdgePosition({
         id: edge.id,
         sourceNode,
         sourceHandle: edge.sourceHandle ?? null,
@@ -61,7 +61,25 @@ export function createEdgeRenderer<
         connectionMode: ConnectionMode.Loose,
       })
 
-      if (!edgePos) continue
+      // Fallback: if no handle bounds, use node center positions
+      if (!edgePos) {
+        const sw = sourceNode.measured.width ?? 150
+        const sh = sourceNode.measured.height ?? 40
+        const tw = targetNode.measured.width ?? 150
+        const th = targetNode.measured.height ?? 40
+
+        const sourcePos = sourceNode.internals.positionAbsolute
+        const targetPos = targetNode.internals.positionAbsolute
+
+        edgePos = {
+          sourceX: sourcePos.x + sw / 2,
+          sourceY: sourcePos.y + sh,
+          targetX: targetPos.x + tw / 2,
+          targetY: targetPos.y,
+          sourcePosition: 'bottom' as any,
+          targetPosition: 'top' as any,
+        }
+      }
 
       // Calculate path based on edge type (default: bezier)
       const pathData = getEdgePath(edge, edgePos)
