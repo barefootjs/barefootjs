@@ -51,7 +51,25 @@ function PermissionMatrix() {
     return result
   })
 
-  const cellStates = createMemo(() => { /* checked/inherited/disabled per cell */ })
+  const cellStates = createMemo(() => {
+    const grants = directGrants()
+    const effective = effectivePerms()
+    const states = {}
+    for (const role of ROLES) {
+      for (const permId of ALL_PERM_IDS) {
+        const key = role.id + ':' + permId
+        const isEffective = (effective[role.id] || []).includes(permId)
+        const isDirect = (grants[role.id] || []).includes(permId)
+        // Inherited if a lower-authority role has it directly
+        const fromBelow = ROLES.some(r =>
+          r.rank > role.rank && (grants[r.id] || []).includes(permId)
+        )
+        const inherited = isEffective && fromBelow
+        states[key] = { checked: isEffective, inherited, disabled: inherited }
+      }
+    }
+    return states
+  })
 
   return (
     <table>
