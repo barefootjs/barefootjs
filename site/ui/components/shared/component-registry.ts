@@ -125,6 +125,7 @@ export const blockEntries: BlockEntry[] = [
   { slug: 'comments', title: 'Comments', description: 'Comment thread with inline editing, sorting, reactions, and nested replies' },
   { slug: 'notifications-center', title: 'Notifications Center', description: 'Notification center with streaming, date grouping, type filtering, and bulk actions' },
   { slug: 'inventory-manager', title: 'Inventory Manager', description: 'CRUD inventory table with inline editing, undo/redo, search/filter, and validation' },
+  { slug: 'permission-matrix', title: 'Permission Matrix', description: 'Role x Permission grid with inheritance cascade, diamond memo dependencies, and bulk operations' },
   { slug: 'spreadsheet', title: 'Spreadsheet', description: 'Spreadsheet grid with cell editing, formula evaluation, selection, and 2D nested loops' },
 ]
 
