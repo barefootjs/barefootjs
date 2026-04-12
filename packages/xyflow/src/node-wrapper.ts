@@ -140,6 +140,8 @@ export function createNodeWrapper<NodeType extends NodeBase>(
 
         dragging = true
         element.style.cursor = 'grabbing'
+        const mw = internalNode.measured.width
+        const mh = internalNode.measured.height
 
         // Select this node
         store.unselectNodesAndEdges()
@@ -174,13 +176,14 @@ export function createNodeWrapper<NodeType extends NodeBase>(
           }
 
           // Trigger edge re-render via rAF-throttled setNodes
+          // Include measured so adoptUserNodes preserves dimensions
           if (!rafId) {
             rafId = requestAnimationFrame(() => {
               rafId = 0
               store.setNodes((prev) =>
                 prev.map((n) =>
                   n.id === internalNode.id
-                    ? { ...n, position: { x: currentX, y: currentY } }
+                    ? { ...n, position: { x: currentX, y: currentY }, measured: { width: mw, height: mh } }
                     : n,
                 ),
               )
@@ -199,11 +202,11 @@ export function createNodeWrapper<NodeType extends NodeBase>(
           const finalX = startNodeX + dx
           const finalY = startNodeY + dy
 
-          // Commit final position to store (triggers edge re-render etc.)
+          // Commit final position to store — include measured dimensions
           store.setNodes((prev) =>
             prev.map((n) =>
               n.id === internalNode.id
-                ? { ...n, position: { x: finalX, y: finalY }, dragging: false }
+                ? { ...n, position: { x: finalX, y: finalY }, dragging: false, measured: { width: mw, height: mh } }
                 : n,
             ),
           )
