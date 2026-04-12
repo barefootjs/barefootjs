@@ -13,6 +13,7 @@ import type {
 import { render } from '@barefootjs/client-runtime'
 import type { ComponentDef } from '@barefootjs/client-runtime'
 import { setupNodeSelection } from './selection'
+import { attachConnectionHandler } from './connection'
 import type { FlowStore, NodeComponentProps } from './types'
 
 /**
@@ -308,6 +309,13 @@ function renderNodeContent<NodeType extends NodeBase>(
     h.dataset.handleType = type
     h.dataset.nodeId = node.id
     el.appendChild(h)
+
+    // Attach connection drag handler
+    const container = store.domNode()
+    const edgesSvg = container?.querySelector('.bf-flow__edges') as SVGSVGElement | null
+    if (container && edgesSvg) {
+      attachConnectionHandler(h, node.id, type, container, edgesSvg, store as any)
+    }
   }
   createDefaultHandle('target')
   createDefaultHandle('source')

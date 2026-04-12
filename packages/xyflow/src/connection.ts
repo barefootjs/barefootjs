@@ -5,35 +5,29 @@ import type { FlowStore, NodeBase, EdgeBase } from './types'
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
 /**
- * Set up handle-to-handle edge creation via mouse drag.
- * Listens for mousedown on .bf-flow__handle elements within the container.
+ * Attach a connection drag handler to a handle element.
+ * Called when creating each handle in node-wrapper.
  */
-export function setupConnectionHandler<
+export function attachConnectionHandler<
   NodeType extends NodeBase = NodeBase,
   EdgeType extends EdgeBase = EdgeBase,
 >(
+  handleEl: HTMLElement,
+  nodeId: string,
+  handleType: 'source' | 'target',
   container: HTMLElement,
   edgesSvg: SVGSVGElement,
   store: FlowStore<NodeType, EdgeType>,
 ): void {
-  let connectionLine: SVGPathElement | null = null
-  let fromNodeId: string | null = null
-  let fromHandleType: string | null = null
+  handleEl.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return
+    if (!untrack(store.nodesDraggable)) return
 
-  container.addEventListener('mousedown', (e) => {
-    const handle = (e.target as HTMLElement).closest?.('.bf-flow__handle') as HTMLElement | null
-    if (!handle) return
-    if (!untrack(store.nodesDraggable)) return // locked
-
+    // Stop propagation to prevent node drag
     e.stopPropagation()
     e.preventDefault()
 
-    fromNodeId = handle.dataset.nodeId ?? null
-    fromHandleType = handle.dataset.handleType ?? null
-    if (!fromNodeId) return
-
-    // Get source handle position (center of handle element)
-    const handleRect = handle.getBoundingClientRect()
+    const handleRect = handleEl.getBoundingClientRect()
     const containerRect = container.getBoundingClientRect()
     const [, , scale] = store.getTransform()
     const vp = untrack(store.viewport)
@@ -42,7 +36,7 @@ export function setupConnectionHandler<
     const sourceY = (handleRect.top + handleRect.height / 2 - containerRect.top - vp.y) / scale
 
     // Create temporary connection line
-    connectionLine = document.createElementNS(SVG_NS, 'path')
+    const connectionLine = document.createElementNS(SVG_NS, 'path')
     connectionLine.setAttribute('fill', 'none')
     connectionLine.setAttribute('stroke', '#b1b1b7')
     connectionLine.setAttribute('stroke-width', '1.5')
@@ -50,18 +44,16 @@ export function setupConnectionHandler<
     edgesSvg.appendChild(connectionLine)
 
     const onMouseMove = (e: MouseEvent) => {
-      if (!connectionLine) return
-
       const targetX = (e.clientX - containerRect.left - vp.x) / scale
       const targetY = (e.clientY - containerRect.top - vp.y) / scale
 
       const [path] = getBezierPath({
         sourceX,
         sourceY,
-        sourcePosition: fromHandleType === 'source' ? 'bottom' as any : 'top' as any,
+        sourcePosition: handleType === 'source' ? 'bottom' as any : 'top' as any,
         targetX,
         targetY,
-        targetPosition: fromHandleType === 'source' ? 'top' as any : 'bottom' as any,
+        targetPosition: handleType === 'source' ? 'top' as any : 'bottom' as any,
       })
 
       connectionLine.setAttribute('d', path)
@@ -78,22 +70,22 @@ export function setupConnectionHandler<
       if (
         targetHandle &&
         targetHandle.dataset.nodeId &&
-        targetHandle.dataset.nodeId !== fromNodeId
+        targetHandle.dataset.nodeId !== nodeId
       ) {
         const targetNodeId = targetHandle.dataset.nodeId
+
         // Determine source/target based on handle types
-        let source = fromNodeId!
+        let source = nodeId
         let target = targetNodeId
-        if (fromHandleType === 'target') {
+        if (handleType === 'target') {
           source = targetNodeId
-          target = fromNodeId!
+          target = nodeId
         }
 
         // Create edge
         const edgeId = `e-${source}-${target}-${Date.now()}`
         const newEdge = { id: edgeId, source, target } as EdgeType
 
-        // Call onConnect if set
         if (store.onConnect) {
           store.onConnect({ source, target, sourceHandle: null, targetHandle: null })
         }
@@ -102,12 +94,7 @@ export function setupConnectionHandler<
       }
 
       // Remove connection line
-      if (connectionLine) {
-        connectionLine.remove()
-        connectionLine = null
-      }
-      fromNodeId = null
-      fromHandleType = null
+      connectionLine.remove()
     }
 
     document.addEventListener('mousemove', onMouseMove)

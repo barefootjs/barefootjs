@@ -16,7 +16,6 @@ import { FlowContext } from './context'
 import { createNodeRenderer } from './node-wrapper'
 import { createEdgeRenderer } from './edge-renderer'
 import { setupKeyboardHandlers } from './selection'
-import { setupConnectionHandler } from './connection'
 import type { FlowProps, FlowStore } from './types'
 
 /**
@@ -161,9 +160,6 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
 
   // --- Reactive edge rendering (delegated to edge-renderer.ts) ---
   createEdgeRenderer(store as FlowStore, edgesSvg)
-
-  // --- Handle-to-handle edge creation ---
-  setupConnectionHandler(el, edgesSvg, store as FlowStore)
 
   // --- Keyboard handlers (delete, escape, shift for multi-select) ---
   setupKeyboardHandlers(store as FlowStore, el)
