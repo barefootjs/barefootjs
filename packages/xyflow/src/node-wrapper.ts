@@ -333,6 +333,9 @@ export function createNodeRenderer<NodeType extends NodeBase>(
   const nodeInstances = new Map<string, NodeInstance>()
 
   createEffect(() => {
+    // Read nodes() directly — nodesInitialized memo may return the same
+    // boolean and skip notifying subscribers even when nodes changed
+    store.nodes()
     store.nodesInitialized()
 
     const lookup = store.nodeLookup()
