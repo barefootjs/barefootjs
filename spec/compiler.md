@@ -277,7 +277,7 @@ Adapters are **template-language specialists**. Their sole responsibility is con
 
 Adapters **must not** handle:
 - **Module structure** — `export` keywords, default exports
-- **Client-package import filtering** — Stripping `@barefootjs/client`, `@barefootjs/dom`, `@barefootjs/client-runtime` imports
+- **Client-package import filtering** — Stripping `@barefootjs/client`, `@barefootjs/client-runtime` imports
 - **Client JS generation** — Handled independently by `ir-to-client-js` (adapter-agnostic)
 
 These concerns belong in the **compiler layer**, which orchestrates adapter output and client JS into the final module.
