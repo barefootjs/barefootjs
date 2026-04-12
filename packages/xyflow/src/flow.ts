@@ -87,7 +87,12 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
   // Store DOM reference
   ;(store as any).setDomNode(el)
 
-  // --- ResizeObserver for container dimensions ---
+  // --- Container dimensions ---
+  // Set initial dimensions immediately (ResizeObserver callback is async)
+  ;(store as any).setWidth(el.offsetWidth)
+  ;(store as any).setHeight(el.offsetHeight)
+
+  // Update on resize
   const resizeObserver = new ResizeObserver(() => {
     ;(store as any).setWidth(el.offsetWidth)
     ;(store as any).setHeight(el.offsetHeight)
