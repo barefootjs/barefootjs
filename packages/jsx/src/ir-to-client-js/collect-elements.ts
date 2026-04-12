@@ -231,7 +231,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         // Use element reconciliation when the loop body has nested components,
         // or when inner loops need their own mapArray for events/reactive text.
         const hasNestedComps = (node.nestedComponents?.length ?? 0) > 0
-        const innerLoops = !node.childComponent && !node.isStaticArray
+        const innerLoops = !node.childComponent
           ? collectInnerLoops(node.children, node.param, ctx)
           : undefined
         const hasInnerLoops = (innerLoops?.length ?? 0) > 0
@@ -266,7 +266,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
           nestedComponents: node.nestedComponents,
           isStaticArray: node.isStaticArray,
           useElementReconciliation,
-          innerLoops: useElementReconciliation ? innerLoops : undefined,
+          innerLoops: (useElementReconciliation || node.isStaticArray) ? innerLoops : undefined,
           filterPredicate: node.filterPredicate ? {
             param: node.filterPredicate.param,
             raw: node.filterPredicate.raw,

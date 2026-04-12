@@ -466,8 +466,9 @@ function emitStaticArrayUpdates(lines: string[], elem: LoopElement): void {
     lines.push(`  // Reactive attributes in static array children`)
     lines.push(`  if (_${v}) {`)
     const indexParam = elem.index || '__idx'
+    lines.push(`    const __loopEls = getLoopChildren(_${v})`)
     lines.push(`    ${elem.array}.forEach((${elem.param}, ${indexParam}) => {`)
-    lines.push(`      const __iterEl = _${v}.children[${indexParam}]`)
+    lines.push(`      const __iterEl = __loopEls[${indexParam}]`)
     lines.push(`      if (__iterEl) {`)
     // Group attrs by childSlotId to avoid duplicate const declarations
     const attrsBySlot = new Map<string, typeof elem.childReactiveAttrs>()
@@ -504,8 +505,9 @@ function emitStaticArrayUpdates(lines: string[], elem: LoopElement): void {
     lines.push(`  // Reactive texts in static array children`)
     lines.push(`  if (_${v}) {`)
     const indexParam = elem.index || '__idx'
+    lines.push(`    const __loopEls = getLoopChildren(_${v})`)
     lines.push(`    ${elem.array}.forEach((${elem.param}, ${indexParam}) => {`)
-    lines.push(`      const __iterEl = _${v}.children[${indexParam}]`)
+    lines.push(`      const __iterEl = __loopEls[${indexParam}]`)
     lines.push(`      if (__iterEl) {`)
     for (const text of elem.childReactiveTexts) {
       const vn = `__rt_${varSlotId(text.slotId)}`
@@ -527,7 +529,7 @@ function emitStaticArrayUpdates(lines: string[], elem: LoopElement): void {
       ls.push(`      let __el = ${varSlotId(ev.childSlotId)}El`)
       ls.push(`      while (__el.parentElement && __el.parentElement !== ${cVar}) __el = __el.parentElement`)
       ls.push(`      if (__el.parentElement === ${cVar}) {`)
-      ls.push(`        const __idx = Array.from(${cVar}.children).indexOf(__el)`)
+      ls.push(`        const __idx = getLoopChildren(${cVar}).indexOf(__el)`)
       ls.push(`        const ${elem.param} = ${elem.array}[__idx]`)
       ls.push(`        if (${elem.param}) ${handlerCall}`)
       ls.push(`      }`)

@@ -482,7 +482,7 @@ describe('child components inside .map() (#344)', () => {
     // Event delegation should be generated for the static array
     expect(content).toContain(".addEventListener('click', (e) => {")
     expect(content).toContain('target.closest')
-    expect(content).toContain('Array.from(')
+    expect(content).toContain('getLoopChildren(')
     expect(content).toContain('handleClick(item.id)')
   })
 
@@ -514,7 +514,7 @@ describe('child components inside .map() (#344)', () => {
 
     // Walk-up strategy: traverse from matched element to container's direct child
     expect(content).toContain('while (__el.parentElement')
-    expect(content).toContain('.children).indexOf(__el)')
+    expect(content).toContain(').indexOf(__el)')
     expect(content).toContain('setValue(item.value)')
   })
 

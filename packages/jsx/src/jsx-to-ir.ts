@@ -966,14 +966,6 @@ function transformConditionalBranch(
     }
   }
 
-  // Map call returning JSX in conditional branch (#783)
-  if (ts.isCallExpression(node) && isMapCall(node)) {
-    const mapResult = transformMapCall(node, ctx)
-    if (mapResult) {
-      return mapResult
-    }
-  }
-
   // Regular expression (including null)
   const exprText = ctx.getJS(node)
   return {
@@ -1361,13 +1353,22 @@ function transformMapCall(
       if (transformed) {
         children = [transformed]
       }
+    } else if (ts.isConditionalExpression(body)) {
+      // Ternary directly in callback: items.map(item => cond ? <A/> : <B/>)
+      children = [transformConditional(body, ctx)]
     } else if (ts.isParenthesizedExpression(body)) {
-      const inner = body.expression
+      let inner = body.expression
+      while (ts.isParenthesizedExpression(inner)) {
+        inner = inner.expression
+      }
       if (ts.isJsxElement(inner) || ts.isJsxSelfClosingElement(inner) || ts.isJsxFragment(inner)) {
         const transformed = transformNode(inner, ctx)
         if (transformed) {
           children = [transformed]
         }
+      } else if (ts.isConditionalExpression(inner)) {
+        // Parenthesized ternary: items.map(item => (cond ? <A/> : <B/>))
+        children = [transformConditional(inner, ctx)]
       }
     } else if (ts.isBlock(body)) {
       // Block body: (item) => { const label = ...; return <div>{label}</div> }
