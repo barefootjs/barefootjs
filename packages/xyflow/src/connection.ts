@@ -39,8 +39,7 @@ export function attachConnectionHandler<
     const connectionLine = document.createElementNS(SVG_NS, 'path')
     connectionLine.setAttribute('fill', 'none')
     connectionLine.setAttribute('stroke', '#b1b1b7')
-    connectionLine.setAttribute('stroke-width', '1.5')
-    connectionLine.setAttribute('stroke-dasharray', '5')
+    connectionLine.setAttribute('stroke-width', '1')
     edgesSvg.appendChild(connectionLine)
 
     const onMouseMove = (e: MouseEvent) => {
