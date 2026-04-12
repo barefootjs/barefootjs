@@ -66,7 +66,11 @@ export function createNodeWrapper<NodeType extends NodeBase>(
     // Append to container
     nodesContainer.appendChild(element)
 
-    // ResizeObserver for dimension measurement
+    // Set initial dimensions synchronously (ResizeObserver is async)
+    internalNode.measured.width = element.offsetWidth
+    internalNode.measured.height = element.offsetHeight
+
+    // ResizeObserver for subsequent dimension changes
     const resizeObserver = new ResizeObserver(() => {
       // Use offsetWidth/offsetHeight (border-box) instead of contentRect
       // (content-box) for correct bounds calculation in fitViewport
