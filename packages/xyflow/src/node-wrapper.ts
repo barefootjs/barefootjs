@@ -225,13 +225,15 @@ export function createNodeWrapper<NodeType extends NodeBase>(
       element.style.transform = `translate(${pos.x}px, ${pos.y}px)`
       element.style.zIndex = String(current.internals.z ?? 0)
 
-      // Selection styling — thicker border when selected (matches React Flow)
+      // Selection styling — box-shadow when selected (matches React Flow)
       if (current.selected) {
         element.classList.add('bf-flow__node--selected')
-        element.style.boxShadow = '0 0 0 0.5px #1a192b'
+        element.style.outline = '1px solid #1a192b'
+        element.style.outlineOffset = '-1px'
       } else {
         element.classList.remove('bf-flow__node--selected')
-        element.style.boxShadow = ''
+        element.style.outline = ''
+        element.style.outlineOffset = ''
       }
     })
 

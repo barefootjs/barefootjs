@@ -168,10 +168,21 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
   // --- Fit view on mount if requested ---
   if (flowProps.fitView) {
     onMount(() => {
-      // Wait for dimensions to be measured
-      requestAnimationFrame(() => {
-        store.fitView(flowProps.fitViewOptions)
-      })
+      // Wait for ResizeObserver to measure all nodes (needs 2+ frames)
+      const tryFitView = (attempts = 0) => {
+        requestAnimationFrame(() => {
+          const lookup = store.nodeLookup()
+          const allMeasured = [...lookup.values()].every(
+            (n) => n.measured.width && n.measured.height,
+          )
+          if (allMeasured || attempts > 10) {
+            store.fitView(flowProps.fitViewOptions)
+          } else {
+            tryFitView(attempts + 1)
+          }
+        })
+      }
+      tryFitView()
     })
   }
 }
