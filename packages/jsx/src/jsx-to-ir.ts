@@ -966,6 +966,14 @@ function transformConditionalBranch(
     }
   }
 
+  // Map call returning JSX in conditional branch (#783)
+  if (ts.isCallExpression(node) && isMapCall(node)) {
+    const mapResult = transformMapCall(node, ctx)
+    if (mapResult) {
+      return mapResult
+    }
+  }
+
   // Regular expression (including null)
   const exprText = ctx.getJS(node)
   return {

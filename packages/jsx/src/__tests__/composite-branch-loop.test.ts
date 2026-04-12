@@ -185,3 +185,116 @@ describe('composite loops inside conditional branches (#724)', () => {
     expect(js).toContain("createComponent('Badge'")
   })
 })
+
+describe('direct map call as conditional branch (#783)', () => {
+  test('logical AND with direct .map() does not emit jsxDEV calls', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client-runtime'
+
+      interface Group { key: string; label: string; items: string[] }
+
+      export function GroupList(props) {
+        const [mode, setMode] = createSignal('flat')
+        const [groups] = createSignal(props.initialGroups)
+
+        return (
+          <div>
+            <button onClick={() => setMode(mode() === 'flat' ? 'grouped' : 'flat')}>
+              Toggle
+            </button>
+            {mode() === 'grouped' &&
+              groups().map((group) => (
+                <div key={group.key} className="group">
+                  <h2>{group.label}</h2>
+                  <ul>
+                    {group.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+          </div>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'GroupList.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')
+    expect(clientJs).toBeDefined()
+    const js = clientJs!.content
+
+    // Must NOT contain raw jsxDEV calls
+    expect(js).not.toMatch(/jsxDEV/)
+
+    // Template should contain inline .map() expression
+    expect(js).toContain('.map(')
+  })
+
+  test('ternary with direct .map() in true branch', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client-runtime'
+
+      export function ItemList(props) {
+        const [items] = createSignal(props.initialItems)
+
+        return (
+          <div>
+            {items().length > 0
+              ? items().map((item) => (
+                  <div key={item.id}>{item.name}</div>
+                ))
+              : <p>No items</p>
+            }
+          </div>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'ItemList.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')
+    expect(clientJs).toBeDefined()
+    const js = clientJs!.content
+
+    // Must NOT contain raw jsxDEV calls
+    expect(js).not.toMatch(/jsxDEV/)
+
+    // Template should contain inline .map() expression
+    expect(js).toContain('.map(')
+  })
+
+  test('parenthesized .map() in conditional branch', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client-runtime'
+
+      export function TagList(props) {
+        const [show] = createSignal(true)
+        const [tags] = createSignal(props.tags)
+
+        return (
+          <div>
+            {show() && (tags().map((tag) => (
+              <span key={tag}>{tag}</span>
+            )))}
+          </div>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'TagList.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')
+    expect(clientJs).toBeDefined()
+    const js = clientJs!.content
+
+    // Must NOT contain raw jsxDEV calls
+    expect(js).not.toMatch(/jsxDEV/)
+
+    // Template should contain inline .map() expression
+    expect(js).toContain('.map(')
+  })
+})
