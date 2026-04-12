@@ -310,6 +310,7 @@ function visit(
       // Check if it exports the component
       if (ctx.componentName && expr.text === ctx.componentName) {
         ctx.hasDefaultExport = true
+        ctx.isExported = true
       }
     }
   }
