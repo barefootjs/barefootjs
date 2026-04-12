@@ -42,6 +42,9 @@ export const ErrorCodes = {
   PROPS_DESTRUCTURING: 'BF043',
   SIGNAL_GETTER_NOT_CALLED: 'BF044',
 
+  // Local function errors (BF045-BF049)
+  JSX_IN_LOCAL_FUNCTION: 'BF045',
+
   // Import errors (BF050-BF059)
   DEPRECATED_DOM_IMPORT: 'BF050',
   WRONG_PACKAGE_IMPORT: 'BF051',
@@ -85,6 +88,8 @@ const errorMessages: Record<ErrorCode, string> = {
     'Props destructuring in function parameters breaks reactivity. Use props object directly.',
   [ErrorCodes.SIGNAL_GETTER_NOT_CALLED]:
     'Signal/memo getter passed without calling it. Use getter() to read the value.',
+  [ErrorCodes.JSX_IN_LOCAL_FUNCTION]:
+    'Local function returns JSX but cannot be inlined. Extract it as a top-level PascalCase component or use a single return statement.',
 
   [ErrorCodes.DEPRECATED_DOM_IMPORT]:
     "'@barefootjs/dom' has been split into '@barefootjs/client' and '@barefootjs/client-runtime'.",

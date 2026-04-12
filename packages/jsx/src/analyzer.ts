@@ -229,6 +229,7 @@ function visit(
       if (!ctx.componentName) {
         ctx.componentName = node.name.text
         ctx.componentNode = node
+        ctx.isExported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
         analyzeComponentBody(node, ctx)
         // Detect: export default function ComponentName() { ... }
         if (node.modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword)) {
@@ -247,6 +248,14 @@ function visit(
       if (!ctx.componentName) {
         ctx.componentName = node.name.text
         ctx.componentNode = node.initializer
+        // Arrow component: check the parent VariableStatement for export keyword
+        const parentStatement = node.parent
+        if (ts.isVariableDeclarationList(parentStatement)) {
+          const varStatement = parentStatement.parent
+          if (ts.isVariableStatement(varStatement)) {
+            ctx.isExported = varStatement.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
+          }
+        }
         analyzeComponentBody(node.initializer, ctx)
       }
     } else {
@@ -281,6 +290,10 @@ function visit(
   if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
     for (const specifier of node.exportClause.elements) {
       const name = specifier.name.text
+      // Mark the component itself if re-exported via export { Name }
+      if (ctx.componentName === name) {
+        ctx.isExported = true
+      }
       for (const c of ctx.localConstants) {
         if (c.name === name) c.isExported = true
       }
@@ -297,6 +310,7 @@ function visit(
       // Check if it exports the component
       if (ctx.componentName && expr.text === ctx.componentName) {
         ctx.hasDefaultExport = true
+        ctx.isExported = true
       }
     }
   }
@@ -1381,7 +1395,7 @@ function validateContext(ctx: AnalyzerContext): void {
  * Returns all exported component names in the file.
  * Useful for files with multiple components (e.g., icon.tsx).
  */
-export function listExportedComponents(
+export function listComponentFunctions(
   source: string,
   filePath: string
 ): string[] {

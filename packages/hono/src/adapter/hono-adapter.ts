@@ -374,7 +374,8 @@ export class HonoAdapter implements TemplateAdapter {
     }
 
     const lines: string[] = []
-    lines.push(`export function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
+    const exportKeyword = ir.metadata.isExported !== false ? 'export ' : ''
+    lines.push(`${exportKeyword}function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
 
     // Add props extraction for SolidJS-style pattern
     if (propsExtraction) {

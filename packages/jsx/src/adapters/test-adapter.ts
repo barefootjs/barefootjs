@@ -161,7 +161,8 @@ export class TestAdapter extends BaseAdapter {
     const fullPropsDestructure = `{ ${parts.join(', ')} }`
 
     const lines: string[] = []
-    lines.push(`export function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
+    const exportKeyword = ir.metadata.isExported !== false ? 'export ' : ''
+    lines.push(`${exportKeyword}function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
 
     // Generate scope ID
     if (hasClientInteractivity) {

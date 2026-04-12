@@ -89,11 +89,12 @@ function __bfWrap(jsx: any, scripts: string[]) {
   } catch {}
 `
 
-  // Insert script collector at the start of each export function body.
+  // Insert script collector at the start of each component function body.
+  // Matches both exported and non-exported PascalCase components (#786).
   // Uses paren counting instead of regex to correctly handle nested
   // delimiters in destructured params (e.g. `onInput = () => {}`).
   let modifiedRest = restOfFile
-  const exportFuncPattern = /export function \w+\s*\(/g
+  const exportFuncPattern = /(?:export )?function ([A-Z]\w*)\s*\(/g
   const insertions: Array<{ index: number; text: string }> = []
   let efMatch: RegExpExecArray | null
   while ((efMatch = exportFuncPattern.exec(restOfFile)) !== null) {

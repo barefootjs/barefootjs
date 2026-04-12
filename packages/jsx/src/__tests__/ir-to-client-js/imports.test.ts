@@ -21,6 +21,7 @@ function makeIR(imports: ImportInfo[], componentNames: string[] = []): Component
     metadata: {
       componentName: 'TestComponent',
       hasDefaultExport: true,
+      isExported: true,
       isClientComponent: true,
       typeDefinitions: [],
       propsType: null,

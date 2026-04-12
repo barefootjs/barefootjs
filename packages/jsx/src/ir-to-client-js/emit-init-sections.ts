@@ -357,3 +357,4 @@ export function emitStaticArrayChildInits(lines: string[], ctx: ClientJsContext)
     }
   }
 }
+

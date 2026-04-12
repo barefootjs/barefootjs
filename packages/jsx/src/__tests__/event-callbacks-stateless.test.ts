@@ -64,6 +64,7 @@ describe('event callbacks on stateless components', () => {
       metadata: {
         componentName: ctx.componentName || 'Clickable',
         hasDefaultExport: ctx.hasDefaultExport,
+        isExported: ctx.isExported,
         isClientComponent: ctx.hasUseClientDirective,
         typeDefinitions: ctx.typeDefinitions,
         propsType: ctx.propsType,

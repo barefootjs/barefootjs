@@ -52,6 +52,8 @@ export interface AnalyzerContext {
   componentName: string | null
   componentNode: ts.FunctionDeclaration | ts.ArrowFunction | null
   hasDefaultExport: boolean
+  /** Whether the component has an `export` keyword in the source */
+  isExported: boolean
 
   // Collected data
   signals: SignalInfo[]
@@ -113,6 +115,7 @@ export function createAnalyzerContext(
     componentName: null,
     componentNode: null,
     hasDefaultExport: false,
+    isExported: false,
 
     signals: [],
     memos: [],

@@ -453,6 +453,8 @@ export interface TypeDefinition {
 export interface IRMetadata {
   componentName: string
   hasDefaultExport: boolean
+  /** Whether this component has an `export` keyword in the source */
+  isExported: boolean
   /** Whether this component is from a "use client" file */
   isClientComponent: boolean
   typeDefinitions: TypeDefinition[]

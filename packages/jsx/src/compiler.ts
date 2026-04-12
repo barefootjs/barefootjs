@@ -12,7 +12,7 @@ import type {
   FileOutput,
 } from './types'
 import type { TemplateAdapter } from './adapters/interface'
-import { analyzeComponent, listExportedComponents, createProgramForFile, needsTypeBasedDetection } from './analyzer'
+import { analyzeComponent, listComponentFunctions, createProgramForFile, needsTypeBasedDetection } from './analyzer'
 import { jsxToIR } from './jsx-to-ir'
 import { generateClientJs, analyzeClientNeeds } from './ir-to-client-js'
 import { generateModuleExports } from './module-exports'
@@ -42,7 +42,7 @@ export async function compileJSX(
   const source = await readFile(entryPath)
 
   // List all exported components in the file
-  const componentNames = listExportedComponents(source, entryPath)
+  const componentNames = listComponentFunctions(source, entryPath)
 
   // If multiple components, compile each separately and combine
   if (componentNames.length > 1) {
@@ -367,6 +367,7 @@ export function buildMetadata(
   return {
     componentName: ctx.componentName || 'Unknown',
     hasDefaultExport: ctx.hasDefaultExport,
+    isExported: ctx.isExported,
     isClientComponent: ctx.hasUseClientDirective,
     typeDefinitions: ctx.typeDefinitions,
     propsType: ctx.propsType,
@@ -397,7 +398,7 @@ export function compileJSXSync(
   const errors: CompileResult['errors'] = []
 
   // List all exported components
-  const componentNames = listExportedComponents(source, filePath)
+  const componentNames = listComponentFunctions(source, filePath)
 
   // If multiple components, compile each separately and combine
   if (componentNames.length > 1) {
