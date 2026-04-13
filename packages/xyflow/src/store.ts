@@ -47,6 +47,7 @@ export function createFlowStore<
   const nodeExtent = options.nodeExtent ?? INFINITE_EXTENT
   const snapToGrid = options.snapToGrid ?? false
   const snapGrid: SnapGrid = options.snapGrid ?? [15, 15]
+  const edgesReconnectable = options.edgesReconnectable ?? false
 
   // --- Core state signals ---
   const [nodes, setNodes] = createSignal<NodeType[]>(options.nodes ?? [])
@@ -344,6 +345,7 @@ export function createFlowStore<
     nodeExtent,
     snapToGrid,
     snapGrid,
+    edgesReconnectable,
 
     getTransform,
 
@@ -356,5 +358,6 @@ export function createFlowStore<
     onConnectStart: options.onConnectStart,
     onConnectEnd: options.onConnectEnd,
     isValidConnection: options.isValidConnection,
+    onReconnect: options.onReconnect,
   }
 }

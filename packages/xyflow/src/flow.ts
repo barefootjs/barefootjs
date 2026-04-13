@@ -41,6 +41,8 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
     snapGrid: flowProps.snapGrid,
     onConnect: flowProps.onConnect,
     isValidConnection: flowProps.isValidConnection,
+    edgesReconnectable: flowProps.edgesReconnectable,
+    onReconnect: flowProps.onReconnect,
   })
 
   provideContext(FlowContext, store)
@@ -220,6 +222,9 @@ function injectDefaultStyles() {
     .bf-flow__edge--selected { stroke: #555; stroke-width: 2; }
     .bf-flow__edge--animated { stroke-dasharray: 5; animation: bf-dashdraw 0.5s linear infinite; }
     @keyframes bf-dashdraw { from { stroke-dashoffset: 10; } }
+    .bf-flow__edge-reconnect { fill: #b1b1b7; stroke: #fff; stroke-width: 1.5; opacity: 0; transition: opacity 0.15s; }
+    .bf-flow__edge-group:hover .bf-flow__edge-reconnect { opacity: 1; }
+    .bf-flow__edge-reconnect:hover { fill: #555; r: 7; }
     .bf-flow__controls-button:hover { background: #f4f4f4 !important; }
     .bf-flow__controls-button:last-child { border-bottom: none !important; }
   `

@@ -39,6 +39,9 @@
 <h2>Connection Validation</h2>
 <div id="validation" class="test-container"></div>
 
+<h2>Edge Reconnection</h2>
+<div id="reconnect" class="test-container"></div>
+
 <script type="module">
 import { createRoot } from '@barefootjs/client'
 import { initFlow, initBackground, initControls, initMiniMap } from '@barefootjs/xyflow'
@@ -190,6 +193,26 @@ createRoot(() => {
     ],
   })
   initMiniMap(el, { pannable: true, zoomable: true })
+})
+
+// Edge Reconnection — edges can be reconnected by dragging endpoints
+createRoot(() => {
+  const reconnectEl = document.getElementById('reconnect')
+  window.__reconnectLog = []
+  initFlow(reconnectEl, {
+    nodes: [
+      { id: 'r-a', position: { x: 50, y: 100 }, data: { label: 'Node A' } },
+      { id: 'r-b', position: { x: 300, y: 50 }, data: { label: 'Node B' } },
+      { id: 'r-c', position: { x: 300, y: 200 }, data: { label: 'Node C' } },
+    ],
+    edges: [
+      { id: 'r-ab', source: 'r-a', target: 'r-b' },
+    ],
+    edgesReconnectable: true,
+    onReconnect: (oldEdge, newConnection) => {
+      window.__reconnectLog.push({ oldEdge, newConnection })
+    },
+  })
 })
 
 // Connection Validation — only allow connections to "v-allowed"

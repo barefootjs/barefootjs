@@ -20,6 +20,7 @@ import type {
   IsValidConnection,
   NodeDragItem,
   ConnectionMode,
+  Connection,
 } from '@xyflow/system'
 import type { Signal, Memo } from '@barefootjs/client'
 import type { ComponentDef } from '@barefootjs/client-runtime'
@@ -47,7 +48,16 @@ export type {
   IsValidConnection,
   NodeDragItem,
   ConnectionMode,
+  Connection,
 }
+
+/**
+ * Callback fired when an edge is reconnected to a new handle.
+ */
+export type OnReconnect<EdgeType extends EdgeBase = EdgeBase> = (
+  oldEdge: EdgeType,
+  newConnection: Connection,
+) => void
 
 /**
  * Options for creating a flow store.
@@ -71,6 +81,10 @@ export type FlowStoreOptions<
   // Custom component types
   nodeTypes?: Record<string, ComponentDef | ((props: NodeComponentProps<NodeType>) => void)>
   edgeTypes?: Record<string, ComponentDef>
+
+  // Edge reconnection
+  edgesReconnectable?: boolean
+  onReconnect?: OnReconnect<EdgeType>
 
   // Callbacks
   onConnect?: OnConnect
@@ -155,6 +169,10 @@ export type FlowStore<
   // Custom component types
   nodeTypes?: Record<string, ComponentDef | ((props: NodeComponentProps<NodeType>) => void)>
   edgeTypes?: Record<string, ComponentDef>
+
+  // Edge reconnection
+  edgesReconnectable: boolean
+  onReconnect?: OnReconnect<EdgeType>
 
   // Callbacks
   onConnect?: OnConnect

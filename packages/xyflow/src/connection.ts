@@ -1,6 +1,6 @@
 import { untrack } from '@barefootjs/client'
-import { getBezierPath, Position } from '@xyflow/system'
-import type { FlowStore, NodeBase, EdgeBase } from './types'
+import { getBezierPath, Position, reconnectEdge as reconnectEdgeUtil } from '@xyflow/system'
+import type { FlowStore, NodeBase, EdgeBase, Connection } from './types'
 import { SVG_NS } from './constants'
 
 /**
@@ -162,6 +162,172 @@ export function attachConnectionHandler<
       }
 
       // Remove connection line
+      connectionLine.remove()
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  })
+}
+
+/**
+ * Attach a reconnection drag handler to an edge endpoint handle.
+ * Dragging this handle detaches the edge from its source/target and allows
+ * reconnecting to a different handle.
+ *
+ * @param handleEl - The SVG circle element acting as the reconnection grip
+ * @param edge - The edge being reconnected
+ * @param endpointType - Which endpoint of the edge is being dragged ('source' | 'target')
+ * @param container - The flow container element
+ * @param edgesSvg - The SVG element containing edge paths
+ * @param store - The flow store
+ */
+export function attachReconnectionHandler<
+  NodeType extends NodeBase = NodeBase,
+  EdgeType extends EdgeBase = EdgeBase,
+>(
+  handleEl: SVGCircleElement,
+  edge: EdgeType,
+  endpointType: 'source' | 'target',
+  container: HTMLElement,
+  edgesSvg: SVGSVGElement,
+  store: FlowStore<NodeType, EdgeType>,
+): void {
+  handleEl.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    e.preventDefault()
+
+    // The fixed anchor is the opposite endpoint of the edge
+    const anchorNodeId = endpointType === 'source' ? edge.target : edge.source
+
+    // Determine anchor position from the node
+    const nodeLookup = untrack(store.nodeLookup)
+    const anchorNode = nodeLookup.get(anchorNodeId)
+    if (!anchorNode) return
+
+    const anchorW = anchorNode.measured.width ?? 150
+    const anchorH = anchorNode.measured.height ?? 40
+    const anchorPos = anchorNode.internals.positionAbsolute
+
+    // For the anchor, use the handle position appropriate for the fixed end:
+    // If we're dragging the "source" end, the fixed anchor is the "target" end
+    // (which has a handle at the top). If dragging "target", anchor is "source" (bottom).
+    const anchorX = anchorPos.x + anchorW / 2
+    const anchorY = endpointType === 'source'
+      ? anchorPos.y          // target handle is at top
+      : anchorPos.y + anchorH // source handle is at bottom
+
+    // Hide the original edge path while reconnecting
+    const edgePathEl = edgesSvg.querySelector(`.bf-flow__edge[data-id="${edge.id}"]`) as SVGPathElement | null
+    const hitPathEl = edgesSvg.querySelector(`path[data-hit-id="${edge.id}"]`) as SVGPathElement | null
+    if (edgePathEl) edgePathEl.style.opacity = '0.2'
+    if (hitPathEl) hitPathEl.style.display = 'none'
+
+    // Create temporary connection line from anchor to cursor
+    const connectionLine = document.createElementNS(SVG_NS, 'path')
+    connectionLine.setAttribute('fill', 'none')
+    connectionLine.setAttribute('stroke', '#b1b1b7')
+    connectionLine.setAttribute('stroke-width', '1')
+    connectionLine.setAttribute('stroke-dasharray', '5')
+    edgesSvg.appendChild(connectionLine)
+
+    let lastHoveredHandle: HTMLElement | null = null
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const containerRect = container.getBoundingClientRect()
+      const [, , scale] = store.getTransform()
+      const vp = untrack(store.viewport)
+
+      const cursorX = (ev.clientX - containerRect.left - vp.x) / scale
+      const cursorY = (ev.clientY - containerRect.top - vp.y) / scale
+
+      // Draw bezier from anchor to cursor
+      // sourcePosition/targetPosition depends on which endpoint is the anchor
+      const sourcePosition = endpointType === 'source' ? Position.Top : Position.Bottom
+      const targetPosition = endpointType === 'source' ? Position.Bottom : Position.Top
+
+      const [path] = getBezierPath({
+        sourceX: anchorX,
+        sourceY: anchorY,
+        sourcePosition,
+        targetX: cursorX,
+        targetY: cursorY,
+        targetPosition,
+      })
+
+      connectionLine.setAttribute('d', path)
+
+      // Validate on hover over handles
+      const hoverEl = document.elementFromPoint(ev.clientX, ev.clientY)
+      const hoveredHandle = hoverEl?.closest?.('.bf-flow__handle') as HTMLElement | null
+
+      if (lastHoveredHandle && lastHoveredHandle !== hoveredHandle) {
+        lastHoveredHandle.classList.remove('valid', 'invalid')
+      }
+
+      if (
+        hoveredHandle &&
+        hoveredHandle.dataset.nodeId &&
+        hoveredHandle.dataset.nodeId !== anchorNodeId
+      ) {
+        // Build connection: anchor is the fixed end, hovered node is the new end
+        const hoveredNodeId = hoveredHandle.dataset.nodeId
+        const conn: Connection = endpointType === 'source'
+          ? { source: hoveredNodeId, target: anchorNodeId, sourceHandle: null, targetHandle: null }
+          : { source: anchorNodeId, target: hoveredNodeId, sourceHandle: null, targetHandle: null }
+
+        const isValid = checkConnectionValidity(store, conn)
+        hoveredHandle.classList.remove('valid', 'invalid')
+        hoveredHandle.classList.add(isValid ? 'valid' : 'invalid')
+        lastHoveredHandle = hoveredHandle
+      } else {
+        lastHoveredHandle = null
+      }
+    }
+
+    const onMouseUp = (ev: MouseEvent) => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+
+      if (lastHoveredHandle) {
+        lastHoveredHandle.classList.remove('valid', 'invalid')
+      }
+
+      // Restore the original edge appearance
+      if (edgePathEl) edgePathEl.style.opacity = ''
+      if (hitPathEl) hitPathEl.style.display = ''
+
+      // Check if released on a valid handle
+      const targetEl = document.elementFromPoint(ev.clientX, ev.clientY)
+      const droppedHandle = targetEl?.closest?.('.bf-flow__handle') as HTMLElement | null
+
+      if (
+        droppedHandle &&
+        droppedHandle.dataset.nodeId &&
+        droppedHandle.dataset.nodeId !== anchorNodeId
+      ) {
+        const droppedNodeId = droppedHandle.dataset.nodeId
+        const newConnection: Connection = endpointType === 'source'
+          ? { source: droppedNodeId, target: anchorNodeId, sourceHandle: null, targetHandle: null }
+          : { source: anchorNodeId, target: droppedNodeId, sourceHandle: null, targetHandle: null }
+
+        const isValid = checkConnectionValidity(store, newConnection)
+
+        if (isValid) {
+          // Fire onReconnect callback
+          if (store.onReconnect) {
+            store.onReconnect(edge, newConnection)
+          }
+
+          // Update edges using reconnectEdge utility
+          const currentEdges = untrack(store.edges)
+          const updatedEdges = reconnectEdgeUtil(edge, newConnection, currentEdges)
+          store.setEdges(updatedEdges as EdgeType[])
+        }
+      }
+      // If not dropped on a valid handle, the edge reverts (appearance already restored)
+
       connectionLine.remove()
     }
 

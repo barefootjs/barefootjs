@@ -6,7 +6,7 @@ export { createNodeWrapper, createNodeRenderer } from './node-wrapper'
 export { createEdgeRenderer } from './edge-renderer'
 export { createHandle, initHandle } from './handle'
 export type { HandleType, HandleProps } from './handle'
-export { attachConnectionHandler } from './connection'
+export { attachConnectionHandler, attachReconnectionHandler } from './connection'
 export { useFlow, useViewport, useNodes, useEdges, useNodesInitialized } from './hooks'
 export { setupKeyboardHandlers, setupNodeSelection } from './selection'
 
@@ -46,6 +46,8 @@ export type {
   NodeDragItem,
   ConnectionMode,
   NodeComponentProps,
+  OnReconnect,
+  Connection,
 } from './types'
 
 // Compat layer (React Flow API shims for desk migration)
