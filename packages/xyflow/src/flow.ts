@@ -284,6 +284,81 @@ function injectDefaultStyles() {
       border-radius: 2px;
       pointer-events: none;
     }
+    .bf-flow__node-resizer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .bf-flow__resize-handle {
+      position: absolute;
+      pointer-events: all;
+      z-index: 10;
+    }
+    .bf-flow__resize-handle--corner {
+      width: 8px;
+      height: 8px;
+      background: #fff;
+      border: 1px solid #1a192b;
+      border-radius: 1px;
+    }
+    .bf-flow__resize-handle--top-left {
+      top: -4px;
+      left: -4px;
+      cursor: nwse-resize;
+    }
+    .bf-flow__resize-handle--top-right {
+      top: -4px;
+      right: -4px;
+      cursor: nesw-resize;
+    }
+    .bf-flow__resize-handle--bottom-left {
+      bottom: -4px;
+      left: -4px;
+      cursor: nesw-resize;
+    }
+    .bf-flow__resize-handle--bottom-right {
+      bottom: -4px;
+      right: -4px;
+      cursor: nwse-resize;
+    }
+    .bf-flow__resize-handle--line {
+      background: transparent;
+    }
+    .bf-flow__resize-handle--line.bf-flow__resize-handle--top {
+      top: -2px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      cursor: ns-resize;
+    }
+    .bf-flow__resize-handle--line.bf-flow__resize-handle--bottom {
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      cursor: ns-resize;
+    }
+    .bf-flow__resize-handle--line.bf-flow__resize-handle--left {
+      left: -2px;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      cursor: ew-resize;
+    }
+    .bf-flow__resize-handle--line.bf-flow__resize-handle--right {
+      right: -2px;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      cursor: ew-resize;
+    }
+    .bf-flow__resize-handle--line:hover {
+      background: rgba(26, 25, 43, 0.1);
+    }
+    .bf-flow__resize-handle--corner:hover {
+      background: #1a192b;
+      border-color: #1a192b;
+    }
   `
   document.head.appendChild(style)
 }
