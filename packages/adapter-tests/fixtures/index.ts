@@ -15,6 +15,7 @@ import { fixture as ternary } from './ternary'
 import { fixture as nestedTernary } from './nested-ternary'
 import { fixture as logicalAnd } from './logical-and'
 import { fixture as conditionalClass } from './conditional-class'
+import { fixture as ifStatement } from './if-statement'
 // Priority 4: Loops
 import { fixture as mapBasic } from './map-basic'
 import { fixture as mapWithIndex } from './map-with-index'
@@ -64,6 +65,7 @@ export const jsxFixtures: JSXFixture[] = [
   nestedTernary,
   logicalAnd,
   conditionalClass,
+  ifStatement,
   // Priority 4: Loops
   mapBasic,
   mapWithIndex,
