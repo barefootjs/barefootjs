@@ -15,7 +15,7 @@ import { createFlowStore } from './store'
 import { FlowContext } from './context'
 import { createNodeRenderer } from './node-wrapper'
 import { createEdgeRenderer, createEdgeLabelRenderer } from './edge-renderer'
-import { setupKeyboardHandlers } from './selection'
+import { setupKeyboardHandlers, setupSelectionRectangle } from './selection'
 import { INFINITE_EXTENT, SVG_NS } from './constants'
 import type { FlowProps } from './types'
 
@@ -147,6 +147,10 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
   createEdgeRenderer(store, edgesSvg)
   createEdgeLabelRenderer(store, viewportEl)
   setupKeyboardHandlers(store, el)
+  setupSelectionRectangle(store, el, {
+    selectionOnDrag: flowProps.selectionOnDrag,
+    selectionMode: flowProps.selectionMode,
+  })
 
   el.addEventListener('click', (event) => {
     if (event.target === el || event.target === viewportEl) {
@@ -271,6 +275,12 @@ function injectDefaultStyles() {
       background: #fee;
       color: #c00;
       border-color: #c00;
+    }
+    .bf-flow__selection {
+      background: rgba(0, 89, 220, 0.08);
+      border: 1px solid rgba(0, 89, 220, 0.4);
+      border-radius: 2px;
+      pointer-events: none;
     }
   `
   document.head.appendChild(style)
