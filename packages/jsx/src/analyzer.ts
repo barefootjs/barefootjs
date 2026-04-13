@@ -1020,7 +1020,7 @@ function collectConstant(
   if (value && !ctx.propsObjectName && ctx.propsParams.length > 0 && node.initializer) {
     const propNames = new Set(ctx.propsParams.map(p => p.name).filter(n => n !== 'children'))
     if (propNames.size > 0) {
-      const rewritten = rewriteBarePropRefsInNode(value, node.initializer, propNames, ctx.sourceFile)
+      const rewritten = rewriteBarePropRefsInNode(value, node.initializer, propNames)
       if (rewritten !== value) {
         templateValue = rewritten
       }
@@ -1057,43 +1057,24 @@ function rewriteBarePropRefsInNode(
   text: string,
   node: ts.Node,
   propNames: Set<string>,
-  sourceFile: ts.SourceFile
 ): string {
-  const replacements: Array<{ start: number; end: number; name: string }> = []
-  const exprStart = node.getStart(sourceFile)
-
+  // Walk AST to find which prop names are actually used as value references
+  const foundPropRefs = new Set<string>()
   function visit(n: ts.Node, parent?: ts.Node) {
     if (ts.isIdentifier(n) && propNames.has(n.text)) {
       if (parent && ts.isPropertyAssignment(parent) && parent.name === n) return
       if (parent && ts.isShorthandPropertyAssignment(parent) && parent.name === n) return
       if (parent && ts.isPropertyAccessExpression(parent) && parent.name === n) return
-      replacements.push({
-        start: n.getStart(sourceFile) - exprStart,
-        end: n.getEnd() - exprStart,
-        name: n.text,
-      })
+      foundPropRefs.add(n.text)
     }
     ts.forEachChild(n, child => visit(child, n))
   }
-
   visit(node)
-  if (replacements.length === 0) return text
+  if (foundPropRefs.size === 0) return text
 
-  // Check if type stripping changed positions (raw text differs from getJS text)
-  const rawText = node.getText(sourceFile)
-  if (rawText === text) {
-    // Fast path: no type annotations, positions match
-    let result = text
-    for (const r of replacements.sort((a, b) => b.start - a.start)) {
-      result = result.slice(0, r.start) + `${PROPS_PARAM}.${r.name}` + result.slice(r.end)
-    }
-    return result
-  }
-
-  // Slow path: type annotations present, use targeted regex on type-stripped text
-  const propRefNames = new Set(replacements.map(r => r.name))
+  // Apply targeted regex replacement only for AST-identified prop ref names
   let result = text
-  for (const propName of propRefNames) {
+  for (const propName of foundPropRefs) {
     const pattern = new RegExp(`(?<!${PROPS_PARAM}\\.)(?<!['"\\w.-])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
     result = result.replace(pattern, (match, offset, str) => {
       const after = str.slice(offset + match.length)

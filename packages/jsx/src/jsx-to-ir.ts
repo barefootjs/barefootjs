@@ -109,9 +109,9 @@ function exprHasFunctionCalls(expr: ts.Expression): boolean {
  * Rewrite bare destructured prop references in expression text using AST context.
  * Returns undefined if no rewriting is needed (SolidJS-style or no props).
  *
- * Uses AST to identify prop refs, then applies replacements to the RAW source text
- * (before type stripping) and finally strips types. This avoids position mismatches
- * when ctx.getJS() removes type annotations like `as T`.
+ * Strategy: walk the AST to identify which prop names appear in value position
+ * (not as object keys, property access targets, or shorthand properties),
+ * then apply targeted regex replacement only for those names.
  */
 function rewriteBarePropRefs(text: string, expr: ts.Node, ctx: TransformContext): string | undefined {
   // Build and cache destructured prop names
@@ -129,10 +129,9 @@ function rewriteBarePropRefs(text: string, expr: ts.Node, ctx: TransformContext)
   const propNames = ctx._destructuredPropNames
   if (!propNames) return undefined
 
-  const names = propNames // Local binding for closure
-  const replacements: Array<{ start: number; end: number; name: string }> = []
-  const exprStart = expr.getStart(ctx.sourceFile)
-
+  // Walk AST to find which prop names are actually used as value references
+  const foundPropRefs = new Set<string>()
+  const names = propNames
   function visit(node: ts.Node, parent?: ts.Node) {
     if (ts.isIdentifier(node) && names.has(node.text)) {
       // Skip: object literal key  { org: ... }
@@ -141,41 +140,19 @@ function rewriteBarePropRefs(text: string, expr: ts.Node, ctx: TransformContext)
       if (parent && ts.isShorthandPropertyAssignment(parent) && parent.name === node) return
       // Skip: property access name  foo.org
       if (parent && ts.isPropertyAccessExpression(parent) && parent.name === node) return
-
-      replacements.push({
-        start: node.getStart(ctx.sourceFile) - exprStart,
-        end: node.getEnd() - exprStart,
-        name: node.text,
-      })
+      foundPropRefs.add(node.text)
     }
     ts.forEachChild(node, child => visit(child, node))
   }
-
   visit(expr)
-  if (replacements.length === 0) return undefined
+  if (foundPropRefs.size === 0) return undefined
 
-  // Apply replacements to the RAW source text (positions match AST nodes),
-  // then strip types. This avoids position mismatches from type annotations.
-  const rawText = expr.getText(ctx.sourceFile)
-
-  // Fast path: no type stripping needed (raw text === getJS output)
-  if (rawText === text) {
-    let result = text
-    for (const r of replacements.sort((a, b) => b.start - a.start)) {
-      result = result.slice(0, r.start) + `${PROPS_PARAM}.${r.name}` + result.slice(r.end)
-    }
-    return result
-  }
-
-  // Slow path: type annotations present. Apply replacements to raw text first,
-  // then strip types via getJS on the original node. Since we can't re-parse,
-  // apply the same getJS output but use targeted regex for AST-identified prop refs.
-  // Deduplicate replacement names (same name may appear multiple times).
-  const propRefNames = new Set(replacements.map(r => r.name))
-  let result = ctx.getJS(expr)
-  for (const propName of propRefNames) {
+  // Apply targeted regex replacement only for AST-identified prop ref names
+  let result = text
+  for (const propName of foundPropRefs) {
     const pattern = new RegExp(`(?<!${PROPS_PARAM}\\.)(?<!['"\\w.-])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
     result = result.replace(pattern, (match, offset, str) => {
+      // Skip object literal keys: preceded by { or , and followed by :
       const after = str.slice(offset + match.length)
       if (/^\s*:(?!:)/.test(after)) {
         const before = str.slice(0, offset)
