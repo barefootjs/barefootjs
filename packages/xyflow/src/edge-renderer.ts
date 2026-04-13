@@ -8,14 +8,15 @@ import {
   getStraightPath,
   getEdgePosition,
   ConnectionMode,
+  Position,
 } from '@xyflow/system'
 import type {
   NodeBase,
   EdgeBase,
+  EdgePosition,
 } from '@xyflow/system'
 import type { FlowStore } from './types'
-
-const SVG_NS = 'http://www.w3.org/2000/svg'
+import { SVG_NS } from './constants'
 
 /**
  * Reactively renders all edges as SVG paths.
@@ -39,7 +40,9 @@ export function createEdgeRenderer<
 
   createEffect(() => {
     const edges = store.edges()
-    // Read nodes() to re-run when node positions change (setNodes during drag)
+    // Re-run when node positions change during drag (lightweight epoch bump)
+    // or when nodes are structurally changed (add/remove triggers nodes()).
+    store.positionEpoch()
     store.nodes()
     const nodeLookup = store.nodeLookup()
     const existingIds = new Set(edgeElements.keys())
@@ -78,18 +81,16 @@ export function createEdgeRenderer<
           sourceY: sourcePos.y + sh,
           targetX: targetPos.x + tw / 2,
           targetY: targetPos.y,
-          sourcePosition: 'bottom' as any,
-          targetPosition: 'top' as any,
+          sourcePosition: Position.Bottom,
+          targetPosition: Position.Top,
         }
       }
 
-      // Calculate path based on edge type (default: bezier)
       const pathData = getEdgePath(edge, edgePos)
       if (!pathData) continue
 
       const [path] = pathData
 
-      // Create or update path element
       let pathEl = edgeElements.get(edge.id)
       if (!pathEl) {
         // Invisible hit area for click selection (wider than visible path)
@@ -129,17 +130,8 @@ export function createEdgeRenderer<
       const hitEl = hitElements.get(edge.id)
       if (hitEl) hitEl.setAttribute('d', path)
 
-      // Update selection styling via CSS class
-      if (edge.selected) {
-        pathEl.classList.add('bf-flow__edge--selected')
-      } else {
-        pathEl.classList.remove('bf-flow__edge--selected')
-      }
-
-      // Animated edges via CSS class
-      if (edge.animated) {
-        pathEl.classList.add('bf-flow__edge--animated')
-      }
+      pathEl.classList.toggle('bf-flow__edge--selected', !!edge.selected)
+      pathEl.classList.toggle('bf-flow__edge--animated', !!edge.animated)
     }
 
     // Remove edges that no longer exist
@@ -154,6 +146,7 @@ export function createEdgeRenderer<
   onCleanup(() => {
     edgeGroup.remove()
     edgeElements.clear()
+    hitElements.clear()
   })
 }
 
@@ -163,7 +156,7 @@ export function createEdgeRenderer<
  */
 function getEdgePath(
   edge: EdgeBase,
-  pos: { sourceX: number; sourceY: number; targetX: number; targetY: number; sourcePosition: any; targetPosition: any },
+  pos: EdgePosition,
 ): [string, number, number, number, number] | null {
   const params = {
     sourceX: pos.sourceX,
@@ -174,8 +167,7 @@ function getEdgePath(
     targetPosition: pos.targetPosition,
   }
 
-  // Determine edge type from data or default to bezier
-  const edgeType = (edge as any).type ?? 'default'
+  const edgeType = edge.type ?? 'default'
 
   switch (edgeType) {
     case 'straight':

@@ -20,7 +20,6 @@ import type {
   ParentLookup,
   EdgeLookup,
   ConnectionLookup,
-  CoordinateExtent,
   SnapGrid,
   NodeOrigin,
   Transform,
@@ -28,13 +27,10 @@ import type {
   NodeDragItem,
   XYPosition,
 } from '@xyflow/system'
-import type { FlowStoreOptions, FlowStore, FitViewOptions } from './types'
+import type { FlowStoreOptions, InternalFlowStore, FitViewOptions } from './types'
+import { INFINITE_EXTENT } from './constants'
 
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 }
-const infiniteExtent: CoordinateExtent = [
-  [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],
-  [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY],
-]
 
 /**
  * Create a signal-based reactive store that bridges @xyflow/system
@@ -43,12 +39,12 @@ const infiniteExtent: CoordinateExtent = [
 export function createFlowStore<
   NodeType extends NodeBase = NodeBase,
   EdgeType extends EdgeBase = EdgeBase,
->(options: FlowStoreOptions<NodeType, EdgeType> = {}): FlowStore<NodeType, EdgeType> {
+>(options: FlowStoreOptions<NodeType, EdgeType> = {}): InternalFlowStore<NodeType, EdgeType> {
   // --- Configuration ---
   const minZoom = options.minZoom ?? 0.5
   const maxZoom = options.maxZoom ?? 2
   const nodeOrigin: NodeOrigin = options.nodeOrigin ?? [0, 0]
-  const nodeExtent: CoordinateExtent = options.nodeExtent ?? infiniteExtent
+  const nodeExtent = options.nodeExtent ?? INFINITE_EXTENT
   const snapToGrid = options.snapToGrid ?? false
   const snapGrid: SnapGrid = options.snapGrid ?? [15, 15]
 
@@ -76,6 +72,11 @@ export function createFlowStore<
   const [edgeLookup, setEdgeLookup] = createSignal<EdgeLookup<EdgeType>>(new Map())
   const [connectionLookup, setConnectionLookup] = createSignal<ConnectionLookup>(new Map())
 
+  // Lightweight counter for notifying position-dependent subscribers (edges,
+  // per-node position effects) without triggering the full adoptUserNodes
+  // pipeline. Bumped by the drag handler after mutating nodeLookup in-place.
+  const [positionEpoch, setPositionEpoch] = createSignal(0)
+
   // --- Derived state ---
 
   /**
@@ -92,9 +93,10 @@ export function createFlowStore<
     // adoptUserNodes reads userNode.measured but setNodes callers
     // may not include it. Inject from existing lookup before rebuild.
     for (const userNode of currentNodes) {
+      if (userNode.measured?.width) continue
       const existing = lookup.get(userNode.id)
-      if (existing?.measured.width && !userNode.measured?.width) {
-        (userNode as any).measured = {
+      if (existing?.measured.width) {
+        ;(userNode as NodeBase).measured = {
           width: existing.measured.width,
           height: existing.measured.height,
         }
@@ -147,6 +149,14 @@ export function createFlowStore<
   }
 
   /**
+   * Bump the position epoch counter to notify position-dependent effects
+   * (edges, per-node position) without triggering adoptUserNodes.
+   */
+  function triggerPositionUpdate(): void {
+    setPositionEpoch((n) => n + 1)
+  }
+
+  /**
    * Update node positions during drag operations.
    * Called by XYDrag with the current drag items.
    */
@@ -164,17 +174,12 @@ export function createFlowStore<
         ? (item as InternalNodeBase).internals.positionAbsolute
         : { x: (item as NodeDragItem).position.x, y: (item as NodeDragItem).position.y }
 
-      // Update position on the user node
-      const userNode = internalNode.internals.userNode
-      if ('position' in item) {
-        userNode.position = (item as any).position
-      }
-
-      userNode.dragging = isDragging
+      internalNode.internals.userNode.position = item.position
+      internalNode.internals.userNode.dragging = isDragging
     }
 
-    // Force re-render by triggering nodeLookup signal
-    setNodeLookup(() => lookup)
+    // Notify position-dependent subscribers via lightweight epoch bump
+    triggerPositionUpdate()
   }
 
   /**
@@ -226,7 +231,7 @@ export function createFlowStore<
       delta,
       panZoom: untrack(panZoom),
       transform: getTransform(),
-      translateExtent: infiniteExtent,
+      translateExtent: INFINITE_EXTENT,
       width: untrack(width),
       height: untrack(height),
     })
@@ -315,7 +320,10 @@ export function createFlowStore<
     nodesDraggable,
     setNodesDraggable,
 
-    // Internal setters (not on public FlowStore type, but needed by initFlow)
+    // Lightweight position change notification (avoids full adoptUserNodes)
+    positionEpoch,
+    triggerPositionUpdate,
+
     setDragging,
     setPanZoom,
     setDomNode,
@@ -348,10 +356,5 @@ export function createFlowStore<
     onConnectStart: options.onConnectStart,
     onConnectEnd: options.onConnectEnd,
     isValidConnection: options.isValidConnection,
-  } as FlowStore<NodeType, EdgeType> & {
-    setDragging: typeof setDragging
-    setPanZoom: typeof setPanZoom
-    setDomNode: typeof setDomNode
-    setMultiSelectionActive: typeof setMultiSelectionActive
   }
 }

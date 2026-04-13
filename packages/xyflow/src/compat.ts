@@ -5,10 +5,10 @@
  * desk components can be ported with minimal changes.
  */
 
-import { useContext, untrack } from '@barefootjs/client-runtime'
+import { untrack } from '@barefootjs/client-runtime'
 import { addEdge as addEdgeUtil, reconnectEdge as reconnectEdgeUtil } from '@xyflow/system'
-import { FlowContext } from './context'
-import type { FlowStore, NodeBase, EdgeBase, Viewport } from './types'
+import { useFlow } from './hooks'
+import type { NodeBase, EdgeBase, Viewport } from './types'
 import type { Connection, NodeChange, EdgeChange } from '@xyflow/system'
 
 /**
@@ -18,7 +18,7 @@ import type { Connection, NodeChange, EdgeChange } from '@xyflow/system'
 export function useNodesState<NodeType extends NodeBase = NodeBase>(
   initialNodes: NodeType[],
 ): [() => NodeType[], (updater: NodeType[] | ((prev: NodeType[]) => NodeType[])) => void, (changes: NodeChange[]) => void] {
-  const store = useContext(FlowContext) as unknown as FlowStore<NodeType>
+  const store = useFlow<NodeType>()
   store.setNodes(initialNodes)
 
   function onNodesChange(changes: NodeChange[]) {
@@ -35,7 +35,7 @@ export function useNodesState<NodeType extends NodeBase = NodeBase>(
 export function useEdgesState<EdgeType extends EdgeBase = EdgeBase>(
   initialEdges: EdgeType[],
 ): [() => EdgeType[], (updater: EdgeType[] | ((prev: EdgeType[]) => EdgeType[])) => void, (changes: EdgeChange[]) => void] {
-  const store = useContext(FlowContext) as unknown as FlowStore<NodeBase, EdgeType>
+  const store = useFlow<NodeBase, EdgeType>()
   store.setEdges(initialEdges)
 
   function onEdgesChange(changes: EdgeChange[]) {
@@ -53,7 +53,7 @@ export function useReactFlow<
   NodeType extends NodeBase = NodeBase,
   EdgeType extends EdgeBase = EdgeBase,
 >() {
-  const store = useContext(FlowContext) as unknown as FlowStore<NodeType, EdgeType>
+  const store = useFlow<NodeType, EdgeType>()
 
   return {
     // Getters

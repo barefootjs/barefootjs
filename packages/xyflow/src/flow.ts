@@ -5,7 +5,7 @@ import {
   provideContext,
   untrack,
 } from '@barefootjs/client-runtime'
-import { XYPanZoom } from '@xyflow/system'
+import { XYPanZoom, PanOnScrollMode } from '@xyflow/system'
 import type {
   Viewport,
   Transform,
@@ -16,7 +16,8 @@ import { FlowContext } from './context'
 import { createNodeRenderer } from './node-wrapper'
 import { createEdgeRenderer } from './edge-renderer'
 import { setupKeyboardHandlers } from './selection'
-import type { FlowProps, FlowStore } from './types'
+import { INFINITE_EXTENT, SVG_NS } from './constants'
+import type { FlowProps } from './types'
 
 /**
  * Initialize a xyflow instance on the given scope element.
@@ -28,7 +29,6 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
   const el = scope as HTMLElement
   const flowProps = props as unknown as FlowProps
 
-  // Create store with initial data
   const store = createFlowStore({
     nodes: flowProps.nodes,
     edges: flowProps.edges,
@@ -42,13 +42,9 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
     onConnect: flowProps.onConnect,
   })
 
-  // Provide store via context for child components
-  provideContext(FlowContext, store as FlowStore)
-
-  // --- Inject default styles once ---
+  provideContext(FlowContext, store)
   injectDefaultStyles()
 
-  // --- Build DOM structure ---
   el.style.position = 'relative'
   el.style.overflow = 'hidden'
 
@@ -63,7 +59,7 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
   viewportEl.style.transformOrigin = '0 0'
 
   // Edges layer (SVG, rendered below nodes)
-  const edgesSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  const edgesSvg = document.createElementNS(SVG_NS, 'svg')
   edgesSvg.setAttribute('class', 'bf-flow__edges')
   edgesSvg.style.position = 'absolute'
   edgesSvg.style.top = '0'
@@ -85,36 +81,27 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
 
   el.appendChild(viewportEl)
 
-  // Store DOM reference
-  ;(store as any).setDomNode(el)
+  store.setDomNode(el)
 
-  // --- Container dimensions ---
   // Set initial dimensions immediately (ResizeObserver callback is async)
-  ;(store as any).setWidth(el.offsetWidth)
-  ;(store as any).setHeight(el.offsetHeight)
+  store.setWidth(el.offsetWidth)
+  store.setHeight(el.offsetHeight)
 
-  // Update on resize
   const resizeObserver = new ResizeObserver(() => {
-    ;(store as any).setWidth(el.offsetWidth)
-    ;(store as any).setHeight(el.offsetHeight)
+    store.setWidth(el.offsetWidth)
+    store.setHeight(el.offsetHeight)
   })
   resizeObserver.observe(el)
   onCleanup(() => resizeObserver.disconnect())
-
-  // --- Initialize XYPanZoom ---
-  const infiniteExtent: [[number, number], [number, number]] = [
-    [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],
-    [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY],
-  ]
 
   const panZoomInstance = XYPanZoom({
     domNode: el,
     minZoom: store.minZoom,
     maxZoom: store.maxZoom,
     viewport: untrack(store.viewport),
-    translateExtent: infiniteExtent,
+    translateExtent: INFINITE_EXTENT,
     onDraggingChange: (isDragging: boolean) => {
-      ;(store as any).setDragging(isDragging)
+      store.setDragging(isDragging)
     },
     onPanZoom: (_event: MouseEvent | TouchEvent | null, vp: Viewport) => {
       store.setViewport(vp)
@@ -123,16 +110,15 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
     onPanZoomEnd: undefined,
   })
 
-  ;(store as any).setPanZoom(panZoomInstance)
+  store.setPanZoom(panZoomInstance)
 
-  // Configure pan/zoom behavior
   panZoomInstance.update({
     noWheelClassName: 'nowheel',
     noPanClassName: 'nopan',
     preventScrolling: true,
     panOnScroll: false,
     panOnDrag: true,
-    panOnScrollMode: 0 as any, // PanOnScrollMode.Free
+    panOnScrollMode: PanOnScrollMode.Free,
     panOnScrollSpeed: 0.5,
     userSelectionActive: false,
     zoomOnPinch: true,
@@ -149,29 +135,21 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
 
   onCleanup(() => panZoomInstance.destroy())
 
-  // --- Reactive viewport transform ---
   createEffect(() => {
     const vp = store.viewport()
     viewportEl.style.transform = `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`
   })
 
-  // --- Reactive node rendering (delegated to node-wrapper.ts) ---
-  createNodeRenderer(store as FlowStore, nodesEl)
+  createNodeRenderer(store, nodesEl)
+  createEdgeRenderer(store, edgesSvg)
+  setupKeyboardHandlers(store, el)
 
-  // --- Reactive edge rendering (delegated to edge-renderer.ts) ---
-  createEdgeRenderer(store as FlowStore, edgesSvg)
-
-  // --- Keyboard handlers (delete, escape, shift for multi-select) ---
-  setupKeyboardHandlers(store as FlowStore, el)
-
-  // --- Click on pane to deselect ---
   el.addEventListener('click', (event) => {
     if (event.target === el || event.target === viewportEl) {
       store.unselectNodesAndEdges()
     }
   })
 
-  // --- Fit view on mount if requested ---
   if (flowProps.fitView) {
     onMount(() => {
       // Wait for ResizeObserver to measure all nodes (needs 2+ frames)

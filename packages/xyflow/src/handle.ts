@@ -1,14 +1,11 @@
-import { untrack, useContext, createSignal } from '@barefootjs/client-runtime'
-import { Position, XYHandle, ConnectionMode } from '@xyflow/system'
-import type { HandleType, HandleProps, ConnectionState } from '@xyflow/system'
-import { FlowContext } from './context'
+import { Position } from '@xyflow/system'
+import type { HandleType, HandleProps } from '@xyflow/system'
+import { useFlow } from './hooks'
+import { attachConnectionHandler } from './connection'
 import type { FlowStore } from './types'
 
 export type { HandleType, HandleProps }
 
-/**
- * Position CSS for handle placement on a node.
- */
 const HANDLE_POSITION_STYLES: Record<string, Partial<CSSStyleDeclaration>> = {
   [Position.Top]: { left: '50%', top: '0', transform: 'translate(-50%, -50%)' },
   [Position.Bottom]: { left: '50%', bottom: '0', top: 'auto', transform: 'translate(-50%, 50%)' },
@@ -20,7 +17,7 @@ const HANDLE_SIZE = 8
 
 /**
  * Create a handle DOM element and attach it to a node element.
- * Integrates with XYHandle for connection drag behavior.
+ * Connection dragging is handled by attachConnectionHandler (native implementation).
  */
 export function createHandle(
   nodeElement: HTMLElement,
@@ -38,7 +35,6 @@ export function createHandle(
     el.dataset.handleId = props.id
   }
 
-  // Styling
   el.style.position = 'absolute'
   el.style.width = `${HANDLE_SIZE}px`
   el.style.height = `${HANDLE_SIZE}px`
@@ -60,39 +56,13 @@ export function createHandle(
 
   nodeElement.appendChild(el)
 
-  // Wire up XYHandle for connection dragging
+  // Wire up native connection dragging via attachConnectionHandler
   if (store) {
-    el.addEventListener('pointerdown', (event: PointerEvent) => {
-      const [, setConnectionState] = createSignal<ConnectionState | null>(null)
-
-      XYHandle.onPointerDown(event, {
-        autoPanOnConnect: true,
-        connectionMode: ConnectionMode.Loose,
-        connectionRadius: 20,
-        domNode: untrack(store.domNode) as HTMLDivElement | null,
-        handleId: props.id ?? null,
-        nodeId: props.nodeId,
-        isTarget: handleType === 'target',
-        nodeLookup: untrack(store.nodeLookup),
-        lib: 'bf',
-        flowId: null,
-        updateConnection: (state: ConnectionState) => {
-          setConnectionState(state)
-          // TODO: render connection line SVG during drag
-        },
-        panBy: store.panByDelta,
-        cancelConnection: () => {
-          setConnectionState(null)
-        },
-        onConnectStart: store.onConnectStart,
-        onConnect: store.onConnect,
-        onConnectEnd: store.onConnectEnd,
-        isValidConnection: store.isValidConnection,
-        getTransform: store.getTransform,
-        getFromHandle: () => null,
-        handleDomNode: el,
-      })
-    })
+    const container = store.domNode()
+    const edgesSvg = container?.querySelector('.bf-flow__edges') as SVGSVGElement | null
+    if (container && edgesSvg) {
+      attachConnectionHandler(el, props.nodeId, handleType, container, edgesSvg, store)
+    }
   }
 
   return el
@@ -106,7 +76,7 @@ export function initHandle(scope: Element, props: Record<string, unknown>): void
   const nodeElement = scope as HTMLElement
   let store: FlowStore | undefined
   try {
-    store = useContext(FlowContext)
+    store = useFlow()
   } catch {
     // No flow context available — standalone handle without connection
   }

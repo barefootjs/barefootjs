@@ -62,10 +62,7 @@ export function createNodeWrapper<NodeType extends NodeBase>(
       }
     })
 
-    // Render content (custom type or default)
     renderNodeContent(element, internalNode, store)
-
-    // Append to container
     nodesContainer.appendChild(element)
 
     // Set initial dimensions synchronously (ResizeObserver is async)
@@ -105,10 +102,8 @@ export function createNodeWrapper<NodeType extends NodeBase>(
     resizeObserver.observe(element)
     onCleanup(() => resizeObserver.disconnect())
 
-    // --- Click-to-select ---
     setupNodeSelection(element, internalNode.id, store)
 
-    // --- Node drag ---
     if (isDraggable) {
       // Native drag implementation — D3 drag's event system doesn't
       // integrate well with our DOM structure (XYDrag's d3Selection.call
@@ -118,8 +113,6 @@ export function createNodeWrapper<NodeType extends NodeBase>(
       let startMouseY = 0
       let startNodeX = 0
       let startNodeY = 0
-      let currentX = 0
-      let currentY = 0
       let rafId = 0
 
       const onMouseDown = (e: MouseEvent) => {
@@ -163,13 +156,10 @@ export function createNodeWrapper<NodeType extends NodeBase>(
           const newX = startNodeX + dx
           const newY = startNodeY + dy
 
-          currentX = newX
-          currentY = newY
-
           // Update DOM directly for immediate visual feedback
           element.style.transform = `translate(${newX}px, ${newY}px)`
 
-          // Update internal state
+          // Mutate internal state in-place (no array copy)
           const lookup = untrack(store.nodeLookup)
           const node = lookup.get(internalNode.id)
           if (node) {
@@ -177,18 +167,13 @@ export function createNodeWrapper<NodeType extends NodeBase>(
             node.internals.userNode.position = { x: newX, y: newY }
           }
 
-          // Trigger edge re-render via rAF-throttled setNodes
-          // Include measured so adoptUserNodes preserves dimensions
+          // Notify edge renderer and other position subscribers via
+          // lightweight epoch bump (rAF-throttled). This avoids the
+          // full adoptUserNodes pipeline that setNodes would trigger.
           if (!rafId) {
             rafId = requestAnimationFrame(() => {
               rafId = 0
-              store.setNodes((prev) =>
-                prev.map((n) =>
-                  n.id === internalNode.id
-                    ? { ...n, position: { x: currentX, y: currentY }, measured: { width: mw, height: mh } }
-                    : n,
-                ),
-              )
+              store.triggerPositionUpdate()
             })
           }
         }
@@ -204,7 +189,8 @@ export function createNodeWrapper<NodeType extends NodeBase>(
           const finalX = startNodeX + dx
           const finalY = startNodeY + dy
 
-          // Commit final position to store — include measured dimensions
+          // Commit final position to the nodes array so that
+          // adoptUserNodes picks it up correctly.
           store.setNodes((prev) =>
             prev.map((n) =>
               n.id === internalNode.id
@@ -225,10 +211,12 @@ export function createNodeWrapper<NodeType extends NodeBase>(
       onCleanup(() => element.removeEventListener('mousedown', onMouseDown))
     }
 
-    // Reactive position + selection update
+    // Reactive position update — reads positionEpoch (bumped during drag)
+    // and nodes() (bumped on structural changes like add/remove/select).
+    // During drag only positionEpoch changes, so only this effect re-runs
+    // — not the N other node effects that would fire from nodes().
     createEffect(() => {
-      // Read nodes() to trigger on setNodes (nodeLookup signal doesn't
-      // fire because it's the same Map reference after mutation)
+      store.positionEpoch()
       store.nodes()
       const lookup = store.nodeLookup()
       const current = lookup.get(internalNode.id)
@@ -239,11 +227,7 @@ export function createNodeWrapper<NodeType extends NodeBase>(
       element.style.zIndex = String(current.internals.z ?? 0)
 
       // Selection styling — toggle CSS class (styled via injected stylesheet)
-      if (current.selected) {
-        element.classList.add('bf-flow__node--selected')
-      } else {
-        element.classList.remove('bf-flow__node--selected')
-      }
+      element.classList.toggle('bf-flow__node--selected', !!current.selected)
     })
 
     onCleanup(() => {
@@ -262,7 +246,7 @@ function renderNodeContent<NodeType extends NodeBase>(
   node: InternalNodeBase<NodeType>,
   store: FlowStore<NodeType>,
 ): void {
-  const nodeType = (node.internals.userNode as any).type as string | undefined
+  const nodeType = node.internals.userNode.type
   const customType = nodeType && store.nodeTypes?.[nodeType]
 
   if (customType) {
@@ -316,7 +300,7 @@ function renderNodeContent<NodeType extends NodeBase>(
     const container = store.domNode()
     const edgesSvg = container?.querySelector('.bf-flow__edges') as SVGSVGElement | null
     if (container && edgesSvg) {
-      attachConnectionHandler(h, node.id, type, container, edgesSvg, store as any)
+      attachConnectionHandler(h, node.id, type, container, edgesSvg, store)
     }
   }
   createDefaultHandle('target')

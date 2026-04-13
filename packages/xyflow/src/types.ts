@@ -24,10 +24,8 @@ import type {
 import type { Signal, Memo } from '@barefootjs/client'
 import type { ComponentDef } from '@barefootjs/client-runtime'
 
-// Re-export commonly used types from @xyflow/system
 export type FitViewOptions = FitViewOptionsBase
 
-// Re-export commonly used types from @xyflow/system
 export type {
   NodeBase,
   EdgeBase,
@@ -103,6 +101,11 @@ export type FlowStore<
   edgeLookup: Signal<EdgeLookup<EdgeType>>[0]
   connectionLookup: Signal<ConnectionLookup>[0]
 
+  // Lightweight position change counter — subscribers re-run without
+  // triggering the full adoptUserNodes pipeline.
+  positionEpoch: Signal<number>[0]
+  triggerPositionUpdate: () => void
+
   // Internal refs
   panZoom: Signal<PanZoomInstance | null>[0]
   domNode: Signal<HTMLElement | null>[0]
@@ -158,6 +161,20 @@ export type FlowStore<
   onConnectStart?: OnConnectStart
   onConnectEnd?: OnConnectEnd
   isValidConnection?: IsValidConnection
+}
+
+/**
+ * Internal setters exposed by createFlowStore but not part of the public API.
+ * Used only by initFlow during initialization.
+ */
+export type InternalFlowStore<
+  NodeType extends NodeBase = NodeBase,
+  EdgeType extends EdgeBase = EdgeBase,
+> = FlowStore<NodeType, EdgeType> & {
+  setDragging: Signal<boolean>[1]
+  setPanZoom: Signal<PanZoomInstance | null>[1]
+  setDomNode: Signal<HTMLElement | null>[1]
+  setMultiSelectionActive: Signal<boolean>[1]
 }
 
 /**

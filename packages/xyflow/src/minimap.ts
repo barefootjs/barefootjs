@@ -1,9 +1,8 @@
-import { createEffect, onCleanup, useContext, untrack } from '@barefootjs/client-runtime'
+import { createEffect, onCleanup, untrack } from '@barefootjs/client-runtime'
 import { XYMinimap } from '@xyflow/system'
-import { FlowContext } from './context'
-import type { FlowStore } from './types'
-
-const SVG_NS = 'http://www.w3.org/2000/svg'
+import { useFlow } from './hooks'
+import { SVG_NS, INFINITE_EXTENT } from './constants'
+import { applyPositionStyle } from './utils'
 
 export type MiniMapProps = {
   position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
@@ -19,7 +18,7 @@ export type MiniMapProps = {
  * Renders a small overview of the graph with interactive pan/zoom.
  */
 export function initMiniMap(scope: Element, props: Record<string, unknown>): void {
-  const store = useContext(FlowContext) as FlowStore
+  const store = useFlow()
   const el = scope as HTMLElement
 
   const position = (props.position as string) ?? 'bottom-right'
@@ -39,9 +38,7 @@ export function initMiniMap(scope: Element, props: Record<string, unknown>): voi
   container.style.boxShadow = '0 1px 4px rgba(0,0,0,0.15)'
   container.style.backgroundColor = '#fff'
 
-  const [vertical, horizontal] = position.split('-')
-  container.style[vertical as 'top' | 'bottom'] = '10px'
-  container.style[horizontal as 'left' | 'right'] = '10px'
+  applyPositionStyle(container, position)
 
   // SVG for minimap
   const svg = document.createElementNS(SVG_NS, 'svg')
@@ -62,13 +59,8 @@ export function initMiniMap(scope: Element, props: Record<string, unknown>): voi
       getViewScale: () => untrack(store.viewport).zoom,
     })
 
-    const infiniteExtent: [[number, number], [number, number]] = [
-      [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],
-      [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY],
-    ]
-
     minimapInstance.update({
-      translateExtent: infiniteExtent,
+      translateExtent: INFINITE_EXTENT,
       width: mapWidth,
       height: mapHeight,
       pannable,

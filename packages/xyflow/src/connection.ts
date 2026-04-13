@@ -1,8 +1,7 @@
 import { untrack } from '@barefootjs/client'
-import { getBezierPath } from '@xyflow/system'
+import { getBezierPath, Position } from '@xyflow/system'
 import type { FlowStore, NodeBase, EdgeBase } from './types'
-
-const SVG_NS = 'http://www.w3.org/2000/svg'
+import { SVG_NS } from './constants'
 
 /**
  * Attach a connection drag handler to a handle element.
@@ -27,13 +26,14 @@ export function attachConnectionHandler<
     e.stopPropagation()
     e.preventDefault()
 
+    // Compute source position in flow coordinates at mousedown time
     const handleRect = handleEl.getBoundingClientRect()
-    const containerRect = container.getBoundingClientRect()
-    const [, , scale] = store.getTransform()
-    const vp = untrack(store.viewport)
+    const containerRect0 = container.getBoundingClientRect()
+    const [, , scale0] = store.getTransform()
+    const vp0 = untrack(store.viewport)
 
-    const sourceX = (handleRect.left + handleRect.width / 2 - containerRect.left - vp.x) / scale
-    const sourceY = (handleRect.top + handleRect.height / 2 - containerRect.top - vp.y) / scale
+    const sourceX = (handleRect.left + handleRect.width / 2 - containerRect0.left - vp0.x) / scale0
+    const sourceY = (handleRect.top + handleRect.height / 2 - containerRect0.top - vp0.y) / scale0
 
     // Create temporary connection line
     const connectionLine = document.createElementNS(SVG_NS, 'path')
@@ -43,16 +43,22 @@ export function attachConnectionHandler<
     edgesSvg.appendChild(connectionLine)
 
     const onMouseMove = (e: MouseEvent) => {
+      // Read fresh viewport and container rect each move — the user
+      // may pan/zoom while drawing a connection.
+      const containerRect = container.getBoundingClientRect()
+      const [, , scale] = store.getTransform()
+      const vp = untrack(store.viewport)
+
       const targetX = (e.clientX - containerRect.left - vp.x) / scale
       const targetY = (e.clientY - containerRect.top - vp.y) / scale
 
       const [path] = getBezierPath({
         sourceX,
         sourceY,
-        sourcePosition: handleType === 'source' ? 'bottom' as any : 'top' as any,
+        sourcePosition: handleType === 'source' ? Position.Bottom : Position.Top,
         targetX,
         targetY,
-        targetPosition: handleType === 'source' ? 'top' as any : 'bottom' as any,
+        targetPosition: handleType === 'source' ? Position.Top : Position.Bottom,
       })
 
       connectionLine.setAttribute('d', path)

@@ -1,24 +1,19 @@
 import { onCleanup, untrack } from '@barefootjs/client'
 import type { NodeBase, EdgeBase } from '@xyflow/system'
-import type { FlowStore } from './types'
+import type { FlowStore, InternalFlowStore } from './types'
 
 /**
  * Set up keyboard handlers for the flow container.
- * - Delete/Backspace: remove selected nodes and edges
- * - Escape: deselect all
- * - Shift: enable multi-selection
+ * Needs InternalFlowStore for setMultiSelectionActive (Shift key).
  */
 export function setupKeyboardHandlers<
   NodeType extends NodeBase = NodeBase,
   EdgeType extends EdgeBase = EdgeBase,
 >(
-  store: FlowStore<NodeType, EdgeType>,
+  store: InternalFlowStore<NodeType, EdgeType>,
   container: HTMLElement,
 ): void {
-  const storeAny = store as any
-
   function handleKeyDown(event: KeyboardEvent) {
-    // Skip if target is an input/textarea
     const target = event.target as HTMLElement
     if (
       target.tagName === 'INPUT' ||
@@ -29,7 +24,7 @@ export function setupKeyboardHandlers<
     }
 
     if (event.key === 'Delete' || event.key === 'Backspace') {
-      if (!untrack(store.nodesDraggable)) return // locked
+      if (!untrack(store.nodesDraggable)) return
       const selectedNodes = untrack(store.nodes).filter((n) => n.selected)
       const selectedEdges = untrack(store.edges).filter((e) => e.selected)
 
@@ -47,13 +42,13 @@ export function setupKeyboardHandlers<
     }
 
     if (event.key === 'Shift') {
-      storeAny.setMultiSelectionActive(true)
+      store.setMultiSelectionActive(true)
     }
   }
 
   function handleKeyUp(event: KeyboardEvent) {
     if (event.key === 'Shift') {
-      storeAny.setMultiSelectionActive(false)
+      store.setMultiSelectionActive(false)
     }
   }
 
@@ -100,42 +95,6 @@ export function setupNodeSelection<NodeType extends NodeBase>(
         n.id === nodeId
           ? { ...n, selected: multiSelect ? !n.selected : true }
           : n,
-      ),
-    )
-  })
-}
-
-/**
- * Set up click-to-select on edge SVG elements.
- */
-export function setupEdgeSelection<
-  NodeType extends NodeBase = NodeBase,
-  EdgeType extends EdgeBase = EdgeBase,
->(
-  edgeElement: SVGElement,
-  edgeId: string,
-  store: FlowStore<NodeType, EdgeType>,
-): void {
-  // Make edge clickable with a wider hit area
-  edgeElement.style.pointerEvents = 'stroke'
-  edgeElement.style.cursor = 'pointer'
-  edgeElement.setAttribute('stroke-width', '10')
-  edgeElement.setAttribute('stroke', 'transparent')
-
-  edgeElement.addEventListener('click', (event) => {
-    event.stopPropagation()
-
-    const multiSelect = untrack(store.multiSelectionActive) || event.shiftKey
-
-    if (!multiSelect) {
-      store.unselectNodesAndEdges()
-    }
-
-    store.setEdges((prev) =>
-      prev.map((e) =>
-        e.id === edgeId
-          ? { ...e, selected: multiSelect ? !e.selected : true }
-          : e,
       ),
     )
   })

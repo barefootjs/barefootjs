@@ -8,7 +8,7 @@ export { createHandle, initHandle } from './handle'
 export type { HandleType, HandleProps } from './handle'
 export { attachConnectionHandler } from './connection'
 export { useFlow, useViewport, useNodes, useEdges, useNodesInitialized } from './hooks'
-export { setupKeyboardHandlers, setupNodeSelection, setupEdgeSelection } from './selection'
+export { setupKeyboardHandlers, setupNodeSelection } from './selection'
 
 // Plugins
 export { initBackground } from './background'
@@ -22,6 +22,7 @@ export type { MiniMapProps } from './minimap'
 export type {
   FlowProps,
   FlowStore,
+  InternalFlowStore,
   FlowStoreOptions,
   FitViewOptions,
   NodeBase,

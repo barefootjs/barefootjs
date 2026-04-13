@@ -1,7 +1,6 @@
 import { createSignal, onCleanup } from '@barefootjs/client'
-import { useContext } from '@barefootjs/client-runtime'
-import { FlowContext } from './context'
-import type { FlowStore } from './types'
+import { useFlow } from './hooks'
+import { applyPositionStyle } from './utils'
 
 export type ControlsProps = {
   position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
@@ -20,7 +19,7 @@ const ICONS = {
 }
 
 export function initControls(scope: Element, props: Record<string, unknown>): void {
-  const store = useContext(FlowContext) as FlowStore
+  const store = useFlow()
   const el = scope as HTMLElement
 
   const position = (props.position as string) ?? 'bottom-left'
@@ -39,9 +38,7 @@ export function initControls(scope: Element, props: Record<string, unknown>): vo
   container.style.flexDirection = 'column'
   container.style.boxShadow = '0 0 2px 1px rgba(0,0,0,0.08)'
 
-  const [vertical, horizontal] = position.split('-')
-  container.style[vertical as 'top' | 'bottom'] = '10px'
-  container.style[horizontal as 'left' | 'right'] = '10px'
+  applyPositionStyle(container, position)
 
   if (showZoom) {
     container.appendChild(createButton(ICONS.plus, 'Zoom in', () => {
