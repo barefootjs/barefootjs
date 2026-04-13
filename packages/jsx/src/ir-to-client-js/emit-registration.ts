@@ -351,7 +351,7 @@ export function emitRegistrationAndHydration(
   lines.push(`}`)
   lines.push('')
 
-  const propNamesForTemplate = new Set(ctx.propsParams.map((p) => p.name))
+  const propNamesForStaticCheck = new Set(ctx.propsParams.map((p) => p.name))
   const { inlinableConstants, unsafeLocalNames } = buildInlinableConstants(ctx)
 
   // Build rest spread names: these are rest/props spreads handled by applyRestAttrs, not spreadAttrs
@@ -365,7 +365,7 @@ export function emitRegistrationAndHydration(
 
   // Build ComponentDef object for hydrate()
   const defParts: string[] = [`init: init${name}`]
-  if (canGenerateStaticTemplate(_ir.root, propNamesForTemplate, inlinableConstants, unsafeLocalNames)) {
+  if (canGenerateStaticTemplate(_ir.root, propNamesForStaticCheck, inlinableConstants, unsafeLocalNames)) {
     const templateHtml = irToComponentTemplate(_ir.root, inlinableConstants, restSpreadNames, ctx.propsObjectName)
     if (templateHtml) {
       defParts.push(`template: (${PROPS_PARAM}) => \`${templateHtml}\``)

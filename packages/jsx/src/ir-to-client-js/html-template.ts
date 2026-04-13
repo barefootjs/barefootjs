@@ -453,7 +453,7 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
       const attrParts = node.attrs
         .map((a) => {
           if (a.name === '...') {
-            const spreadValue = attrValueToString(a.value, true)
+            const spreadValue = attrValueToString(a.value, { useTemplate: true })
             if (!spreadValue) return ''
             if (restSpreadNames?.has(spreadValue)) return ''
             return `\${spreadAttrs(${transformExpr(spreadValue, a.templateValue ?? undefined)})}`
@@ -462,14 +462,14 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
           // But render data-key-N for inner loop elements (needed for event delegation).
           if (a.name === 'key') {
             if (loopDepth === 0) return ''  // outer loop: skip (runtime handles it)
-            const valStr = attrValueToString(a.value, true)
+            const valStr = attrValueToString(a.value, { useTemplate: true })
             if (valStr && a.dynamic) return templateAttrExpr(keyAttrName(loopDepth), transformExpr(valStr, a.templateValue ?? undefined), a)
             if (valStr) return `${keyAttrName(loopDepth)}="${valStr}"`
             return ''
           }
           const attrName = toHtmlAttrName(a.name)
           if (a.value === null) return attrName
-          const valueStr = attrValueToString(a.value, true)
+          const valueStr = attrValueToString(a.value, { useTemplate: true })
           if (a.dynamic && valueStr) return templateAttrExpr(attrName, transformExpr(valueStr, a.templateValue ?? undefined), a)
           if (valueStr) return `${attrName}="${valueStr}"`
           return attrName
@@ -525,7 +525,7 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
             return `${quotePropName(p.name)}: \`${childHtml}\``
           }
           if (p.isLiteral) return `${quotePropName(p.name)}: ${JSON.stringify(p.value)}`
-          const valueStr = attrValueToString(p.value, true)
+          const valueStr = attrValueToString(p.value, { useTemplate: true })
           return `${quotePropName(p.name)}: ${valueStr ? transformExpr(valueStr, p.templateValue) : JSON.stringify(p.value)}`
         })
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
@@ -741,7 +741,7 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
       const attrParts = node.attrs
         .map((a) => {
           if (a.name === '...') {
-            const spreadValue = attrValueToString(a.value, true)
+            const spreadValue = attrValueToString(a.value, { useTemplate: true })
             if (!spreadValue) return ''
             if (restSpreadNames?.has(spreadValue)) return ''
             return `\${spreadAttrs(${transformExpr(spreadValue, a.templateValue ?? undefined)})}`
@@ -750,7 +750,7 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
             ? keyAttrName(loopDepth)
             : toHtmlAttrName(a.name)
           if (a.value === null) return attrName
-          const valueStr = attrValueToString(a.value, true)
+          const valueStr = attrValueToString(a.value, { useTemplate: true })
           if (a.dynamic && valueStr) return templateAttrExpr(attrName, transformExpr(valueStr, a.templateValue ?? undefined), a)
           if (valueStr) return `${attrName}="${valueStr}"`
           return attrName
@@ -808,7 +808,7 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
             return `${quotePropName(p.name)}: \`${childHtml}\``
           }
           if (p.isLiteral) return `${quotePropName(p.name)}: ${JSON.stringify(p.value)}`
-          const valueStr = attrValueToString(p.value, true)
+          const valueStr = attrValueToString(p.value, { useTemplate: true })
           return `${quotePropName(p.name)}: ${valueStr ? transformExpr(valueStr, p.templateValue) : JSON.stringify(p.value)}`
         })
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
