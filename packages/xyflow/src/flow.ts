@@ -238,6 +238,8 @@ function injectDefaultStyles() {
       position: absolute;
       top: 0;
       left: 0;
+      background: #fff;
+      padding: 2px 4px;
       font-size: 11px;
       color: #222;
       white-space: nowrap;
