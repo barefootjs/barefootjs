@@ -1018,7 +1018,7 @@ function collectConstant(
   // Pre-transform bare prop refs for template inlining (#807)
   let templateValue: string | undefined
   if (value && !ctx.propsObjectName && ctx.propsParams.length > 0 && node.initializer) {
-    const propNames = new Set(ctx.propsParams.map(p => p.name).filter(n => n !== 'children'))
+    const propNames = new Set(ctx.propsParams.map(p => p.name))
     if (propNames.size > 0) {
       const rewritten = rewriteBarePropRefsInNode(value, node.initializer, propNames)
       if (rewritten !== value) {

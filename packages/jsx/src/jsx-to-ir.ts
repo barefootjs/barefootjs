@@ -120,7 +120,6 @@ function rewriteBarePropRefs(text: string, expr: ts.Node, ctx: TransformContext)
       ctx._destructuredPropNames = null  // SolidJS-style, no rewriting needed
     } else {
       const names = ctx.analyzer.propsParams
-        .filter(p => p.name !== 'children')
         .map(p => p.name)
       ctx._destructuredPropNames = names.length > 0 ? new Set(names) : null
     }
