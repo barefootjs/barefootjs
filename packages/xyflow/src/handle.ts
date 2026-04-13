@@ -31,6 +31,7 @@ export function createHandle(
   el.className = `bf-flow__handle bf-flow__handle--${handleType}`
   el.dataset.handleType = handleType
   el.dataset.handlePosition = position
+  el.dataset.nodeId = props.nodeId
   if (props.id) {
     el.dataset.handleId = props.id
   }

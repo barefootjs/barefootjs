@@ -68,13 +68,14 @@ export function attachConnectionHandler<
     const sourceX = (handleRect.left + handleRect.width / 2 - containerRect0.left - vp0.x) / scale0
     const sourceY = (handleRect.top + handleRect.height / 2 - containerRect0.top - vp0.y) / scale0
 
-    // Create temporary connection line — above nodes during drag
+    // Create temporary connection line — pointer-events:none so it doesn't
+    // block elementFromPoint from detecting handles underneath
     const connectionLine = document.createElementNS(SVG_NS, 'path')
     connectionLine.setAttribute('fill', 'none')
     connectionLine.setAttribute('stroke', '#b1b1b7')
     connectionLine.setAttribute('stroke-width', '1')
+    connectionLine.setAttribute('pointer-events', 'none')
     edgesSvg.appendChild(connectionLine)
-    edgesSvg.style.zIndex = '10'
 
     // Track the currently hovered handle for validation feedback
     let lastHoveredHandle: HTMLElement | null = null
@@ -168,9 +169,8 @@ export function attachConnectionHandler<
         }
       }
 
-      // Remove connection line, restore edge z-index
+      // Remove connection line
       connectionLine.remove()
-      edgesSvg.style.zIndex = ''
     }
 
     document.addEventListener('mousemove', onMouseMove)
