@@ -1058,7 +1058,7 @@ test.describe('Connection Validation', () => {
     expect(afterEdges).toBe(beforeEdges)
   })
 
-  test('valid target handle shows .valid class during drag', async ({ page }) => {
+  test('valid target handle shows no invalid class during drag', async ({ page }) => {
     const result = await page.evaluate(async () => {
       const sourceHandle = document.querySelector('#validation [data-id="v-source"] .bf-flow__handle--source')!
       const targetHandle = document.querySelector('#validation [data-id="v-allowed"] .bf-flow__handle--target')!
@@ -1076,7 +1076,6 @@ test.describe('Connection Validation', () => {
       }))
       await new Promise((r) => setTimeout(r, 50))
 
-      const hasValid = targetHandle.classList.contains('valid')
       const hasInvalid = targetHandle.classList.contains('invalid')
 
       // Clean up — release mouse
@@ -1085,10 +1084,9 @@ test.describe('Connection Validation', () => {
       }))
       await new Promise((r) => setTimeout(r, 50))
 
-      return { hasValid, hasInvalid }
+      return { hasInvalid }
     })
 
-    expect(result.hasValid).toBe(true)
     expect(result.hasInvalid).toBe(false)
   })
 

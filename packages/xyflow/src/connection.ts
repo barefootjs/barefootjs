@@ -68,14 +68,29 @@ export function attachConnectionHandler<
     const sourceX = (handleRect.left + handleRect.width / 2 - containerRect0.left - vp0.x) / scale0
     const sourceY = (handleRect.top + handleRect.height / 2 - containerRect0.top - vp0.y) / scale0
 
-    // Create temporary connection line — pointer-events:none so it doesn't
-    // block elementFromPoint from detecting handles underneath
+    // Create a temporary overlay SVG for the connection line, above nodes.
+    // This makes the line visible on top of nodes during drag.
+    // We hide it briefly before elementFromPoint calls so handles are detected.
+    const overlaySvg = document.createElementNS(SVG_NS, 'svg')
+    overlaySvg.style.position = 'absolute'
+    overlaySvg.style.top = '0'
+    overlaySvg.style.left = '0'
+    overlaySvg.style.width = '100%'
+    overlaySvg.style.height = '100%'
+    overlaySvg.style.overflow = 'visible'
+    overlaySvg.style.pointerEvents = 'none'
+    overlaySvg.style.zIndex = '10'
+    container.appendChild(overlaySvg)
+
+    // The line is drawn in viewport-transformed coordinates
+    const lineGroup = document.createElementNS(SVG_NS, 'g')
+    overlaySvg.appendChild(lineGroup)
+
     const connectionLine = document.createElementNS(SVG_NS, 'path')
     connectionLine.setAttribute('fill', 'none')
     connectionLine.setAttribute('stroke', '#b1b1b7')
     connectionLine.setAttribute('stroke-width', '1')
-    connectionLine.setAttribute('pointer-events', 'none')
-    edgesSvg.appendChild(connectionLine)
+    lineGroup.appendChild(connectionLine)
 
     // Track the currently hovered handle for validation feedback
     let lastHoveredHandle: HTMLElement | null = null
@@ -101,8 +116,14 @@ export function attachConnectionHandler<
 
       connectionLine.setAttribute('d', path)
 
-      // Validate connection on hover over target handles
+      // Sync overlay SVG transform with viewport
+      const vpCurrent = untrack(store.viewport)
+      lineGroup.setAttribute('transform', `translate(${vpCurrent.x}, ${vpCurrent.y}) scale(${vpCurrent.zoom})`)
+
+      // Hide overlay briefly so elementFromPoint sees handles, not the SVG
+      overlaySvg.style.display = 'none'
       const hoverEl = document.elementFromPoint(e.clientX, e.clientY)
+      overlaySvg.style.display = ''
       const hoveredHandle = hoverEl?.closest?.('.bf-flow__handle') as HTMLElement | null
 
       // Clear previous handle's validation classes
@@ -140,8 +161,10 @@ export function attachConnectionHandler<
         lastHoveredHandle.classList.remove('invalid')
       }
 
-      // Check if released on a target handle
+      // Hide overlay so elementFromPoint sees handles, not the SVG
+      overlaySvg.style.display = 'none'
       const targetEl = document.elementFromPoint(e.clientX, e.clientY)
+      overlaySvg.style.display = ''
       const targetHandle = targetEl?.closest?.('.bf-flow__handle') as HTMLElement | null
 
       if (
@@ -169,8 +192,8 @@ export function attachConnectionHandler<
         }
       }
 
-      // Remove connection line
-      connectionLine.remove()
+      // Remove connection line overlay
+      overlaySvg.remove()
     }
 
     document.addEventListener('mousemove', onMouseMove)
