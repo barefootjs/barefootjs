@@ -80,8 +80,8 @@ export class MojoAdapter extends BaseAdapter {
     const clientJsPath = `${this.options.clientJsBasePath}${name}.client.js`
 
     const lines: string[] = []
-    lines.push(`% $bf->register_script('${runtimePath}');`)
-    lines.push(`% $bf->register_script('${clientJsPath}');`)
+    lines.push(`% bf->register_script('${runtimePath}');`)
+    lines.push(`% bf->register_script('${clientJsPath}');`)
     lines.push('')
     return lines.join('\n')
   }
@@ -158,7 +158,7 @@ export class MojoAdapter extends BaseAdapter {
   renderExpression(expr: IRExpression): string {
     if (expr.clientOnly) {
       if (expr.slotId) {
-        return `<%== $bf->comment("client:${expr.slotId}") %>`
+        return `<%== bf->comment("client:${expr.slotId}") %>`
       }
       return ''
     }
@@ -166,7 +166,7 @@ export class MojoAdapter extends BaseAdapter {
     const perlExpr = this.convertExpressionToPerl(expr.expr)
 
     if (expr.slotId) {
-      return `<%== $bf->text_start("${expr.slotId}") %><%= ${perlExpr} %><%== $bf->text_end %>`
+      return `<%== bf->text_start("${expr.slotId}") %><%= ${perlExpr} %><%== bf->text_end %>`
     }
 
     return `<%= ${perlExpr} %>`
@@ -178,7 +178,7 @@ export class MojoAdapter extends BaseAdapter {
 
   renderConditional(cond: IRConditional): string {
     if (cond.clientOnly && cond.slotId) {
-      return `<%== $bf->comment("cond-start:${cond.slotId}") %><%== $bf->comment("cond-end:${cond.slotId}") %>`
+      return `<%== bf->comment("cond-start:${cond.slotId}") %><%== bf->comment("cond-end:${cond.slotId}") %>`
     }
 
     const condition = this.convertExpressionToPerl(cond.condition)
@@ -203,12 +203,12 @@ export class MojoAdapter extends BaseAdapter {
       const inner = whenFalse
         ? `\n% if (${condition}) {\n${whenTrue}\n% } else {\n${whenFalse}\n% }\n`
         : `\n% if (${condition}) {\n${whenTrue}\n% }\n`
-      result = `<%== $bf->comment("cond-start:${cond.slotId}") %>${inner}<%== $bf->comment("cond-end:${cond.slotId}") %>`
+      result = `<%== bf->comment("cond-start:${cond.slotId}") %>${inner}<%== bf->comment("cond-end:${cond.slotId}") %>`
     } else if (markedFalse) {
       result = `\n% if (${condition}) {\n${markedTrue}\n% } else {\n${markedFalse}\n% }\n`
     } else if (cond.slotId) {
       // Conditional with no else: wrap with comment markers for client hydration
-      result = `<%== $bf->comment("cond-start:${cond.slotId}") %>\n% if (${condition}) {\n${whenTrue}\n% }\n<%== $bf->comment("cond-end:${cond.slotId}") %>`
+      result = `<%== bf->comment("cond-start:${cond.slotId}") %>\n% if (${condition}) {\n${whenTrue}\n% }\n<%== bf->comment("cond-end:${cond.slotId}") %>`
     } else {
       result = `\n% if (${condition}) {\n${whenTrue}\n% }\n`
     }
@@ -234,7 +234,7 @@ export class MojoAdapter extends BaseAdapter {
       return content.replace(/^(<\w+)([\s>])/, `$1 ${BF_COND}="${condId}"$2`)
     }
     // Fall back to comment markers for non-element content
-    return `<%== $bf->comment("cond-start:${condId}") %>${content}<%== $bf->comment("cond-end:${condId}") %>`
+    return `<%== bf->comment("cond-start:${condId}") %>${content}<%== bf->comment("cond-end:${condId}") %>`
   }
 
   // ===========================================================================
@@ -251,12 +251,12 @@ export class MojoAdapter extends BaseAdapter {
     const children = this.renderChildren(loop.children)
 
     const lines: string[] = []
-    lines.push(`<%== $bf->comment("loop") %>`)
+    lines.push(`<%== bf->comment("loop") %>`)
     lines.push(`% for my ${indexVar} (0..$#{${array}}) {`)
     lines.push(`% my $${param} = ${array}->[${indexVar}];`)
     lines.push(children)
     lines.push(`% }`)
-    lines.push(`<%== $bf->comment("/loop") %>`)
+    lines.push(`<%== bf->comment("/loop") %>`)
 
     return lines.join('\n')
   }
@@ -274,7 +274,7 @@ export class MojoAdapter extends BaseAdapter {
       return `${p.name} => '${p.value}'`
     })
     const propsStr = propParts.length > 0 ? ', ' + propParts.join(', ') : ''
-    return `<%== $bf->render_child('${this.toTemplateName(comp.name)}'${propsStr}) %>`
+    return `<%== bf->render_child('${this.toTemplateName(comp.name)}'${propsStr}) %>`
   }
 
   private toTemplateName(componentName: string): string {
@@ -292,7 +292,7 @@ export class MojoAdapter extends BaseAdapter {
   private renderFragment(fragment: IRFragment): string {
     const children = this.renderChildren(fragment.children)
     if (fragment.needsScopeComment) {
-      return `<%== $bf->scope_comment %>${children}`
+      return `<%== bf->scope_comment %>${children}`
     }
     return children
   }
@@ -341,7 +341,7 @@ export class MojoAdapter extends BaseAdapter {
   // ===========================================================================
 
   renderScopeMarker(_instanceIdExpr: string): string {
-    return `bf-s="<%= $bf->scope_attr %>" <%== $bf->props_attr %>`
+    return `bf-s="<%= bf->scope_attr %>" <%== bf->props_attr %>`
   }
 
   renderSlotMarker(slotId: string): string {

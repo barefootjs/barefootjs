@@ -94,9 +94,12 @@ export async function renderMojoComponent(options: RenderOptions): Promise<strin
 
   try {
     // Write template files (parent + children)
-    await Bun.write(resolve(tempDir, `${toSnakeCase(componentName)}.html.ep`), templateFile.content)
+    // In real Mojolicious, bf is a helper (no $ prefix).
+    // For Mojo::Template standalone, convert bf-> to $bf-> so it resolves as a variable.
+    const patchTemplate = (content: string) => content.replace(/\bbf->/g, '$bf->')
+    await Bun.write(resolve(tempDir, `${toSnakeCase(componentName)}.html.ep`), patchTemplate(templateFile.content))
     for (const [childName, { template }] of childTemplates) {
-      await Bun.write(resolve(tempDir, `${toSnakeCase(childName)}.html.ep`), template)
+      await Bun.write(resolve(tempDir, `${toSnakeCase(childName)}.html.ep`), patchTemplate(template))
     }
 
     // Build props hash for Perl

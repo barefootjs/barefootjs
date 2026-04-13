@@ -95,8 +95,8 @@ export function List() {
 }
 `)
     expect(result.template).toContain('% for my')
-    expect(result.template).toContain('$bf->comment("loop")')
-    expect(result.template).toContain('$bf->comment("/loop")')
+    expect(result.template).toContain('bf->comment("loop")')
+    expect(result.template).toContain('bf->comment("/loop")')
   })
 
   test('generates script registration for client components', () => {
@@ -109,7 +109,7 @@ export function Counter() {
   return <div>{count()}</div>
 }
 `)
-    expect(result.template).toContain("$bf->register_script")
+    expect(result.template).toContain("bf->register_script")
     expect(result.template).toContain('barefoot.js')
     expect(result.template).toContain('Counter.client.js')
   })
@@ -120,6 +120,6 @@ export function Static() {
   return <div>Static content</div>
 }
 `)
-    expect(result.template).not.toContain("$bf->register_script")
+    expect(result.template).not.toContain("bf->register_script")
   })
 })
