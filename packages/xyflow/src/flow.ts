@@ -359,6 +359,15 @@ function injectDefaultStyles() {
       background: #1a192b;
       border-color: #1a192b;
     }
+    .bf-flow__node--group {
+      background-color: rgba(240, 240, 240, 0.7);
+      border: 1px dashed #999;
+      border-radius: 8px;
+      padding: 40px 10px 10px 10px;
+    }
+    .bf-flow__node--child {
+      /* Child nodes render above parents via z-index from @xyflow/system */
+    }
   `
   document.head.appendChild(style)
 }

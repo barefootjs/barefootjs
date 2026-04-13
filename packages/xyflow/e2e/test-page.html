@@ -60,9 +60,15 @@
 <h2>Node Resize</h2>
 <div id="node-resize" class="test-container"></div>
 
+<h2>Sub-Flows (nested nodes with parentId)</h2>
+<div id="sub-flows" class="test-container" style="height:500px"></div>
+
 <script type="module">
 import { createRoot } from '@barefootjs/client'
-import { initFlow, initBackground, initControls, initMiniMap, initNodeResizer, useFlow } from '@barefootjs/xyflow'
+import * as xyflowModule from '@barefootjs/xyflow'
+const { initFlow, initBackground, initControls, initMiniMap, initNodeResizer, useFlow } = xyflowModule
+// Expose module for custom node renderers that need useFlow()
+window.__xyflowModule = xyflowModule
 
 // Debug: trace mousedown → D3 drag flow
 document.addEventListener('mousedown', (e) => {
@@ -445,6 +451,7 @@ createRoot(() => {
     }
 
     // Use useFlow() to access the store from context (provided by initFlow)
+    const { useFlow } = window.__xyflowModule
     const store = useFlow()
     if (nodeEl && store) {
       initNodeResizer(nodeEl, props.id, store, {
@@ -477,6 +484,47 @@ createRoot(() => {
     nodeTypes: {
       resizable: resizableNodeRenderer,
     },
+  })
+})
+
+// Sub-Flows — parent node containing child nodes with parentId
+createRoot(() => {
+  initFlow(document.getElementById('sub-flows'), {
+    nodes: [
+      // Parent node must appear before children in the array
+      {
+        id: 'group-1',
+        position: { x: 50, y: 50 },
+        data: { label: 'Group' },
+        width: 300,
+        height: 200,
+      },
+      // Child nodes with parentId — positions are relative to parent
+      {
+        id: 'child-1',
+        parentId: 'group-1',
+        position: { x: 20, y: 50 },
+        data: { label: 'Child A' },
+        extent: 'parent',
+      },
+      {
+        id: 'child-2',
+        parentId: 'group-1',
+        position: { x: 150, y: 50 },
+        data: { label: 'Child B' },
+        extent: 'parent',
+      },
+      // Standalone node outside the group
+      {
+        id: 'standalone',
+        position: { x: 450, y: 100 },
+        data: { label: 'Standalone' },
+      },
+    ],
+    edges: [
+      { id: 'e-c1-c2', source: 'child-1', target: 'child-2' },
+      { id: 'e-c2-out', source: 'child-2', target: 'standalone' },
+    ],
   })
 })
 </script>
