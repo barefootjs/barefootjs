@@ -15,6 +15,7 @@ import type {
   IRComponent,
   IRFragment,
   IRSlot,
+  IRIfStatement,
   IRTemplateLiteral,
   CompilerError,
 } from '@barefootjs/jsx'
@@ -36,6 +37,7 @@ export class MojoAdapter extends BaseAdapter {
   private componentName: string = ''
   private options: Required<MojoAdapterOptions>
   private errors: CompilerError[] = []
+  private inLoop: boolean = false
 
   constructor(options: MojoAdapterOptions = {}) {
     super()
@@ -45,14 +47,18 @@ export class MojoAdapter extends BaseAdapter {
     }
   }
 
-  generate(ir: ComponentIR, _options?: AdapterGenerateOptions): AdapterOutput {
+  generate(ir: ComponentIR, options?: AdapterGenerateOptions): AdapterOutput {
     this.componentName = ir.metadata.componentName
     this.errors = []
 
-    const templateBody = this.renderNode(ir.root)
+    const templateBody = ir.root.type === 'if-statement'
+      ? this.renderIfStatement(ir.root as IRIfStatement)
+      : this.renderNode(ir.root)
 
     // Generate script registration
-    const scriptReg = this.generateScriptRegistrations(ir)
+    const scriptReg = options?.skipScriptRegistration
+      ? ''
+      : this.generateScriptRegistrations(ir, options?.scriptBaseName)
 
     const template = `${scriptReg}${templateBody}\n`
 
@@ -71,11 +77,11 @@ export class MojoAdapter extends BaseAdapter {
   // Script Registration
   // ===========================================================================
 
-  private generateScriptRegistrations(ir: ComponentIR): string {
+  private generateScriptRegistrations(ir: ComponentIR, scriptBaseName?: string): string {
     const hasInteractivity = this.hasClientInteractivity(ir)
     if (!hasInteractivity) return ''
 
-    const name = ir.metadata.componentName
+    const name = scriptBaseName ?? ir.metadata.componentName
     const runtimePath = this.options.barefootJsPath
     const clientJsPath = `${this.options.clientJsBasePath}${name}.client.js`
 
@@ -117,6 +123,8 @@ export class MojoAdapter extends BaseAdapter {
         return this.renderFragment(node as IRFragment)
       case 'slot':
         return this.renderSlot(node as IRSlot)
+      case 'if-statement':
+        return this.renderIfStatement(node as IRIfStatement)
       default:
         return ''
     }
@@ -248,7 +256,10 @@ export class MojoAdapter extends BaseAdapter {
     const array = this.convertExpressionToPerl(loop.array)
     const param = loop.param
     const indexVar = loop.index ? `$${loop.index}` : '$_i'
+    const prevInLoop = this.inLoop
+    this.inLoop = true
     const children = this.renderChildren(loop.children)
+    this.inLoop = prevInLoop
 
     const lines: string[] = []
     lines.push(`<%== bf->comment("loop") %>`)
@@ -266,13 +277,21 @@ export class MojoAdapter extends BaseAdapter {
   // ===========================================================================
 
   renderComponent(comp: IRComponent): string {
-    const propParts = comp.props.map(p => {
+    const propParts: string[] = []
+    for (const p of comp.props) {
+      // Skip callback props (onXxx) — event handlers are client-only for SSR
+      if (p.name.match(/^on[A-Z]/) && p.dynamic) continue
       if (p.dynamic) {
-        return `${p.name} => ${this.convertExpressionToPerl(typeof p.value === 'string' ? p.value : '')}`
+        propParts.push(`${p.name} => ${this.convertExpressionToPerl(typeof p.value === 'string' ? p.value : '')}`)
+      } else {
+        propParts.push(`${p.name} => '${p.value}'`)
       }
-      // Static props: quote the value
-      return `${p.name} => '${p.value}'`
-    })
+    }
+    // Pass slot ID so the child renderer can set correct scope ID for hydration
+    // Skip for loop children — they use ComponentName_random pattern instead
+    if (comp.slotId && !this.inLoop) {
+      propParts.push(`_bf_slot => '${comp.slotId}'`)
+    }
     const propsStr = propParts.length > 0 ? ', ' + propParts.join(', ') : ''
     return `<%== bf->render_child('${this.toTemplateName(comp.name)}'${propsStr}) %>`
   }
@@ -283,6 +302,32 @@ export class MojoAdapter extends BaseAdapter {
       .replace(/([A-Z])/g, '_$1')
       .toLowerCase()
       .replace(/^_/, '')
+  }
+
+  // ===========================================================================
+  // If-Statement (Conditional Return) Rendering
+  // ===========================================================================
+
+  private renderIfStatement(ifStmt: IRIfStatement): string {
+    const condition = this.convertExpressionToPerl(ifStmt.condition)
+    const consequent = ifStmt.consequent.type === 'if-statement'
+      ? this.renderIfStatement(ifStmt.consequent as IRIfStatement)
+      : this.renderNode(ifStmt.consequent)
+    let result = `% if (${condition}) {\n${consequent}\n`
+
+    if (ifStmt.alternate) {
+      if (ifStmt.alternate.type === 'if-statement') {
+        const altResult = this.renderIfStatement(ifStmt.alternate as IRIfStatement)
+        // Replace leading "% if" with "% } elsif"
+        result += altResult.replace(/^% if/, '% } elsif')
+      } else {
+        const alternate = this.renderNode(ifStmt.alternate)
+        result += `% } else {\n${alternate}\n`
+      }
+    }
+
+    result += `% }`
+    return result
   }
 
   // ===========================================================================

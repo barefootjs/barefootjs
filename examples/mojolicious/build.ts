@@ -2,9 +2,10 @@
  * Build script for Mojolicious EP template example
  *
  * Compiles JSX components to .html.ep template files + client JS.
+ * Produces separate template files per component (parent + child).
  */
 
-import { compileJSXSync, combineParentChildClientJs } from '@barefootjs/jsx'
+import { analyzeComponent, listExportedComponents, jsxToIR, generateClientJs, combineParentChildClientJs, type ComponentIR, type AnalyzerContext, type IRNode } from '@barefootjs/jsx'
 import { MojoAdapter } from '@barefootjs/mojolicious'
 import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -32,12 +33,17 @@ copyFileSync(domDistFile, resolve(clientDir, 'barefoot.js'))
 console.log('  Copied: barefoot.js\n')
 
 // Components to compile
-// TODO: Add child-component examples (Toggle, TodoApp, Portal) once
-// bf->render_child is integrated with Mojolicious's include system
 const components = [
   '../shared/components/Counter.tsx',
   '../shared/components/Form.tsx',
   '../shared/components/ConditionalReturn.tsx',
+  '../shared/components/Toggle.tsx',
+  '../shared/components/TodoItem.tsx',
+  '../shared/components/TodoApp.tsx',
+  // TodoAppSSR uses JS array methods (.filter/.every) that need complex Perl conversion
+  // '../shared/components/TodoAppSSR.tsx',
+  '../shared/components/ReactiveProps.tsx',
+  '../shared/components/PortalExample.tsx',
 ]
 
 const adapter = new MojoAdapter({
@@ -45,45 +51,140 @@ const adapter = new MojoAdapter({
   barefootJsPath: '/client/barefoot.js',
 })
 
+/**
+ * Build ComponentIR from analyzer context and IR root node.
+ */
+function buildIR(ctx: AnalyzerContext, root: IRNode): ComponentIR {
+  return {
+    version: '0.1',
+    metadata: {
+      componentName: ctx.componentName!,
+      hasDefaultExport: ctx.hasDefaultExport,
+      isExported: ctx.isExported,
+      isClientComponent: ctx.hasUseClientDirective,
+      typeDefinitions: ctx.typeDefinitions,
+      propsType: ctx.propsType,
+      propsParams: ctx.propsParams,
+      restPropsName: ctx.restPropsName,
+      propsObjectName: ctx.propsObjectName,
+      restPropsExpandedKeys: ctx.restPropsExpandedKeys,
+      signals: ctx.signals,
+      memos: ctx.memos,
+      effects: ctx.effects,
+      onMounts: ctx.onMounts,
+      imports: ctx.imports,
+      templateImports: ctx.imports.filter(imp =>
+        imp.source !== '@barefootjs/client-runtime' && imp.source !== '@barefootjs/client'
+      ),
+      localFunctions: ctx.localFunctions,
+      localConstants: ctx.localConstants,
+    },
+    root,
+    errors: [],
+  }
+}
+
 console.log('Building Mojolicious EP templates...\n')
 
 for (const componentPath of components) {
   const fullPath = resolve(projectRoot, componentPath)
   const source = readFileSync(fullPath, 'utf-8')
 
-  const result = compileJSXSync(source, fullPath, { adapter })
+  // Find all component functions in the file
+  const allComponentNames = listExportedComponents(source, componentPath)
 
-  const warnings = result.errors.filter(e => e.severity === 'warning')
-  const errors = result.errors.filter(e => e.severity === 'error')
-
-  if (warnings.length > 0) {
-    for (const w of warnings) console.warn(`  ⚠ ${w.message}`)
-  }
-  if (errors.length > 0) {
-    console.error(`Errors compiling ${componentPath}:`)
-    for (const e of errors) console.error(`  ${e.message}`)
-    continue
-  }
-
-  // Write template
-  const templateFile = result.files.find(f => f.type === 'markedTemplate')
-  if (templateFile) {
-    const name = componentPath.split('/').pop()?.replace('.tsx', '.html.ep')
-    writeFileSync(resolve(templatesDir, name!), templateFile.content)
-    console.log(`  Template: ${name}`)
+  // Find the default export component name (used as scriptBaseName for non-default exports)
+  let defaultExportName: string | null = null
+  for (const name of allComponentNames) {
+    const ctx = analyzeComponent(source, componentPath, name)
+    if (ctx.hasDefaultExport) {
+      defaultExportName = name
+      break
+    }
   }
 
-  // Write client JS
-  const clientJsFile = result.files.find(f => f.type === 'clientJs')
-  if (clientJsFile) {
-    const name = componentPath.split('/').pop()?.replace('.tsx', '.client.js')
-    let content = clientJsFile.content
-    content = content.replace(
-      /from ['"]@barefootjs\/client-runtime['"]/g,
-      "from './barefoot.js'"
-    )
-    writeFileSync(resolve(clientDir, name!), content)
-    console.log(`  Client:   ${name}`)
+  let mainComponentIR: ComponentIR | null = null
+
+  for (const targetComponentName of allComponentNames) {
+    const ctx = analyzeComponent(source, componentPath, targetComponentName)
+
+    const errors = ctx.errors.filter(e => e.severity === 'error')
+    const warnings = ctx.errors.filter(e => e.severity === 'warning')
+
+    if (warnings.length > 0) {
+      for (const w of warnings) console.warn(`  ⚠ ${w.message}`)
+    }
+    if (errors.length > 0) {
+      console.error(`Errors compiling ${targetComponentName} in ${componentPath}:`)
+      for (const e of errors) console.error(`  ${e.message}`)
+      continue
+    }
+
+    const root = jsxToIR(ctx)
+    if (!root) {
+      console.error(`Failed to transform ${targetComponentName} to IR`)
+      continue
+    }
+
+    const ir = buildIR(ctx, root)
+
+    // Generate template
+    // For non-default exports, use the default export's name for script registration
+    const output = adapter.generate(ir, {
+      scriptBaseName: ctx.hasDefaultExport ? undefined : (defaultExportName || undefined)
+    })
+
+    // Write individual template file per component
+    writeFileSync(resolve(templatesDir, `${targetComponentName}.html.ep`), output.template)
+    console.log(`  Template: ${targetComponentName}.html.ep`)
+
+    if (ctx.hasDefaultExport) {
+      mainComponentIR = ir
+    }
+  }
+
+  // Generate client JS for all components in the file (combined into one file)
+  if (mainComponentIR) {
+    const clientJsParts: string[] = []
+    const allImportNames = new Set<string>()
+
+    for (const targetComponentName of allComponentNames) {
+      const ctx = analyzeComponent(source, componentPath, targetComponentName)
+      const errors = ctx.errors.filter(e => e.severity === 'error')
+      if (errors.length > 0) continue
+
+      const root = jsxToIR(ctx)
+      if (!root) continue
+
+      const ir = buildIR(ctx, root)
+
+      let clientJs = generateClientJs(ir, allComponentNames)
+      if (clientJs) {
+        clientJs = clientJs.replace(
+          /from ['"]@barefootjs\/client-runtime['"]/g,
+          "from './barefoot.js'"
+        )
+
+        // Extract and merge import names
+        const importMatch = clientJs.match(/^import \{ ([^}]+) \} from '\.\/barefoot\.js'/)
+        if (importMatch) {
+          const names = importMatch[1].split(',').map(n => n.trim())
+          for (const name of names) allImportNames.add(name)
+        }
+
+        const withoutImport = clientJs.replace(/^import .* from '\.\/barefoot\.js'\n\n?/, '')
+        clientJsParts.push(withoutImport)
+      }
+    }
+
+    if (clientJsParts.length > 0) {
+      const componentName = componentPath.split('/').pop()?.replace('.tsx', '')
+      const sortedImports = [...allImportNames].sort()
+      const importStatement = `import { ${sortedImports.join(', ')} } from './barefoot.js'\n\n`
+      const clientJsContent = importStatement + clientJsParts.join('\n')
+      writeFileSync(resolve(clientDir, `${componentName}.client.js`), clientJsContent)
+      console.log(`  Client:   ${componentName}.client.js`)
+    }
   }
 
   console.log(`✓ ${componentPath}`)

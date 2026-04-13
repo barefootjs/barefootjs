@@ -67,7 +67,8 @@ function extractCondMarkers(html: string): string[] {
   return [...new Set([...[...bfcMatches].map(m => m[1]), ...[...condStartMatches].map(m => m[1])])]
 }
 
-// Stateless fixtures have no client JS — skip
+// Stateless fixtures have no client JS — skip.
+// if-statement: SSR renders one branch but client JS references markers from all branches.
 const statelessFixtures = new Set([
   'props-static',
   'nested-elements',
@@ -78,6 +79,7 @@ const statelessFixtures = new Set([
   'default-props',
   'child-component',
   'static-array-children',
+  'if-statement',
 ])
 
 describe('SSR-Hydration Contract', () => {
