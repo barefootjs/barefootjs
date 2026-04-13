@@ -80,7 +80,7 @@ export type FlowStoreOptions<
 
   // Custom component types
   nodeTypes?: Record<string, ComponentDef | ((props: NodeComponentProps<NodeType>) => void)>
-  edgeTypes?: Record<string, ComponentDef>
+  edgeTypes?: Record<string, ComponentDef | ((props: EdgeComponentProps<EdgeType>) => void)>
 
   // Edge reconnection
   edgesReconnectable?: boolean
@@ -168,7 +168,7 @@ export type FlowStore<
 
   // Custom component types
   nodeTypes?: Record<string, ComponentDef | ((props: NodeComponentProps<NodeType>) => void)>
-  edgeTypes?: Record<string, ComponentDef>
+  edgeTypes?: Record<string, ComponentDef | ((props: EdgeComponentProps<EdgeType>) => void)>
 
   // Edge reconnection
   edgesReconnectable: boolean
@@ -209,6 +209,27 @@ export type NodeComponentProps<NodeType extends NodeBase = NodeBase> = {
   width?: number
   height?: number
   isConnectable: boolean
+}
+
+/**
+ * Props passed to custom edge components.
+ */
+export type EdgeComponentProps<EdgeType extends EdgeBase = EdgeBase> = {
+  id: string
+  source: string
+  target: string
+  sourceX: number
+  sourceY: number
+  targetX: number
+  targetY: number
+  sourcePosition: string
+  targetPosition: string
+  data: EdgeType['data']
+  selected: boolean
+  animated: boolean
+  label?: string
+  /** SVG group element to render custom edge content into */
+  svgGroup: SVGGElement
 }
 
 /**

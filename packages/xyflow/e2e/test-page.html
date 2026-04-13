@@ -51,6 +51,12 @@
 <h2>Edge Reconnection</h2>
 <div id="reconnect" class="test-container"></div>
 
+<h2>Custom Node Types</h2>
+<div id="custom-nodes" class="test-container"></div>
+
+<h2>Custom Edge Types</h2>
+<div id="custom-edges" class="test-container"></div>
+
 <script type="module">
 import { createRoot } from '@barefootjs/client'
 import { initFlow, initBackground, initControls, initMiniMap } from '@barefootjs/xyflow'
@@ -267,6 +273,116 @@ createRoot(() => {
     edgesReconnectable: true,
     onReconnect: (oldEdge, newConnection) => {
       window.__reconnectLog.push({ oldEdge, newConnection })
+    },
+  })
+})
+
+// Custom Node Types — custom node renderer function
+createRoot(() => {
+  function customNodeRenderer(props) {
+    // `this` is the content container element (.bf-flow__node-content)
+    const el = this
+    const wrapper = document.createElement('div')
+    wrapper.className = 'custom-node'
+    wrapper.style.padding = '8px 12px'
+    wrapper.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+    wrapper.style.color = '#fff'
+    wrapper.style.borderRadius = '8px'
+    wrapper.style.minWidth = '120px'
+    wrapper.style.textAlign = 'center'
+
+    const title = document.createElement('div')
+    title.className = 'custom-node-title'
+    title.textContent = props.data?.title ?? 'Custom'
+    title.style.fontWeight = 'bold'
+    title.style.fontSize = '13px'
+    wrapper.appendChild(title)
+
+    const desc = document.createElement('div')
+    desc.className = 'custom-node-desc'
+    desc.textContent = props.data?.description ?? ''
+    desc.style.fontSize = '11px'
+    desc.style.opacity = '0.85'
+    wrapper.appendChild(desc)
+
+    // Store props as data attributes for E2E testing
+    wrapper.dataset.nodeId = props.id
+    wrapper.dataset.nodeType = props.type
+    wrapper.dataset.isConnectable = String(props.isConnectable)
+
+    el.appendChild(wrapper)
+  }
+
+  initFlow(document.getElementById('custom-nodes'), {
+    nodes: [
+      { id: 'cn1', type: 'custom', position: { x: 50, y: 50 }, data: { title: 'Input Node', description: 'Receives data' } },
+      { id: 'cn2', type: 'custom', position: { x: 300, y: 50 }, data: { title: 'Process Node', description: 'Transforms data' } },
+      { id: 'cn3', position: { x: 175, y: 200 }, data: { label: 'Default Node' } },
+    ],
+    edges: [
+      { id: 'ecn1-2', source: 'cn1', target: 'cn2' },
+      { id: 'ecn1-3', source: 'cn1', target: 'cn3' },
+      { id: 'ecn2-3', source: 'cn2', target: 'cn3' },
+    ],
+    nodeTypes: {
+      custom: customNodeRenderer,
+    },
+  })
+})
+
+// Custom Edge Types — custom edge renderer function
+createRoot(() => {
+  function customEdgeRenderer(props) {
+    const { svgGroup, sourceX, sourceY, targetX, targetY, id, data, selected } = props
+
+    // Draw a dashed straight line instead of the default bezier
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    const d = `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`
+    path.setAttribute('d', d)
+    path.setAttribute('stroke', selected ? '#e74c3c' : '#3498db')
+    path.setAttribute('stroke-width', selected ? '3' : '2')
+    path.setAttribute('stroke-dasharray', '8 4')
+    path.setAttribute('fill', 'none')
+    path.setAttribute('class', 'bf-flow__edge-custom-path')
+    svgGroup.appendChild(path)
+
+    // Add a midpoint circle marker
+    const midX = (sourceX + targetX) / 2
+    const midY = (sourceY + targetY) / 2
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    circle.setAttribute('cx', String(midX))
+    circle.setAttribute('cy', String(midY))
+    circle.setAttribute('r', '6')
+    circle.setAttribute('fill', '#3498db')
+    circle.setAttribute('class', 'bf-flow__edge-custom-marker')
+    svgGroup.appendChild(circle)
+
+    // Add a label
+    if (data?.label) {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+      text.setAttribute('x', String(midX))
+      text.setAttribute('y', String(midY - 12))
+      text.setAttribute('text-anchor', 'middle')
+      text.setAttribute('fill', '#333')
+      text.setAttribute('font-size', '11')
+      text.setAttribute('class', 'bf-flow__edge-custom-label')
+      text.textContent = data.label
+      svgGroup.appendChild(text)
+    }
+  }
+
+  initFlow(document.getElementById('custom-edges'), {
+    nodes: [
+      { id: 'ce1', position: { x: 50, y: 100 }, data: { label: 'Source' } },
+      { id: 'ce2', position: { x: 300, y: 50 }, data: { label: 'Target A' } },
+      { id: 'ce3', position: { x: 300, y: 200 }, data: { label: 'Target B' } },
+    ],
+    edges: [
+      { id: 'ece1-2', type: 'custom', source: 'ce1', target: 'ce2', data: { label: 'custom edge' } },
+      { id: 'ece1-3', source: 'ce1', target: 'ce3' },
+    ],
+    edgeTypes: {
+      custom: customEdgeRenderer,
     },
   })
 })

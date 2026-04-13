@@ -239,6 +239,30 @@ export function createNodeWrapper<NodeType extends NodeBase>(
 }
 
 /**
+ * Create a default handle element and attach connection handler.
+ */
+function createDefaultHandle<NodeType extends NodeBase>(
+  parentEl: HTMLElement,
+  nodeId: string,
+  type: 'source' | 'target',
+  store: FlowStore<NodeType>,
+): HTMLElement {
+  const h = document.createElement('div')
+  h.className = `bf-flow__handle bf-flow__handle--${type}`
+  h.dataset.handleType = type
+  h.dataset.nodeId = nodeId
+  parentEl.appendChild(h)
+
+  // Attach connection drag handler
+  const container = store.domNode()
+  const edgesSvg = container?.querySelector('.bf-flow__edges') as SVGSVGElement | null
+  if (container && edgesSvg) {
+    attachConnectionHandler(h, nodeId, type, container, edgesSvg, store)
+  }
+  return h
+}
+
+/**
  * Render node content — uses custom type if registered, otherwise default.
  */
 function renderNodeContent<NodeType extends NodeBase>(
@@ -264,16 +288,24 @@ function renderNodeContent<NodeType extends NodeBase>(
       isConnectable: node.connectable !== false,
     }
 
+    // Add target handle before custom content
+    createDefaultHandle(el, node.id, 'target', store)
+
+    // Render custom content
+    const contentEl = document.createElement('div')
+    contentEl.className = 'bf-flow__node-content'
+    el.appendChild(contentEl)
+
     if (typeof customType === 'function') {
-      // Plain init function
-      customType(nodeProps)
+      // Plain init function — receives container element and props
+      customType.call(contentEl, nodeProps)
     } else {
       // ComponentDef — render via CSR
-      const contentEl = document.createElement('div')
-      contentEl.className = 'bf-flow__node-content'
-      el.appendChild(contentEl)
       render(contentEl, customType as ComponentDef, nodeProps as unknown as Record<string, unknown>)
     }
+
+    // Add source handle after custom content
+    createDefaultHandle(el, node.id, 'source', store)
 
     el.style.cursor = 'grab'
     el.style.userSelect = 'none'
@@ -289,22 +321,8 @@ function renderNodeContent<NodeType extends NodeBase>(
 
   // Add default handles (source=bottom, target=top)
   // Styled via injected CSS (.bf-flow__handle class)
-  const createDefaultHandle = (type: 'source' | 'target') => {
-    const h = document.createElement('div')
-    h.className = `bf-flow__handle bf-flow__handle--${type}`
-    h.dataset.handleType = type
-    h.dataset.nodeId = node.id
-    el.appendChild(h)
-
-    // Attach connection drag handler
-    const container = store.domNode()
-    const edgesSvg = container?.querySelector('.bf-flow__edges') as SVGSVGElement | null
-    if (container && edgesSvg) {
-      attachConnectionHandler(h, node.id, type, container, edgesSvg, store)
-    }
-  }
-  createDefaultHandle('target')
-  createDefaultHandle('source')
+  createDefaultHandle(el, node.id, 'target', store)
+  createDefaultHandle(el, node.id, 'source', store)
 }
 
 /**

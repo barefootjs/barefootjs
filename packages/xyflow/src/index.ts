@@ -47,6 +47,7 @@ export type {
   NodeDragItem,
   ConnectionMode,
   NodeComponentProps,
+  EdgeComponentProps,
   SelectionMode,
   OnReconnect,
   Connection,

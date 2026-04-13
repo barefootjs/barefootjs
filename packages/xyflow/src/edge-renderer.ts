@@ -16,7 +16,7 @@ import type {
   EdgeBase,
   EdgePosition,
 } from '@xyflow/system'
-import type { FlowStore } from './types'
+import type { FlowStore, EdgeComponentProps } from './types'
 import { SVG_NS } from './constants'
 import { attachReconnectionHandler } from './connection'
 
@@ -36,9 +36,10 @@ export function createEdgeRenderer<
   edgeGroup.setAttribute('class', 'bf-flow__edge-group')
   svgContainer.appendChild(edgeGroup)
 
-  // Track edge path elements, hit areas, and reconnection handles by edge id
+  // Track edge path elements, hit areas, custom groups, and reconnection handles by edge id
   const edgeElements = new Map<string, SVGPathElement>()
   const hitElements = new Map<string, SVGPathElement>()
+  const customEdgeGroups = new Map<string, SVGGElement>()
   const reconnectSourceHandles = new Map<string, SVGCircleElement>()
   const reconnectTargetHandles = new Map<string, SVGCircleElement>()
 
@@ -92,6 +93,66 @@ export function createEdgeRenderer<
           sourcePosition: Position.Bottom,
           targetPosition: Position.Top,
         }
+      }
+
+      // Check for custom edge type
+      const edgeType = edge.type
+      const customEdgeType = edgeType && store.edgeTypes?.[edgeType]
+
+      if (customEdgeType && typeof customEdgeType === 'function') {
+        // Custom edge rendering via plain function
+        const midX = (edgePos.sourceX + edgePos.targetX) / 2
+        const midY = (edgePos.sourceY + edgePos.targetY) / 2
+        labelPositions.set(edge.id, { x: midX, y: midY })
+
+        let group = customEdgeGroups.get(edge.id)
+        if (!group) {
+          group = document.createElementNS(SVG_NS, 'g')
+          group.setAttribute('class', 'bf-flow__edge-custom')
+          group.dataset.id = edge.id
+          group.style.cursor = 'pointer'
+          group.style.pointerEvents = 'all'
+          group.addEventListener('mousedown', (e) => {
+            e.stopPropagation()
+            const container = store.domNode()
+            if (container) container.focus()
+            const edgeId = edge.id
+            store.unselectNodesAndEdges()
+            store.setEdges((prev) =>
+              prev.map((ed) =>
+                ed.id === edgeId ? { ...ed, selected: true } : ed,
+              ),
+            )
+          })
+          edgeGroup.appendChild(group)
+          customEdgeGroups.set(edge.id, group)
+
+          // Also track in edgeElements for cleanup
+          edgeElements.set(edge.id, group as unknown as SVGPathElement)
+        }
+
+        // Clear and re-render custom content
+        group.innerHTML = ''
+
+        const edgeProps: EdgeComponentProps = {
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceX: edgePos.sourceX,
+          sourceY: edgePos.sourceY,
+          targetX: edgePos.targetX,
+          targetY: edgePos.targetY,
+          sourcePosition: edgePos.sourcePosition,
+          targetPosition: edgePos.targetPosition,
+          data: (edge as any).data,
+          selected: !!edge.selected,
+          animated: !!edge.animated,
+          label: (edge as any).label,
+          svgGroup: group,
+        }
+
+        customEdgeType(edgeProps)
+        continue
       }
 
       const pathData = getEdgePath(edge, edgePos)
@@ -193,6 +254,8 @@ export function createEdgeRenderer<
       if (el) { el.remove(); edgeElements.delete(removedId) }
       const hit = hitElements.get(removedId)
       if (hit) { hit.remove(); hitElements.delete(removedId) }
+      const customGroup = customEdgeGroups.get(removedId)
+      if (customGroup) { customGroup.remove(); customEdgeGroups.delete(removedId) }
       labelPositions.delete(removedId)
       const srcH = reconnectSourceHandles.get(removedId)
       if (srcH) { srcH.remove(); reconnectSourceHandles.delete(removedId) }
@@ -205,6 +268,7 @@ export function createEdgeRenderer<
     edgeGroup.remove()
     edgeElements.clear()
     hitElements.clear()
+    customEdgeGroups.clear()
     labelPositions.clear()
     reconnectSourceHandles.clear()
     reconnectTargetHandles.clear()

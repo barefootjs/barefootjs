@@ -1475,3 +1475,137 @@ test.describe('Edge Reconnection', () => {
     expect(result.pathPreserved).toBe(true)
   })
 })
+
+// ============================================================
+// Custom Node Types
+// ============================================================
+test.describe('Custom Node Types', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.getElementById('custom-nodes')
+      if (el && 'scrollIntoViewIfNeeded' in el) {
+        ;(el as any).scrollIntoViewIfNeeded()
+      } else if (el) {
+        el.scrollIntoView({ block: 'center' })
+      }
+    })
+    await page.waitForSelector('#custom-nodes .bf-flow__node[data-id="cn1"]')
+  })
+
+  test('renders custom node content', async ({ page }) => {
+    const node = page.locator('#custom-nodes .bf-flow__node[data-id="cn1"]')
+    // Custom node should contain .bf-flow__node-content wrapper
+    await expect(node.locator('.bf-flow__node-content')).toBeAttached()
+    // Custom content should be inside the wrapper
+    await expect(node.locator('.custom-node-title')).toHaveText('Input Node')
+    await expect(node.locator('.custom-node-desc')).toHaveText('Receives data')
+  })
+
+  test('custom node receives correct props (id, data)', async ({ page }) => {
+    const customNode = page.locator('#custom-nodes .bf-flow__node[data-id="cn1"] .custom-node')
+    await expect(customNode).toBeAttached()
+    // Check data attributes set by the custom renderer
+    expect(await customNode.getAttribute('data-node-id')).toBe('cn1')
+    expect(await customNode.getAttribute('data-node-type')).toBe('custom')
+    expect(await customNode.getAttribute('data-is-connectable')).toBe('true')
+  })
+
+  test('second custom node renders with different data', async ({ page }) => {
+    const node = page.locator('#custom-nodes .bf-flow__node[data-id="cn2"]')
+    await expect(node.locator('.custom-node-title')).toHaveText('Process Node')
+    await expect(node.locator('.custom-node-desc')).toHaveText('Transforms data')
+  })
+
+  test('default node type still works alongside custom types', async ({ page }) => {
+    // cn3 has no type, so it should render as a default node with label text
+    const defaultNode = page.locator('#custom-nodes .bf-flow__node[data-id="cn3"]')
+    await expect(defaultNode).toBeAttached()
+    // Default node should NOT have custom-node class
+    await expect(defaultNode.locator('.custom-node')).not.toBeAttached()
+    // Should show its label text
+    await expect(defaultNode).toContainText('Default Node')
+  })
+
+  test('handles are present on custom nodes', async ({ page }) => {
+    const node = page.locator('#custom-nodes .bf-flow__node[data-id="cn1"]')
+    // Custom nodes should have both source and target handles
+    await expect(node.locator('.bf-flow__handle--source')).toBeAttached()
+    await expect(node.locator('.bf-flow__handle--target')).toBeAttached()
+  })
+
+  test('handles are present on default nodes alongside custom types', async ({ page }) => {
+    const node = page.locator('#custom-nodes .bf-flow__node[data-id="cn3"]')
+    await expect(node.locator('.bf-flow__handle--source')).toBeAttached()
+    await expect(node.locator('.bf-flow__handle--target')).toBeAttached()
+  })
+
+  test('custom node renders correct number of nodes', async ({ page }) => {
+    // 2 custom + 1 default = 3 nodes
+    await expect(page.locator('#custom-nodes .bf-flow__node')).toHaveCount(3)
+  })
+
+  test('edges still render between custom and default nodes', async ({ page }) => {
+    // 3 edges: cn1→cn2, cn1→cn3, cn2→cn3
+    await expect(page.locator('#custom-nodes .bf-flow__edge')).toHaveCount(3)
+  })
+})
+
+// ============================================================
+// Custom Edge Types
+// ============================================================
+test.describe('Custom Edge Types', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.getElementById('custom-edges')
+      if (el && 'scrollIntoViewIfNeeded' in el) {
+        ;(el as any).scrollIntoViewIfNeeded()
+      } else if (el) {
+        el.scrollIntoView({ block: 'center' })
+      }
+    })
+    await page.waitForSelector('#custom-edges .bf-flow__node[data-id="ce1"]')
+  })
+
+  test('renders custom edge as SVG group', async ({ page }) => {
+    const customEdge = page.locator('#custom-edges .bf-flow__edge-custom[data-id="ece1-2"]')
+    await expect(customEdge).toBeAttached()
+  })
+
+  test('custom edge contains custom path element', async ({ page }) => {
+    const customPath = page.locator('#custom-edges .bf-flow__edge-custom-path')
+    await expect(customPath).toBeAttached()
+    // Should be a dashed line
+    const dashArray = await customPath.getAttribute('stroke-dasharray')
+    expect(dashArray).toBe('8 4')
+  })
+
+  test('custom edge contains midpoint marker', async ({ page }) => {
+    const marker = page.locator('#custom-edges .bf-flow__edge-custom-marker')
+    await expect(marker).toBeAttached()
+    // Circle marker
+    const tagName = await marker.evaluate((el) => el.tagName.toLowerCase())
+    expect(tagName).toBe('circle')
+  })
+
+  test('custom edge renders label from data', async ({ page }) => {
+    const label = page.locator('#custom-edges .bf-flow__edge-custom-label')
+    await expect(label).toBeAttached()
+    await expect(label).toHaveText('custom edge')
+  })
+
+  test('default edge type still works alongside custom edge types', async ({ page }) => {
+    // ece1-3 has no type, should render as default bezier path
+    const defaultEdge = page.locator('#custom-edges .bf-flow__edge[data-id="ece1-3"]')
+    await expect(defaultEdge).toBeAttached()
+    const tagName = await defaultEdge.evaluate((el) => el.tagName.toLowerCase())
+    expect(tagName).toBe('path')
+  })
+
+  test('correct number of edges rendered (custom + default)', async ({ page }) => {
+    // 1 custom edge group + 1 default edge path
+    const customEdges = await page.locator('#custom-edges .bf-flow__edge-custom').count()
+    const defaultEdges = await page.locator('#custom-edges .bf-flow__edge').count()
+    expect(customEdges).toBe(1)
+    expect(defaultEdges).toBe(1)
+  })
+})

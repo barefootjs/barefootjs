@@ -39,6 +39,8 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
     nodeExtent: flowProps.nodeExtent,
     snapToGrid: flowProps.snapToGrid,
     snapGrid: flowProps.snapGrid,
+    nodeTypes: flowProps.nodeTypes,
+    edgeTypes: flowProps.edgeTypes,
     onConnect: flowProps.onConnect,
     isValidConnection: flowProps.isValidConnection,
     edgesReconnectable: flowProps.edgesReconnectable,
