@@ -30,7 +30,7 @@ import { type AnalyzerContext, getSourceLocation } from './analyzer-context'
 import { parseExpression, isSupported, parseBlockBody, type ParsedExpr, type ParsedStatement } from './expression-parser'
 import { createError, ErrorCodes } from './errors'
 import { containsReactiveExpression } from './reactivity-checker'
-import { PROPS_PARAM } from './ir-to-client-js/utils'
+import { rewriteBarePropRefs as rewriteBarePropRefsCore } from './prop-rewrite'
 
 // =============================================================================
 // Transform Context
@@ -106,12 +106,9 @@ function exprHasFunctionCalls(expr: ts.Expression): boolean {
 }
 
 /**
- * Rewrite bare destructured prop references in expression text using AST context.
+ * Rewrite bare destructured prop references in expression text.
+ * Thin wrapper that caches prop names on ctx and delegates to the shared core.
  * Returns undefined if no rewriting is needed (SolidJS-style or no props).
- *
- * Strategy: walk the AST to identify which prop names appear in value position
- * (not as object keys, property access targets, or shorthand properties),
- * then apply targeted regex replacement only for those names.
  */
 function rewriteBarePropRefs(text: string, expr: ts.Node, ctx: TransformContext): string | undefined {
   // Build and cache destructured prop names
@@ -119,48 +116,12 @@ function rewriteBarePropRefs(text: string, expr: ts.Node, ctx: TransformContext)
     if (ctx.analyzer.propsObjectName) {
       ctx._destructuredPropNames = null  // SolidJS-style, no rewriting needed
     } else {
-      const names = ctx.analyzer.propsParams
-        .map(p => p.name)
+      const names = ctx.analyzer.propsParams.map(p => p.name)
       ctx._destructuredPropNames = names.length > 0 ? new Set(names) : null
     }
   }
-
-  const propNames = ctx._destructuredPropNames
-  if (!propNames) return undefined
-
-  // Walk AST to find which prop names are actually used as value references
-  const foundPropRefs = new Set<string>()
-  const names = propNames
-  function visit(node: ts.Node, parent?: ts.Node) {
-    if (ts.isIdentifier(node) && names.has(node.text)) {
-      // Skip: object literal key  { org: ... }
-      if (parent && ts.isPropertyAssignment(parent) && parent.name === node) return
-      // Skip: shorthand property  { org }
-      if (parent && ts.isShorthandPropertyAssignment(parent) && parent.name === node) return
-      // Skip: property access name  foo.org
-      if (parent && ts.isPropertyAccessExpression(parent) && parent.name === node) return
-      foundPropRefs.add(node.text)
-    }
-    ts.forEachChild(node, child => visit(child, node))
-  }
-  visit(expr)
-  if (foundPropRefs.size === 0) return undefined
-
-  // Apply targeted regex replacement only for AST-identified prop ref names
-  let result = text
-  for (const propName of foundPropRefs) {
-    const pattern = new RegExp(`(?<!${PROPS_PARAM}\\.)(?<!['"\\w.-])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
-    result = result.replace(pattern, (match, offset, str) => {
-      // Skip object literal keys: preceded by { or , and followed by :
-      const after = str.slice(offset + match.length)
-      if (/^\s*:(?!:)/.test(after)) {
-        const before = str.slice(0, offset)
-        if (/[{,]\s*$/.test(before)) return match
-      }
-      return `${PROPS_PARAM}.${propName}`
-    })
-  }
-  return result
+  if (!ctx._destructuredPropNames) return undefined
+  return rewriteBarePropRefsCore(text, expr, ctx._destructuredPropNames)
 }
 
 function createTransformContext(analyzer: AnalyzerContext): TransformContext {

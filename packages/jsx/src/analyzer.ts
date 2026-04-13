@@ -7,7 +7,7 @@
 
 import ts from 'typescript'
 import type { ImportSpecifier, TypeInfo, ParamInfo } from './types'
-import { PROPS_PARAM } from './ir-to-client-js/utils'
+import { rewriteBarePropRefs } from './prop-rewrite'
 import {
   type AnalyzerContext,
   type ConditionalReturn,
@@ -1020,10 +1020,7 @@ function collectConstant(
   if (value && !ctx.propsObjectName && ctx.propsParams.length > 0 && node.initializer) {
     const propNames = new Set(ctx.propsParams.map(p => p.name))
     if (propNames.size > 0) {
-      const rewritten = rewriteBarePropRefsInNode(value, node.initializer, propNames)
-      if (rewritten !== value) {
-        templateValue = rewritten
-      }
+      templateValue = rewriteBarePropRefs(value, node.initializer, propNames)
     }
   }
 
@@ -1043,49 +1040,6 @@ function collectConstant(
     systemConstructKind,
     templateValue,
   })
-}
-
-// =============================================================================
-// Prop Reference Rewriting (for template inlining)
-// =============================================================================
-
-/**
- * Rewrite bare destructured prop references in expression text using AST context.
- * Standalone version for the analyzer (no TransformContext dependency).
- */
-function rewriteBarePropRefsInNode(
-  text: string,
-  node: ts.Node,
-  propNames: Set<string>,
-): string {
-  // Walk AST to find which prop names are actually used as value references
-  const foundPropRefs = new Set<string>()
-  function visit(n: ts.Node, parent?: ts.Node) {
-    if (ts.isIdentifier(n) && propNames.has(n.text)) {
-      if (parent && ts.isPropertyAssignment(parent) && parent.name === n) return
-      if (parent && ts.isShorthandPropertyAssignment(parent) && parent.name === n) return
-      if (parent && ts.isPropertyAccessExpression(parent) && parent.name === n) return
-      foundPropRefs.add(n.text)
-    }
-    ts.forEachChild(n, child => visit(child, n))
-  }
-  visit(node)
-  if (foundPropRefs.size === 0) return text
-
-  // Apply targeted regex replacement only for AST-identified prop ref names
-  let result = text
-  for (const propName of foundPropRefs) {
-    const pattern = new RegExp(`(?<!${PROPS_PARAM}\\.)(?<!['"\\w.-])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
-    result = result.replace(pattern, (match, offset, str) => {
-      const after = str.slice(offset + match.length)
-      if (/^\s*:(?!:)/.test(after)) {
-        const before = str.slice(0, offset)
-        if (/[{,]\s*$/.test(before)) return match
-      }
-      return `${PROPS_PARAM}.${propName}`
-    })
-  }
-  return result
 }
 
 // =============================================================================
