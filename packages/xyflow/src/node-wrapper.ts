@@ -4,7 +4,7 @@ import {
   onCleanup,
   untrack,
 } from '@barefootjs/client'
-import { updateNodeInternals, updateAbsolutePositions } from '@xyflow/system'
+import { updateNodeInternals, updateAbsolutePositions, calcAutoPan } from '@xyflow/system'
 import type {
   NodeBase,
   InternalNodeBase,
@@ -157,20 +157,16 @@ export function createNodeWrapper<NodeType extends NodeBase>(
           ),
         )
 
-        const onMouseMove = (e: MouseEvent) => {
-          if (!dragging) return
+        // Auto-pan state: pan viewport when dragging near container edges
+        let autoPanId = 0
+        let lastMouseX = 0
+        let lastMouseY = 0
+        let autoPanDx = 0
+        let autoPanDy = 0
 
-          const [, , scale] = store.getTransform()
-          const dx = (e.clientX - startMouseX) / scale
-          const dy = (e.clientY - startMouseY) / scale
-
-          const newX = startNodeX + dx
-          const newY = startNodeY + dy
-
-          // Update DOM directly for immediate visual feedback
+        function updateNodePosition(newX: number, newY: number) {
           element.style.transform = `translate(${newX}px, ${newY}px)`
 
-          // Mutate internal state in-place (no array copy)
           const lookup = untrack(store.nodeLookup)
           const node = lookup.get(internalNode.id)
           if (node) {
@@ -178,8 +174,6 @@ export function createNodeWrapper<NodeType extends NodeBase>(
             node.internals.userNode.position = { x: newX, y: newY }
           }
 
-          // If this is a parent node, recompute child absolute positions
-          // so they follow the parent during drag.
           const parents = untrack(store.parentLookup)
           if (parents.has(internalNode.id)) {
             updateAbsolutePositions(lookup, parents, {
@@ -188,9 +182,6 @@ export function createNodeWrapper<NodeType extends NodeBase>(
             })
           }
 
-          // Notify edge renderer and other position subscribers via
-          // lightweight epoch bump (rAF-throttled). This avoids the
-          // full adoptUserNodes pipeline that setNodes would trigger.
           if (!rafId) {
             rafId = requestAnimationFrame(() => {
               rafId = 0
@@ -199,16 +190,61 @@ export function createNodeWrapper<NodeType extends NodeBase>(
           }
         }
 
-        const onMouseUp = (e: MouseEvent) => {
-          dragging = false
-          element.style.cursor = 'grab'
-          if (rafId) { cancelAnimationFrame(rafId); rafId = 0 }
+        function autoPanTick() {
+          if (!dragging) return
+          const container = untrack(store.domNode)
+          if (!container) return
+
+          const containerBounds = container.getBoundingClientRect()
+          const mousePos = { x: lastMouseX - containerBounds.left, y: lastMouseY - containerBounds.top }
+          const [xMovement, yMovement] = calcAutoPan(mousePos, containerBounds)
+
+          if (xMovement !== 0 || yMovement !== 0) {
+            const [, , scale] = store.getTransform()
+            // Track auto-pan offset in flow space
+            autoPanDx -= xMovement / scale
+            autoPanDy -= yMovement / scale
+
+            store.panByDelta({ x: xMovement, y: yMovement })
+
+            // Recompute node position including auto-pan offset
+            const dx = (lastMouseX - startMouseX) / scale
+            const dy = (lastMouseY - startMouseY) / scale
+            updateNodePosition(startNodeX + dx + autoPanDx, startNodeY + dy + autoPanDy)
+          }
+
+          autoPanId = requestAnimationFrame(autoPanTick)
+        }
+
+        const onMouseMove = (e: MouseEvent) => {
+          if (!dragging) return
+
+          lastMouseX = e.clientX
+          lastMouseY = e.clientY
 
           const [, , scale] = store.getTransform()
           const dx = (e.clientX - startMouseX) / scale
           const dy = (e.clientY - startMouseY) / scale
-          const finalX = startNodeX + dx
-          const finalY = startNodeY + dy
+
+          updateNodePosition(startNodeX + dx + autoPanDx, startNodeY + dy + autoPanDy)
+
+          // Start auto-pan loop if not already running
+          if (!autoPanId) {
+            autoPanId = requestAnimationFrame(autoPanTick)
+          }
+        }
+
+        const onMouseUp = (e: MouseEvent) => {
+          dragging = false
+          element.style.cursor = 'grab'
+          if (rafId) { cancelAnimationFrame(rafId); rafId = 0 }
+          if (autoPanId) { cancelAnimationFrame(autoPanId); autoPanId = 0 }
+
+          const [, , scale] = store.getTransform()
+          const dx = (e.clientX - startMouseX) / scale
+          const dy = (e.clientY - startMouseY) / scale
+          const finalX = startNodeX + dx + autoPanDx
+          const finalY = startNodeY + dy + autoPanDy
 
           // Commit final position to the nodes array so that
           // adoptUserNodes picks it up correctly.
