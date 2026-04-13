@@ -7,6 +7,17 @@ export { createEdgeRenderer, createEdgeLabelRenderer } from './edge-renderer'
 export { createHandle, initHandle } from './handle'
 export type { HandleType, HandleProps } from './handle'
 export { attachConnectionHandler, attachReconnectionHandler } from './connection'
+export { initNodeResizer, ResizeControlVariant } from './node-resizer'
+export type {
+  NodeResizerOptions,
+  ControlPosition,
+  ControlLinePosition,
+  OnResize,
+  OnResizeStart,
+  OnResizeEnd,
+  ShouldResize,
+  ResizeControlDirection,
+} from './node-resizer'
 export { useFlow, useViewport, useNodes, useEdges, useNodesInitialized } from './hooks'
 export { setupKeyboardHandlers, setupNodeSelection, setupSelectionRectangle } from './selection'
 export type { SelectionRectOptions } from './selection'

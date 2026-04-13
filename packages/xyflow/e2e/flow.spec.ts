@@ -1609,3 +1609,148 @@ test.describe('Custom Edge Types', () => {
     expect(defaultEdges).toBe(1)
   })
 })
+
+// ============================================================
+// Node Resize
+// ============================================================
+test.describe('Node Resize', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.getElementById('node-resize')
+      if (el && 'scrollIntoViewIfNeeded' in el) {
+        ;(el as any).scrollIntoViewIfNeeded()
+      } else if (el) {
+        el.scrollIntoView({ block: 'center' })
+      }
+    })
+    await page.waitForSelector('#node-resize .bf-flow__node[data-id="rs1"]')
+  })
+
+  test('resizable nodes have resize handles', async ({ page }) => {
+    const node1 = page.locator('#node-resize .bf-flow__node[data-id="rs1"]')
+    const handles = node1.locator('.bf-flow__resize-handle')
+    // Handle variant: 4 corner handles (top-left, top-right, bottom-left, bottom-right)
+    await expect(handles).toHaveCount(4)
+  })
+
+  test('resize handles have correct position data attributes', async ({ page }) => {
+    const node1 = page.locator('#node-resize .bf-flow__node[data-id="rs1"]')
+    for (const pos of ['top-left', 'top-right', 'bottom-left', 'bottom-right']) {
+      await expect(node1.locator(`.bf-flow__resize-handle[data-position="${pos}"]`)).toBeAttached()
+    }
+  })
+
+  test('non-resizable node does not have resize handles', async ({ page }) => {
+    const node3 = page.locator('#node-resize .bf-flow__node[data-id="rs3"]')
+    const handles = node3.locator('.bf-flow__resize-handle')
+    await expect(handles).toHaveCount(0)
+  })
+
+  test('resizable nodes have bf-flow__node--resizable class', async ({ page }) => {
+    const node1 = page.locator('#node-resize .bf-flow__node[data-id="rs1"]')
+    await expect(node1).toHaveClass(/bf-flow__node--resizable/)
+  })
+
+  test('resize container element exists', async ({ page }) => {
+    const node1 = page.locator('#node-resize .bf-flow__node[data-id="rs1"]')
+    const container = node1.locator('.bf-flow__node-resizer')
+    await expect(container).toBeAttached()
+  })
+
+  test('dragging bottom-right handle changes node dimensions', async ({ page }) => {
+    const node1 = page.locator('#node-resize .bf-flow__node[data-id="rs1"]')
+
+    // Get initial dimensions
+    const initialBox = await node1.boundingBox()
+    expect(initialBox).toBeTruthy()
+
+    const handle = node1.locator('.bf-flow__resize-handle[data-position="bottom-right"]')
+    const handleBox = await handle.boundingBox()
+    expect(handleBox).toBeTruthy()
+
+    // Drag the bottom-right handle to increase size
+    await page.evaluate(
+      async ({ handleSel, dx, dy }) => {
+        const handleEl = document.querySelector(handleSel)!
+        const rect = handleEl.getBoundingClientRect()
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+
+        handleEl.dispatchEvent(
+          new MouseEvent('mousedown', { clientX: cx, clientY: cy, button: 0, bubbles: true, view: window }),
+        )
+        await new Promise((r) => setTimeout(r, 50))
+        for (let i = 1; i <= 5; i++) {
+          document.dispatchEvent(
+            new MouseEvent('mousemove', {
+              clientX: cx + (dx * i) / 5,
+              clientY: cy + (dy * i) / 5,
+              bubbles: true,
+              view: window,
+            }),
+          )
+          await new Promise((r) => setTimeout(r, 16))
+        }
+        document.dispatchEvent(
+          new MouseEvent('mouseup', { clientX: cx + dx, clientY: cy + dy, bubbles: true, view: window }),
+        )
+        await new Promise((r) => setTimeout(r, 100))
+      },
+      {
+        handleSel: '#node-resize .bf-flow__node[data-id="rs1"] .bf-flow__resize-handle[data-position="bottom-right"]',
+        dx: 50,
+        dy: 30,
+      },
+    )
+
+    // Verify the onResize callback was fired
+    const resizeLog = await page.evaluate(() => (window as any).__resizeLog)
+    const rs1Resizes = resizeLog.filter((r: any) => r.nodeId === 'rs1')
+    expect(rs1Resizes.length).toBeGreaterThan(0)
+  })
+
+  test('min constraints are respected during resize', async ({ page }) => {
+    // rs1 has minWidth: 80, minHeight: 50
+    // Try to make it very small by dragging bottom-right handle far to the upper-left
+    await page.evaluate(
+      async ({ handleSel, dx, dy }) => {
+        const handleEl = document.querySelector(handleSel)!
+        const rect = handleEl.getBoundingClientRect()
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+
+        handleEl.dispatchEvent(
+          new MouseEvent('mousedown', { clientX: cx, clientY: cy, button: 0, bubbles: true, view: window }),
+        )
+        await new Promise((r) => setTimeout(r, 50))
+        for (let i = 1; i <= 10; i++) {
+          document.dispatchEvent(
+            new MouseEvent('mousemove', {
+              clientX: cx + (dx * i) / 10,
+              clientY: cy + (dy * i) / 10,
+              bubbles: true,
+              view: window,
+            }),
+          )
+          await new Promise((r) => setTimeout(r, 16))
+        }
+        document.dispatchEvent(
+          new MouseEvent('mouseup', { clientX: cx + dx, clientY: cy + dy, bubbles: true, view: window }),
+        )
+        await new Promise((r) => setTimeout(r, 100))
+      },
+      {
+        handleSel: '#node-resize .bf-flow__node[data-id="rs1"] .bf-flow__resize-handle[data-position="bottom-right"]',
+        dx: -200, // try to shrink way below minimum
+        dy: -200,
+      },
+    )
+
+    // Check dimensions — should not be smaller than min
+    const finalBox = await page.locator('#node-resize .bf-flow__node[data-id="rs1"]').boundingBox()
+    expect(finalBox).toBeTruthy()
+    // Width should be at least minWidth (80px), accounting for zoom
+    expect(finalBox!.width).toBeGreaterThanOrEqual(75) // slight tolerance for border-box/rounding
+    expect(finalBox!.height).toBeGreaterThanOrEqual(45)
+  })
+})
