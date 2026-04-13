@@ -16,7 +16,7 @@ const adapter = new TestAdapter()
 
 describe('PropReference extraction', () => {
   describe('extractPropReferences via jsxToIR', () => {
-    test('destructured props are pre-transformed to _p.xxx in IR (#807)', () => {
+    test('destructured props do NOT have propRefs (no transformation needed)', () => {
       const source = `
         'use client'
 
@@ -38,8 +38,9 @@ describe('PropReference extraction', () => {
         expect(ir.children).toHaveLength(1)
         const expr = ir.children[0] as IRExpression
         expect(expr.type).toBe('expression')
-        // Bare prop refs are rewritten to _p.xxx in Phase 1 using AST context
-        expect(expr.expr).toBe('_p.open')
+        expect(expr.expr).toBe('open')
+        // Destructured props should NOT have propRefs (captured once, no transformation)
+        expect(expr.propRefs ?? []).toHaveLength(0)
       }
     })
 
@@ -121,7 +122,7 @@ describe('PropReference extraction', () => {
       }
     })
 
-    test('multiple destructured props are pre-transformed in IR', () => {
+    test('multiple destructured props do NOT have propRefs', () => {
       const source = `
         'use client'
 
@@ -144,11 +145,13 @@ describe('PropReference extraction', () => {
         expect(ir.children).toHaveLength(1)
         const expr = ir.children[0] as IRExpression
         expect(expr.type).toBe('expression')
-        expect(expr.expr).toBe("_p.firstName + ' ' + _p.lastName")
+        expect(expr.expr).toBe("firstName + ' ' + lastName")
+        // Destructured props should NOT have propRefs
+        expect(expr.propRefs ?? []).toHaveLength(0)
       }
     })
 
-    test('destructured props with default value are pre-transformed in IR', () => {
+    test('destructured props with default value do NOT have propRefs', () => {
       const source = `
         'use client'
 
@@ -170,13 +173,15 @@ describe('PropReference extraction', () => {
         expect(ir.children).toHaveLength(1)
         const expr = ir.children[0] as IRExpression
         expect(expr.type).toBe('expression')
-        expect(expr.expr).toBe('_p.open')
+        expect(expr.expr).toBe('open')
+        // Destructured props should NOT have propRefs
+        expect(expr.propRefs ?? []).toHaveLength(0)
       }
     })
   })
 
   describe('IRConditional with conditionPropRefs', () => {
-    test('destructured props in ternary condition are pre-transformed in IR', () => {
+    test('destructured props in ternary condition do NOT have conditionPropRefs', () => {
       const source = `
         'use client'
 
@@ -198,7 +203,9 @@ describe('PropReference extraction', () => {
         expect(ir.children).toHaveLength(1)
         const cond = ir.children[0] as IRConditional
         expect(cond.type).toBe('conditional')
-        expect(cond.condition).toBe('_p.open')
+        expect(cond.condition).toBe('open')
+        // Destructured props should NOT have conditionPropRefs
+        expect(cond.conditionPropRefs ?? []).toHaveLength(0)
       }
     })
   })
