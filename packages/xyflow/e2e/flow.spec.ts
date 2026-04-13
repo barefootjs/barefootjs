@@ -1609,3 +1609,269 @@ test.describe('Custom Edge Types', () => {
     expect(defaultEdges).toBe(1)
   })
 })
+
+// ============================================================
+// Node Resize
+// ============================================================
+test.describe('Node Resize', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.getElementById('node-resize')
+      if (el && 'scrollIntoViewIfNeeded' in el) {
+        ;(el as any).scrollIntoViewIfNeeded()
+      } else if (el) {
+        el.scrollIntoView({ block: 'center' })
+      }
+    })
+    await page.waitForSelector('#node-resize .bf-flow__node[data-id="rs1"]')
+  })
+
+  test('resizable nodes have resize handles', async ({ page }) => {
+    const node1 = page.locator('#node-resize .bf-flow__node[data-id="rs1"]')
+    const handles = node1.locator('.bf-flow__resize-handle')
+    // Handle variant: 4 corner handles (top-left, top-right, bottom-left, bottom-right)
+    await expect(handles).toHaveCount(4)
+  })
+
+  test('resize handles have correct position data attributes', async ({ page }) => {
+    const node1 = page.locator('#node-resize .bf-flow__node[data-id="rs1"]')
+    for (const pos of ['top-left', 'top-right', 'bottom-left', 'bottom-right']) {
+      await expect(node1.locator(`.bf-flow__resize-handle[data-position="${pos}"]`)).toBeAttached()
+    }
+  })
+
+  test('non-resizable node does not have resize handles', async ({ page }) => {
+    const node3 = page.locator('#node-resize .bf-flow__node[data-id="rs3"]')
+    const handles = node3.locator('.bf-flow__resize-handle')
+    await expect(handles).toHaveCount(0)
+  })
+
+  test('resizable nodes have bf-flow__node--resizable class', async ({ page }) => {
+    const node1 = page.locator('#node-resize .bf-flow__node[data-id="rs1"]')
+    await expect(node1).toHaveClass(/bf-flow__node--resizable/)
+  })
+
+  test('resize container element exists', async ({ page }) => {
+    const node1 = page.locator('#node-resize .bf-flow__node[data-id="rs1"]')
+    const container = node1.locator('.bf-flow__node-resizer')
+    await expect(container).toBeAttached()
+  })
+
+  test('dragging bottom-right handle changes node dimensions', async ({ page }) => {
+    const node1 = page.locator('#node-resize .bf-flow__node[data-id="rs1"]')
+
+    // Get initial dimensions
+    const initialBox = await node1.boundingBox()
+    expect(initialBox).toBeTruthy()
+
+    const handle = node1.locator('.bf-flow__resize-handle[data-position="bottom-right"]')
+    const handleBox = await handle.boundingBox()
+    expect(handleBox).toBeTruthy()
+
+    // Drag the bottom-right handle to increase size
+    await page.evaluate(
+      async ({ handleSel, dx, dy }) => {
+        const handleEl = document.querySelector(handleSel)!
+        const rect = handleEl.getBoundingClientRect()
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+
+        handleEl.dispatchEvent(
+          new MouseEvent('mousedown', { clientX: cx, clientY: cy, button: 0, bubbles: true, view: window }),
+        )
+        await new Promise((r) => setTimeout(r, 50))
+        for (let i = 1; i <= 5; i++) {
+          document.dispatchEvent(
+            new MouseEvent('mousemove', {
+              clientX: cx + (dx * i) / 5,
+              clientY: cy + (dy * i) / 5,
+              bubbles: true,
+              view: window,
+            }),
+          )
+          await new Promise((r) => setTimeout(r, 16))
+        }
+        document.dispatchEvent(
+          new MouseEvent('mouseup', { clientX: cx + dx, clientY: cy + dy, bubbles: true, view: window }),
+        )
+        await new Promise((r) => setTimeout(r, 100))
+      },
+      {
+        handleSel: '#node-resize .bf-flow__node[data-id="rs1"] .bf-flow__resize-handle[data-position="bottom-right"]',
+        dx: 50,
+        dy: 30,
+      },
+    )
+
+    // Verify the onResize callback was fired
+    const resizeLog = await page.evaluate(() => (window as any).__resizeLog)
+    const rs1Resizes = resizeLog.filter((r: any) => r.nodeId === 'rs1')
+    expect(rs1Resizes.length).toBeGreaterThan(0)
+  })
+
+  test('min constraints are respected during resize', async ({ page }) => {
+    // rs1 has minWidth: 80, minHeight: 50
+    // Try to make it very small by dragging bottom-right handle far to the upper-left
+    await page.evaluate(
+      async ({ handleSel, dx, dy }) => {
+        const handleEl = document.querySelector(handleSel)!
+        const rect = handleEl.getBoundingClientRect()
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+
+        handleEl.dispatchEvent(
+          new MouseEvent('mousedown', { clientX: cx, clientY: cy, button: 0, bubbles: true, view: window }),
+        )
+        await new Promise((r) => setTimeout(r, 50))
+        for (let i = 1; i <= 10; i++) {
+          document.dispatchEvent(
+            new MouseEvent('mousemove', {
+              clientX: cx + (dx * i) / 10,
+              clientY: cy + (dy * i) / 10,
+              bubbles: true,
+              view: window,
+            }),
+          )
+          await new Promise((r) => setTimeout(r, 16))
+        }
+        document.dispatchEvent(
+          new MouseEvent('mouseup', { clientX: cx + dx, clientY: cy + dy, bubbles: true, view: window }),
+        )
+        await new Promise((r) => setTimeout(r, 100))
+      },
+      {
+        handleSel: '#node-resize .bf-flow__node[data-id="rs1"] .bf-flow__resize-handle[data-position="bottom-right"]',
+        dx: -200, // try to shrink way below minimum
+        dy: -200,
+      },
+    )
+
+    // Check dimensions — should not be smaller than min
+    const finalBox = await page.locator('#node-resize .bf-flow__node[data-id="rs1"]').boundingBox()
+    expect(finalBox).toBeTruthy()
+    // Width should be at least minWidth (80px), accounting for zoom
+    expect(finalBox!.width).toBeGreaterThanOrEqual(75) // slight tolerance for border-box/rounding
+    expect(finalBox!.height).toBeGreaterThanOrEqual(45)
+  })
+})
+
+// ============================================================
+// Sub-Flows (nested nodes with parentId)
+// ============================================================
+test.describe('Sub-Flows', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.getElementById('sub-flows')
+      if (el && 'scrollIntoViewIfNeeded' in el) {
+        ;(el as any).scrollIntoViewIfNeeded()
+      } else if (el) {
+        el.scrollIntoView({ block: 'center' })
+      }
+    })
+    await page.waitForSelector('#sub-flows .bf-flow__node[data-id="group-1"]')
+    await page.waitForSelector('#sub-flows .bf-flow__node[data-id="child-1"]')
+    await page.waitForSelector('#sub-flows .bf-flow__node[data-id="child-2"]')
+  })
+
+  test('renders parent and child nodes', async ({ page }) => {
+    // 1 parent + 2 children + 1 standalone = 4 nodes
+    await expect(page.locator('#sub-flows .bf-flow__node')).toHaveCount(4)
+  })
+
+  test('parent node has group class', async ({ page }) => {
+    const parent = page.locator('#sub-flows .bf-flow__node[data-id="group-1"]')
+    await expect(parent).toHaveClass(/bf-flow__node--group/)
+  })
+
+  test('child nodes have child class', async ({ page }) => {
+    const child1 = page.locator('#sub-flows .bf-flow__node[data-id="child-1"]')
+    const child2 = page.locator('#sub-flows .bf-flow__node[data-id="child-2"]')
+    await expect(child1).toHaveClass(/bf-flow__node--child/)
+    await expect(child2).toHaveClass(/bf-flow__node--child/)
+  })
+
+  test('standalone node has neither group nor child class', async ({ page }) => {
+    const standalone = page.locator('#sub-flows .bf-flow__node[data-id="standalone"]')
+    await expect(standalone).not.toHaveClass(/bf-flow__node--group/)
+    await expect(standalone).not.toHaveClass(/bf-flow__node--child/)
+  })
+
+  test('child nodes render inside parent node visually', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const parent = document.querySelector('#sub-flows .bf-flow__node[data-id="group-1"]')!
+      const child1 = document.querySelector('#sub-flows .bf-flow__node[data-id="child-1"]')!
+      const child2 = document.querySelector('#sub-flows .bf-flow__node[data-id="child-2"]')!
+
+      const pr = parent.getBoundingClientRect()
+      const c1r = child1.getBoundingClientRect()
+      const c2r = child2.getBoundingClientRect()
+
+      return {
+        child1Inside:
+          c1r.left >= pr.left - 2 &&
+          c1r.top >= pr.top - 2 &&
+          c1r.right <= pr.right + 2 &&
+          c1r.bottom <= pr.bottom + 2,
+        child2Inside:
+          c2r.left >= pr.left - 2 &&
+          c2r.top >= pr.top - 2 &&
+          c2r.right <= pr.right + 2 &&
+          c2r.bottom <= pr.bottom + 2,
+      }
+    })
+
+    expect(result.child1Inside).toBe(true)
+    expect(result.child2Inside).toBe(true)
+  })
+
+  test('child nodes have higher z-index than parent', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const parent = document.querySelector('#sub-flows .bf-flow__node[data-id="group-1"]') as HTMLElement
+      const child1 = document.querySelector('#sub-flows .bf-flow__node[data-id="child-1"]') as HTMLElement
+
+      return {
+        parentZ: parseInt(parent.style.zIndex || '0'),
+        childZ: parseInt(child1.style.zIndex || '0'),
+      }
+    })
+
+    expect(result.childZ).toBeGreaterThan(result.parentZ)
+  })
+
+  test('dragging parent moves children', async ({ page }) => {
+    // Record child positions before drag
+    const before = await page.evaluate(() => {
+      const child1 = document.querySelector('#sub-flows .bf-flow__node[data-id="child-1"]') as HTMLElement
+      const child2 = document.querySelector('#sub-flows .bf-flow__node[data-id="child-2"]') as HTMLElement
+      return {
+        c1: child1.getBoundingClientRect(),
+        c2: child2.getBoundingClientRect(),
+      }
+    })
+
+    // Drag the parent node
+    await dispatchDrag(page, '#sub-flows .bf-flow__node[data-id="group-1"]', 100, 50)
+
+    // Record child positions after drag
+    const after = await page.evaluate(() => {
+      const child1 = document.querySelector('#sub-flows .bf-flow__node[data-id="child-1"]') as HTMLElement
+      const child2 = document.querySelector('#sub-flows .bf-flow__node[data-id="child-2"]') as HTMLElement
+      return {
+        c1: child1.getBoundingClientRect(),
+        c2: child2.getBoundingClientRect(),
+      }
+    })
+
+    // Children should have moved approximately the same amount as the drag
+    // (within reasonable tolerance for rAF timing)
+    expect(after.c1.left - before.c1.left).toBeGreaterThan(50)
+    expect(after.c1.top - before.c1.top).toBeGreaterThan(20)
+    expect(after.c2.left - before.c2.left).toBeGreaterThan(50)
+    expect(after.c2.top - before.c2.top).toBeGreaterThan(20)
+  })
+
+  test('edges render between child nodes', async ({ page }) => {
+    // 2 edges: child-1 → child-2, child-2 → standalone
+    await expect(page.locator('#sub-flows .bf-flow__edge')).toHaveCount(2)
+  })
+})

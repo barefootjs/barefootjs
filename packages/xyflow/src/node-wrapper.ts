@@ -4,7 +4,7 @@ import {
   onCleanup,
   untrack,
 } from '@barefootjs/client'
-import { updateNodeInternals } from '@xyflow/system'
+import { updateNodeInternals, updateAbsolutePositions } from '@xyflow/system'
 import type {
   NodeBase,
   InternalNodeBase,
@@ -49,6 +49,17 @@ export function createNodeWrapper<NodeType extends NodeBase>(
     element.style.position = 'absolute'
     element.style.transformOrigin = '0 0'
     element.style.pointerEvents = 'all'
+
+    // Sub-flow classes: parent (group) nodes and child nodes
+    const userNode = internalNode.internals.userNode
+    const isParentNode = store.parentLookup().has(internalNode.id)
+    const isChildNode = !!userNode.parentId
+    if (isParentNode) {
+      element.classList.add('bf-flow__node--group')
+    }
+    if (isChildNode) {
+      element.classList.add('bf-flow__node--child')
+    }
 
     // Toggle nopan class based on interactivity and draggability:
     // - nopan ON: D3 zoom won't pan when dragging on this node (node drag works)
@@ -167,6 +178,16 @@ export function createNodeWrapper<NodeType extends NodeBase>(
             node.internals.userNode.position = { x: newX, y: newY }
           }
 
+          // If this is a parent node, recompute child absolute positions
+          // so they follow the parent during drag.
+          const parents = untrack(store.parentLookup)
+          if (parents.has(internalNode.id)) {
+            updateAbsolutePositions(lookup, parents, {
+              nodeOrigin: store.nodeOrigin,
+              nodeExtent: store.nodeExtent,
+            })
+          }
+
           // Notify edge renderer and other position subscribers via
           // lightweight epoch bump (rAF-throttled). This avoids the
           // full adoptUserNodes pipeline that setNodes would trigger.
@@ -228,6 +249,11 @@ export function createNodeWrapper<NodeType extends NodeBase>(
 
       // Selection styling — toggle CSS class (styled via injected stylesheet)
       element.classList.toggle('bf-flow__node--selected', !!current.selected)
+
+      // Sub-flow classes — update dynamically as parentLookup may change
+      const parents = store.parentLookup()
+      element.classList.toggle('bf-flow__node--group', parents.has(internalNode.id))
+      element.classList.toggle('bf-flow__node--child', !!current.internals.userNode.parentId)
     })
 
     onCleanup(() => {
@@ -313,7 +339,18 @@ function renderNodeContent<NodeType extends NodeBase>(
   }
 
   // Default rendering — styled via injected CSS (.bf-flow__node class)
-  el.style.width = '150px'
+  // Group (parent) nodes get larger default size to contain children.
+  // Use width/height from the node definition if provided, otherwise defaults.
+  const parentLookup = store.parentLookup()
+  const isGroup = parentLookup.has(node.id)
+  const userNode = node.internals.userNode
+  if (isGroup) {
+    el.style.width = userNode.width ? `${userNode.width}px` : '300px'
+    el.style.height = userNode.height ? `${userNode.height}px` : '200px'
+  } else {
+    el.style.width = userNode.width ? `${userNode.width}px` : '150px'
+    if (userNode.height) el.style.height = `${userNode.height}px`
+  }
 
   const data = node.internals.userNode.data as Record<string, unknown>
   const label = data?.label ?? node.id
