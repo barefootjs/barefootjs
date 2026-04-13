@@ -105,17 +105,11 @@ export function attachConnectionHandler<
 
       // Clear previous handle's validation classes
       if (lastHoveredHandle && lastHoveredHandle !== hoveredHandle) {
-        lastHoveredHandle.classList.remove('valid', 'invalid')
+        lastHoveredHandle.classList.remove('invalid')
       }
-
-      // Only validate handles of the opposite type (source→target, target→source)
-      const isOppositeType = hoveredHandle &&
-        ((handleType === 'source' && hoveredHandle.classList.contains('bf-flow__handle--target')) ||
-         (handleType === 'target' && hoveredHandle.classList.contains('bf-flow__handle--source')))
 
       if (
         hoveredHandle &&
-        isOppositeType &&
         hoveredHandle !== handleEl &&
         hoveredHandle.dataset.nodeId &&
         hoveredHandle.dataset.nodeId !== nodeId
@@ -123,8 +117,8 @@ export function attachConnectionHandler<
         const conn = buildConnection(nodeId, hoveredHandle.dataset.nodeId, handleType)
         const isValid = checkConnectionValidity(store, conn)
 
-        hoveredHandle.classList.remove('valid', 'invalid')
-        hoveredHandle.classList.add(isValid ? 'valid' : 'invalid')
+        hoveredHandle.classList.remove('invalid')
+        if (!isValid) hoveredHandle.classList.add('invalid')
         lastHoveredHandle = hoveredHandle
       } else {
         lastHoveredHandle = null
@@ -137,7 +131,7 @@ export function attachConnectionHandler<
 
       // Clean up validation classes from any hovered handle
       if (lastHoveredHandle) {
-        lastHoveredHandle.classList.remove('valid', 'invalid')
+        lastHoveredHandle.classList.remove('invalid')
       }
 
       // Check if released on a target handle
@@ -269,7 +263,7 @@ export function attachReconnectionHandler<
       const hoveredHandle = hoverEl?.closest?.('.bf-flow__handle') as HTMLElement | null
 
       if (lastHoveredHandle && lastHoveredHandle !== hoveredHandle) {
-        lastHoveredHandle.classList.remove('valid', 'invalid')
+        lastHoveredHandle.classList.remove('invalid')
       }
 
       if (
@@ -284,8 +278,8 @@ export function attachReconnectionHandler<
           : { source: anchorNodeId, target: hoveredNodeId, sourceHandle: null, targetHandle: null }
 
         const isValid = checkConnectionValidity(store, conn)
-        hoveredHandle.classList.remove('valid', 'invalid')
-        hoveredHandle.classList.add(isValid ? 'valid' : 'invalid')
+        hoveredHandle.classList.remove('invalid')
+        if (!isValid) hoveredHandle.classList.add('invalid')
         lastHoveredHandle = hoveredHandle
       } else {
         lastHoveredHandle = null
@@ -297,7 +291,7 @@ export function attachReconnectionHandler<
       document.removeEventListener('mouseup', onMouseUp)
 
       if (lastHoveredHandle) {
-        lastHoveredHandle.classList.remove('valid', 'invalid')
+        lastHoveredHandle.classList.remove('invalid')
       }
 
       // Restore the original edge appearance
