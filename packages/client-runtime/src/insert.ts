@@ -9,7 +9,7 @@
 import { createEffect } from '@barefootjs/client'
 import { find } from './query'
 import { setParentScopeId, parseHTML } from './component'
-import { BF_COND, BF_SCOPE, BF_CHILD_PREFIX } from './attrs'
+import { BF_COND, BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
 
 /**
  * Branch configuration for conditional rendering.

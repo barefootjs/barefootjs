@@ -5,7 +5,7 @@
  * Maps an element to its comment node and the sibling range boundary.
  */
 
-import { BF_SCOPE_COMMENT_PREFIX } from './attrs'
+import { BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
 
 /**
  * Information about a comment-based scope.

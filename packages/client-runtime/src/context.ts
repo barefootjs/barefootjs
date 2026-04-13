@@ -12,7 +12,7 @@
  * A global store is kept as fallback for non-scoped usage.
  */
 
-import { BF_PORTAL_OWNER, BF_SCOPE, BF_CHILD_PREFIX } from './attrs'
+import { BF_PORTAL_OWNER, BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
 
 export type Context<T> = {
   readonly id: symbol

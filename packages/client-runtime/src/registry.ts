@@ -5,7 +5,7 @@
  * Each component registers its init function so parents can initialize children with props.
  */
 
-import { BF_SCOPE, BF_CHILD_PREFIX } from './attrs'
+import { BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
 import { hydratedScopes } from './hydration-state'
 import { setCurrentScope } from './context'
 import type { InitFn } from './types'

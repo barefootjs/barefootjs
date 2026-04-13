@@ -13,7 +13,7 @@
 
 import { createSignal, createEffect, createRoot } from '@barefootjs/client'
 import { hydratedScopes } from './hydration-state'
-import { BF_KEY, BF_LOOP_START, BF_LOOP_END } from './attrs'
+import { BF_KEY, BF_LOOP_START, BF_LOOP_END } from '@barefootjs/shared'
 
 type ItemScope<T> = {
   element: HTMLElement

@@ -8,7 +8,7 @@
 
 import { commentScopeRegistry, getCommentScopeBoundary } from './scope'
 import { hydratedScopes } from './hydration-state'
-import { BF_SCOPE, BF_SLOT, BF_CHILD_PREFIX, BF_PORTAL_OWNER, BF_PARENT_OWNED_PREFIX, BF_SCOPE_COMMENT_PREFIX } from './attrs'
+import { BF_SCOPE, BF_SLOT, BF_CHILD_PREFIX, BF_PORTAL_OWNER, BF_PARENT_OWNED_PREFIX, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
 
 // --- helpers ---
 

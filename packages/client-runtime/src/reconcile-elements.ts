@@ -6,7 +6,7 @@
  */
 
 import { hydratedScopes } from './hydration-state'
-import { BF_SCOPE, BF_SLOT, BF_COND, BF_KEY, BF_LOOP_START, BF_LOOP_END } from './attrs'
+import { BF_SCOPE, BF_SLOT, BF_COND, BF_KEY, BF_LOOP_START, BF_LOOP_END } from '@barefootjs/shared'
 
 /** Find loop boundary comment markers in a container. */
 function findLoopMarkers(container: HTMLElement): { startMarker: Comment | null; endMarker: Comment | null } {

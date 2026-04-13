@@ -21,7 +21,7 @@ export {
   unwrap,
 } from '@barefootjs/client'
 
-// Attribute constants
+// Attribute constants (re-exported from @barefootjs/shared for consumer convenience)
 export {
   BF_SCOPE,
   BF_SLOT,
@@ -33,7 +33,7 @@ export {
   BF_ITEM,
   BF_CHILD_PREFIX,
   BF_SCOPE_COMMENT_PREFIX,
-} from './attrs'
+} from '@barefootjs/shared'
 
 // Context API
 export { createContext, useContext, provideContext, setCurrentScope, type Context } from './context'

@@ -9,7 +9,7 @@ import { getTemplate } from './template'
 import { getComponentInit } from './registry'
 import { hydratedScopes } from './hydration-state'
 import { untrack } from '@barefootjs/client'
-import { BF_SCOPE, BF_KEY } from './attrs'
+import { BF_SCOPE, BF_KEY } from '@barefootjs/shared'
 import type { ComponentDef } from './types'
 
 // Parent scope ID context for renderChild() inside insert() branch templates.

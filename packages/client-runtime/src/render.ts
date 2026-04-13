@@ -6,7 +6,7 @@
  * never import this module.
  */
 
-import { BF_SCOPE } from './attrs'
+import { BF_SCOPE } from '@barefootjs/shared'
 import { hydratedScopes } from './hydration-state'
 import type { ComponentDef } from './types'
 

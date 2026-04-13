@@ -9,7 +9,7 @@ import { commentScopeRegistry } from './scope'
 import { hydratedScopes } from './hydration-state'
 import { registerComponent } from './registry'
 import { registerTemplate } from './template'
-import { BF_SCOPE, BF_PROPS, BF_CHILD_PREFIX, BF_SCOPE_COMMENT_PREFIX } from './attrs'
+import { BF_SCOPE, BF_PROPS, BF_CHILD_PREFIX, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
 import type { ComponentDef } from './types'
 
 /**

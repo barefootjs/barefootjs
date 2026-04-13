@@ -7,7 +7,7 @@
  * API inspired by React's createPortal(children, domNode).
  */
 
-import { BF_SCOPE, BF_PORTAL_ID, BF_PORTAL_OWNER, BF_PORTAL_PLACEHOLDER, BF_CHILD_PREFIX } from './attrs'
+import { BF_SCOPE, BF_PORTAL_ID, BF_PORTAL_OWNER, BF_PORTAL_PLACEHOLDER, BF_CHILD_PREFIX } from '@barefootjs/shared'
 import { parseHTML } from './component'
 import { getPortalScopeId } from './scope'
 
