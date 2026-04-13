@@ -391,7 +391,6 @@ function isSingleRootElement(html: string): boolean {
  * Consolidates parameters to prevent argument-passing bugs during recursion.
  */
 export interface TemplateOptions {
-  propNames: Set<string>
   inlinableConstants?: Map<string, string>
   restSpreadNames?: Set<string>
   propsObjectName?: string | null
@@ -413,28 +412,25 @@ export interface TemplateOptions {
  */
 export function irToComponentTemplate(
   node: IRNode,
-  propNames: Set<string>,
   inlinableConstants?: Map<string, string>,
   restSpreadNames?: Set<string>,
   propsObjectName?: string | null
 ): string {
-  return irToComponentTemplateWithOpts(node, { propNames, inlinableConstants, restSpreadNames, propsObjectName, loopDepth: -1 })
+  return irToComponentTemplateWithOpts(node, { inlinableConstants, restSpreadNames, propsObjectName, loopDepth: -1 })
 }
 
 function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): string {
-  const { propNames, inlinableConstants, restSpreadNames, propsObjectName, loopDepth = 0 } = opts
+  const { inlinableConstants, restSpreadNames, propsObjectName, loopDepth = 0 } = opts
   const recurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, opts)
   // Transform expression for client JS template.
-  // When templateExpr is provided (pre-transformed with AST context in Phase 1),
-  // bare prop name prefixing is already done — only constant inlining and
-  // props object normalization are needed. (#807)
+  // Bare prop name prefixing (org → _p.org) is handled by templateExpr
+  // from Phase 1 AST rewrite. Only constant inlining and props object
+  // normalization are done here. (#807)
   const transformExpr = (expr: string, templateExpr?: string): string => {
     const { protect, restore } = createStringProtector()
     let result = protect(templateExpr ?? expr)
 
     // Inline constant references with their resolved values (#343)
-    // Parenthesized to prevent operator precedence issues.
-    // (?<![-.]) avoids matching inside CSS property names (e.g., `width` in `max-width`).
     if (inlinableConstants && inlinableConstants.size > 0) {
       for (const [constName, constValue] of inlinableConstants) {
         result = result.replace(new RegExp(`(?<![-.])\\b${constName}\\b`, 'g'), `(${protect(constValue)})`)
@@ -449,23 +445,6 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
       )
     }
 
-    // Bare prop name prefixing: handled by templateExpr from Phase 1 AST rewrite.
-    // Fallback regex for expressions without templateExpr (e.g., component key props).
-    if (!templateExpr) {
-      for (const propName of propNames) {
-        const pattern = new RegExp(`(?<!${PROPS_PARAM}\\.)(?<!['"\\w.-])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
-        result = result.replace(pattern, (match, offset, str) => {
-          const after = str.slice(offset + match.length)
-          if (/^\s*:(?!:)/.test(after)) {
-            const before = str.slice(0, offset)
-            if (/[{,]\s*$/.test(before)) {
-              return match
-            }
-          }
-          return `${PROPS_PARAM}.${propName}`
-        })
-      }
-    }
     return restore(result)
   }
 
@@ -688,14 +667,12 @@ export function canGenerateStaticTemplate(
  * - Child components use renderChild() for runtime template lookup
  *
  * @param node - IR node to render
- * @param propNames - Set of prop names to prefix with 'props.'
  * @param inlinableConstants - Map of constant names to their resolved values
  * @param signalMap - Map of signal getter names to their initial value expressions
  * @param memoMap - Map of memo names to their computation expressions (with signals already replaced)
  */
 export function generateCsrTemplate(
   node: IRNode,
-  propNames: Set<string>,
   inlinableConstants?: Map<string, string>,
   signalMap?: Map<string, string>,
   memoMap?: Map<string, string>,
@@ -703,11 +680,11 @@ export function generateCsrTemplate(
   restSpreadNames?: Set<string>,
   propsObjectName?: string | null,
 ): string {
-  return generateCsrTemplateWithOpts(node, { propNames, inlinableConstants, restSpreadNames, propsObjectName, signalMap, memoMap, insideLoop, loopDepth: -1 })
+  return generateCsrTemplateWithOpts(node, { inlinableConstants, restSpreadNames, propsObjectName, signalMap, memoMap, insideLoop, loopDepth: -1 })
 }
 
 function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): string {
-  const { propNames, inlinableConstants, restSpreadNames, propsObjectName, signalMap, memoMap, insideLoop, loopDepth = 0 } = opts
+  const { inlinableConstants, restSpreadNames, propsObjectName, signalMap, memoMap, insideLoop, loopDepth = 0 } = opts
   const transformExpr = (expr: string, templateExpr?: string): string => {
     const { protect, restore } = createStringProtector()
     let result = protect(templateExpr ?? expr)
@@ -719,7 +696,7 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
       }
     }
 
-    // Replace memo getter calls with computation expressions: doubled() → ((props.initial ?? 0) * 2)
+    // Replace memo getter calls with computation expressions
     if (memoMap && memoMap.size > 0) {
       for (const [name, computation] of memoMap) {
         result = result.replace(new RegExp(`\\b${name}\\(\\)`, 'g'), `(${protect(computation)})`)
@@ -753,23 +730,6 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
       )
     }
 
-    // Bare prop name prefixing: handled by templateExpr from Phase 1 AST rewrite.
-    // Fallback regex for expressions without templateExpr.
-    if (!templateExpr) {
-      for (const propName of propNames) {
-        const pattern = new RegExp(`(?<!${PROPS_PARAM}\\.)(?<!['"\\w.-])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
-        result = result.replace(pattern, (match, offset, str) => {
-          const after = str.slice(offset + match.length)
-          if (/^\s*:(?!:)/.test(after)) {
-            const before = str.slice(0, offset)
-            if (/[{,]\s*$/.test(before)) {
-              return match
-            }
-          }
-          return `${PROPS_PARAM}.${propName}`
-        })
-      }
-    }
     return restore(result)
   }
 
