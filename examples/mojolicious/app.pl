@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 use Mojolicious::Lite -signatures;
-use lib 'lib';
+use lib '../../packages/mojolicious/lib';
 
 # Load BarefootJS plugin
 plugin 'BarefootJS';
