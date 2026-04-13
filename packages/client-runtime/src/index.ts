@@ -21,19 +21,6 @@ export {
   unwrap,
 } from '@barefootjs/client'
 
-// Attribute constants (re-exported from @barefootjs/shared for consumer convenience)
-export {
-  BF_SCOPE,
-  BF_SLOT,
-  BF_PROPS,
-  BF_COND,
-  BF_PORTAL_OWNER,
-  BF_PORTAL_ID,
-  BF_PORTAL_PLACEHOLDER,
-  BF_ITEM,
-  BF_CHILD_PREFIX,
-  BF_SCOPE_COMMENT_PREFIX,
-} from '@barefootjs/shared'
 
 // Context API
 export { createContext, useContext, provideContext, setCurrentScope, type Context } from './context'
