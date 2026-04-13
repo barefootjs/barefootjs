@@ -194,6 +194,13 @@ export type NodeComponentProps<NodeType extends NodeBase = NodeBase> = {
 }
 
 /**
+ * Selection mode for rectangle selection.
+ * - 'partial': selects nodes that partially overlap the rectangle (default)
+ * - 'full': only selects nodes fully contained in the rectangle
+ */
+export type SelectionMode = 'partial' | 'full'
+
+/**
  * Props for the Flow init function.
  */
 export type FlowProps<
@@ -201,4 +208,8 @@ export type FlowProps<
   EdgeType extends EdgeBase = EdgeBase,
 > = FlowStoreOptions<NodeType, EdgeType> & {
   class?: string
+  /** When true, dragging on empty pane starts selection without Shift key */
+  selectionOnDrag?: boolean
+  /** Selection mode: 'partial' (default) or 'full' */
+  selectionMode?: SelectionMode
 }

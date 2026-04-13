@@ -662,6 +662,200 @@ test.describe('Stress Test (20 nodes)', () => {
 })
 
 // ============================================================
+// Selection Rectangle
+// ============================================================
+test.describe('Selection Rectangle', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(() => {
+      document.getElementById('selection-rect')?.scrollIntoView({ block: 'center' })
+    })
+  })
+
+  test('Shift+drag on empty pane draws selection rectangle', async ({ page }) => {
+    await page.waitForSelector('#selection-rect .bf-flow__node[data-id="sr1"]')
+
+    const rectVisible = await page.evaluate(async () => {
+      const container = document.getElementById('selection-rect')!
+      const cr = container.getBoundingClientRect()
+      // Start drag on empty area (bottom-right corner where no nodes are)
+      const startX = cr.left + cr.width - 50
+      const startY = cr.top + cr.height - 50
+
+      container.dispatchEvent(new MouseEvent('mousedown', {
+        clientX: startX, clientY: startY, button: 0,
+        shiftKey: true, bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 10))
+
+      // Move to create a rectangle
+      document.dispatchEvent(new MouseEvent('mousemove', {
+        clientX: startX + 100, clientY: startY + 50,
+        bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 10))
+
+      // Check if selection rect exists
+      const selRect = container.querySelector('.bf-flow__selection')
+      const exists = selRect !== null
+      const hasSize = selRect
+        ? (parseInt((selRect as HTMLElement).style.width) > 0)
+        : false
+
+      // Release
+      document.dispatchEvent(new MouseEvent('mouseup', {
+        clientX: startX + 100, clientY: startY + 50,
+        bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 10))
+
+      return { exists, hasSize }
+    })
+
+    expect(rectVisible.exists).toBe(true)
+    expect(rectVisible.hasSize).toBe(true)
+  })
+
+  test('releasing mouse removes selection rectangle', async ({ page }) => {
+    await page.waitForSelector('#selection-rect .bf-flow__node[data-id="sr1"]')
+
+    const afterRelease = await page.evaluate(async () => {
+      const container = document.getElementById('selection-rect')!
+      const cr = container.getBoundingClientRect()
+      const startX = cr.left + cr.width - 50
+      const startY = cr.top + cr.height - 50
+
+      container.dispatchEvent(new MouseEvent('mousedown', {
+        clientX: startX, clientY: startY, button: 0,
+        shiftKey: true, bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 10))
+
+      document.dispatchEvent(new MouseEvent('mousemove', {
+        clientX: startX + 100, clientY: startY + 50,
+        bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 10))
+
+      // Release
+      document.dispatchEvent(new MouseEvent('mouseup', {
+        clientX: startX + 100, clientY: startY + 50,
+        bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 50))
+
+      // Check rect is removed
+      return container.querySelector('.bf-flow__selection') === null
+    })
+
+    expect(afterRelease).toBe(true)
+  })
+
+  test('nodes inside selection rectangle become selected', async ({ page }) => {
+    await page.waitForSelector('#selection-rect .bf-flow__node[data-id="sr1"]')
+
+    const result = await page.evaluate(async () => {
+      const container = document.getElementById('selection-rect')!
+      const cr = container.getBoundingClientRect()
+
+      // Drag from top-left to cover sr1 (50,50) and sr3 (50,200) — left column
+      const startX = cr.left + 10
+      const startY = cr.top + 10
+      const endX = cr.left + 220
+      const endY = cr.top + 280
+
+      container.dispatchEvent(new MouseEvent('mousedown', {
+        clientX: startX, clientY: startY, button: 0,
+        shiftKey: true, bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 10))
+
+      // Move in steps for more reliable detection
+      for (let i = 1; i <= 5; i++) {
+        document.dispatchEvent(new MouseEvent('mousemove', {
+          clientX: startX + ((endX - startX) * i) / 5,
+          clientY: startY + ((endY - startY) * i) / 5,
+          bubbles: true, view: window,
+        }))
+        await new Promise((r) => setTimeout(r, 10))
+      }
+
+      // Release
+      document.dispatchEvent(new MouseEvent('mouseup', {
+        clientX: endX, clientY: endY,
+        bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 100))
+
+      // Check which nodes are selected
+      const nodes = container.querySelectorAll('.bf-flow__node')
+      const selected: string[] = []
+      nodes.forEach((n) => {
+        if (n.classList.contains('bf-flow__node--selected')) {
+          selected.push(n.getAttribute('data-id')!)
+        }
+      })
+      return selected
+    })
+
+    // sr1 and sr3 are in the left column, should be selected
+    // sr5 is far right, should not be selected
+    expect(result).toContain('sr1')
+    expect(result).toContain('sr3')
+    expect(result).not.toContain('sr5')
+  })
+})
+
+// ============================================================
+// Selection on Drag
+// ============================================================
+test.describe('Selection on Drag', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(() => {
+      document.getElementById('selection-on-drag')?.scrollIntoView({ block: 'center' })
+    })
+  })
+
+  test('drag without Shift starts selection when selectionOnDrag is true', async ({ page }) => {
+    await page.waitForSelector('#selection-on-drag .bf-flow__node[data-id="sd1"]')
+
+    const result = await page.evaluate(async () => {
+      const container = document.getElementById('selection-on-drag')!
+      const cr = container.getBoundingClientRect()
+
+      // Drag on empty area without Shift
+      const startX = cr.left + cr.width - 50
+      const startY = cr.top + cr.height - 50
+
+      container.dispatchEvent(new MouseEvent('mousedown', {
+        clientX: startX, clientY: startY, button: 0,
+        shiftKey: false, bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 10))
+
+      document.dispatchEvent(new MouseEvent('mousemove', {
+        clientX: startX + 80, clientY: startY + 50,
+        bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 10))
+
+      // Check if selection rect appears
+      const selRect = container.querySelector('.bf-flow__selection')
+      const exists = selRect !== null
+
+      document.dispatchEvent(new MouseEvent('mouseup', {
+        clientX: startX + 80, clientY: startY + 50,
+        bubbles: true, view: window,
+      }))
+      await new Promise((r) => setTimeout(r, 50))
+
+      return exists
+    })
+
+    expect(result).toBe(true)
+  })
+})
+
+// ============================================================
 // Heavy Stress Test (100 nodes, 10x10 grid)
 // ============================================================
 test.describe('Heavy Stress Test (100 nodes)', () => {

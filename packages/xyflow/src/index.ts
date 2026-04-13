@@ -8,7 +8,8 @@ export { createHandle, initHandle } from './handle'
 export type { HandleType, HandleProps } from './handle'
 export { attachConnectionHandler } from './connection'
 export { useFlow, useViewport, useNodes, useEdges, useNodesInitialized } from './hooks'
-export { setupKeyboardHandlers, setupNodeSelection } from './selection'
+export { setupKeyboardHandlers, setupNodeSelection, setupSelectionRectangle } from './selection'
+export type { SelectionRectOptions } from './selection'
 
 // Plugins
 export { initBackground } from './background'
@@ -46,6 +47,7 @@ export type {
   NodeDragItem,
   ConnectionMode,
   NodeComponentProps,
+  SelectionMode,
 } from './types'
 
 // Compat layer (React Flow API shims for desk migration)

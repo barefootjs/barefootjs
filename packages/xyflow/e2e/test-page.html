@@ -30,6 +30,13 @@
 <h2>Stress Test (20 nodes)</h2>
 <div id="stress" class="test-container" style="height:500px"></div>
 
+<h2>Selection Rectangle (Shift+drag)</h2>
+<div id="selection-rect" class="test-container"></div>
+
+<h2>Selection on Drag (drag without Shift)</h2>
+<div id="selection-on-drag" class="test-container"></div>
+
+
 <h2>Heavy Stress Test (100 nodes)</h2>
 <div id="heavy-stress" class="test-container" style="height:600px"></div>
 
@@ -144,6 +151,37 @@ createRoot(() => {
   initFlow(el, { nodes, edges, fitView: true })
   initBackground(el, { variant: 'lines', gap: 30, color: '#f0f0f0' })
   initControls(el, { position: 'top-right' })
+})
+
+// Selection rectangle test — Shift+drag on empty pane
+createRoot(() => {
+  initFlow(document.getElementById('selection-rect'), {
+    nodes: [
+      { id: 'sr1', position: { x: 50, y: 50 }, data: { label: 'Node A' } },
+      { id: 'sr2', position: { x: 250, y: 50 }, data: { label: 'Node B' } },
+      { id: 'sr3', position: { x: 50, y: 200 }, data: { label: 'Node C' } },
+      { id: 'sr4', position: { x: 250, y: 200 }, data: { label: 'Node D' } },
+      { id: 'sr5', position: { x: 500, y: 120 }, data: { label: 'Node E' } },
+    ],
+    edges: [
+      { id: 'esr-ab', source: 'sr1', target: 'sr2' },
+      { id: 'esr-cd', source: 'sr3', target: 'sr4' },
+    ],
+  })
+})
+
+// Selection on drag test — drag without Shift starts selection
+createRoot(() => {
+  initFlow(document.getElementById('selection-on-drag'), {
+    nodes: [
+      { id: 'sd1', position: { x: 50, y: 50 }, data: { label: 'Left' } },
+      { id: 'sd2', position: { x: 250, y: 50 }, data: { label: 'Center' } },
+      { id: 'sd3', position: { x: 450, y: 50 }, data: { label: 'Right' } },
+    ],
+    edges: [],
+    selectionOnDrag: true,
+    selectionMode: 'partial',
+  })
 })
 
 // Heavy stress test — 100 nodes, 180 edges (10x10 grid)
