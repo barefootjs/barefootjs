@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@barefootjs/xyflow E2E Tests</title>
+  <script type="importmap">
+    { "imports": { "@barefootjs/client": "/barefoot-client.js", "@barefootjs/client-runtime": "/barefoot-client-runtime.js", "@barefootjs/xyflow": "/barefoot-xyflow.js" } }
+  </script>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    .test-container { width: 800px; height: 400px; border: 1px solid #ccc; margin: 16px; }
+    h2 { margin: 16px; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<h2>Basic Flow</h2>
+<div id="basic" class="test-container"></div>
+
+<h2>Flow with Plugins</h2>
+<div id="plugins" class="test-container"></div>
+
+<h2>Interaction (drag, select, delete)</h2>
+<div id="interact" class="test-container"></div>
+
+<h2>Edge Properties (hidden, animated)</h2>
+<div id="edge-props" class="test-container"></div>
+
+<h2>Stress Test (20 nodes)</h2>
+<div id="stress" class="test-container" style="height:500px"></div>
+
+<h2>Heavy Stress Test (100 nodes)</h2>
+<div id="heavy-stress" class="test-container" style="height:600px"></div>
+
+<script type="module">
+import { createRoot } from '@barefootjs/client'
+import { initFlow, initBackground, initControls } from '@barefootjs/xyflow'
+
+// Debug: trace mousedown → D3 drag flow
+document.addEventListener('mousedown', (e) => {
+  const node = e.target.closest && e.target.closest('.bf-flow__node')
+  if (node) {
+    console.log('[debug] mousedown on node:', node.dataset.id,
+      'event.view:', e.view === window ? 'window' : e.view,
+      'button:', e.button,
+      'target:', e.target.tagName + '.' + e.target.className)
+    // Check D3 drag state
+    const d3on = node.__on
+    console.log('[debug] D3 __on:', d3on?.map(l => l.type + '.' + l.name))
+  }
+}, true)
+// Also catch errors globally
+window.addEventListener('error', (e) => {
+  console.error('[debug] Uncaught error:', e.message, e.filename, e.lineno)
+})
+
+// Basic Flow
+createRoot(() => {
+  initFlow(document.getElementById('basic'), {
+    nodes: [
+      { id: '1', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+      { id: '2', position: { x: 200, y: 80 }, data: { label: 'Process A' } },
+      { id: '3', position: { x: 200, y: 200 }, data: { label: 'Process B' } },
+      { id: '4', position: { x: 400, y: 130 }, data: { label: 'End' } },
+    ],
+    edges: [
+      { id: 'e1-2', source: '1', target: '2' },
+      { id: 'e1-3', source: '1', target: '3' },
+      { id: 'e2-4', source: '2', target: '4' },
+    ],
+  })
+})
+
+// Flow with plugins
+createRoot(() => {
+  const el = document.getElementById('plugins')
+  initFlow(el, {
+    nodes: [
+      { id: 'a', position: { x: 50, y: 50 }, data: { label: 'Input' } },
+      { id: 'b', position: { x: 250, y: 50 }, data: { label: 'Transform' } },
+      { id: 'c', position: { x: 250, y: 200 }, data: { label: 'Validate' } },
+      { id: 'd', position: { x: 450, y: 120 }, data: { label: 'Output' } },
+    ],
+    edges: [
+      { id: 'ab', source: 'a', target: 'b' },
+      { id: 'ac', source: 'a', target: 'c' },
+      { id: 'bd', source: 'b', target: 'd' },
+      { id: 'cd', source: 'c', target: 'd' },
+    ],
+  })
+  initBackground(el, { variant: 'dots', gap: 20, color: '#e0e0e0' })
+  initControls(el, { position: 'bottom-left' })
+})
+
+// Interaction test — for drag, select, delete
+createRoot(() => {
+  initFlow(document.getElementById('interact'), {
+    nodes: [
+      { id: 'drag1', position: { x: 50, y: 50 }, data: { label: 'Draggable' } },
+      { id: 'drag2', position: { x: 300, y: 50 }, data: { label: 'Also Draggable' } },
+      { id: 'fixed', position: { x: 50, y: 200 }, data: { label: 'Not Draggable' }, draggable: false },
+    ],
+    edges: [
+      { id: 'e-drag', source: 'drag1', target: 'drag2' },
+      { id: 'e-fixed', source: 'drag1', target: 'fixed' },
+    ],
+  })
+})
+
+// Edge properties test — hidden, animated edges
+createRoot(() => {
+  initFlow(document.getElementById('edge-props'), {
+    nodes: [
+      { id: 'ep1', position: { x: 50, y: 50 }, data: { label: 'A' } },
+      { id: 'ep2', position: { x: 250, y: 50 }, data: { label: 'B' } },
+      { id: 'ep3', position: { x: 450, y: 50 }, data: { label: 'C' } },
+      { id: 'ep4', position: { x: 250, y: 200 }, data: { label: 'D' } },
+    ],
+    edges: [
+      { id: 'visible', source: 'ep1', target: 'ep2' },
+      { id: 'hidden-edge', source: 'ep2', target: 'ep3', hidden: true },
+      { id: 'animated-edge', source: 'ep1', target: 'ep4', animated: true },
+    ],
+  })
+})
+
+// Stress test
+createRoot(() => {
+  const el = document.getElementById('stress')
+  const nodes = []
+  const edges = []
+  const cols = 5, rows = 4
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const id = `n${r}-${c}`
+      nodes.push({ id, position: { x: c * 180, y: r * 100 }, data: { label: `Node ${r * cols + c + 1}` } })
+      if (c < cols - 1) edges.push({ id: `e${id}-h`, source: id, target: `n${r}-${c + 1}` })
+      if (r < rows - 1) edges.push({ id: `e${id}-v`, source: id, target: `n${r + 1}-${c}` })
+    }
+  }
+
+  initFlow(el, { nodes, edges, fitView: true })
+  initBackground(el, { variant: 'lines', gap: 30, color: '#f0f0f0' })
+  initControls(el, { position: 'top-right' })
+})
+
+// Heavy stress test — 100 nodes, 180 edges (10x10 grid)
+createRoot(() => {
+  const el = document.getElementById('heavy-stress')
+  const nodes = []
+  const edges = []
+  const cols = 10, rows = 10
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const id = `h${r}-${c}`
+      nodes.push({ id, position: { x: c * 180, y: r * 100 }, data: { label: `N${r * cols + c + 1}` } })
+      if (c < cols - 1) edges.push({ id: `eh${id}-h`, source: id, target: `h${r}-${c + 1}` })
+      if (r < rows - 1) edges.push({ id: `eh${id}-v`, source: id, target: `h${r + 1}-${c}` })
+    }
+  }
+
+  initFlow(el, { nodes, edges, fitView: true })
+  initControls(el, { position: 'top-right' })
+})
+</script>
+</body>
+</html>
