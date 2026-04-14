@@ -330,8 +330,8 @@ export function PivotTableDemo() {
     }
   }
 
-  // Drag handlers
-  const handleDragStart = (fieldId: FieldId) => (e: DragEvent) => {
+  // Drag handlers (non-curried to avoid compiler wrapping issue)
+  const handleDragStart = (e: DragEvent, fieldId: FieldId) => {
     e.dataTransfer!.setData('text/plain', fieldId)
     e.dataTransfer!.effectAllowed = 'move'
   }
@@ -341,7 +341,7 @@ export function PivotTableDemo() {
     e.dataTransfer!.dropEffect = 'move'
   }
 
-  const handleDrop = (zone: AxisZone) => (e: DragEvent) => {
+  const handleDrop = (e: DragEvent, zone: AxisZone) => {
     e.preventDefault()
     const fieldId = e.dataTransfer!.getData('text/plain') as FieldId
     if (fieldId) {
@@ -393,7 +393,7 @@ export function PivotTableDemo() {
         <div
           className="axis-zone axis-zone-available rounded-lg border-2 border-dashed border-muted-foreground/30 p-2 min-h-[72px]"
           onDragOver={handleDragOver}
-          onDrop={handleDrop('available')}
+          onDrop={(e: DragEvent) => handleDrop(e, 'available')}
         >
           <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Available</div>
           <div className="flex flex-wrap gap-1">
@@ -402,7 +402,7 @@ export function PivotTableDemo() {
                 key={f.id}
                 className={`pivot-field pivot-field-${f.id} flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-xs cursor-grab select-none`}
                 draggable={true}
-                onDragStart={handleDragStart(f.id)}
+                onDragStart={(e: DragEvent) => handleDragStart(e, f.id)}
               >
                 <GripVerticalIcon className="w-3 h-3 text-muted-foreground" />
                 {f.label}
@@ -415,7 +415,7 @@ export function PivotTableDemo() {
         <div
           className="axis-zone axis-zone-rows rounded-lg border-2 border-dashed border-blue-300 dark:border-blue-700 p-2 min-h-[72px]"
           onDragOver={handleDragOver}
-          onDrop={handleDrop('rows')}
+          onDrop={(e: DragEvent) => handleDrop(e, 'rows')}
         >
           <div className="text-[10px] font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1.5">Rows</div>
           <div className="flex flex-wrap gap-1">
@@ -427,7 +427,7 @@ export function PivotTableDemo() {
                   key={fid}
                   className={`pivot-field pivot-field-${fid} flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs cursor-grab select-none`}
                   draggable={true}
-                  onDragStart={handleDragStart(fid)}
+                  onDragStart={(e: DragEvent) => handleDragStart(e, fid)}
                 >
                   <GripVerticalIcon className="w-3 h-3 opacity-60" />
                   {f.label}
@@ -448,7 +448,7 @@ export function PivotTableDemo() {
         <div
           className="axis-zone axis-zone-columns rounded-lg border-2 border-dashed border-purple-300 dark:border-purple-700 p-2 min-h-[72px]"
           onDragOver={handleDragOver}
-          onDrop={handleDrop('columns')}
+          onDrop={(e: DragEvent) => handleDrop(e, 'columns')}
         >
           <div className="text-[10px] font-medium text-purple-600 dark:text-purple-400 uppercase tracking-wide mb-1.5">Columns</div>
           <div className="flex flex-wrap gap-1">
@@ -456,7 +456,7 @@ export function PivotTableDemo() {
               <div
                 className={`pivot-field pivot-field-${columnField()} flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs cursor-grab select-none`}
                 draggable={true}
-                onDragStart={handleDragStart(columnField() as FieldId)}
+                onDragStart={(e: DragEvent) => handleDragStart(e, columnField() as FieldId)}
               >
                 <GripVerticalIcon className="w-3 h-3 opacity-60" />
                 {columnLabel()}
@@ -476,14 +476,14 @@ export function PivotTableDemo() {
         <div
           className="axis-zone axis-zone-values rounded-lg border-2 border-dashed border-green-300 dark:border-green-700 p-2 min-h-[72px]"
           onDragOver={handleDragOver}
-          onDrop={handleDrop('values')}
+          onDrop={(e: DragEvent) => handleDrop(e, 'values')}
         >
           <div className="text-[10px] font-medium text-green-600 dark:text-green-400 uppercase tracking-wide mb-1.5">Values</div>
           <div className="flex flex-wrap gap-1">
             <div
               className={`pivot-field pivot-field-${valueField()} flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs cursor-grab select-none`}
               draggable={true}
-              onDragStart={handleDragStart(valueField())}
+              onDragStart={(e: DragEvent) => handleDragStart(e, valueField())}
             >
               <GripVerticalIcon className="w-3 h-3 opacity-60" />
               {valueLabel()}
