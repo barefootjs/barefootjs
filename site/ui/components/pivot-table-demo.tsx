@@ -330,8 +330,8 @@ export function PivotTableDemo() {
     }
   }
 
-  // Drag handlers (non-curried to avoid compiler wrapping issue)
-  const handleDragStart = (e: DragEvent, fieldId: FieldId) => {
+  // Drag handlers (curried: returns event handler for each field/zone)
+  const handleDragStart = (fieldId: FieldId) => (e: DragEvent) => {
     e.dataTransfer!.setData('text/plain', fieldId)
     e.dataTransfer!.effectAllowed = 'move'
   }
@@ -341,7 +341,7 @@ export function PivotTableDemo() {
     e.dataTransfer!.dropEffect = 'move'
   }
 
-  const handleDrop = (e: DragEvent, zone: AxisZone) => {
+  const handleDrop = (zone: AxisZone) => (e: DragEvent) => {
     e.preventDefault()
     const fieldId = e.dataTransfer!.getData('text/plain') as FieldId
     if (fieldId) {
@@ -393,7 +393,7 @@ export function PivotTableDemo() {
         <div
           className="axis-zone axis-zone-available rounded-lg border-2 border-dashed border-muted-foreground/30 p-2 min-h-[72px]"
           onDragOver={handleDragOver}
-          onDrop={(e: DragEvent) => handleDrop(e, 'available')}
+          onDrop={handleDrop('available')}
         >
           <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Available</div>
           <div className="flex flex-wrap gap-1">
@@ -402,7 +402,7 @@ export function PivotTableDemo() {
                 key={f.id}
                 className={`pivot-field pivot-field-${f.id} flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-xs cursor-grab select-none`}
                 draggable={true}
-                onDragStart={(e: DragEvent) => handleDragStart(e, f.id)}
+                onDragStart={handleDragStart(f.id)}
               >
                 <GripVerticalIcon className="w-3 h-3 text-muted-foreground" />
                 {f.label}
@@ -415,7 +415,7 @@ export function PivotTableDemo() {
         <div
           className="axis-zone axis-zone-rows rounded-lg border-2 border-dashed border-blue-300 dark:border-blue-700 p-2 min-h-[72px]"
           onDragOver={handleDragOver}
-          onDrop={(e: DragEvent) => handleDrop(e, 'rows')}
+          onDrop={handleDrop('rows')}
         >
           <div className="text-[10px] font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1.5">Rows</div>
           <div className="flex flex-wrap gap-1">
@@ -427,7 +427,7 @@ export function PivotTableDemo() {
                   key={fid}
                   className={`pivot-field pivot-field-${fid} flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs cursor-grab select-none`}
                   draggable={true}
-                  onDragStart={(e: DragEvent) => handleDragStart(e, fid)}
+                  onDragStart={handleDragStart(fid)}
                 >
                   <GripVerticalIcon className="w-3 h-3 opacity-60" />
                   {f.label}
@@ -448,7 +448,7 @@ export function PivotTableDemo() {
         <div
           className="axis-zone axis-zone-columns rounded-lg border-2 border-dashed border-purple-300 dark:border-purple-700 p-2 min-h-[72px]"
           onDragOver={handleDragOver}
-          onDrop={(e: DragEvent) => handleDrop(e, 'columns')}
+          onDrop={handleDrop('columns')}
         >
           <div className="text-[10px] font-medium text-purple-600 dark:text-purple-400 uppercase tracking-wide mb-1.5">Columns</div>
           <div className="flex flex-wrap gap-1">
@@ -456,7 +456,7 @@ export function PivotTableDemo() {
               <div
                 className={`pivot-field pivot-field-${columnField()} flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs cursor-grab select-none`}
                 draggable={true}
-                onDragStart={(e: DragEvent) => handleDragStart(e, columnField() as FieldId)}
+                onDragStart={handleDragStart(columnField() as FieldId)}
               >
                 <GripVerticalIcon className="w-3 h-3 opacity-60" />
                 {columnLabel()}
@@ -476,14 +476,14 @@ export function PivotTableDemo() {
         <div
           className="axis-zone axis-zone-values rounded-lg border-2 border-dashed border-green-300 dark:border-green-700 p-2 min-h-[72px]"
           onDragOver={handleDragOver}
-          onDrop={(e: DragEvent) => handleDrop(e, 'values')}
+          onDrop={handleDrop('values')}
         >
           <div className="text-[10px] font-medium text-green-600 dark:text-green-400 uppercase tracking-wide mb-1.5">Values</div>
           <div className="flex flex-wrap gap-1">
             <div
               className={`pivot-field pivot-field-${valueField()} flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs cursor-grab select-none`}
               draggable={true}
-              onDragStart={(e: DragEvent) => handleDragStart(e, valueField())}
+              onDragStart={handleDragStart(valueField())}
             >
               <GripVerticalIcon className="w-3 h-3 opacity-60" />
               {valueLabel()}
@@ -538,17 +538,20 @@ export function PivotTableDemo() {
               >
                 <td className="p-2 border-r" style={`padding-left: ${12 + item.depth * 16}px`}>
                   <div className="flex items-center gap-1">
-                    <button
-                      className={`pivot-expand-btn text-muted-foreground hover:text-foreground transition-colors${item.isGroup ? '' : ' invisible pointer-events-none'}`}
-                      onClick={() => toggleExpand(item.id)}
-                      aria-label={isGroupExpanded(item.id) ? 'Collapse' : 'Expand'}
-                      aria-expanded={isGroupExpanded(item.id)}
-                      tabindex={item.isGroup ? 0 : -1}
-                    >
-                      {isGroupExpanded(item.id)
-                        ? <ChevronDownIcon className="w-3.5 h-3.5" />
-                        : <ChevronRightIcon className="w-3.5 h-3.5" />}
-                    </button>
+                    {item.isGroup ? (
+                      <button
+                        className="pivot-expand-btn text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => toggleExpand(item.id)}
+                        aria-label={isGroupExpanded(item.id) ? 'Collapse' : 'Expand'}
+                        aria-expanded={isGroupExpanded(item.id)}
+                      >
+                        {isGroupExpanded(item.id)
+                          ? <ChevronDownIcon className="w-3.5 h-3.5" />
+                          : <ChevronRightIcon className="w-3.5 h-3.5" />}
+                      </button>
+                    ) : (
+                      <span className="w-3.5 h-3.5 inline-block" />
+                    )}
                     <span className={item.isGroup ? 'font-medium' : 'text-muted-foreground'}>
                       {item.label}
                     </span>
