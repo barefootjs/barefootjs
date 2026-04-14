@@ -88,14 +88,17 @@ export function createEdgeRenderer<
 
       if (!sourceNode || !targetNode) continue
 
-      // Get source/target positions from @xyflow/system
+      // Get source/target positions from @xyflow/system.
+      // Use Strict mode when handle IDs are present so the exact handle is
+      // resolved by ID rather than by closest-position heuristic (Loose).
+      const hasHandleIds = !!(edge.sourceHandle || edge.targetHandle)
       let edgePos = getEdgePosition({
         id: edge.id,
         sourceNode,
         sourceHandle: edge.sourceHandle ?? null,
         targetNode,
         targetHandle: edge.targetHandle ?? null,
-        connectionMode: ConnectionMode.Loose,
+        connectionMode: hasHandleIds ? ConnectionMode.Strict : ConnectionMode.Loose,
       })
 
       // Fallback: if no handle bounds, use node center positions

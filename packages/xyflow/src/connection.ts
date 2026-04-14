@@ -11,14 +11,22 @@ function buildConnection(
   sourceNodeId: string,
   targetNodeId: string,
   handleType: 'source' | 'target',
+  sourceHandleId?: string | null,
+  targetHandleId?: string | null,
 ): { source: string; target: string; sourceHandle: string | null; targetHandle: string | null } {
   let source = sourceNodeId
   let target = targetNodeId
+  let sourceHandle = sourceHandleId ?? null
+  let targetHandle = targetHandleId ?? null
   if (handleType === 'target') {
     source = targetNodeId
     target = sourceNodeId
+    // Swap handle IDs when direction is reversed
+    const tmp = sourceHandle
+    sourceHandle = targetHandle
+    targetHandle = tmp
   }
-  return { source, target, sourceHandle: null, targetHandle: null }
+  return { source, target, sourceHandle, targetHandle }
 }
 
 /**
@@ -141,7 +149,9 @@ export function attachConnectionHandler<
         const hoveredHandleType = hoveredHandle.classList.contains('bf-flow__handle--target') ? 'target' : 'source'
         const isCompatibleType = handleType !== hoveredHandleType
 
-        const conn = buildConnection(nodeId, hoveredHandle.dataset.nodeId, handleType)
+        const srcHandleId = handleEl.dataset.handleId ?? null
+        const tgtHandleId = hoveredHandle.dataset.handleId ?? null
+        const conn = buildConnection(nodeId, hoveredHandle.dataset.nodeId, handleType, srcHandleId, tgtHandleId)
         const isValid = isCompatibleType && checkConnectionValidity(store, conn)
 
         hoveredHandle.classList.remove('invalid')
@@ -175,20 +185,30 @@ export function attachConnectionHandler<
         const targetNodeId = targetHandle.dataset.nodeId
         const targetHandleType = targetHandle.classList.contains('bf-flow__handle--target') ? 'target' : 'source'
         const isCompatibleType = handleType !== targetHandleType
-        const conn = buildConnection(nodeId, targetNodeId, handleType)
+        const srcHandleId = handleEl.dataset.handleId ?? null
+        const tgtHandleId = targetHandle.dataset.handleId ?? null
+        const conn = buildConnection(nodeId, targetNodeId, handleType, srcHandleId, tgtHandleId)
 
         // Validate: handle type must be compatible + custom validation
         const isValid = isCompatibleType && checkConnectionValidity(store, conn)
 
         if (isValid) {
-          const edgeId = `e-${conn.source}-${conn.target}-${Date.now()}`
-          const newEdge = { id: edgeId, source: conn.source, target: conn.target } as EdgeType
-
           if (store.onConnect) {
+            // When onConnect is provided, the consumer is responsible for
+            // creating the edge (matching React Flow behaviour).
             store.onConnect(conn)
+          } else {
+            // Default: auto-create a plain edge when no onConnect handler
+            const edgeId = `e-${conn.source}-${conn.target}-${Date.now()}`
+            const newEdge = {
+              id: edgeId,
+              source: conn.source,
+              target: conn.target,
+              sourceHandle: conn.sourceHandle ?? undefined,
+              targetHandle: conn.targetHandle ?? undefined,
+            } as EdgeType
+            store.addEdge(newEdge)
           }
-
-          store.addEdge(newEdge)
         }
       }
 
