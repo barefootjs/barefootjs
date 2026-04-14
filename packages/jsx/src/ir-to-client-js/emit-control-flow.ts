@@ -266,8 +266,9 @@ function emitBranchChildComponentInits(
   indent: string,
   components: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[]; children?: import('../types').IRNode[] }>,
   loopParam?: string,
+  wrapFn?: (expr: string) => string,
 ): void {
-  const wrap = loopParam ? (expr: string) => wrapLoopParamAsAccessor(expr, loopParam) : (expr: string) => expr
+  const wrap = wrapFn ?? (loopParam ? (expr: string) => wrapLoopParamAsAccessor(expr, loopParam) : (expr: string) => expr)
   for (const comp of components) {
     // Use slotId suffix match only when available to avoid matching
     // siblings of the same component type (e.g. two Buttons with different slotIds).
@@ -306,9 +307,10 @@ function emitBranchInnerLoops(
   scopeVar: string,
   innerLoops: import('./types').NestedLoopInfo[] | undefined,
   outerLoopParam?: string,
+  outerWrapFn?: (expr: string) => string,
 ): void {
   if (!innerLoops || !outerLoopParam) return
-  const wrapOuter = (expr: string) => wrapLoopParamAsAccessor(expr, outerLoopParam)
+  const wrapOuter = outerWrapFn ?? ((expr: string) => wrapLoopParamAsAccessor(expr, outerLoopParam))
 
   for (let i = 0; i < innerLoops.length; i++) {
     const inner = innerLoops[i]
@@ -390,15 +392,15 @@ function emitNestedLoopChildConditionals(
     lines.push(`${indent}insert(${scopeVar}, '${cond.slotId}', () => ${wrap(cond.condition)}, {`)
     lines.push(`${indent}  template: () => \`${whenTrueWithCond}\`,`)
     lines.push(`${indent}  bindEvents: (__branchScope) => {`)
-    emitBranchChildComponentInits(lines, `${indent}    `, cond.whenTrueComponents, loopParam)
-    emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenTrueInnerLoops, loopParam)
+    emitBranchChildComponentInits(lines, `${indent}    `, cond.whenTrueComponents, loopParam, wrap)
+    emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenTrueInnerLoops, loopParam, wrap)
     emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenTrueConditionals, wrap, loopParam)
     lines.push(`${indent}  }`)
     lines.push(`${indent}}, {`)
     lines.push(`${indent}  template: () => \`${whenFalseWithCond}\`,`)
     lines.push(`${indent}  bindEvents: (__branchScope) => {`)
-    emitBranchChildComponentInits(lines, `${indent}    `, cond.whenFalseComponents, loopParam)
-    emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenFalseInnerLoops, loopParam)
+    emitBranchChildComponentInits(lines, `${indent}    `, cond.whenFalseComponents, loopParam, wrap)
+    emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenFalseInnerLoops, loopParam, wrap)
     emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenFalseConditionals, wrap, loopParam)
     lines.push(`${indent}  }`)
     lines.push(`${indent}})`)
