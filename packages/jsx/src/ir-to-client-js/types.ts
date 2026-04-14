@@ -156,7 +156,7 @@ export interface NestedLoopInfo {
   /** Whether the inner array references the outer loop param (needs reactive mapArray) */
   refsOuterParam?: boolean
   /** Reactive text expressions inside inner loop items (slotId → expression) */
-  reactiveTexts?: Array<{ slotId: string; expression: string }>
+  reactiveTexts?: LoopChildReactiveText[]
   /** Child components inside inner loop items (for initChild/createComponent) */
   childComponents?: import('../types').IRLoopChildComponent[]
   /** Event handlers inside inner loop items */
@@ -188,6 +188,7 @@ export interface LoopChildReactiveAttr extends AttrMeta {
 export interface LoopChildReactiveText {
   slotId: string // bf comment marker slot ID (e.g., 's7' → <!--bf:s7-->)
   expression: string // Expression that reads signals
+  insideConditional?: boolean // true if text node is inside a conditional branch (insert() may replace it)
 }
 
 export interface LoopChildConditional {

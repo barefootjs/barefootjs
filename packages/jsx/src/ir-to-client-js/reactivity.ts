@@ -339,7 +339,7 @@ export function collectLoopChildReactiveTexts(
 ): LoopChildReactiveText[] {
   const texts: LoopChildReactiveText[] = []
 
-  function walk(n: IRNode): void {
+  function walk(n: IRNode, insideConditional = false): void {
     if (n.type === 'expression' && n.slotId) {
       const expanded = expandConstantForReactivity(n.expr, ctx)
       // Include if expression reads signals OR references the loop parameter
@@ -347,18 +347,18 @@ export function collectLoopChildReactiveTexts(
       const isReactive = needsEffectWrapper(expanded, ctx)
       const refsLoopParam = loopParam ? exprReferencesIdent(expanded, loopParam) : false
       if (isReactive || refsLoopParam) {
-        texts.push({ slotId: n.slotId, expression: expanded })
+        texts.push({ slotId: n.slotId, expression: expanded, insideConditional: insideConditional || undefined })
       }
     }
     if (n.type === 'element') {
-      for (const child of n.children) walk(child)
+      for (const child of n.children) walk(child, insideConditional)
     }
     if (n.type === 'fragment' || n.type === 'component' || n.type === 'provider') {
-      for (const child of n.children) walk(child)
+      for (const child of n.children) walk(child, insideConditional)
     }
     if (n.type === 'conditional') {
-      walk(n.whenTrue)
-      walk(n.whenFalse)
+      walk(n.whenTrue, true)
+      walk(n.whenFalse, true)
     }
   }
 

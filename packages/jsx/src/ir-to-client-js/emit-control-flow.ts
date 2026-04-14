@@ -4,7 +4,7 @@
  * and event delegation within loop containers.
  */
 
-import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, ConditionalBranchLoop, ConditionalBranchConditional, LoopChildEvent, LoopChildConditional, LoopElement, NestedLoopInfo } from './types'
+import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, ConditionalBranchLoop, ConditionalBranchConditional, LoopChildEvent, LoopChildConditional, LoopChildReactiveText, LoopElement, NestedLoopInfo } from './types'
 import type { IRLoopChildComponent } from '../types'
 import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent } from './utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
@@ -354,8 +354,15 @@ function emitBranchInnerLoops(
     if (inner.reactiveTexts && inner.reactiveTexts.length > 0) {
       for (const text of inner.reactiveTexts) {
         const wrappedExpr = wrapBoth(text.expression)
-        lines.push(`${indent}  { const [__rt] = $t(__bel${uid}, '${text.slotId}')`)
-        lines.push(`${indent}  if (__rt) createEffect(() => { __rt.textContent = String(${wrappedExpr}) }) }`)
+        if (text.insideConditional) {
+          // Text is inside a conditional branch: insert() may replace the DOM element,
+          // making a captured text node stale. Re-query $t inside the effect so each
+          // update always finds the current live text node.
+          lines.push(`${indent}  createEffect(() => { const [__rt] = $t(__bel${uid}, '${text.slotId}'); if (__rt) __rt.textContent = String(${wrappedExpr}) })`)
+        } else {
+          lines.push(`${indent}  { const [__rt] = $t(__bel${uid}, '${text.slotId}')`)
+          lines.push(`${indent}  if (__rt) createEffect(() => { __rt.textContent = String(${wrappedExpr}) }) }`)
+        }
       }
     }
     // Nested conditionals inside inner loop items (#830 Path B)
@@ -876,7 +883,7 @@ function emitBranchLoopEventDelegation(lines: string[], loop: ConditionalBranchL
 interface DepthLevel {
   comps: (LoopElement['nestedComponents'] & {})[number][]
   events: LoopChildEvent[]
-  loopInfo: { array: string; param: string; key: string; depth: number; containerSlotId?: string | null; itemTemplate?: string; refsOuterParam?: boolean; reactiveTexts?: Array<{ slotId: string; expression: string }>; insideConditional?: boolean } | null
+  loopInfo: { array: string; param: string; key: string; depth: number; containerSlotId?: string | null; itemTemplate?: string; refsOuterParam?: boolean; reactiveTexts?: LoopChildReactiveText[]; insideConditional?: boolean } | null
 }
 
 /**
@@ -1127,8 +1134,15 @@ function emitInnerLoopSetup(
       if (inner.reactiveTexts && inner.reactiveTexts.length > 0) {
         for (const text of inner.reactiveTexts) {
           const wrappedExpr = wrapLoopParamAsAccessor(wrapOuter(text.expression), inner.param)
-          ls.push(`${indent}  { const [__rt] = $t(__innerEl${uid}, '${text.slotId}')`)
-          ls.push(`${indent}  if (__rt) createEffect(() => { __rt.textContent = String(${wrappedExpr}) }) }`)
+          if (text.insideConditional) {
+            // Text is inside a conditional branch: insert() may replace the DOM element,
+            // making a captured text node stale. Re-query $t inside the effect so each
+            // update always finds the current live text node.
+            ls.push(`${indent}  createEffect(() => { const [__rt] = $t(__innerEl${uid}, '${text.slotId}'); if (__rt) __rt.textContent = String(${wrappedExpr}) })`)
+          } else {
+            ls.push(`${indent}  { const [__rt] = $t(__innerEl${uid}, '${text.slotId}')`)
+            ls.push(`${indent}  if (__rt) createEffect(() => { __rt.textContent = String(${wrappedExpr}) }) }`)
+          }
         }
       }
       ls.push(`${indent}  return __innerEl${uid}`)
