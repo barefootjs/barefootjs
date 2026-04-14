@@ -206,6 +206,10 @@ export interface LoopChildConditional {
   whenTrueConditionals?: LoopChildConditional[]
   /** Nested conditionals inside whenFalse branch (recursive — Path A, #830) */
   whenFalseConditionals?: LoopChildConditional[]
+  /** Events on elements inside whenTrue branch — attached via insert() bindEvents (#839) */
+  whenTrueEvents?: ConditionalBranchEvent[]
+  /** Events on elements inside whenFalse branch — attached via insert() bindEvents (#839) */
+  whenFalseEvents?: ConditionalBranchEvent[]
 }
 
 export interface LoopElement {

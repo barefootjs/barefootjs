@@ -263,8 +263,13 @@ export function collectLoopChildEventsWithNesting(
         for (const child of n.children) walk(child, domDepth)
         break
       case 'conditional':
-        walk(n.whenTrue, domDepth)
-        walk(n.whenFalse, domDepth)
+        // Reactive conditionals (slotId set) are managed by insert() + bindEvents.
+        // Their events are collected into LoopChildConditional.whenTrue/FalseEvents
+        // and emitted inside bindEvents — not via delegation (#839).
+        if (!n.slotId) {
+          walk(n.whenTrue, domDepth)
+          walk(n.whenFalse, domDepth)
+        }
         break
       case 'if-statement':
         walk(n.consequent, domDepth)
@@ -404,6 +409,8 @@ export function collectLoopChildConditionals(
           whenFalseInnerLoops: collectBranchInnerLoops(n.whenFalse, loopParam, ctx),
           whenTrueConditionals: collectLoopChildConditionals(n.whenTrue, ctx, loopParam),
           whenFalseConditionals: collectLoopChildConditionals(n.whenFalse, ctx, loopParam),
+          whenTrueEvents: collectConditionalBranchEvents(n.whenTrue),
+          whenFalseEvents: collectConditionalBranchEvents(n.whenFalse),
         })
       }
       // Don't recurse into conditional branches — nested conditionals

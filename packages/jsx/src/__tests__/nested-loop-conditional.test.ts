@@ -1,9 +1,10 @@
 /**
- * BarefootJS Compiler - Nested loops/conditionals inside mapArray bodies (#830)
+ * BarefootJS Compiler - Nested loops/conditionals inside mapArray bodies (#830, #839)
  *
  * Verifies that conditionals and loops at depth 2+ inside mapArray callbacks
  * generate insert() and mapArray() calls instead of being statically baked
- * into template HTML.
+ * into template HTML. Also verifies that event handlers inside conditional
+ * branches are preserved in insert() bindEvents (#839).
  */
 
 import { describe, test, expect } from 'bun:test'
@@ -12,7 +13,7 @@ import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
 
-describe('nested loops/conditionals inside mapArray (#830)', () => {
+describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
   test('Path A: conditional inside conditional emits nested insert()', () => {
     const source = `
       'use client'
@@ -176,5 +177,60 @@ describe('nested loops/conditionals inside mapArray (#830)', () => {
 
     // Re-query pattern: $t() inside createEffect so it always finds the live node
     expect(content).toContain('createEffect(() => { const [__rt] = $t(')
+  })
+
+  test('event handler inside conditional branch of loop item appears in bindEvents (#839)', () => {
+    // When a conditional is inside a mapArray loop item, insert() manages branch switching.
+    // Event handlers on elements inside the conditional branches MUST be bound inside
+    // insert()'s bindEvents callback — not via delegation on the container — so that
+    // the handler is reattached whenever insert() replaces the branch's DOM elements.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client-runtime'
+
+      type Row = { id: string; label: string; isGroup: boolean }
+
+      export function ToggleList() {
+        const [rows, setRows] = createSignal<Row[]>([])
+        const toggle = (id: string) => setRows(prev => prev.map(r => r.id === id ? { ...r, isGroup: !r.isGroup } : r))
+        return (
+          <ul>
+            {rows().map((row) => (
+              <li key={row.id}>
+                {row.isGroup ? (
+                  <button onClick={() => toggle(row.id)}>{row.label}</button>
+                ) : (
+                  <span>{row.label}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    `
+
+    const result = compileJSXSync(source, 'ToggleList.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')
+    expect(clientJs).toBeDefined()
+    const content = clientJs!.content
+
+    // insert() must be generated for the conditional
+    expect(content).toContain('insert(')
+
+    // The click handler must appear inside bindEvents, not as a top-level delegation
+    // Pattern: addEventListener inside the bindEvents callback (after 'bindEvents: (__branchScope)')
+    const bindEventsMatch = content.match(/bindEvents:\s*\(__branchScope\)\s*=>\s*\{([\s\S]*?)\}/m)
+    expect(bindEventsMatch).not.toBeNull()
+    expect(bindEventsMatch![1]).toContain("addEventListener('click'")
+
+    // Handler must use the loop param accessor pattern: row().id (not row.id)
+    expect(content).toContain('toggle(row().id)')
+
+    // Must use qsa() (not scope-aware $()) for element lookup inside loop items,
+    // because loop item elements lack bf-s and $() would fail to match
+    expect(bindEventsMatch![1]).toContain('qsa(__branchScope')
+    expect(bindEventsMatch![1]).not.toContain('$(__branchScope')
   })
 })
