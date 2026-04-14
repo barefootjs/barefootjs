@@ -1,5 +1,5 @@
 import { untrack } from '@barefootjs/client'
-import { getBezierPath, Position, reconnectEdge as reconnectEdgeUtil } from '@xyflow/system'
+import { getSmoothStepPath, Position, reconnectEdge as reconnectEdgeUtil } from '@xyflow/system'
 import type { FlowStore, NodeBase, EdgeBase, Connection } from './types'
 import { SVG_NS } from './constants'
 
@@ -11,14 +11,22 @@ function buildConnection(
   sourceNodeId: string,
   targetNodeId: string,
   handleType: 'source' | 'target',
+  sourceHandleId?: string | null,
+  targetHandleId?: string | null,
 ): { source: string; target: string; sourceHandle: string | null; targetHandle: string | null } {
   let source = sourceNodeId
   let target = targetNodeId
+  let sourceHandle = sourceHandleId ?? null
+  let targetHandle = targetHandleId ?? null
   if (handleType === 'target') {
     source = targetNodeId
     target = sourceNodeId
+    // Swap handle IDs when direction is reversed
+    const tmp = sourceHandle
+    sourceHandle = targetHandle
+    targetHandle = tmp
   }
-  return { source, target, sourceHandle: null, targetHandle: null }
+  return { source, target, sourceHandle, targetHandle }
 }
 
 /**
@@ -88,8 +96,8 @@ export function attachConnectionHandler<
 
     const connectionLine = document.createElementNS(SVG_NS, 'path')
     connectionLine.setAttribute('fill', 'none')
-    connectionLine.setAttribute('stroke', '#b1b1b7')
-    connectionLine.setAttribute('stroke-width', '1')
+    connectionLine.setAttribute('stroke', 'var(--edge-user, #d29922)')
+    connectionLine.setAttribute('stroke-width', '2')
     lineGroup.appendChild(connectionLine)
 
     // Track the currently hovered handle for validation feedback
@@ -105,7 +113,7 @@ export function attachConnectionHandler<
       const targetX = (e.clientX - containerRect.left - vp.x) / scale
       const targetY = (e.clientY - containerRect.top - vp.y) / scale
 
-      const [path] = getBezierPath({
+      const [path] = getSmoothStepPath({
         sourceX,
         sourceY,
         sourcePosition: handleType === 'source' ? Position.Bottom : Position.Top,
@@ -141,7 +149,9 @@ export function attachConnectionHandler<
         const hoveredHandleType = hoveredHandle.classList.contains('bf-flow__handle--target') ? 'target' : 'source'
         const isCompatibleType = handleType !== hoveredHandleType
 
-        const conn = buildConnection(nodeId, hoveredHandle.dataset.nodeId, handleType)
+        const srcHandleId = handleEl.dataset.handleId ?? null
+        const tgtHandleId = hoveredHandle.dataset.handleId ?? null
+        const conn = buildConnection(nodeId, hoveredHandle.dataset.nodeId, handleType, srcHandleId, tgtHandleId)
         const isValid = isCompatibleType && checkConnectionValidity(store, conn)
 
         hoveredHandle.classList.remove('invalid')
@@ -175,20 +185,30 @@ export function attachConnectionHandler<
         const targetNodeId = targetHandle.dataset.nodeId
         const targetHandleType = targetHandle.classList.contains('bf-flow__handle--target') ? 'target' : 'source'
         const isCompatibleType = handleType !== targetHandleType
-        const conn = buildConnection(nodeId, targetNodeId, handleType)
+        const srcHandleId = handleEl.dataset.handleId ?? null
+        const tgtHandleId = targetHandle.dataset.handleId ?? null
+        const conn = buildConnection(nodeId, targetNodeId, handleType, srcHandleId, tgtHandleId)
 
         // Validate: handle type must be compatible + custom validation
         const isValid = isCompatibleType && checkConnectionValidity(store, conn)
 
         if (isValid) {
-          const edgeId = `e-${conn.source}-${conn.target}-${Date.now()}`
-          const newEdge = { id: edgeId, source: conn.source, target: conn.target } as EdgeType
-
           if (store.onConnect) {
+            // When onConnect is provided, the consumer is responsible for
+            // creating the edge (matching React Flow behaviour).
             store.onConnect(conn)
+          } else {
+            // Default: auto-create a plain edge when no onConnect handler
+            const edgeId = `e-${conn.source}-${conn.target}-${Date.now()}`
+            const newEdge = {
+              id: edgeId,
+              source: conn.source,
+              target: conn.target,
+              sourceHandle: conn.sourceHandle ?? undefined,
+              targetHandle: conn.targetHandle ?? undefined,
+            } as EdgeType
+            store.addEdge(newEdge)
           }
-
-          store.addEdge(newEdge)
         }
       }
 
@@ -258,8 +278,8 @@ export function attachReconnectionHandler<
     // Create temporary connection line from anchor to cursor
     const connectionLine = document.createElementNS(SVG_NS, 'path')
     connectionLine.setAttribute('fill', 'none')
-    connectionLine.setAttribute('stroke', '#b1b1b7')
-    connectionLine.setAttribute('stroke-width', '1')
+    connectionLine.setAttribute('stroke', 'var(--edge-user, #d29922)')
+    connectionLine.setAttribute('stroke-width', '2')
     connectionLine.setAttribute('pointer-events', 'none')
     edgesSvg.appendChild(connectionLine)
 
@@ -273,12 +293,12 @@ export function attachReconnectionHandler<
       const cursorX = (ev.clientX - containerRect.left - vp.x) / scale
       const cursorY = (ev.clientY - containerRect.top - vp.y) / scale
 
-      // Draw bezier from anchor to cursor
+      // Draw smoothstep path from anchor to cursor
       // sourcePosition/targetPosition depends on which endpoint is the anchor
       const sourcePosition = endpointType === 'source' ? Position.Top : Position.Bottom
       const targetPosition = endpointType === 'source' ? Position.Bottom : Position.Top
 
-      const [path] = getBezierPath({
+      const [path] = getSmoothStepPath({
         sourceX: anchorX,
         sourceY: anchorY,
         sourcePosition,

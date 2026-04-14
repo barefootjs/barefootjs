@@ -23,12 +23,22 @@ export function setupKeyboardHandlers<
       return
     }
 
-    if (event.key === 'Delete' || event.key === 'Backspace') {
+    // Delete key handling (configurable, null disables)
+    const deleteKeys = store.deleteKeyCode
+    if (deleteKeys && deleteKeys.includes(event.key)) {
       if (!untrack(store.nodesDraggable)) return
       const selectedNodes = untrack(store.nodes).filter((n) => n.selected)
       const selectedEdges = untrack(store.edges).filter((e) => e.selected)
 
       if (selectedNodes.length > 0 || selectedEdges.length > 0) {
+        // Fire deletion callbacks before deleting
+        if (selectedNodes.length > 0 && store.onNodesDelete) {
+          store.onNodesDelete(selectedNodes)
+        }
+        if (selectedEdges.length > 0 && store.onEdgesDelete) {
+          store.onEdgesDelete(selectedEdges)
+        }
+
         store.deleteElements({
           nodes: selectedNodes,
           edges: selectedEdges,
@@ -41,13 +51,16 @@ export function setupKeyboardHandlers<
       store.unselectNodesAndEdges()
     }
 
-    if (event.key === 'Shift') {
+    // Selection key handling (configurable)
+    const selKey = store.selectionKeyCode
+    if (selKey && event.key === selKey) {
       store.setMultiSelectionActive(true)
     }
   }
 
   function handleKeyUp(event: KeyboardEvent) {
-    if (event.key === 'Shift') {
+    const selKey = store.selectionKeyCode
+    if (selKey && event.key === selKey) {
       store.setMultiSelectionActive(false)
     }
   }

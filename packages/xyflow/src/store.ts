@@ -140,7 +140,52 @@ export function createFlowStore<
   const [multiSelectionActive, setMultiSelectionActive] = createSignal(false)
 
   // --- Interactivity ---
-  const [nodesDraggable, setNodesDraggable] = createSignal(true)
+  const [nodesDraggable, setNodesDraggable] = createSignal(options.nodesDraggable ?? true)
+  const [nodesConnectable, setNodesConnectable] = createSignal(options.nodesConnectable ?? true)
+  const [elementsSelectable, setElementsSelectable] = createSignal(options.elementsSelectable ?? true)
+
+  // --- Pan/zoom config (reactive signals for dynamic changes) ---
+  const [panOnDrag, setPanOnDrag] = createSignal(options.panOnDrag ?? true)
+  const [panOnScroll, setPanOnScroll] = createSignal(options.panOnScroll ?? false)
+  const [zoomOnScroll, setZoomOnScroll] = createSignal(options.zoomOnScroll ?? true)
+
+  // --- Static config ---
+  const deleteKeyCode = options.deleteKeyCode !== undefined ? options.deleteKeyCode : ['Delete', 'Backspace']
+  const selectionKeyCode = options.selectionKeyCode !== undefined ? options.selectionKeyCode : 'Shift'
+  const connectionLineStyle = options.connectionLineStyle
+  const defaultEdgeOptions = options.defaultEdgeOptions
+  const elevateNodesOnSelect = options.elevateNodesOnSelect ?? false
+  const reconnectRadius = options.reconnectRadius ?? 20
+  const zoomOnDoubleClick = options.zoomOnDoubleClick ?? true
+
+  /**
+   * Update pan/zoom instance configuration.
+   * Called by initFlow on setup and reactively when settings change.
+   */
+  function updatePanZoomConfig() {
+    const pz = untrack(panZoom)
+    if (!pz) return
+    pz.update({
+      noWheelClassName: 'nowheel',
+      noPanClassName: 'nopan',
+      preventScrolling: true,
+      panOnScroll: panOnScroll(),
+      panOnDrag: panOnDrag(),
+      panOnScrollMode: 'free' as any,
+      panOnScrollSpeed: 0.5,
+      userSelectionActive: false,
+      zoomOnPinch: true,
+      zoomOnScroll: zoomOnScroll(),
+      zoomOnDoubleClick,
+      zoomActivationKeyPressed: false,
+      lib: 'bf',
+      onTransformChange: (transform: Transform) => {
+        setViewport({ x: transform[0], y: transform[1], zoom: transform[2] })
+      },
+      connectionInProgress: false,
+      paneClickDistance: 0,
+    })
+  }
 
   // --- Actions ---
 
@@ -318,8 +363,28 @@ export function createFlowStore<
 
     // Selection state
     multiSelectionActive,
+
+    // Interactivity
     nodesDraggable,
     setNodesDraggable,
+    nodesConnectable,
+    setNodesConnectable,
+    elementsSelectable,
+    setElementsSelectable,
+    panOnDrag,
+    setPanOnDrag,
+    panOnScroll,
+    setPanOnScroll,
+    zoomOnScroll,
+    setZoomOnScroll,
+
+    // Static config
+    deleteKeyCode,
+    selectionKeyCode,
+    connectionLineStyle,
+    defaultEdgeOptions,
+    elevateNodesOnSelect,
+    reconnectRadius,
 
     // Lightweight position change notification (avoids full adoptUserNodes)
     positionEpoch,
@@ -329,6 +394,7 @@ export function createFlowStore<
     setPanZoom,
     setDomNode,
     setMultiSelectionActive,
+    updatePanZoomConfig,
 
     // Actions
     fitView,
@@ -353,11 +419,21 @@ export function createFlowStore<
     nodeTypes: options.nodeTypes,
     edgeTypes: options.edgeTypes,
 
-    // Callbacks
+    // Connection callbacks
     onConnect: options.onConnect,
     onConnectStart: options.onConnectStart,
     onConnectEnd: options.onConnectEnd,
     isValidConnection: options.isValidConnection,
     onReconnect: options.onReconnect,
+
+    // Lifecycle callbacks
+    onInit: options.onInit,
+    onNodeDragStart: options.onNodeDragStart,
+    onNodeDragStop: options.onNodeDragStop,
+    onMoveEnd: options.onMoveEnd,
+    onPaneClick: options.onPaneClick,
+    onPaneMouseMove: options.onPaneMouseMove,
+    onNodesDelete: options.onNodesDelete,
+    onEdgesDelete: options.onEdgesDelete,
   }
 }

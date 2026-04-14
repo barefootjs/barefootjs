@@ -1,10 +1,9 @@
 import {
   createEffect,
   onCleanup,
-  onMount,
-  provideContext,
   untrack,
-} from '@barefootjs/client-runtime'
+} from '@barefootjs/client'
+import { provideContext } from '@barefootjs/client-runtime'
 import { XYPanZoom, PanOnScrollMode } from '@xyflow/system'
 import type {
   Viewport,
@@ -29,23 +28,7 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
   const el = scope as HTMLElement
   const flowProps = props as unknown as FlowProps
 
-  const store = createFlowStore({
-    nodes: flowProps.nodes,
-    edges: flowProps.edges,
-    defaultViewport: flowProps.defaultViewport,
-    minZoom: flowProps.minZoom,
-    maxZoom: flowProps.maxZoom,
-    nodeOrigin: flowProps.nodeOrigin,
-    nodeExtent: flowProps.nodeExtent,
-    snapToGrid: flowProps.snapToGrid,
-    snapGrid: flowProps.snapGrid,
-    nodeTypes: flowProps.nodeTypes,
-    edgeTypes: flowProps.edgeTypes,
-    onConnect: flowProps.onConnect,
-    isValidConnection: flowProps.isValidConnection,
-    edgesReconnectable: flowProps.edgesReconnectable,
-    onReconnect: flowProps.onReconnect,
-  })
+  const store = createFlowStore(flowProps)
 
   provideContext(FlowContext, store)
   injectDefaultStyles()
@@ -112,7 +95,11 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
       store.setViewport(vp)
     },
     onPanZoomStart: undefined,
-    onPanZoomEnd: undefined,
+    onPanZoomEnd: (_event: MouseEvent | TouchEvent | null, vp: Viewport) => {
+      if (store.onMoveEnd) {
+        store.onMoveEnd(_event, vp)
+      }
+    },
   })
 
   store.setPanZoom(panZoomInstance)
@@ -121,14 +108,14 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
     noWheelClassName: 'nowheel',
     noPanClassName: 'nopan',
     preventScrolling: true,
-    panOnScroll: false,
-    panOnDrag: true,
+    panOnScroll: flowProps.panOnScroll ?? false,
+    panOnDrag: flowProps.panOnDrag ?? true,
     panOnScrollMode: PanOnScrollMode.Free,
     panOnScrollSpeed: 0.5,
     userSelectionActive: false,
     zoomOnPinch: true,
-    zoomOnScroll: true,
-    zoomOnDoubleClick: true,
+    zoomOnScroll: flowProps.zoomOnScroll ?? true,
+    zoomOnDoubleClick: flowProps.zoomOnDoubleClick ?? true,
     zoomActivationKeyPressed: false,
     lib: 'bf',
     onTransformChange: (transform: Transform) => {
@@ -139,6 +126,68 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
   })
 
   onCleanup(() => panZoomInstance.destroy())
+
+  // Zoom activation key: when held, scroll zooms instead of panning
+  const zoomKeyCode = flowProps.zoomActivationKeyCode as string | null | undefined
+  if (zoomKeyCode) {
+    let zoomKeyPressed = false
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === zoomKeyCode && !zoomKeyPressed) {
+        zoomKeyPressed = true
+        panZoomInstance.update({
+          noWheelClassName: 'nowheel',
+          noPanClassName: 'nopan',
+          preventScrolling: true,
+          panOnScroll: flowProps.panOnScroll ?? false,
+          panOnDrag: flowProps.panOnDrag ?? true,
+          panOnScrollMode: PanOnScrollMode.Free,
+          panOnScrollSpeed: 0.5,
+          userSelectionActive: false,
+          zoomOnPinch: true,
+          zoomOnScroll: flowProps.zoomOnScroll ?? true,
+          zoomOnDoubleClick: flowProps.zoomOnDoubleClick ?? true,
+          zoomActivationKeyPressed: true,
+          lib: 'bf',
+          onTransformChange: (transform: Transform) => {
+            store.setViewport({ x: transform[0], y: transform[1], zoom: transform[2] })
+          },
+          connectionInProgress: false,
+          paneClickDistance: 0,
+        })
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === zoomKeyCode && zoomKeyPressed) {
+        zoomKeyPressed = false
+        panZoomInstance.update({
+          noWheelClassName: 'nowheel',
+          noPanClassName: 'nopan',
+          preventScrolling: true,
+          panOnScroll: flowProps.panOnScroll ?? false,
+          panOnDrag: flowProps.panOnDrag ?? true,
+          panOnScrollMode: PanOnScrollMode.Free,
+          panOnScrollSpeed: 0.5,
+          userSelectionActive: false,
+          zoomOnPinch: true,
+          zoomOnScroll: flowProps.zoomOnScroll ?? true,
+          zoomOnDoubleClick: flowProps.zoomOnDoubleClick ?? true,
+          zoomActivationKeyPressed: false,
+          lib: 'bf',
+          onTransformChange: (transform: Transform) => {
+            store.setViewport({ x: transform[0], y: transform[1], zoom: transform[2] })
+          },
+          connectionInProgress: false,
+          paneClickDistance: 0,
+        })
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('keyup', onKeyUp)
+    onCleanup(() => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('keyup', onKeyUp)
+    })
+  }
 
   createEffect(() => {
     const vp = store.viewport()
@@ -160,25 +209,13 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
     }
   })
 
-  if (flowProps.fitView) {
-    onMount(() => {
-      // Wait for ResizeObserver to measure all nodes (needs 2+ frames)
-      const tryFitView = (attempts = 0) => {
-        requestAnimationFrame(() => {
-          const lookup = store.nodeLookup()
-          const allMeasured = [...lookup.values()].every(
-            (n) => n.measured.width && n.measured.height,
-          )
-          if (allMeasured || attempts > 10) {
-            store.fitView(flowProps.fitViewOptions)
-          } else {
-            tryFitView(attempts + 1)
-          }
-        })
-      }
-      tryFitView()
-    })
+  // Call onInit callback immediately after flow is set up
+  if (typeof flowProps.onInit === 'function') {
+    flowProps.onInit(store)
   }
+
+  // fitView is handled by the caller (DeskCanvas) after nodes are loaded
+  // via queueMicrotask to avoid effect depth issues
 }
 
 /**
@@ -234,12 +271,12 @@ function injectDefaultStyles() {
     .bf-flow__handle--source:hover { bottom: -5px; }
     .bf-flow__handle.valid { background-color: #22c55e; border-color: #16a34a; width: 10px; height: 10px; }
     .bf-flow__handle.invalid { background-color: #ef4444; border-color: #dc2626; width: 10px; height: 10px; }
-    .bf-flow__edge { fill: none; stroke: #b1b1b7; stroke-width: 1; pointer-events: none; }
-    .bf-flow__edge--selected { stroke: #555; stroke-width: 2; }
+    .bf-flow__edge { fill: none; stroke: var(--edge-user, #d29922); stroke-width: 2; pointer-events: none; }
+    .bf-flow__edge--selected { stroke: var(--edge-user, #d29922); stroke-width: 3; }
     .bf-flow__edge--animated { stroke-dasharray: 5; animation: bf-dashdraw 0.5s linear infinite; }
     @keyframes bf-dashdraw { from { stroke-dashoffset: 10; } }
     .bf-flow__edge-reconnect { fill: transparent; stroke: transparent; cursor: move; pointer-events: all; }
-    path.bf-flow__edge.bf-flow__edge--reconnect-hover { stroke: #222; }
+    path.bf-flow__edge.bf-flow__edge--reconnect-hover { stroke: var(--text-primary, #222); }
     .bf-flow__controls-button:hover { background: #f4f4f4 !important; }
     .bf-flow__controls-button:last-child { border-bottom: none !important; }
     .bf-flow__edge-label {

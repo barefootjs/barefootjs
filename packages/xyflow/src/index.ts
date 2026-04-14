@@ -18,7 +18,7 @@ export type {
   ShouldResize,
   ResizeControlDirection,
 } from './node-resizer'
-export { useFlow, useViewport, useNodes, useEdges, useNodesInitialized } from './hooks'
+export { useFlow, useViewport, useNodes, useEdges, useNodesInitialized, useStore, screenToFlowPosition } from './hooks'
 export { setupKeyboardHandlers, setupNodeSelection, setupSelectionRectangle } from './selection'
 export type { SelectionRectOptions } from './selection'
 

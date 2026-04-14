@@ -6,9 +6,9 @@
  */
 
 import { untrack } from '@barefootjs/client-runtime'
-import { addEdge as addEdgeUtil, reconnectEdge as reconnectEdgeUtil } from '@xyflow/system'
+import { addEdge as addEdgeUtil, reconnectEdge as reconnectEdgeUtil, pointToRendererPoint } from '@xyflow/system'
 import { useFlow } from './hooks'
-import type { NodeBase, EdgeBase, Viewport } from './types'
+import type { NodeBase, EdgeBase, Viewport, XYPosition } from './types'
 import type { Connection, NodeChange, EdgeChange } from '@xyflow/system'
 
 /**
@@ -125,6 +125,18 @@ export function useReactFlow<
 
     // Deletion
     deleteElements: store.deleteElements,
+
+    // Coordinate conversion
+    screenToFlowPosition: (position: XYPosition): XYPosition => {
+      const domNode = untrack(store.domNode)
+      if (!domNode) return position
+      const rect = domNode.getBoundingClientRect()
+      const transform = store.getTransform()
+      return pointToRendererPoint(
+        { x: position.x - rect.left, y: position.y - rect.top },
+        transform,
+      )
+    },
   }
 }
 

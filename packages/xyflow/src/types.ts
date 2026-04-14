@@ -86,11 +86,37 @@ export type FlowStoreOptions<
   edgesReconnectable?: boolean
   onReconnect?: OnReconnect<EdgeType>
 
-  // Callbacks
+  // Connection callbacks
   onConnect?: OnConnect
   onConnectStart?: OnConnectStart
   onConnectEnd?: OnConnectEnd
   isValidConnection?: IsValidConnection
+
+  // Lifecycle callbacks
+  onInit?: (store: FlowStore<NodeType, EdgeType>) => void
+  onNodeDragStart?: (event: MouseEvent, node: NodeType, nodes: NodeType[]) => void
+  onNodeDragStop?: (event: MouseEvent, node: NodeType, nodes: NodeType[]) => void
+  onMoveEnd?: (event: MouseEvent | TouchEvent | null, viewport: Viewport) => void
+  onPaneClick?: (event: MouseEvent) => void
+  onPaneMouseMove?: (event: MouseEvent) => void
+  onNodesDelete?: (nodes: NodeType[]) => void
+  onEdgesDelete?: (edges: EdgeType[]) => void
+
+  // Interactivity config
+  panOnDrag?: boolean
+  panOnScroll?: boolean
+  zoomOnScroll?: boolean
+  zoomOnDoubleClick?: boolean
+  zoomActivationKeyCode?: string | null
+  nodesDraggable?: boolean
+  nodesConnectable?: boolean
+  elementsSelectable?: boolean
+  deleteKeyCode?: string[] | null
+  selectionKeyCode?: string | null
+  connectionLineStyle?: Record<string, string>
+  defaultEdgeOptions?: Partial<EdgeBase>
+  elevateNodesOnSelect?: boolean
+  reconnectRadius?: number
 }
 
 /**
@@ -174,11 +200,41 @@ export type FlowStore<
   edgesReconnectable: boolean
   onReconnect?: OnReconnect<EdgeType>
 
-  // Callbacks
+  // Connection callbacks
   onConnect?: OnConnect
   onConnectStart?: OnConnectStart
   onConnectEnd?: OnConnectEnd
   isValidConnection?: IsValidConnection
+
+  // Lifecycle callbacks
+  onInit?: (store: FlowStore<NodeType, EdgeType>) => void
+  onNodeDragStart?: (event: MouseEvent, node: NodeType, nodes: NodeType[]) => void
+  onNodeDragStop?: (event: MouseEvent, node: NodeType, nodes: NodeType[]) => void
+  onMoveEnd?: (event: MouseEvent | TouchEvent | null, viewport: Viewport) => void
+  onPaneClick?: (event: MouseEvent) => void
+  onPaneMouseMove?: (event: MouseEvent) => void
+  onNodesDelete?: (nodes: NodeType[]) => void
+  onEdgesDelete?: (edges: EdgeType[]) => void
+
+  // Interactivity (reactive signals)
+  nodesConnectable: Signal<boolean>[0]
+  setNodesConnectable: Signal<boolean>[1]
+  elementsSelectable: Signal<boolean>[0]
+  setElementsSelectable: Signal<boolean>[1]
+  panOnDrag: Signal<boolean>[0]
+  setPanOnDrag: Signal<boolean>[1]
+  panOnScroll: Signal<boolean>[0]
+  setPanOnScroll: Signal<boolean>[1]
+  zoomOnScroll: Signal<boolean>[0]
+  setZoomOnScroll: Signal<boolean>[1]
+
+  // Static config
+  deleteKeyCode: string[] | null
+  selectionKeyCode: string | null
+  connectionLineStyle?: Record<string, string>
+  defaultEdgeOptions?: Partial<EdgeBase>
+  elevateNodesOnSelect: boolean
+  reconnectRadius: number
 }
 
 /**
@@ -193,6 +249,7 @@ export type InternalFlowStore<
   setPanZoom: Signal<PanZoomInstance | null>[1]
   setDomNode: Signal<HTMLElement | null>[1]
   setMultiSelectionActive: Signal<boolean>[1]
+  updatePanZoomConfig: () => void
 }
 
 /**

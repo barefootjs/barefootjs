@@ -1,6 +1,8 @@
 import { useContext } from '@barefootjs/client-runtime'
+import { createMemo, untrack } from '@barefootjs/client'
+import { pointToRendererPoint } from '@xyflow/system'
 import { FlowContext } from './context'
-import type { FlowStore, Viewport, NodeBase, EdgeBase } from './types'
+import type { FlowStore, Viewport, NodeBase, EdgeBase, XYPosition } from './types'
 import type { Signal, Memo } from '@barefootjs/client'
 
 /**
@@ -40,4 +42,31 @@ export function useEdges<EdgeType extends EdgeBase = EdgeBase>(): Signal<EdgeTyp
  */
 export function useNodesInitialized(): Memo<boolean> {
   return useFlow().nodesInitialized
+}
+
+/**
+ * Select derived state from the flow store.
+ * Similar to React Flow's useStore(selector).
+ */
+export function useStore<T>(selector: (store: FlowStore) => T): Memo<T> {
+  const store = useFlow()
+  return createMemo(() => selector(store))
+}
+
+/**
+ * Convert a screen position to flow coordinates.
+ * Accounts for viewport transform (pan/zoom) and container offset.
+ */
+export function screenToFlowPosition(position: XYPosition): XYPosition {
+  const store = useFlow()
+  const domNode = untrack(store.domNode)
+  if (!domNode) return position
+
+  const rect = domNode.getBoundingClientRect()
+  const transform = store.getTransform()
+
+  return pointToRendererPoint(
+    { x: position.x - rect.left, y: position.y - rect.top },
+    transform,
+  )
 }
