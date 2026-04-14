@@ -38,7 +38,7 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
 
   // Viewport wrapper — transformed by pan/zoom
   const viewportEl = document.createElement('div')
-  viewportEl.className = 'bf-flow__viewport'
+  viewportEl.className = 'bf-flow__viewport xyflow__viewport'
   viewportEl.style.position = 'absolute'
   viewportEl.style.top = '0'
   viewportEl.style.left = '0'
