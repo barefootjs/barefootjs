@@ -4,7 +4,7 @@ import {
   onCleanup,
   untrack,
 } from '@barefootjs/client'
-import { updateNodeInternals, updateAbsolutePositions, calcAutoPan } from '@xyflow/system'
+import { updateNodeInternals, updateAbsolutePositions, calcAutoPan, clampPositionToParent } from '@xyflow/system'
 import type {
   NodeBase,
   InternalNodeBase,
@@ -165,13 +165,44 @@ export function createNodeWrapper<NodeType extends NodeBase>(
         let autoPanDy = 0
 
         function updateNodePosition(newX: number, newY: number) {
-          element.style.transform = `translate(${newX}px, ${newY}px)`
-
           const lookup = untrack(store.nodeLookup)
           const node = lookup.get(internalNode.id)
-          if (node) {
-            node.internals.positionAbsolute = { x: newX, y: newY }
-            node.internals.userNode.position = { x: newX, y: newY }
+          if (!node) return
+
+          let absX = newX
+          let absY = newY
+
+          // Clamp child nodes within parent bounds when extent: 'parent'
+          const userNode = node.internals.userNode
+          if (userNode.parentId && userNode.extent === 'parent') {
+            const parentNode = lookup.get(userNode.parentId)
+            if (parentNode) {
+              const clamped = clampPositionToParent(
+                { x: absX, y: absY },
+                { width: node.measured.width ?? 150, height: node.measured.height ?? 40 },
+                parentNode,
+              )
+              absX = clamped.x
+              absY = clamped.y
+            }
+          }
+
+          element.style.transform = `translate(${absX}px, ${absY}px)`
+          node.internals.positionAbsolute = { x: absX, y: absY }
+
+          // Update relative position for child nodes
+          if (userNode.parentId) {
+            const parentNode = lookup.get(userNode.parentId)
+            if (parentNode) {
+              userNode.position = {
+                x: absX - parentNode.internals.positionAbsolute.x,
+                y: absY - parentNode.internals.positionAbsolute.y,
+              }
+            } else {
+              userNode.position = { x: absX, y: absY }
+            }
+          } else {
+            userNode.position = { x: absX, y: absY }
           }
 
           const parents = untrack(store.parentLookup)
@@ -246,12 +277,16 @@ export function createNodeWrapper<NodeType extends NodeBase>(
           const finalX = startNodeX + dx + autoPanDx
           const finalY = startNodeY + dy + autoPanDy
 
-          // Commit final position to the nodes array so that
-          // adoptUserNodes picks it up correctly.
+          // Commit final position: use the clamped position from the last
+          // updateNodePosition call (stored in internals.userNode.position).
+          const lookup = untrack(store.nodeLookup)
+          const finalNode = lookup.get(internalNode.id)
+          const committedPos = finalNode?.internals.userNode.position ?? { x: finalX, y: finalY }
+
           store.setNodes((prev) =>
             prev.map((n) =>
               n.id === internalNode.id
-                ? { ...n, position: { x: finalX, y: finalY }, dragging: false, measured: { width: mw, height: mh } }
+                ? { ...n, position: committedPos, dragging: false, measured: { width: mw, height: mh } }
                 : n,
             ),
           )
