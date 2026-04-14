@@ -55,9 +55,7 @@ test.describe('Social Feed Block (#830)', () => {
     await expect(s.locator('text=I\'ll add a section on that in the follow-up')).toBeVisible()
   })
 
-  // Skipped: compiler wrapping bug — addReply(post.id, ...) emitted instead of
-  // addReply(post().id, ...) in insert() bindEvents at depth 3. Tracked separately.
-  test.skip('add reply via input appends to reply list', async ({ page }) => {
+  test('add reply via input appends to reply list', async ({ page }) => {
     const s = section(page)
 
     const replyInput = s.locator('input[placeholder="Reply..."]').first()
