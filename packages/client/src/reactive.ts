@@ -30,11 +30,11 @@ type EffectContext = {
   owner: EffectContext | null   // Parent scope for hierarchical disposal
   children: EffectContext[]     // Owned child effects/roots
   disposed: boolean
+  runCount: number              // Per-effect re-entry counter for circular dependency detection
 }
 
 let Owner: EffectContext | null = null
 let Listener: EffectContext | null = null
-let effectDepth = 0
 const MAX_EFFECT_RUNS = 100
 
 /**
@@ -105,6 +105,7 @@ export function createEffect(fn: EffectFn): void {
     owner: Owner,
     children: [],
     disposed: false,
+    runCount: 0,
   }
 
   // Register with parent owner for hierarchical disposal
@@ -116,10 +117,10 @@ export function createEffect(fn: EffectFn): void {
 function runEffect(effect: EffectContext): void {
   if (effect.disposed) return
 
-  effectDepth++
-  if (effectDepth > MAX_EFFECT_RUNS) {
-    effectDepth = 0
-    throw new Error(`Effect exceeded maximum run limit (${MAX_EFFECT_RUNS}). Possible circular dependency.`)
+  effect.runCount++
+  if (effect.runCount > MAX_EFFECT_RUNS) {
+    effect.runCount = 0
+    throw new Error(`Circular dependency detected: effect re-entered itself ${MAX_EFFECT_RUNS} times.`)
   }
 
   if (effect.cleanup) {
@@ -145,7 +146,7 @@ function runEffect(effect: EffectContext): void {
   } finally {
     Owner = prevOwner
     Listener = prevListener
-    effectDepth--
+    effect.runCount--
   }
 }
 
@@ -201,6 +202,7 @@ export function createRoot<T>(fn: (dispose: () => void) => T): T {
     owner: Owner,
     children: [],
     disposed: false,
+    runCount: 0,
   }
 
   if (Owner) Owner.children.push(root)
@@ -237,6 +239,7 @@ export function createDisposableEffect(fn: EffectFn): () => void {
     owner: Owner,
     children: [],
     disposed: false,
+    runCount: 0,
   }
 
   if (Owner) Owner.children.push(effect)
