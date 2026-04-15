@@ -9,6 +9,7 @@ import { getTemplate } from './template'
 import { getComponentInit } from './registry'
 import { hydratedScopes } from './hydration-state'
 import { untrack } from '@barefootjs/client'
+import { setCurrentScope } from './context'
 import { BF_SCOPE, BF_KEY } from '@barefootjs/shared'
 import type { ComponentDef } from './types'
 
@@ -76,38 +77,47 @@ export function createComponent(
     return createPlaceholder(name, key)
   }
 
-  // 2. Evaluate children and props for template HTML generation.
-  // Use untrack() so signal reads during prop evaluation don't contaminate
-  // the caller's effect tracking. This prevents full list re-render when
-  // e.g. an Input's value={signal()} changes during typing.
-  // Component reactivity is handled by init()'s own createEffect calls.
+  // 2. Check for getter children.
+  // Children defined via a getter are evaluated AFTER initFn so that context
+  // providers set up by the parent are available when children are created.
   const childrenDescriptor = Object.getOwnPropertyDescriptor(props, 'children')
-  const children = untrack(() =>
-    childrenDescriptor && typeof childrenDescriptor.get === 'function'
-      ? childrenDescriptor.get()
-      : props.children
-  )
+  const childrenIsGetter = childrenDescriptor != null && typeof childrenDescriptor.get === 'function'
 
-  // 3. Generate HTML from props
-  // When children contain DOM elements, pass empty children for shell HTML
-  const unwrappedProps = untrack(() => unwrapPropsForTemplate(props))
-  const hasDomChildren = children != null && hasDomElements(children)
-  if (hasDomChildren) {
-    unwrappedProps.children = ''
-  }
+  // 3. Evaluate props for template HTML generation, skipping the children getter.
+  // Use untrack() so signal reads don't contaminate the caller's effect tracking.
+  const unwrappedProps = untrack(() => {
+    const result: Record<string, unknown> = {}
+    for (const k of Object.keys(props)) {
+      if (k === 'children' && childrenIsGetter) {
+        result.children = '' // Deferred — will be inserted after initFn
+        continue
+      }
+      const descriptor = Object.getOwnPropertyDescriptor(props, k)
+      if (descriptor && typeof descriptor.get === 'function') {
+        result[k] = descriptor.get()
+      } else {
+        result[k] = props[k]
+      }
+    }
+    // Template functions expect children as an HTML string, not an array.
+    if (Array.isArray(result.children) && !hasDomElements(result.children)) {
+      result.children = (result.children as unknown[])
+        .flat()
+        .map(c => c == null ? '' : String(c))
+        .join('')
+    }
+    return result
+  })
+
+  // 4. Generate HTML from props
   const html = templateFn(unwrappedProps)
 
-  // 4. Create DOM element
+  // 5. Create DOM element
   const element = parseHTML(html.trim()).firstChild as HTMLElement
 
   if (!element) {
     console.warn(`[BarefootJS] Template returned empty HTML for component: ${name}`)
     return createPlaceholder(name, key)
-  }
-
-  // 5. Insert DOM children into the shell element
-  if (hasDomChildren) {
-    insertDomChildren(element, children)
   }
 
   // 6. Set scope ID and key attributes
@@ -117,19 +127,47 @@ export function createComponent(
     element.setAttribute(BF_KEY, String(key))
   }
 
-  // 7. Initialize the component synchronously
-  // Event handlers need to be bound immediately so user interactions work right away.
-  // Nested effects are now supported in createEffect, so we don't need queueMicrotask.
+  // 7. Set currentScope so provideContext/useContext are element-scoped.
+  // This allows context providers in initFn to store context on this element.
+  const prevScope = setCurrentScope(element)
+
+  // 8. Initialize the component (context providers set up here).
   const initFn = getComponentInit(name)
   if (initFn) {
     // Pass original props (with getters) for reactivity
     initFn(element, props)
   }
 
-  // 8. Mark element as initialized
+  // 9. Evaluate getter children and insert them.
+  // Children are evaluated NOW (after initFn) so that context provided by
+  // the parent is in the global store when children call useContext().
+  if (childrenIsGetter) {
+    const children = untrack(() => childrenDescriptor!.get!())
+    if (children != null) {
+      if (hasDomElements(children)) {
+        // DOM elements from createComponent calls
+        insertDomChildren(element, children)
+      } else if (Array.isArray(children)) {
+        // Non-DOM array: join and insert as HTML
+        const joined = (children as unknown[]).flat()
+          .map(c => c == null ? '' : String(c)).join('')
+        if (joined.length > 0) element.appendChild(parseHTML(joined))
+      } else if (typeof children === 'string' && children.length > 0) {
+        // HTML string or literal text: parse and insert
+        element.appendChild(parseHTML(children.trim()))
+      } else if (typeof children === 'number') {
+        element.appendChild(document.createTextNode(String(children)))
+      }
+    }
+  }
+
+  // 10. Restore previous scope
+  setCurrentScope(prevScope)
+
+  // 11. Mark element as initialized
   hydratedScopes.add(element)
 
-  // 9. Store props and register update function for element reuse in reconcileList
+  // 12. Store props and register update function for element reuse in reconcileList
   propsMap.set(element, props)
   registerPropsUpdate(element, name, props)
 
@@ -314,6 +352,7 @@ function hasDomElements(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(hasDomElements)
   return false
 }
+
 
 /**
  * Insert DOM children into a shell element.
