@@ -250,10 +250,12 @@ function SelectContent(props: SelectContentProps) {
     const triggerEl = findSiblingSlot(el, '[data-slot="select-trigger"]')
     if (triggerEl) contentTriggerMap.set(el, triggerEl)
 
-    // Portal to body to escape overflow clipping
+    // Portal to body to escape overflow clipping.
+    // Deferred via microtask so that sibling initChild calls (e.g., SelectItem)
+    // can find their elements via querySelector before they leave the DOM subtree.
     if (el && el.parentNode !== document.body && !isSSRPortal(el)) {
       const ownerScope = el.closest('[bf-s]') ?? undefined
-      createPortal(el, document.body, { ownerScope })
+      queueMicrotask(() => createPortal(el, document.body, { ownerScope }))
     }
 
     const ctx = useContext(SelectContext)

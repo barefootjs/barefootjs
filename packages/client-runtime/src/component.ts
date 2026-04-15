@@ -76,26 +76,42 @@ export function createComponent(
     return createPlaceholder(name, key)
   }
 
-  // 2. Evaluate children and props for template HTML generation.
+  // 2. Generate scope ID early so renderChild() inside the template can use it
+  //    as the parent prefix for child scope IDs (e.g., "Select_abc_s5").
+  const scopeId = `${name}_${generateId()}`
+
+  // 3. Generate HTML shell from props (without DOM children).
   // Use untrack() so signal reads during prop evaluation don't contaminate
   // the caller's effect tracking. This prevents full list re-render when
   // e.g. an Input's value={signal()} changes during typing.
   // Component reactivity is handled by init()'s own createEffect calls.
-  const childrenDescriptor = Object.getOwnPropertyDescriptor(props, 'children')
-  const children = untrack(() =>
-    childrenDescriptor && typeof childrenDescriptor.get === 'function'
-      ? childrenDescriptor.get()
-      : props.children
-  )
-
-  // 3. Generate HTML from props
-  // When children contain DOM elements, pass empty children for shell HTML
+  //
+  // Children are NOT evaluated yet — they may create child components whose
+  // init functions call useContext(). The parent must provideContext() first
+  // (step 6), so children evaluation is deferred to step 7.
   const unwrappedProps = untrack(() => unwrapPropsForTemplate(props))
-  const hasDomChildren = children != null && hasDomElements(children)
-  if (hasDomChildren) {
+
+  // Check if children prop is a getter (DOM children from createComponent calls).
+  // We detect this before evaluating so we can pass empty children to the template.
+  const childrenDescriptor = Object.getOwnPropertyDescriptor(props, 'children')
+  const hasChildrenGetter = childrenDescriptor && typeof childrenDescriptor.get === 'function'
+
+  // For template rendering, always use empty children — DOM children are inserted later.
+  // String children are already in unwrappedProps from unwrapPropsForTemplate.
+  // Also guard against undefined children producing literal "undefined" text in templates.
+  if (hasChildrenGetter || unwrappedProps.children === undefined) {
     unwrappedProps.children = ''
   }
-  const html = templateFn(unwrappedProps)
+
+  // Set parent scope ID so nested renderChild() calls produce consistent
+  // scope IDs (e.g., "Select_abc_s1" instead of "SelectTrigger_random_s1").
+  setParentScopeId(scopeId)
+  let html: string
+  try {
+    html = templateFn(unwrappedProps)
+  } finally {
+    setParentScopeId(null)
+  }
 
   // 4. Create DOM element
   const element = parseHTML(html.trim()).firstChild as HTMLElement
@@ -105,25 +121,33 @@ export function createComponent(
     return createPlaceholder(name, key)
   }
 
-  // 5. Insert DOM children into the shell element
-  if (hasDomChildren) {
-    insertDomChildren(element, children)
-  }
-
-  // 6. Set scope ID and key attributes
-  const scopeId = `${name}_${generateId()}`
+  // 5. Set scope ID and key attributes
   element.setAttribute(BF_SCOPE, scopeId)
   if (key !== undefined) {
     element.setAttribute(BF_KEY, String(key))
   }
 
-  // 7. Initialize the component synchronously
-  // Event handlers need to be bound immediately so user interactions work right away.
-  // Nested effects are now supported in createEffect, so we don't need queueMicrotask.
+  // 6. Initialize the parent component BEFORE creating children.
+  // This ensures provideContext() runs first, so child components
+  // created in step 7 can find the context via useContext().
   const initFn = getComponentInit(name)
   if (initFn) {
-    // Pass original props (with getters) for reactivity
     initFn(element, props)
+  }
+
+  // 7. Now evaluate and insert DOM children.
+  // Children getters may call createComponent() which triggers child init.
+  // Context is now available from step 6.
+  if (hasChildrenGetter) {
+    const children = untrack(() => childrenDescriptor!.get!())
+    if (children != null && hasDomElements(children)) {
+      insertDomChildren(element, children)
+    }
+  } else {
+    const children = props.children
+    if (children != null && hasDomElements(children)) {
+      insertDomChildren(element, children)
+    }
   }
 
   // 8. Mark element as initialized
@@ -210,6 +234,12 @@ export function renderChild(
     return `<div bf-s="~${scopePrefix}${suffix}"${keyAttr}></div>`
   }
 
+  // Guard against undefined children producing literal "undefined" text in templates.
+  // Components rendered via renderChild may not receive a children prop when the
+  // compiler omits it (e.g., nested loop CSR paths).
+  if (props.children === undefined) {
+    props = { ...props, children: '' }
+  }
   const html = templateFn(props).trim()
   // Inject bf-s scope attribute with ~ child prefix into the first element tag.
   // The ~ prefix marks this as a child component so hydrate()'s requestAnimationFrame
@@ -328,7 +358,17 @@ function insertDomChildren(element: HTMLElement, children: unknown): void {
     for (const child of children) {
       insertDomChildren(element, child)
     }
-  } else if (typeof children === 'string' || typeof children === 'number') {
+  } else if (typeof children === 'string') {
+    // Strings containing HTML tags (from compiler-generated template fragments)
+    // must be parsed as HTML, not inserted as text nodes.
+    if (children.includes('<')) {
+      const tpl = document.createElement('template')
+      tpl.innerHTML = children
+      element.appendChild(tpl.content)
+    } else {
+      element.appendChild(document.createTextNode(children))
+    }
+  } else if (typeof children === 'number') {
     element.appendChild(document.createTextNode(String(children)))
   }
 }

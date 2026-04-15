@@ -462,7 +462,7 @@ function collectBranchInnerLoops(
       }
       // Collect child components and events inside inner loop items
       // Walk loop body children (not the loop node itself, which traverseForComponents skips)
-      const rawComps: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[] }> = []
+      const rawComps: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[]; children: import('../types').IRNode[] }> = []
       for (const child of n.children) {
         rawComps.push(...collectConditionalBranchChildComponents(child))
       }
@@ -476,7 +476,7 @@ function collectBranchInnerLoops(
           isLiteral: p.isLiteral ?? false,
           isEventHandler: p.name.startsWith('on') && p.name.length > 2 && p.name[2] === p.name[2].toUpperCase(),
         })),
-        children: [] as import('../types').IRNode[],
+        children: c.children,
         loopDepth: 1,
       }))
       const childEvents: import('./types').LoopChildEvent[] = []

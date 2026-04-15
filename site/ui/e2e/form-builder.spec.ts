@@ -8,6 +8,13 @@ test.describe('Form Builder Block', () => {
   const section = (page: any) =>
     page.locator('[bf-s^="FormBuilderDemo_"]:not([data-slot])').first()
 
+  // Helper: select an option from a custom <Select> component by value
+  const selectTypeOption = async (page: any, trigger: any, value: string) => {
+    await trigger.click()
+    const openContent = page.locator('[data-slot="select-content"][data-state="open"]')
+    await openContent.locator(`[data-slot="select-item"][data-value="${value}"]`).click()
+  }
+
   // --- Initial Render ---
 
   test.describe('Initial Render', () => {
@@ -29,21 +36,21 @@ test.describe('Form Builder Block', () => {
     test('first field has type text and label Full Name', async ({ page }) => {
       const s = section(page)
       const first = s.locator('.field-editor').first()
-      await expect(first.locator('.field-type-select')).toHaveValue('text')
+      await expect(first.locator('.field-type-select')).toContainText('Text')
       await expect(first.locator('.field-label-input')).toHaveValue('Full Name')
     })
 
     test('select field has options input', async ({ page }) => {
       const s = section(page)
       const countryField = s.locator('.field-editor').nth(2)
-      await expect(countryField.locator('.field-type-select')).toHaveValue('select')
+      await expect(countryField.locator('.field-type-select')).toContainText('Select')
       await expect(countryField.locator('.options-input')).toBeVisible()
     })
 
     test('group field shows child fields', async ({ page }) => {
       const s = section(page)
       const groupField = s.locator('.field-editor').nth(3)
-      await expect(groupField.locator('.field-type-select')).toHaveValue('group')
+      await expect(groupField.locator('.field-type-select')).toContainText('Group')
       await expect(groupField.locator('.child-field')).toHaveCount(3)
     })
   })
@@ -62,7 +69,7 @@ test.describe('Form Builder Block', () => {
       const s = section(page)
       await s.locator('.add-select-btn').click()
       const newField = s.locator('.field-editor').last()
-      await expect(newField.locator('.field-type-select')).toHaveValue('select')
+      await expect(newField.locator('.field-type-select')).toContainText('Select')
       await expect(newField.locator('.options-input')).toBeVisible()
     })
 
@@ -70,7 +77,7 @@ test.describe('Form Builder Block', () => {
       const s = section(page)
       await s.locator('.add-group-btn').click()
       const newField = s.locator('.field-editor').last()
-      await expect(newField.locator('.field-type-select')).toHaveValue('group')
+      await expect(newField.locator('.field-type-select')).toContainText('Group')
       await expect(newField.locator('.add-child-btn')).toBeVisible()
     })
 
@@ -84,7 +91,7 @@ test.describe('Form Builder Block', () => {
       const s = section(page)
       await s.locator('.add-textarea-btn').click()
       const newField = s.locator('.field-editor').last()
-      await expect(newField.locator('.field-type-select')).toHaveValue('textarea')
+      await expect(newField.locator('.field-type-select')).toContainText('Textarea')
       await expect(newField.locator('.placeholder-input')).toBeVisible()
     })
   })
@@ -107,14 +114,14 @@ test.describe('Form Builder Block', () => {
       const s = section(page)
       const first = s.locator('.field-editor').first()
       await expect(first.locator('.options-input')).not.toBeVisible()
-      await first.locator('.field-type-select').selectOption('select')
+      await selectTypeOption(page, first.locator('.field-type-select'), 'select')
       await expect(first.locator('.options-input')).toBeVisible()
     })
 
     test('switching to group shows children area', async ({ page }) => {
       const s = section(page)
       const second = s.locator('.field-editor').nth(1)
-      await second.locator('.field-type-select').selectOption('group')
+      await selectTypeOption(page, second.locator('.field-type-select'), 'group')
       await expect(second.locator('.group-children')).toBeVisible()
       await expect(second.locator('.add-child-btn')).toBeVisible()
     })
@@ -124,7 +131,7 @@ test.describe('Form Builder Block', () => {
       // Country field (index 2) is a select
       const countryField = s.locator('.field-editor').nth(2)
       await expect(countryField.locator('.options-input')).toBeVisible()
-      await countryField.locator('.field-type-select').selectOption('text')
+      await selectTypeOption(page, countryField.locator('.field-type-select'), 'text')
       await expect(countryField.locator('.options-input')).not.toBeVisible()
     })
   })
@@ -203,8 +210,8 @@ test.describe('Form Builder Block', () => {
       const s = section(page)
       const groupField = s.locator('.field-editor').nth(3)
       const firstChild = groupField.locator('.child-field').first()
-      await firstChild.locator('.child-type-select').selectOption('checkbox')
-      await expect(firstChild.locator('.child-type-select')).toHaveValue('checkbox')
+      await selectTypeOption(page, firstChild.locator('.child-type-select'), 'checkbox')
+      await expect(firstChild.locator('.child-type-select')).toContainText('Checkbox')
     })
 
     test('child label input is editable', async ({ page }) => {
@@ -309,11 +316,13 @@ test.describe('Form Builder Block', () => {
 
     test('select field preview shows option list', async ({ page }) => {
       const s = section(page)
-      // Country is a select field → preview should have options
-      const previewSelect = s.locator('.preview-field-select select, .preview-field-select .preview-select select').first()
-      const optionCount = await previewSelect.locator('option').count()
-      // 'Select…' placeholder + 4 country options
+      // Country is a select field → open the preview select and verify options
+      const previewSelectTrigger = s.locator('.preview-field-select .preview-select').first()
+      await previewSelectTrigger.click()
+      const optionCount = await page.locator('[data-slot="select-item"]').count()
+      // At least 2 country options
       expect(optionCount).toBeGreaterThanOrEqual(2)
+      await page.keyboard.press('Escape')
     })
 
     test('add child button shows no undefined text', async ({ page }) => {
