@@ -203,14 +203,30 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
     selectionMode: flowProps.selectionMode,
   })
 
-  el.addEventListener('click', (event) => {
-    if (event.target === el || event.target === viewportEl) {
-      store.unselectNodesAndEdges()
-      if (store.onPaneClick) {
-        store.onPaneClick(event as MouseEvent)
-      }
+  // D3 zoom captures mousedown and may suppress click events.
+  // Use mousedown+mouseup pair to detect pane clicks reliably.
+  let paneMouseDownPos: { x: number; y: number } | null = null
+  el.addEventListener('mousedown', (event) => {
+    const target = event.target as HTMLElement
+    if (!target.closest('.bf-flow__node') && !target.closest('.bf-flow__handle') && !target.closest('.bf-flow__edge, [data-hit-id]')) {
+      paneMouseDownPos = { x: event.clientX, y: event.clientY }
+    } else {
+      paneMouseDownPos = null
     }
-  })
+  }, true)
+  el.addEventListener('mouseup', (event) => {
+    if (!paneMouseDownPos) return
+    const dx = event.clientX - paneMouseDownPos.x
+    const dy = event.clientY - paneMouseDownPos.y
+    paneMouseDownPos = null
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) return
+    const target = event.target as HTMLElement
+    if (target.closest('.bf-flow__node') || target.closest('.bf-flow__handle') || target.closest('.bf-flow__edge, [data-hit-id]')) return
+    store.unselectNodesAndEdges()
+    if (store.onPaneClick) {
+      store.onPaneClick(event as MouseEvent)
+    }
+  }, true)
 
   el.addEventListener('mousemove', (event) => {
     if (store.onPaneMouseMove) {
