@@ -119,30 +119,33 @@ function runEffect(effect: EffectContext): void {
     throw new Error('Circular dependency detected: effect is re-entering itself.')
   }
 
-  if (effect.cleanup) {
-    effect.cleanup()
-    effect.cleanup = null
-  }
-
-  for (const dep of effect.dependencies) {
-    dep.delete(effect)
-  }
-  effect.dependencies.clear()
-
-  const prevOwner = Owner
-  const prevListener = Listener
-  Owner = effect
-  Listener = effect
-
   runningEffects.add(effect)
   try {
-    const result = effect.fn()
-    if (typeof result === 'function') {
-      effect.cleanup = result
+    if (effect.cleanup) {
+      effect.cleanup()
+      effect.cleanup = null
+    }
+
+    for (const dep of effect.dependencies) {
+      dep.delete(effect)
+    }
+    effect.dependencies.clear()
+
+    const prevOwner = Owner
+    const prevListener = Listener
+    Owner = effect
+    Listener = effect
+
+    try {
+      const result = effect.fn()
+      if (typeof result === 'function') {
+        effect.cleanup = result
+      }
+    } finally {
+      Owner = prevOwner
+      Listener = prevListener
     }
   } finally {
-    Owner = prevOwner
-    Listener = prevListener
     runningEffects.delete(effect)
   }
 }
