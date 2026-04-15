@@ -30,11 +30,12 @@ type EffectContext = {
   owner: EffectContext | null   // Parent scope for hierarchical disposal
   children: EffectContext[]     // Owned child effects/roots
   disposed: boolean
+  runCount: number              // Per-effect re-entry counter for circular dependency detection
 }
 
 let Owner: EffectContext | null = null
 let Listener: EffectContext | null = null
-const runningEffects = new Set<EffectContext>()
+const MAX_EFFECT_RUNS = 100
 
 /**
  * Create a reactive value
@@ -104,6 +105,7 @@ export function createEffect(fn: EffectFn): void {
     owner: Owner,
     children: [],
     disposed: false,
+    runCount: 0,
   }
 
   // Register with parent owner for hierarchical disposal
@@ -115,38 +117,36 @@ export function createEffect(fn: EffectFn): void {
 function runEffect(effect: EffectContext): void {
   if (effect.disposed) return
 
-  if (runningEffects.has(effect)) {
-    throw new Error('Circular dependency detected: effect is re-entering itself.')
+  effect.runCount++
+  if (effect.runCount > MAX_EFFECT_RUNS) {
+    effect.runCount = 0
+    throw new Error(`Circular dependency detected: effect re-entered itself ${MAX_EFFECT_RUNS} times.`)
   }
 
-  runningEffects.add(effect)
+  if (effect.cleanup) {
+    effect.cleanup()
+    effect.cleanup = null
+  }
+
+  for (const dep of effect.dependencies) {
+    dep.delete(effect)
+  }
+  effect.dependencies.clear()
+
+  const prevOwner = Owner
+  const prevListener = Listener
+  Owner = effect
+  Listener = effect
+
   try {
-    if (effect.cleanup) {
-      effect.cleanup()
-      effect.cleanup = null
-    }
-
-    for (const dep of effect.dependencies) {
-      dep.delete(effect)
-    }
-    effect.dependencies.clear()
-
-    const prevOwner = Owner
-    const prevListener = Listener
-    Owner = effect
-    Listener = effect
-
-    try {
-      const result = effect.fn()
-      if (typeof result === 'function') {
-        effect.cleanup = result
-      }
-    } finally {
-      Owner = prevOwner
-      Listener = prevListener
+    const result = effect.fn()
+    if (typeof result === 'function') {
+      effect.cleanup = result
     }
   } finally {
-    runningEffects.delete(effect)
+    Owner = prevOwner
+    Listener = prevListener
+    effect.runCount--
   }
 }
 
@@ -202,6 +202,7 @@ export function createRoot<T>(fn: (dispose: () => void) => T): T {
     owner: Owner,
     children: [],
     disposed: false,
+    runCount: 0,
   }
 
   if (Owner) Owner.children.push(root)
@@ -238,6 +239,7 @@ export function createDisposableEffect(fn: EffectFn): () => void {
     owner: Owner,
     children: [],
     disposed: false,
+    runCount: 0,
   }
 
   if (Owner) Owner.children.push(effect)
