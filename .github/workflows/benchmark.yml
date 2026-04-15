@@ -1,0 +1,60 @@
+name: Benchmark
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/client/**'
+      - 'packages/client-runtime/**'
+      - 'benchmarks/**'
+
+permissions:
+  pull-requests: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run benchmark
+        id: bench
+        run: |
+          {
+            echo 'result<<EOF'
+            bun run benchmarks/run-browser.ts --md 2>&1
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Find existing benchmark comment
+        uses: peter-evans/find-comment@v3
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '## Benchmark Results'
+
+      - name: Post benchmark results
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            ## Benchmark Results
+
+            ${{ steps.bench.outputs.result }}
+
+            [Job log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) · `${{ github.event.pull_request.head.sha }}`
