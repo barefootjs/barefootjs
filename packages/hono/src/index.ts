@@ -17,6 +17,10 @@ export type { CollectedScript } from './scripts'
 export type { CollectedPortal } from './portals'
 export type { PortalProps } from './portal-ssr'
 
+// Async streaming boundary
+// Usage: import { BfAsync } from '@barefootjs/hono/async'
+export type { BfAsyncProps } from './async'
+
 // Dialog context for scopeId sharing
 // Usage: import { DialogContext, useDialogContext } from '@barefootjs/hono/dialog-context'
 export type { DialogContextValue } from './dialog-context'

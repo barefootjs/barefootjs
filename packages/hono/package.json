@@ -42,6 +42,10 @@
       "types": "./src/jsx/jsx-dev-runtime/index.d.ts",
       "import": "./src/jsx/jsx-dev-runtime/index.ts"
     },
+    "./async": {
+      "types": "./src/async.tsx",
+      "import": "./src/async.tsx"
+    },
     "./utils": {
       "types": "./src/utils.ts",
       "import": "./src/utils.ts"
