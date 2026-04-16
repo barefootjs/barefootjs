@@ -120,6 +120,7 @@ get '/' => sub ($c) {
             <li><a href="/toggle">Toggle</a></li>
             <li><a href="/todos">Todo (@client)</a></li>
             <li><a href="/todos-ssr">Todo (no @client markers)</a></li>
+            <li><a href="/ai-chat">AI Chat (Streaming SSR)</a></li>
         </ul>
     </body>
     </html>
@@ -251,6 +252,80 @@ get '/portal' => sub ($c) {
         stash   => { open => 0 },
         heading => 'Portal Example',
     );
+};
+
+# ---------------------------------------------------------------------------
+# AI Chat — Streaming SSR Example
+# ---------------------------------------------------------------------------
+
+my @mock_chat = (
+    { role => 'user',      content => 'BarefootJSとは何ですか？',                                                                          timestamp => '14:01' },
+    { role => 'assistant', content => 'BarefootJSは、JSXをMarked Template + Client JSにコンパイルするフレームワークです。Signal-based reactivityをどのバックエンドでも使えるようにします。', timestamp => '14:01' },
+    { role => 'user',      content => 'Streaming SSRはどう動きますか？',                                                                     timestamp => '14:02' },
+    { role => 'assistant', content => 'Out-of-Order Streamingプロトコルを使います。サーバーはまずfallback UIを送信し、データが準備できたら&lt;template&gt;チャンクを追記します。',              timestamp => '14:02' },
+    { role => 'user',      content => 'どのバックエンドで使えますか？',                                                                       timestamp => '14:03' },
+    { role => 'assistant', content => 'HTTP chunked transfer encodingをサポートするすべてのバックエンドで動作します。Hono、Go (Echo)、Perl (Mojolicious) などのアダプタが用意されています。',   timestamp => '14:03' },
+);
+
+my @mock_suggestions = (
+    'コンポーネントの作り方を教えて',
+    'Signalの仕組みは？',
+    'テストはどう書く？',
+);
+
+get '/ai-chat' => sub ($c) {
+    my $bf = $c->bf;
+
+    my $skeleton_chat = '<div class="chat-skeleton"><div class="skeleton-msg skeleton-user"><div class="skeleton-line" style="width:60%"></div></div><div class="skeleton-msg skeleton-bot"><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line" style="width:70%"></div></div><div class="skeleton-msg skeleton-user"><div class="skeleton-line" style="width:50%"></div></div><div class="skeleton-msg skeleton-bot"><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line" style="width:60%"></div></div></div>';
+
+    my $skeleton_suggestions = '<div class="suggestions-skeleton"><div class="skeleton-chip"></div><div class="skeleton-chip"></div><div class="skeleton-chip"></div></div>';
+
+    # Send initial page with fallback skeletons (fast TTFB)
+    my $initial_html = <<"HTML";
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>AI Chat — Streaming SSR (Mojolicious)</title>
+    <link rel="stylesheet" href="/styles/components.css">
+    <link rel="stylesheet" href="/styles/ai-chat.css">
+    @{[ $bf->streaming_bootstrap ]}
+    <style>body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }</style>
+</head>
+<body>
+    <h1>AI Chat — Streaming SSR (Mojolicious)</h1>
+    <div class="chat-container">
+        @{[ $bf->async_boundary('a0', $skeleton_chat) ]}
+        @{[ $bf->async_boundary('a1', $skeleton_suggestions) ]}
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" placeholder="メッセージを入力..." disabled />
+            <button class="chat-send" disabled>送信</button>
+        </div>
+    </div>
+    <p><a href="/">← Back</a></p>
+HTML
+
+    $c->write_chunk($initial_html);
+
+    # Resolve suggestions (faster: 0.8s delay)
+    Mojo::IOLoop->timer(0.8 => sub {
+        my $chips = join '', map { qq{<button class="suggestion-chip">$_</button>} } @mock_suggestions;
+        my $suggestions_html = qq{<div class="chat-suggestions">$chips</div>};
+        $c->write_chunk($bf->async_resolve('a1', $suggestions_html));
+    });
+
+    # Resolve chat history (slower: 1.5s delay)
+    Mojo::IOLoop->timer(1.5 => sub {
+        my $msgs = join '', map {
+            my $role = $_->{role};
+            qq{<div class="chat-msg chat-$role"><div class="chat-bubble"><p>$_->{content}</p><time>$_->{timestamp}</time></div></div>};
+        } @mock_chat;
+        my $chat_html = qq{<div class="chat-messages">$msgs</div>};
+        $c->write_chunk($bf->async_resolve('a0', $chat_html));
+
+        # Close the response after all boundaries resolve
+        $c->write_chunk('</body></html>' => sub { shift->finish });
+    });
 };
 
 # ---------------------------------------------------------------------------

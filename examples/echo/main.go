@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	bf "github.com/barefootjs/runtime/bf"
 	"github.com/labstack/echo/v4"
@@ -106,6 +107,7 @@ func main() {
 	e.GET("/portal", portalHandler)
 	e.GET("/conditional-return", conditionalReturnHandler)
 	e.GET("/conditional-return-link", conditionalReturnLinkHandler)
+	e.GET("/ai-chat", aiChatHandler)
 
 	// Todo API endpoints
 	e.GET("/api/todos", getTodosAPI)
@@ -143,6 +145,7 @@ func indexHandler(c echo.Context) error {
         <li><a href="/toggle">Toggle</a></li>
         <li><a href="/todos">Todo (@client)</a></li>
         <li><a href="/todos-ssr">Todo (no @client markers)</a></li>
+        <li><a href="/ai-chat">AI Chat (Streaming SSR)</a></li>
     </ul>
 </body>
 </html>
@@ -384,4 +387,122 @@ func deleteTodoAPI(c echo.Context) error {
 func resetTodosAPI(c echo.Context) error {
 	resetTodos()
 	return c.NoContent(http.StatusOK)
+}
+
+// ---------------------------------------------------------------------------
+// AI Chat — Streaming SSR Example
+// ---------------------------------------------------------------------------
+
+type ChatMessage struct {
+	Role      string `json:"role"`
+	Content   string `json:"content"`
+	Timestamp string `json:"timestamp"`
+}
+
+func fetchMockChatHistory() []ChatMessage {
+	time.Sleep(1500 * time.Millisecond) // simulate slow DB/API
+	return []ChatMessage{
+		{Role: "user", Content: "BarefootJSとは何ですか？", Timestamp: "14:01"},
+		{Role: "assistant", Content: "BarefootJSは、JSXをMarked Template + Client JSにコンパイルするフレームワークです。Signal-based reactivityをどのバックエンドでも使えるようにします。", Timestamp: "14:01"},
+		{Role: "user", Content: "Streaming SSRはどう動きますか？", Timestamp: "14:02"},
+		{Role: "assistant", Content: "Out-of-Order Streamingプロトコルを使います。サーバーはまずfallback UIを送信し、データが準備できたら&lt;template&gt;チャンクを追記します。", Timestamp: "14:02"},
+		{Role: "user", Content: "どのバックエンドで使えますか？", Timestamp: "14:03"},
+		{Role: "assistant", Content: "HTTP chunked transfer encodingをサポートするすべてのバックエンドで動作します。Hono、Go (Echo)、Perl (Mojolicious) などのアダプタが用意されています。", Timestamp: "14:03"},
+	}
+}
+
+func fetchMockSuggestions() []string {
+	time.Sleep(800 * time.Millisecond)
+	return []string{
+		"コンポーネントの作り方を教えて",
+		"Signalの仕組みは？",
+		"テストはどう書く？",
+	}
+}
+
+func renderChatMessages(msgs []ChatMessage) string {
+	var html string
+	for _, m := range msgs {
+		html += fmt.Sprintf(`<div class="chat-msg chat-%s"><div class="chat-bubble"><p>%s</p><time>%s</time></div></div>`, m.Role, m.Content, m.Timestamp)
+	}
+	return `<div class="chat-messages">` + html + `</div>`
+}
+
+func renderSuggestions(qs []string) string {
+	var html string
+	for _, q := range qs {
+		html += fmt.Sprintf(`<button class="suggestion-chip">%s</button>`, q)
+	}
+	return `<div class="chat-suggestions">` + html + `</div>`
+}
+
+func aiChatHandler(c echo.Context) error {
+	sr := bf.NewStreamRenderer(loadTemplates(), func(ctx *bf.RenderContext) string {
+		return fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+    <title>%s</title>
+    <link rel="stylesheet" href="/shared/styles/components.css">
+    <link rel="stylesheet" href="/shared/styles/ai-chat.css">
+    %s
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    </style>
+</head>
+<body>
+    <h1>AI Chat — Streaming SSR (Go/Echo)</h1>
+    <div class="chat-container">
+        %s
+        %s
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" placeholder="メッセージを入力..." disabled />
+            <button class="chat-send" disabled>送信</button>
+        </div>
+    </div>
+
+    <div style="margin-top:2rem">
+        <h2>Interactive Component (hydrated after streaming)</h2>
+        <div id="app">%s</div>
+    </div>
+    <p><a href="/">← Back</a></p>
+    %s%s
+</body>
+</html>`,
+			ctx.Title,
+			bf.StreamingBootstrap(),
+			// Chat history async boundary (fallback = skeleton)
+			bf.BfAsyncBoundary("a0", `<div class="chat-skeleton"><div class="skeleton-msg skeleton-user"><div class="skeleton-line" style="width:60%"></div></div><div class="skeleton-msg skeleton-bot"><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line" style="width:70%"></div></div><div class="skeleton-msg skeleton-user"><div class="skeleton-line" style="width:50%"></div></div><div class="skeleton-msg skeleton-bot"><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line" style="width:60%"></div></div></div>`),
+			// Suggestions async boundary
+			bf.BfAsyncBoundary("a1", `<div class="suggestions-skeleton"><div class="skeleton-chip"></div><div class="skeleton-chip"></div><div class="skeleton-chip"></div></div>`),
+			ctx.ComponentHTML,
+			ctx.Portals,
+			ctx.Scripts,
+		)
+	})
+
+	props := NewCounterProps(CounterInput{Initial: 0})
+
+	return sr.Stream(c.Response(), bf.StreamOptions{
+		ComponentName: "Counter",
+		Props:         &props,
+		Title:         "AI Chat — Streaming SSR",
+		Boundaries: []bf.AsyncBoundary{
+			{
+				ID:           "a0",
+				FallbackHTML: "",
+				Resolve: func() (string, error) {
+					msgs := fetchMockChatHistory()
+					return renderChatMessages(msgs), nil
+				},
+			},
+			{
+				ID:           "a1",
+				FallbackHTML: "",
+				Resolve: func() (string, error) {
+					qs := fetchMockSuggestions()
+					return renderSuggestions(qs), nil
+				},
+			},
+		},
+	})
 }

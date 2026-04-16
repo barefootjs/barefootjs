@@ -7,7 +7,6 @@
 
 import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
-import { Suspense } from 'hono/jsx/streaming'
 import { renderer } from './renderer'
 import Counter from '@/components/Counter'
 import Toggle from '@/components/Toggle'
@@ -15,7 +14,7 @@ import TodoApp from '@/components/TodoApp'
 import TodoAppSSR from '@/components/TodoAppSSR'
 import ReactiveProps, { PropsReactivityComparison } from '@/components/ReactiveProps'
 import Form from '@/components/Form'
-import { AsyncCounterWrapper } from './components/AsyncCounterWrapper'
+import { AIChatPage } from './components/AIChatPage'
 import PortalExample from '@/components/PortalExample'
 import ConditionalReturn from '@/components/ConditionalReturn'
 
@@ -54,7 +53,7 @@ app.get('/', (c) => {
           <li><a href="/toggle">Toggle</a></li>
           <li><a href="/todos">Todo (@client)</a></li>
           <li><a href="/todos-ssr">Todo (no @client markers)</a></li>
-          <li><a href="/async-counter">Async Counter (Suspense + BarefootJS)</a></li>
+          <li><a href="/ai-chat">AI Chat (Streaming SSR)</a></li>
         </ul>
       </nav>
     </div>
@@ -170,17 +169,9 @@ app.get('/conditional-return-link', (c) => {
   )
 })
 
-// Async Counter with Suspense + BarefootJS (streaming + interactivity)
-app.get('/async-counter', (c) => {
-  return c.render(
-    <div>
-      <h1>Async Counter with Suspense + BarefootJS</h1>
-      <Suspense fallback={<p className="loading">Loading counter...</p>}>
-        <AsyncCounterWrapper />
-      </Suspense>
-      <p><a href="/">← Back</a></p>
-    </div>
-  )
+// AI Chat with Streaming SSR (BfAsync + BarefootJS)
+app.get('/ai-chat', (c) => {
+  return c.render(<AIChatPage />)
 })
 
 // REST API
