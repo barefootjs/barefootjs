@@ -62,14 +62,14 @@ export function AIChatInteractive() {
   return (
     <div className="chat-container">
       <div className="chat-messages" id="chat-messages">
-        {/* @client */ messages().map((msg: Message) => (
+        {messages().map((msg: Message) => (
           <div key={msg.id} className={`chat-msg chat-${msg.role}`}>
             <div className="chat-bubble">
               <p>{msg.content}</p>
             </div>
           </div>
         ))}
-        {/* @client */ isStreaming() && (
+        {isStreaming() && (
           <div className="chat-msg chat-assistant">
             <div className="chat-bubble">
               <p>{streamingText()}<span className="streaming-cursor">▌</span></p>
@@ -86,12 +86,12 @@ export function AIChatInteractive() {
           value={input()}
           onInput={(e) => setInput((e.target as HTMLInputElement).value)}
           onKeyDown={handleKeyDown}
-          disabled={/* @client */ isStreaming()}
+          disabled={isStreaming()}
         />
         <button
           className="chat-send"
           onClick={() => send(input())}
-          disabled={/* @client */ isStreaming()}
+          disabled={isStreaming()}
         >
           Send
         </button>
