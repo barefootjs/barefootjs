@@ -1,5 +1,17 @@
 /* AI Chat — Streaming SSR Example Styles */
 
+/* Demo notice */
+.demo-notice {
+  font-size: 0.85rem;
+  color: #666;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.demo-notice code { font-size: 0.8rem; background: #f5f5f5; padding: 0.1rem 0.3rem; border-radius: 3px; }
+
 .chat-container {
   max-width: 640px;
   border: 1px solid #e0e0e0;

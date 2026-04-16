@@ -90,7 +90,7 @@ export function AIChatInteractive() {
         <input
           type="text"
           className="chat-input"
-          placeholder="メッセージを入力..."
+          placeholder="Type a message..."
           value={input()}
           onInput={(e) => setInput((e.target as HTMLInputElement).value)}
           onKeyDown={handleKeyDown}
@@ -101,7 +101,7 @@ export function AIChatInteractive() {
           onClick={() => send(input())}
           disabled={/* @client */ isStreaming()}
         >
-          送信
+          Send
         </button>
       </div>
     </div>

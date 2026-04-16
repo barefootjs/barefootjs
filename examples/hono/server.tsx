@@ -174,13 +174,14 @@ app.get('/ai-chat', (c) => {
   return c.render(<AIChatPage />)
 })
 
-// SSE endpoint: streams a fake AI response token by token
+// SSE endpoint: streams a dummy response token by token.
+// Replace this endpoint with a real LLM streaming API (e.g. OpenAI, Anthropic) for production use.
 const FAKE_RESPONSES = [
-  'それは面白い質問ですね！BarefootJSはJSXをサーバーサイドテンプレートにコンパイルするフレームワークです。シグナルベースのリアクティビティで効率的なDOM更新が可能です。',
-  'なるほど！ストリーミングSSRでは、サーバーがまずスケルトンUIを送信し、データが準備できたらテンプレートチャンクをストリーミングします。クライアントがコンテンツを差し替えます。',
-  'いい質問です！BarefootJSはHonoやGoのEchoなどのアダプタをサポートしています。どのHTTPサーバーでも使えます。',
-  'ご質問ありがとうございます。コンポーネントを作るには、useClientディレクティブを追加してcreateSignalでリアクティブな状態を管理します。',
-  'おっしゃる通りです！シグナルのゲッターは必ず関数として呼び出してください。count変数ではなくcount()関数として使ってください。',
+  '[Dummy response] This text is streaming one character at a time via Server-Sent Events. Replace /api/ai-chat in server.tsx with a real LLM API to make this chat functional.',
+  '[Dummy response] BarefootJS streams tokens using the SSE protocol. Each character arrives as a separate "data:" event. Wire up OpenAI or Anthropic here for real AI responses.',
+  '[Dummy response] This response is randomly selected from a fixed list in server.tsx — it does not understand your message. Swap the endpoint for a real streaming LLM to fix that.',
+  '[Dummy response] Lorem ipsum dolor sit amet. This is placeholder content demonstrating token-by-token SSE delivery. See /api/ai-chat in server.tsx to connect a real model.',
+  '[Dummy response] I am not a real AI. This demo exists only to show how BarefootJS handles SSE streaming on the client side. Replace me with a real LLM endpoint!',
 ]
 
 app.get('/api/ai-chat', () => {
