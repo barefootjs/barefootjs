@@ -5,12 +5,13 @@ description: How adapters let the same JSX run on any server — Hono, Go, and b
 
 # Backend Freedom
 
-> **Design Principle — Backend Freedom.**
-> The same JSX source produces templates for Hono, Go `html/template`, and any future adapter. Your component library works across stacks. No Node.js lock-in — use the server language your team already knows.
+Most UI component libraries assume Node.js on the server. If your backend is Go, Python, or Ruby, you're either maintaining a separate Node.js service for rendering or hand-writing UI without a component system.
+
+BarefootJS removes this constraint. **Write components once in JSX. The compiler generates native templates for your backend** — no Node.js runtime needed at serving time.
 
 ## One Source, Any Backend
 
-BarefootJS compiles JSX into a backend-agnostic **Intermediate Representation** (IR). An **adapter** then converts the IR into the template format your server needs:
+The compiler transforms JSX into a backend-agnostic **Intermediate Representation** (IR). An **adapter** converts the IR into the template format your server needs:
 
 ```
 JSX Source
@@ -25,7 +26,7 @@ JSX Source
 | `HonoAdapter` | `.hono.tsx` | Hono / JSX-based servers |
 | `GoTemplateAdapter` | `.tmpl` + `_types.go` | Go `html/template` |
 
-Because the IR is independent of any server framework, the same component works unchanged across all supported backends. You can switch backends or support multiple backends from a single component library.
+The same component works unchanged across all supported backends. You can switch backends or support multiple backends from a single component library.
 
 ## The `"use client"` Directive
 

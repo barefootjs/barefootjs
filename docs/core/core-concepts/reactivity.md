@@ -5,12 +5,13 @@ description: Signal-based reactivity with signals, effects, and memos — no vir
 
 # Fine-grained Reactivity
 
-> **Design Principle — Fine-grained reactivity.**
-> Signals track dependencies at the expression level. When state changes, only the affected DOM nodes update — no virtual DOM diffing, no component-tree re-render.
+In React, changing a single piece of state re-renders the component and its entire subtree. The virtual DOM then diffs the old and new trees to find what actually changed. This works, but it's work the browser does on every update — even when only one text node needs to change.
 
-BarefootJS uses fine-grained reactivity inspired by SolidJS. The core primitives are **signals**, **effects**, and **memos**.
+BarefootJS takes a different approach. **The compiler statically analyzes which DOM nodes depend on which signals, and wires them together at build time.** When a signal changes, only the exact DOM nodes that use it update. No diffing, no component re-render, no virtual DOM.
 
-All reactive getters carry the `Reactive<T>` phantom brand — a compile-time marker that enables the compiler to detect reactivity via TypeScript's type system. The brand has no runtime cost.
+This is inspired by [SolidJS](https://www.solidjs.com/). If you've used SolidJS, the API will feel familiar. If you're coming from React or Vue, the key difference is: **components run once, not on every state change.**
+
+The core primitives are **signals**, **effects**, and **memos**. All reactive getters carry the `Reactive<T>` phantom brand — a compile-time marker that enables the compiler to detect reactivity via TypeScript's type system. The brand has no runtime cost.
 
 ## Signals
 
@@ -52,7 +53,20 @@ Like effects, memos track dependencies automatically. Unlike effects, they retur
 
 ## Update Flow
 
-Updates happen at the **expression level** — only the DOM nodes that depend on a signal are updated.
+Here's what happens when a signal changes — compared with the virtual DOM approach:
+
+**Virtual DOM (React):**
+```
+setState(1) → re-run component function → generate new virtual tree
+→ diff old vs new → find changed nodes → patch DOM
+```
+
+**Signals (BarefootJS):**
+```
+setCount(1) → signal notifies subscribers → effect updates DOM node directly
+```
+
+No intermediate representation at runtime. No tree walk. The signal knows exactly which DOM node to update because the compiler wired them together at build time:
 
 ```
 setCount(1)
@@ -61,7 +75,7 @@ Signal notifies subscribers
     ↓
 Effect re-runs: _s0.nodeValue = String(count())
     ↓
-Only <p> updates. The rest of the DOM is untouched.
+Only that text node updates. The rest of the DOM is untouched.
 ```
 
 For the full API reference, see [Reactivity](../reactivity.md).

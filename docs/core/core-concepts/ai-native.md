@@ -5,8 +5,11 @@ description: Testable IR, CLI discovery, and workflows designed for AI-assisted 
 
 # AI-native Development
 
-> **Design Principle — AI-native development.**
-> The compiler produces an IR that can be tested without a browser, enabling fast component tests via `renderToTest()`. Combined with a CLI for component discovery (`barefoot search`, `barefoot ui`), AI agents can autonomously scaffold, test, and iterate on UI components.
+UI component testing is slow. Traditional approaches require a browser (Playwright, Cypress) or a DOM emulator (JSDOM, happy-dom). Even "fast" setups take seconds per test and break on environment quirks.
+
+BarefootJS makes component tests as fast as unit tests. **The compiler produces a structured IR (JSON) that captures everything about a component — structure, signals, events, accessibility. You test the IR directly, no browser needed.** Tests run in milliseconds.
+
+This same structured output makes BarefootJS uniquely suited for AI-assisted development. AI agents can discover components via CLI, generate code, and verify it with fast tests — all without browser automation or screenshot diffing.
 
 ## Testable Without a Browser
 

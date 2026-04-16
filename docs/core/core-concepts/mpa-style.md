@@ -5,12 +5,17 @@ description: Server-rendering by default, with client JavaScript only where you 
 
 # MPA-style Development
 
-> **Design Principle — MPA-style development.**
-> Add interactive UI to existing server-rendered apps without adopting a full SPA framework. Each page is a normal route; client JavaScript is only loaded where you mark it.
+You have a server-rendered app that works. You need interactive UI — a search box, a date picker, a collapsible sidebar. Your options today:
+
+- **jQuery / vanilla JS** — No component model, hard to maintain at scale.
+- **SPA framework (React, Vue, Svelte)** — Powerful, but requires rewriting pages, adopting a client-side router, and setting up SSR hydration.
+- **Islands (Astro, Fresh)** — Better, but still tied to a specific meta-framework and runtime.
+
+BarefootJS is a different approach: **add interactive components to existing pages without changing your architecture.** Your routing, data fetching, and templates stay as they are. Only the components that need interactivity ship JavaScript.
 
 ## Server-First by Default
 
-In BarefootJS, every component is a **server component** unless explicitly marked otherwise. Server components render to HTML on the server and send zero JavaScript to the browser:
+Every component is a **server component** unless explicitly marked otherwise. Server components render to HTML on the server and send zero JavaScript to the browser:
 
 ```tsx
 // Header.tsx — server component (no directive)
