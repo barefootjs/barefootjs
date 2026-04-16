@@ -5,22 +5,22 @@ description: The four design principles and a technical overview of how Barefoot
 
 # Core Concepts
 
-## [Backend Freedom](./core-concepts/backend-freedom.md)
+## Backend Freedom
 
 The same JSX source produces templates for Hono, Go `html/template`, and any future adapter. Your component library works across stacks. No Node.js lock-in — use the server language your team already knows.
 
-## [MPA-style Development](./core-concepts/mpa-style.md)
+## MPA-style Development
 
 Add interactive UI to existing server-rendered apps without adopting a full SPA framework. Each page is a normal route; client JavaScript is only loaded where you mark it.
 
-## [Fine-grained Reactivity](./core-concepts/reactivity.md)
+## Fine-grained Reactivity
 
 Signals track dependencies at the expression level. When state changes, only the affected DOM nodes update — no virtual DOM diffing, no component-tree re-render.
 
-## [AI-native Development](./core-concepts/ai-native.md)
+## AI-native Development
 
 The compiler produces an IR that can be tested without a browser, enabling fast component tests via `renderToTest()`. Combined with a CLI for component discovery (`barefoot search`, `barefoot ui`), AI agents can autonomously scaffold, test, and iterate on UI components.
 
-## [How It Works](./core-concepts/how-it-works.md)
+## How It Works
 
 Two-phase compilation, hydration markers, and clean overrides — a technical overview of the implementation.
