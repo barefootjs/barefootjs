@@ -303,6 +303,13 @@ export function createNodeWrapper<NodeType extends NodeBase>(
             ),
           )
 
+          // Fire onNodeDragStop callback so consumers can persist positions
+          const cb = store.onNodeDragStop
+          if (cb) {
+            const updatedNode = { ...internalNode.internals.userNode, position: committedPos }
+            cb(e, updatedNode as any, [updatedNode as any])
+          }
+
           document.removeEventListener('mousemove', onMouseMove)
           document.removeEventListener('mouseup', onMouseUp)
         }
