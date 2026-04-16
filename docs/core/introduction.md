@@ -1,6 +1,6 @@
 ---
 title: Introduction
-description: What is BarefootJS and how its two-phase compilation works
+description: What is BarefootJS — JSX to server template + client JS compiler
 ---
 
 # Introduction
