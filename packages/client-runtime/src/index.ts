@@ -55,7 +55,7 @@ export { styleToCss } from './style'
 
 // Runtime helpers
 export { findScope, find, $, $c, $t, qsa } from './query'
-export { hydrate } from './hydrate'
+export { hydrate, rehydrateAll } from './hydrate'
 export { registerComponent, getComponentInit, initChild } from './registry'
 export { insert, type BranchConfig } from './insert'
 export { updateClientMarker } from './client-marker'
@@ -65,6 +65,9 @@ export { hydratedScopes } from './hydration-state'
 
 // CSR entry point
 export { render } from './render'
+
+// Streaming (Out-of-Order SSR)
+export { __bf_swap, setupStreaming } from './streaming'
 
 // Core types
 export type { InitFn, ComponentDef } from './types'

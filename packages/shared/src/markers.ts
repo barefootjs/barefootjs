@@ -74,3 +74,13 @@ export const BF_KEY_PREFIX = 'data-key-'
 
 /** Component placeholder in loop templates: `data-bf-ph="s5"` */
 export const BF_PLACEHOLDER = 'data-bf-ph'
+
+// ---------------------------------------------------------------------------
+// Streaming (Out-of-Order SSR)
+// ---------------------------------------------------------------------------
+
+/** Async boundary placeholder: `bf-async="a0"` */
+export const BF_ASYNC = 'bf-async'
+
+/** Async resolve template: `<template bf-async-resolve="a0">` */
+export const BF_ASYNC_RESOLVE = 'bf-async-resolve'

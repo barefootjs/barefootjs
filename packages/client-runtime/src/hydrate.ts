@@ -13,6 +13,12 @@ import { BF_SCOPE, BF_PROPS, BF_CHILD_PREFIX, BF_SCOPE_COMMENT_PREFIX } from '@b
 import type { ComponentDef } from './types'
 
 /**
+ * Registry of all hydrated component definitions.
+ * Used by rehydrateAll() to re-scan the DOM after streaming chunks arrive.
+ */
+const registeredDefs = new Map<string, ComponentDef>()
+
+/**
  * Register a component and hydrate all its instances on the page.
  * Combines registration + template setup + hydration in a single call.
  *
@@ -27,6 +33,9 @@ export function hydrate(name: string, def: ComponentDef): void {
   // doesn't rely on def.init.name (which may be lost under minification).
   def.name = name
 
+  // Track for rehydrateAll() (streaming support)
+  registeredDefs.set(name, def)
+
   // Register component for parent-child communication
   registerComponent(name, def.init)
 
@@ -35,71 +44,7 @@ export function hydrate(name: string, def: ComponentDef): void {
     registerTemplate(name, def.template)
   }
 
-  const doHydrate = () => {
-    if (def.comment) {
-      // Comment-scope-only: skip attribute-based search
-      hydrateCommentScopes(name, def.init, new Set())
-      return
-    }
-
-    // Select all scope elements matching this component name
-    const scopeEls = document.querySelectorAll(
-      `[${BF_SCOPE}^="${name}_"]`
-    )
-
-    // Track initialized scope IDs to avoid duplicate initialization
-    // (Fragment roots have multiple elements with the same scope ID)
-    const initializedScopes = new Set<string>()
-
-    for (const scopeEl of scopeEls) {
-      // Skip already hydrated elements
-      if (hydratedScopes.has(scopeEl)) continue
-
-      // Skip child components (~ prefix) - they are initialized by parent via initChild
-      if (scopeEl.getAttribute(BF_SCOPE)?.startsWith(BF_CHILD_PREFIX)) continue
-
-      // Skip nested instances when parent is the same component type.
-      // This prevents double initialization (parent's initChild handles it).
-      //
-      // Different parent types are allowed to hydrate independently:
-      //   - ToggleItem inside Toggle → hydrate (different types)
-      //   - Counter inside Counter → skip (same type, parent initializes)
-      //
-      // Note: This relies on scopeId format "ComponentName_xxxxx"
-      const parentScope = scopeEl.parentElement?.closest(`[${BF_SCOPE}]`)
-      if (parentScope) {
-        const rawParentScopeId = parentScope.getAttribute(BF_SCOPE)
-        const parentScopeId = rawParentScopeId?.startsWith(BF_CHILD_PREFIX)
-          ? rawParentScopeId.slice(1)
-          : rawParentScopeId
-        if (parentScopeId?.startsWith(name + '_')) continue
-      }
-
-      // Get unique instance ID from scope element
-      const instanceId = scopeEl.getAttribute(BF_SCOPE)
-      if (!instanceId) continue
-
-      // Skip if already initialized in this batch (for fragment roots)
-      if (initializedScopes.has(instanceId)) continue
-      initializedScopes.add(instanceId)
-
-      // Mark as initialized immediately to prevent duplicate init
-      hydratedScopes.add(scopeEl)
-
-      // Read props from bf-p attribute (flat format: {"propName": value, ...})
-      const propsJson = scopeEl.getAttribute(BF_PROPS)
-      let props: Record<string, unknown> = {}
-      if (propsJson) {
-        try {
-          props = JSON.parse(propsJson)
-        } catch {
-          console.warn(`[BarefootJS] Invalid props JSON on ${instanceId}:`, propsJson)
-        }
-      }
-
-      def.init(scopeEl, props)
-    }
-  }
+  const doHydrate = () => hydrateComponent(name, def)
 
   // Immediately hydrate elements already in DOM
   doHydrate()
@@ -184,5 +129,69 @@ function hydrateCommentScopes(
 
       init(proxyEl, props)
     }
+  }
+}
+
+/**
+ * Re-hydrate all registered components.
+ *
+ * Called by the streaming resolver after swapping fallback content with
+ * resolved content. Scans the DOM for any un-hydrated scope elements
+ * belonging to previously registered components.
+ */
+export function rehydrateAll(): void {
+  for (const [name, def] of registeredDefs) {
+    hydrateComponent(name, def)
+  }
+}
+
+/**
+ * Hydrate a single component's un-initialized scope elements.
+ * Extracted from hydrate() so it can be re-used by rehydrateAll().
+ */
+function hydrateComponent(name: string, def: ComponentDef): void {
+  if (def.comment) {
+    hydrateCommentScopes(name, def.init, new Set())
+    return
+  }
+
+  const scopeEls = document.querySelectorAll(
+    `[${BF_SCOPE}^="${name}_"]`
+  )
+
+  const initializedScopes = new Set<string>()
+
+  for (const scopeEl of scopeEls) {
+    if (hydratedScopes.has(scopeEl)) continue
+    if (scopeEl.getAttribute(BF_SCOPE)?.startsWith(BF_CHILD_PREFIX)) continue
+
+    const parentScope = scopeEl.parentElement?.closest(`[${BF_SCOPE}]`)
+    if (parentScope) {
+      const rawParentScopeId = parentScope.getAttribute(BF_SCOPE)
+      const parentScopeId = rawParentScopeId?.startsWith(BF_CHILD_PREFIX)
+        ? rawParentScopeId.slice(1)
+        : rawParentScopeId
+      if (parentScopeId?.startsWith(name + '_')) continue
+    }
+
+    const instanceId = scopeEl.getAttribute(BF_SCOPE)
+    if (!instanceId) continue
+
+    if (initializedScopes.has(instanceId)) continue
+    initializedScopes.add(instanceId)
+
+    hydratedScopes.add(scopeEl)
+
+    const propsJson = scopeEl.getAttribute(BF_PROPS)
+    let props: Record<string, unknown> = {}
+    if (propsJson) {
+      try {
+        props = JSON.parse(propsJson)
+      } catch {
+        console.warn(`[BarefootJS] Invalid props JSON on ${instanceId}:`, propsJson)
+      }
+    }
+
+    def.init(scopeEl, props)
   }
 }

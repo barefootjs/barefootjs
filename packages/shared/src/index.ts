@@ -15,4 +15,6 @@ export {
   BF_KEY,
   BF_KEY_PREFIX,
   BF_PLACEHOLDER,
+  BF_ASYNC,
+  BF_ASYNC_RESOLVE,
 } from './markers'
