@@ -55,8 +55,11 @@ export function initFlow(scope: Element, props: Record<string, unknown>): void {
   edgesSvg.style.width = '100%'
   edgesSvg.style.height = '100%'
   edgesSvg.style.overflow = 'visible'
-  // SVG container allows pointer events — hit areas on edges need them.
-  // Visible edge paths have pointer-events: none; only hit areas respond.
+  // SVG container is pointer-transparent — only individual edge paths
+  // (hit areas) opt-in to receiving events. This matches React Flow and
+  // prevents the SVG from intercepting clicks on nodes that happen to
+  // have a negative z-index.
+  edgesSvg.style.pointerEvents = 'none'
   viewportEl.appendChild(edgesSvg)
 
   // Nodes container
