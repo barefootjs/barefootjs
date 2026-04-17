@@ -12,18 +12,14 @@
 <body>
   <div id="app"></div>
   <script type="module">
-    import { render, getComponentInit, getTemplate } from '@barefootjs/client-runtime'
+    import { render } from '@barefootjs/client-runtime'
     await import('/static/components/TodoApp.client.js')
 
     // Fetch initial todos from API
     const response = await fetch('/api/todos')
     const initialTodos = await response.json()
 
-    const init = getComponentInit('TodoApp')
-    const template = getTemplate('TodoApp')
-    if (init && template) {
-      render(document.getElementById('app'), { init, template }, { initialTodos })
-    }
+    render(document.getElementById('app'), 'TodoApp', { initialTodos })
   </script>
 </body>
 </html>

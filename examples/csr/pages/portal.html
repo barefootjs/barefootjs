@@ -15,13 +15,9 @@
     <p><a href="/">← Back</a></p>
   </div>
   <script type="module">
-    import { render, getComponentInit, getTemplate } from '@barefootjs/client-runtime'
+    import { render } from '@barefootjs/client-runtime'
     await import('/static/components/PortalExample.client.js')
-    const init = getComponentInit('PortalExample')
-    const template = getTemplate('PortalExample')
-    if (init && template) {
-      render(document.getElementById('app'), { init, template })
-    }
+    render(document.getElementById('app'), 'PortalExample')
   </script>
 </body>
 </html>

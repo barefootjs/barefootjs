@@ -15,13 +15,9 @@
     <p><a href="/">← Back</a></p>
   </div>
   <script type="module">
-    import { render, getComponentInit, getTemplate } from '@barefootjs/client-runtime'
+    import { render } from '@barefootjs/client-runtime'
     await import('/static/components/ReactiveProps.client.js')
-    const init = getComponentInit('ReactiveProps')
-    const template = getTemplate('ReactiveProps')
-    if (init && template) {
-      render(document.getElementById('app'), { init, template })
-    }
+    render(document.getElementById('app'), 'ReactiveProps')
   </script>
 </body>
 </html>

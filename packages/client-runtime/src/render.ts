@@ -8,40 +8,49 @@
 
 import { BF_SCOPE } from '@barefootjs/shared'
 import { hydratedScopes } from './hydration-state'
-import type { ComponentDef } from './types'
+import { getComponentInit } from './registry'
+import { getTemplate } from './template'
 
 /**
- * Render a component into a container element (CSR mode).
+ * Render a registered component into a container element (CSR mode).
  *
- * Creates the component's DOM from its template, mounts it into
+ * Looks up the component's init and template functions by name from
+ * the registry, generates its DOM from the template, mounts it into
  * the container, and initializes it with the given props.
+ *
+ * The component must be registered first by importing its `.client.js`
+ * file (which calls `registerComponent` + `registerTemplate` internally).
  *
  * Unlike hydrate(), this function does not require pre-rendered HTML.
  * The container's content is replaced entirely.
  *
  * @param container - Target DOM element to render into
- * @param def - Component definition with init and template functions
+ * @param componentName - Registered component name (e.g., 'Counter')
  * @param props - Props to pass to the component
  *
  * @example
  * import { render } from '@barefootjs/client-runtime'
- * import { Counter } from './Counter'
+ * await import('/static/components/Counter.client.js')
  *
- * render(document.getElementById('app')!, Counter, { initialCount: 0 })
+ * render(document.getElementById('app')!, 'Counter', { initialCount: 0 })
  */
 export function render(
   container: HTMLElement,
-  def: ComponentDef,
+  componentName: string,
   props: Record<string, unknown> = {}
 ): void {
-  if (!def.template) {
-    throw new Error('[BarefootJS] render() requires a ComponentDef with a template function')
+  const init = getComponentInit(componentName)
+  const template = getTemplate(componentName)
+
+  if (!init || !template) {
+    throw new Error(
+      `[BarefootJS] Component "${componentName}" is not registered. ` +
+      `Did you import its .client.js file before calling render()?`
+    )
   }
 
-  // Generate HTML from template
-  const html = def.template(props).trim()
+  const html = template(props).trim()
 
-  // Create DOM element
   const tpl = document.createElement('template')
   tpl.innerHTML = html
   const element = tpl.content.firstChild as HTMLElement
@@ -50,20 +59,15 @@ export function render(
     throw new Error('[BarefootJS] render(): template returned empty HTML')
   }
 
-  // Set scope ID if not present
   if (!element.getAttribute(BF_SCOPE)) {
     const id = Math.random().toString(36).slice(2, 8)
-    const name = def.name || def.init.name?.replace(/^init/, '') || 'Component'
-    element.setAttribute(BF_SCOPE, `${name}_${id}`)
+    element.setAttribute(BF_SCOPE, `${componentName}_${id}`)
   }
 
-  // Mount into container
   container.innerHTML = ''
   container.appendChild(element)
 
-  // Initialize the component
-  def.init(element, props)
+  init(element, props)
 
-  // Mark as hydrated so reconcileList doesn't re-initialize
   hydratedScopes.add(element)
 }

@@ -15,18 +15,14 @@
     <p><a href="/">← Back</a></p>
   </div>
   <script type="module">
-    import { render, getComponentInit, getTemplate } from '@barefootjs/client-runtime'
+    import { render } from '@barefootjs/client-runtime'
     await import('/static/components/Toggle.client.js')
-    const init = getComponentInit('Toggle')
-    const template = getTemplate('Toggle')
-    if (init && template) {
-      const toggleItems = [
-        { label: 'Setting 1', defaultOn: true },
-        { label: 'Setting 2', defaultOn: false },
-        { label: 'Setting 3', defaultOn: false },
-      ]
-      render(document.getElementById('app'), { init, template }, { toggleItems })
-    }
+    const toggleItems = [
+      { label: 'Setting 1', defaultOn: true },
+      { label: 'Setting 2', defaultOn: false },
+      { label: 'Setting 3', defaultOn: false },
+    ]
+    render(document.getElementById('app'), 'Toggle', { toggleItems })
   </script>
 </body>
 </html>

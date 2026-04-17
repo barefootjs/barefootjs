@@ -1,8 +1,12 @@
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { render } from '../src/render'
 import { createComponent } from '../src/component'
+import { registerComponent } from '../src/registry'
+import { registerTemplate } from '../src/template'
 import { hydratedScopes } from '../src/hydration-state'
 import type { ComponentDef } from '../src/types'
+import type { InitFn } from '../src/types'
+import type { TemplateFn } from '../src/template'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
 beforeAll(() => {
@@ -10,6 +14,11 @@ beforeAll(() => {
     GlobalRegistrator.register()
   }
 })
+
+function registerTestComponent(name: string, init: InitFn, template: TemplateFn): void {
+  registerComponent(name, init)
+  registerTemplate(name, template)
+}
 
 describe('render', () => {
   beforeEach(() => {
@@ -21,12 +30,13 @@ describe('render', () => {
     document.body.appendChild(container)
 
     const initialized: Element[] = []
-    const def: ComponentDef = {
-      init: (scope) => { initialized.push(scope) },
-      template: (props) => `<div class="counter">${props.count ?? 0}</div>`
-    }
+    registerTestComponent(
+      'RenderTest_Basic',
+      (scope) => { initialized.push(scope) },
+      (props) => `<div class="counter">${props.count ?? 0}</div>`
+    )
 
-    render(container, def, { count: 42 })
+    render(container, 'RenderTest_Basic', { count: 42 })
 
     expect(container.children.length).toBe(1)
     expect(container.firstElementChild?.textContent).toBe('42')
@@ -39,12 +49,13 @@ describe('render', () => {
     container.innerHTML = '<p>old content</p>'
     document.body.appendChild(container)
 
-    const def: ComponentDef = {
-      init: () => {},
-      template: () => `<div>new content</div>`
-    }
+    registerTestComponent(
+      'RenderTest_Clear',
+      () => {},
+      () => `<div>new content</div>`
+    )
 
-    render(container, def)
+    render(container, 'RenderTest_Clear')
 
     expect(container.children.length).toBe(1)
     expect(container.firstElementChild?.textContent).toBe('new content')
@@ -54,23 +65,21 @@ describe('render', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
 
-    const def: ComponentDef = {
-      init: () => {},
-      template: () => `<div>content</div>`
-    }
+    registerTestComponent(
+      'RenderTest_Scope',
+      () => {},
+      () => `<div>content</div>`
+    )
 
-    render(container, def)
+    render(container, 'RenderTest_Scope')
 
     expect(container.firstElementChild?.hasAttribute('bf-s')).toBe(true)
   })
 
-  test('throws without template', () => {
+  test('throws when component is not registered', () => {
     const container = document.createElement('div')
-    const def: ComponentDef = {
-      init: () => {}
-    }
 
-    expect(() => render(container, def)).toThrow('template')
+    expect(() => render(container, 'RenderTest_NotRegistered')).toThrow('not registered')
   })
 
   test('passes props to init', () => {
@@ -78,12 +87,13 @@ describe('render', () => {
     document.body.appendChild(container)
 
     const receivedProps: Record<string, unknown>[] = []
-    const def: ComponentDef = {
-      init: (_scope, props) => { receivedProps.push(props) },
-      template: () => `<div>content</div>`
-    }
+    registerTestComponent(
+      'RenderTest_Props',
+      (_scope, props) => { receivedProps.push(props) },
+      () => `<div>content</div>`
+    )
 
-    render(container, def, { foo: 'bar' })
+    render(container, 'RenderTest_Props', { foo: 'bar' })
 
     expect(receivedProps.length).toBe(1)
     expect(receivedProps[0]).toEqual({ foo: 'bar' })
@@ -93,12 +103,13 @@ describe('render', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
 
-    const def: ComponentDef = {
-      init: () => {},
-      template: () => `<div>content</div>`
-    }
+    registerTestComponent(
+      'RenderTest_Hydrated',
+      () => {},
+      () => `<div>content</div>`
+    )
 
-    render(container, def)
+    render(container, 'RenderTest_Hydrated')
 
     const element = container.firstElementChild!
     expect(hydratedScopes.has(element)).toBe(true)

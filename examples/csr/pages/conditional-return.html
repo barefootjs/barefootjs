@@ -15,13 +15,9 @@
     <p><a href="/">← Back</a></p>
   </div>
   <script type="module">
-    import { render, getComponentInit, getTemplate } from '@barefootjs/client-runtime'
+    import { render } from '@barefootjs/client-runtime'
     await import('/static/components/ConditionalReturn.client.js')
-    const init = getComponentInit('ConditionalReturn')
-    const template = getTemplate('ConditionalReturn')
-    if (init && template) {
-      render(document.getElementById('app'), { init, template })
-    }
+    render(document.getElementById('app'), 'ConditionalReturn')
   </script>
 </body>
 </html>

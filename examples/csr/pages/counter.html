@@ -15,13 +15,9 @@
     <p><a href="/">← Back</a></p>
   </div>
   <script type="module">
-    import { render, getComponentInit, getTemplate } from '@barefootjs/client-runtime'
+    import { render } from '@barefootjs/client-runtime'
     await import('/static/components/Counter.client.js')
-    const init = getComponentInit('Counter')
-    const template = getTemplate('Counter')
-    if (init && template) {
-      render(document.getElementById('app'), { init, template })
-    }
+    render(document.getElementById('app'), 'Counter')
   </script>
 </body>
 </html>
