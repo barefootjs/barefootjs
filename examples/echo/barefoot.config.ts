@@ -5,4 +5,5 @@ export default createConfig({
   outDir: 'dist',
   minify: true,
   adapterOptions: { packageName: 'main' },
+  typesOutputFile: 'components.go',
 })
