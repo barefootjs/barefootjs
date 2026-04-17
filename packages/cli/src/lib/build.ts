@@ -324,6 +324,29 @@ export async function build(config: BuildConfig): Promise<BuildResult> {
   // 6b. Resolve relative imports
   await resolveRelativeImports({ distDir: config.outDir, manifest })
 
+  // 6c. Rewrite bare @barefootjs/client-runtime imports to relative barefoot.js path
+  {
+    const runtimeRelFromClient = runtimeSubdir === clientJsSubdir
+      ? './barefoot.js'
+      : './' + relative(clientJsSubdir, runtimeSubdir + '/barefoot.js')
+    for (const [name, entry] of Object.entries(manifest)) {
+      if (!entry.clientJs || name === '__barefoot__') continue
+      const filePath = resolve(config.outDir, entry.clientJs)
+      try {
+        let content = await Bun.file(filePath).text()
+        if (content.includes('@barefootjs/client-runtime')) {
+          content = content.replace(
+            /from ['"]@barefootjs\/client-runtime['"]/g,
+            `from '${runtimeRelFromClient}'`
+          )
+          await Bun.write(filePath, content)
+        }
+      } catch {
+        // File may not exist
+      }
+    }
+  }
+
   // 7. Minify client JS (after combine so all files are final)
   if (config.minify) {
     // @ts-expect-error minifySyntax is supported at runtime but missing from older bun-types

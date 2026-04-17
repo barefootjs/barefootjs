@@ -216,8 +216,12 @@ function compileMultipleComponentsSync(
   // --- Pass 2: adapter.generate + generateClientJs ---
   const allOutputs: { imports: string; types: string; moduleExports: string; component: string; clientJs?: string; adapterTypes?: string }[] = []
 
+  // Find the default export name for scriptBaseName (multi-component files share one .client.js)
+  const defaultExportName = entries.find(e => e.componentIR.metadata.hasDefaultExport)?.componentIR.metadata.componentName
+
   for (const { componentIR } of entries) {
-    const adapterOutput = adapter.generate(componentIR)
+    const scriptBaseName = !componentIR.metadata.hasDefaultExport && defaultExportName ? defaultExportName : undefined
+    const adapterOutput = adapter.generate(componentIR, { scriptBaseName })
     const moduleExports = generateModuleExports(componentIR)
 
     let imports: string
