@@ -13,9 +13,18 @@ BarefootJS compiles JSX at build time into your backend's native template format
 JSX → IR (backend-agnostic) → Adapter → Template
 ```
 
-| Adapter | Output | Backend |
-|---------|--------|---------|
-| `HonoAdapter` | `.hono.tsx` | Hono / JSX-based servers |
-| `GoTemplateAdapter` | `.tmpl` + `_types.go` | Go `html/template` |
+| Language | Adapter | Notes |
+|----------|---------|-------|
+| TypeScript | [HonoAdapter](../adapters/hono-adapter.md) | Hono / JSX-based TS servers |
+| TypeScript | [TestAdapter](https://github.com/barefootjs/barefootjs/tree/main/packages/test) | IR-based component testing |
+| Go | [GoTemplateAdapter](../adapters/go-template-adapter.md) | `html/template` |
+| Perl | [MojoliciousAdapter](https://github.com/barefootjs/barefootjs/tree/main/packages/mojolicious) | Mojolicious EP templates |
 
-The IR contract is stable. You can [write adapters for any backend](../adapters/custom-adapter.md).
+### Planned
+
+| Language | Adapter |
+|----------|---------|
+| Rust | (TBD) |
+| Python | FastAPIAdapter |
+
+The IR contract is stable. You can [write a custom adapter](../adapters/custom-adapter.md) for any backend.
