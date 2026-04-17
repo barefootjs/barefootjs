@@ -42,6 +42,12 @@ export interface AdapterGenerateOptions {
 export interface TemplateAdapter {
   name: string
   extension: string
+  /**
+   * When true, compileJSX emits one markedTemplate FileOutput per component function
+   * in a multi-component source file, instead of combining all into one file.
+   * Required for adapters that look up templates by filename (e.g. Mojolicious).
+   */
+  templatesPerComponent?: boolean
 
   // Main entry point - generates complete template from IR
   generate(ir: ComponentIR, options?: AdapterGenerateOptions): AdapterOutput

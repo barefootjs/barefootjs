@@ -12,6 +12,10 @@
     },
     "./test-render": {
       "bun": "./src/test-render.ts"
+    },
+    "./build": {
+      "types": "./src/build.ts",
+      "import": "./src/build.ts"
     }
   },
   "files": [

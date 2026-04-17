@@ -18,7 +18,7 @@ import (
 // loadTemplates loads all templates with BarefootJS functions registered
 func loadTemplates() *template.Template {
 	return template.Must(
-		template.New("").Funcs(bf.FuncMap()).ParseGlob("dist/templates/*.tsx"),
+		template.New("").Funcs(bf.FuncMap()).ParseGlob("dist/templates/*.tmpl"),
 	)
 }
 

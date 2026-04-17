@@ -214,7 +214,7 @@ function compileMultipleComponentsSync(
   }
 
   // --- Pass 2: adapter.generate + generateClientJs ---
-  const allOutputs: { imports: string; types: string; moduleExports: string; component: string; clientJs?: string; adapterTypes?: string }[] = []
+  const allOutputs: { componentName: string; rawTemplate: string; imports: string; types: string; moduleExports: string; component: string; clientJs?: string; adapterTypes?: string }[] = []
 
   // Find the default export name for scriptBaseName (multi-component files share one .client.js)
   const defaultExportName = entries.find(e => e.componentIR.metadata.hasDefaultExport)?.componentIR.metadata.componentName
@@ -265,6 +265,8 @@ function compileMultipleComponentsSync(
     }
 
     allOutputs.push({
+      componentName: componentIR.metadata.componentName,
+      rawTemplate: adapterOutput.template,
       imports,
       types,
       moduleExports: moduleExports || '',
@@ -276,6 +278,58 @@ function compileMultipleComponentsSync(
   }
 
   if (allOutputs.length === 0) {
+    return { files, errors }
+  }
+
+  // Per-component adapters (e.g. Mojolicious) need one template file per component
+  // because their template renderers look up templates by filename.
+  if (adapter.templatesPerComponent) {
+    const dir = filePath.substring(0, filePath.lastIndexOf('/') + 1)
+    for (const output of allOutputs) {
+      files.push({
+        path: dir + output.componentName + adapter.extension,
+        content: output.rawTemplate,
+        type: 'markedTemplate',
+      })
+    }
+    // Types and client JS remain one-per-source-file (shared across components)
+    const adapterTypesOutputs = allOutputs.map(o => o.adapterTypes).filter(Boolean) as string[]
+    if (adapterTypesOutputs.length > 0) {
+      files.push({
+        path: filePath.replace(/\.tsx?$/, '.types'),
+        content: adapterTypesOutputs.join('\n\n'),
+        type: 'types',
+      })
+    }
+    const clientJsOutputs = allOutputs.map(o => o.clientJs).filter(Boolean) as string[]
+    if (clientJsOutputs.length > 0) {
+      const importsBySource = new Map<string, Set<string>>()
+      const otherImports: string[] = []
+      const allCode: string[] = []
+      for (const js of clientJsOutputs) {
+        for (const line of js.split('\n')) {
+          if (line.startsWith('import ')) {
+            const match = line.match(/^import \{ ([^}]+) \} from ['"]([^'"]+)['"]$/)
+            if (match) {
+              const source = match[2]
+              if (!importsBySource.has(source)) importsBySource.set(source, new Set())
+              for (const n of match[1].split(',').map(n => n.trim())) importsBySource.get(source)!.add(n)
+            } else if (!otherImports.includes(line)) {
+              otherImports.push(line)
+            }
+          }
+        }
+        allCode.push(js.replace(/^import .+\n/gm, '').trim())
+      }
+      const mergedClientImports = [...importsBySource].map(([src, names]) =>
+        `import { ${[...names].sort().join(', ')} } from '${src}'`
+      )
+      files.push({
+        path: filePath.replace(/\.tsx?$/, '.client.js'),
+        content: [...mergedClientImports, ...otherImports, '', ...allCode.filter(Boolean)].join('\n'),
+        type: 'clientJs',
+      })
+    }
     return { files, errors }
   }
 

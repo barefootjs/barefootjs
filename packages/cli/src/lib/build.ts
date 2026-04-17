@@ -246,20 +246,18 @@ export async function build(config: BuildConfig): Promise<BuildResult> {
       continue
     }
 
-    let markedJsxContent = ''
+    const markedTemplates = result.files.filter(f => f.type === 'markedTemplate')
     let clientJsContent = ''
 
     for (const file of result.files) {
-      if (file.type === 'markedTemplate') {
-        markedJsxContent = file.content
-      } else if (file.type === 'clientJs') {
+      if (file.type === 'clientJs') {
         clientJsContent = file.content
       } else if (file.type === 'types') {
         collectedTypes.set(baseNameNoExt, file.content)
       }
     }
 
-    if (!markedJsxContent && !clientJsContent) {
+    if (markedTemplates.length === 0 && !clientJsContent) {
       skippedCount++
       continue
     }
@@ -278,20 +276,28 @@ export async function build(config: BuildConfig): Promise<BuildResult> {
       console.log(`Generated: ${clientJsSubdir}/${clientJsFilename}`)
     }
 
-    // 5d. Write marked template (skip in clientOnly mode)
-    if (markedJsxContent && !config.clientOnly) {
-      let outputContent = markedJsxContent
-      if (hasClientJs && config.transformMarkedTemplate) {
-        outputContent = config.transformMarkedTemplate(markedJsxContent, baseNameNoExt, clientJsFilename)
+    // 5d. Write marked templates (skip in clientOnly mode)
+    // Each FileOutput.path already uses adapter.extension, so basename honors it.
+    if (!config.clientOnly && markedTemplates.length > 0) {
+      for (const tpl of markedTemplates) {
+        const outName = basename(tpl.path)
+        let outputContent = tpl.content
+        if (hasClientJs && config.transformMarkedTemplate) {
+          const componentId = outName.replace(/\.[^.]+$/, '')
+          outputContent = config.transformMarkedTemplate(outputContent, componentId, clientJsFilename)
+        }
+        await Bun.write(resolve(templatesOutDir, outName), outputContent)
+        console.log(`Generated: ${templatesSubdir}/${outName}`)
       }
-      await Bun.write(resolve(templatesOutDir, baseFileName), outputContent)
-      console.log(`Generated: ${templatesSubdir}/${baseFileName}`)
     }
 
-    // 5e. Manifest entry
-    if (!config.clientOnly) {
+    // 5e. Manifest entry (one per source file, pointing at primary template)
+    if (!config.clientOnly && markedTemplates.length > 0) {
+      const primaryTpl =
+        markedTemplates.find(t => basename(t.path).startsWith(baseNameNoExt + '.'))
+        ?? markedTemplates[0]
       manifest[baseNameNoExt] = {
-        markedTemplate: `${templatesSubdir}/${baseFileName}`,
+        markedTemplate: `${templatesSubdir}/${basename(primaryTpl.path)}`,
         clientJs: hasClientJs ? `${clientJsSubdir}/${clientJsFilename}` : undefined,
       }
     }

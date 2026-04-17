@@ -36,6 +36,7 @@ export interface MojoAdapterOptions {
 export class MojoAdapter extends BaseAdapter {
   name = 'mojolicious'
   extension = '.html.ep'
+  templatesPerComponent = true
 
   private componentName: string = ''
   private options: Required<MojoAdapterOptions>
