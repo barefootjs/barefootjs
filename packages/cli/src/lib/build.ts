@@ -15,6 +15,7 @@ import {
   type CacheEntry,
 } from './build-cache'
 import { writeIfChanged } from './fs-utils'
+import { fileExists, readBytes, readText, transpile } from './runtime'
 
 export { resolveRelativeImports } from './resolve-imports'
 
@@ -126,8 +127,7 @@ export async function discoverComponentFiles(
  * Generate a short content hash string (8 hex chars).
  */
 export function generateHash(content: string): string {
-  const hash = Bun.hash(content)
-  return hash.toString(16).slice(0, 8)
+  return hashContent(content).slice(0, 8)
 }
 
 // ── Resolve BuildConfig from BarefootBuildConfig ─────────────────────────
@@ -179,9 +179,8 @@ export async function computeGlobalHash(config: BuildConfig): Promise<string> {
     resolve(config.projectDir, 'barefoot.config.mjs'),
   ]
   for (const cand of configCandidates) {
-    const file = Bun.file(cand)
-    if (await file.exists()) {
-      parts.push(await file.text())
+    if (await fileExists(cand)) {
+      parts.push(await readText(cand))
       break
     }
   }
@@ -241,15 +240,13 @@ export async function build(
 
   if (domDistFile) {
     const runtimeOutPath = resolve(runtimeOutDir, 'barefoot.js')
-    let runtimeContent: string | ArrayBuffer
+    let runtimeContent: string | Uint8Array
     if (config.minify) {
       // Minify at copy time so the minify pass below doesn't need to touch
       // barefoot.js (keeping it out of the per-build write loop).
-      // @ts-expect-error minifySyntax is supported at runtime but missing from older bun-types
-      const transpiler = new Bun.Transpiler({ loader: 'js', minifyWhitespace: true, minifySyntax: true })
-      runtimeContent = transpiler.transformSync(await Bun.file(domDistFile).text())
+      runtimeContent = transpile(await readText(domDistFile), { loader: 'js', minify: true })
     } else {
-      runtimeContent = await Bun.file(domDistFile).arrayBuffer()
+      runtimeContent = await readBytes(domDistFile)
     }
     const wrote = await writeIfChanged(runtimeOutPath, runtimeContent)
     if (wrote) {
@@ -285,7 +282,7 @@ export async function build(
   const sourceHashes = new Map<string, string>()
   const sourceContents = new Map<string, string>()
   for (const file of allFiles) {
-    const content = await Bun.file(file).text()
+    const content = await readText(file)
     sourceContents.set(file, content)
     sourceHashes.set(file, hashContent(content))
   }
@@ -301,9 +298,8 @@ export async function build(
   }
   const extraDepHashes = new Map<string, string>()
   await Promise.all([...extraDepPaths].map(async (p) => {
-    const file = Bun.file(p)
-    if (await file.exists()) {
-      extraDepHashes.set(p, hashContent(await file.text()))
+    if (await fileExists(p)) {
+      extraDepHashes.set(p, hashContent(await readText(p)))
     }
   }))
   const lookupDepHash = (absPath: string): string | null => {
@@ -402,7 +398,7 @@ export async function build(
     if (!entry.clientJs) continue
     const filePath = resolve(config.outDir, entry.clientJs)
     try {
-      clientJsFiles.set(name, await Bun.file(filePath).text())
+      clientJsFiles.set(name, await readText(filePath))
     } catch {
       // File may not exist (e.g. __barefoot__)
     }
@@ -433,7 +429,7 @@ export async function build(
       if (!entry.clientJs || name === '__barefoot__') continue
       const filePath = resolve(config.outDir, entry.clientJs)
       try {
-        let content = await Bun.file(filePath).text()
+        let content = await readText(filePath)
         if (content.includes('@barefootjs/client-runtime')) {
           content = content.replace(
             /from ['"]@barefootjs\/client-runtime['"]/g,
@@ -452,15 +448,13 @@ export async function build(
   // 7. Minify client JS (after combine so all files are final).
   // Runtime (__barefoot__) is already minified at copy time above.
   if (config.minify) {
-    // @ts-expect-error minifySyntax is supported at runtime but missing from older bun-types
-    const transpiler = new Bun.Transpiler({ loader: 'js', minifyWhitespace: true, minifySyntax: true })
     for (const [name, entry] of Object.entries(manifest)) {
       if (!entry.clientJs || name === '__barefoot__') continue
       const filePath = resolve(config.outDir, entry.clientJs)
       try {
-        const content = await Bun.file(filePath).text()
+        const content = await readText(filePath)
         if (content) {
-          const minified = transpiler.transformSync(content)
+          const minified = transpile(content, { loader: 'js', minify: true })
           if (await writeIfChanged(filePath, minified)) {
             anyOutputChanged = true
           }
@@ -536,7 +530,7 @@ async function collectRelativeImportDeps(
     const candidates = [base, ...EXT_CANDIDATES.map((ext) => base + ext)]
     for (const cand of candidates) {
       if (seen.has(cand)) continue
-      if (await Bun.file(cand).exists()) {
+      if (await fileExists(cand)) {
         seen.add(cand)
         results.push(cand)
         break
@@ -591,12 +585,12 @@ async function compileEntry(args: CompileEntryArgs): Promise<CompileEntryOutcome
   // imports are picked up by lexically scanning the source for relative imports.
   const deps: Record<string, string> = {}
   for (const depPath of await collectRelativeImportDeps(entryPath, sourceContent)) {
-    deps[depPath] = hashContent(await Bun.file(depPath).text())
+    deps[depPath] = hashContent(await readText(depPath))
   }
 
   const result = await compileJSX(
     entryPath,
-    async (path) => Bun.file(path).text(),
+    async (path) => readText(path),
     { adapter: config.adapter },
   )
 

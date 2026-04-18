@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 // CLI entry point: arg parse → switch dispatch.
 
 import { createContext } from './context'

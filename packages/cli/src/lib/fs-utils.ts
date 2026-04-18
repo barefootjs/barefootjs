@@ -1,5 +1,7 @@
 // Filesystem helpers shared across build pipeline steps.
 
+import { fileExists, readBytes, readText, writeBytes, writeText } from './runtime'
+
 /**
  * Write content to path only when it differs from what is already on disk.
  * Returns true when a write occurred. Avoids re-firing file watchers when
@@ -7,27 +9,30 @@
  */
 export async function writeIfChanged(
   path: string,
-  content: string | ArrayBufferView | ArrayBuffer | Blob,
+  content: string | ArrayBufferView | ArrayBuffer,
 ): Promise<boolean> {
-  const existing = Bun.file(path)
-  if (await existing.exists()) {
+  if (await fileExists(path)) {
     if (typeof content === 'string') {
-      const prev = await existing.text()
+      const prev = await readText(path)
       if (prev === content) return false
-    } else {
-      const prev = new Uint8Array(await existing.arrayBuffer())
-      const next = await toUint8Array(content)
-      if (equalBytes(prev, next)) return false
+      await writeText(path, content)
+      return true
     }
+    const prev = await readBytes(path)
+    const next = toUint8Array(content)
+    if (equalBytes(prev, next)) return false
+    await writeBytes(path, next)
+    return true
   }
-  await Bun.write(path, content as Parameters<typeof Bun.write>[1])
+  if (typeof content === 'string') {
+    await writeText(path, content)
+  } else {
+    await writeBytes(path, toUint8Array(content))
+  }
   return true
 }
 
-async function toUint8Array(
-  content: ArrayBufferView | ArrayBuffer | Blob,
-): Promise<Uint8Array> {
-  if (content instanceof Blob) return new Uint8Array(await content.arrayBuffer())
+function toUint8Array(content: ArrayBufferView | ArrayBuffer): Uint8Array {
   if (content instanceof ArrayBuffer) return new Uint8Array(content)
   return new Uint8Array(content.buffer, content.byteOffset, content.byteLength)
 }

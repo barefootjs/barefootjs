@@ -3,11 +3,27 @@
   "version": "0.0.1",
   "description": "CLI for agent-driven UI component discovery and scaffolding",
   "type": "module",
-  "private": true,
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "bin": {
+    "barefoot": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "clean": "rm -rf dist",
+    "test": "bun test"
+  },
   "dependencies": {
-    "@barefootjs/client-runtime": "workspace:*",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.0.0"
+  },
+  "devDependencies": {
     "@barefootjs/jsx": "workspace:*",
-    "@barefootjs/preview": "workspace:*"
+    "@types/node": "^22.0.0"
   }
 }
