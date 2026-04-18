@@ -2,6 +2,7 @@
 
 import { dirname, resolve } from 'node:path'
 import { RELATIVE_IMPORT_RE } from './patterns'
+import { fileExists, readText, transpile, writeText } from './runtime'
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -20,7 +21,7 @@ export interface ResolveRelativeImportsOptions {
  * Resolve relative imports in compiled client JS files.
  *
  * For each client JS file in the manifest:
- * - `.ts` imports: transpile with Bun.Transpiler and inline the code
+ * - `.ts` imports: transpile and inline the code
  * - `.tsx` imports: strip (server component, already rendered at SSR time)
  * - Not found / already inlined: strip
  */
@@ -32,7 +33,7 @@ export async function resolveRelativeImports(options: ResolveRelativeImportsOpti
     const filePath = resolve(distDir, entry.clientJs)
     let content: string
     try {
-      content = await Bun.file(filePath).text()
+      content = await readText(filePath)
     } catch {
       continue
     }
@@ -54,7 +55,7 @@ export async function resolveRelativeImports(options: ResolveRelativeImportsOpti
       for (const dir of searchDirs) {
         const basePath = resolve(dir, importPath)
         for (const ext of ['.ts', '.tsx', '.js']) {
-          if (await Bun.file(basePath + ext).exists()) {
+          if (await fileExists(basePath + ext)) {
             sourceFile = basePath + ext
             break
           }
@@ -78,9 +79,8 @@ export async function resolveRelativeImports(options: ResolveRelativeImportsOpti
       }
 
       // Transpile and inline pure TS utility modules
-      const sourceContent = await Bun.file(sourceFile).text()
-      const transpiler = new Bun.Transpiler({ loader: 'ts' })
-      let jsCode = transpiler.transformSync(sourceContent)
+      const sourceContent = await readText(sourceFile)
+      let jsCode = transpile(sourceContent, { loader: 'ts' })
 
       // Convert exports to plain declarations for inlining
       jsCode = jsCode
@@ -93,6 +93,6 @@ export async function resolveRelativeImports(options: ResolveRelativeImportsOpti
       console.log(`Inlined: ${importPath} into ${entry.clientJs}`)
     }
 
-    await Bun.write(filePath, content)
+    await writeText(filePath, content)
   }
 }

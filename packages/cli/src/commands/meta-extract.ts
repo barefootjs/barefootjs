@@ -2,9 +2,9 @@
 // Uses the compiler's analyzeComponent() for precise extraction,
 // with regex-based JSDoc parsing for descriptions/examples.
 
-import { Glob } from 'bun'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import path from 'path'
+import { globFiles } from '../lib/runtime'
 import { analyzeComponent, listExportedComponents } from '@barefootjs/jsx'
 import type { AnalyzerContext } from '@barefootjs/jsx'
 import type { CliContext } from '../context'
@@ -231,12 +231,8 @@ export async function run(_args: string[], ctx: CliContext): Promise<void> {
   const registry = loadRegistry(ctx.root)
 
   // Glob all component index.tsx files (colocated structure)
-  const glob = new Glob('*/index.tsx')
-  const files: string[] = []
-  for await (const file of glob.scan({ cwd: componentsDir })) {
-    files.push(path.join(componentsDir, file))
-  }
-  files.sort()
+  const matched = await globFiles('*/index.tsx', { cwd: componentsDir })
+  const files = matched.map(f => path.join(componentsDir, f)).sort()
 
   const indexEntries: MetaIndexEntry[] = []
   let count = 0

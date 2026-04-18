@@ -160,12 +160,8 @@ describe('resolveBuildConfigFromTs', () => {
 // ── minification ────────────────────────────────────────────────────────
 
 describe('minification does not re-introduce jsxDEV', () => {
-  test('Bun.Transpiler with loader: js preserves HTML in template literals', () => {
-    const transpiler = new Bun.Transpiler({
-      loader: 'js',
-      minifyWhitespace: true,
-      minifySyntax: true,
-    })
+  test('transpile(minify: true) preserves HTML in template literals', async () => {
+    const { transpile } = await import('../lib/runtime')
 
     const clientJs = `
 import { createSignal, createEffect } from '@barefootjs/client-runtime'
@@ -176,11 +172,13 @@ export function __bf_init_Counter(el, props) {
   el.appendChild(__tpl.content.cloneNode(true))
 }
 `
-    const result = transpiler.transformSync(clientJs)
+    const result = transpile(clientJs, { loader: 'js', minify: true })
 
     expect(result).not.toContain('jsxDEV')
     expect(result).not.toContain('jsx(')
     expect(result).toContain('innerHTML')
     expect(result).toContain('counter')
+    // Hydration hook identifier must survive minification
+    expect(result).toContain('__bf_init_Counter')
   })
 })

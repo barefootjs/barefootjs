@@ -2,6 +2,9 @@
 
 import { existsSync, readFileSync } from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'node:url'
+
+const thisDir = path.dirname(fileURLToPath(import.meta.url))
 
 export interface BarefootConfig {
   $schema?: string
@@ -60,12 +63,12 @@ export function createContext(jsonFlag: boolean): CliContext {
     const config = loadBarefootConfig(configPath)
     const metaDir = path.resolve(projectDir, config.paths.meta)
     // root = monorepo root (for source lookups); projectDir = user project
-    const root = path.resolve(import.meta.dir, '../../..')
+    const root = path.resolve(thisDir, '../../..')
     return { root, metaDir, jsonFlag, config, projectDir }
   }
 
   // Fallback: monorepo mode
-  const root = path.resolve(import.meta.dir, '../../..')
+  const root = path.resolve(thisDir, '../../..')
   const metaDir = path.join(root, 'ui/meta')
   return { root, metaDir, jsonFlag, config: null, projectDir: null }
 }

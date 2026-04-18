@@ -3,6 +3,7 @@
 import { resolve } from 'node:path'
 import type { CliContext } from '../context'
 import type { TokenSet, Token, ColorToken } from '../../../../site/shared/tokens/schema'
+import { fileExists } from '../lib/runtime'
 
 type CategoryName = 'typography' | 'spacing' | 'borderRadius' | 'transitions' | 'layout' | 'colors' | 'shadows'
 
@@ -16,8 +17,7 @@ async function loadTokenSet(ctx: CliContext): Promise<TokenSet> {
   )
   const base = await loadTokens(resolve(ctx.root, 'site/shared/tokens/tokens.json'))
   const uiJsonPath = resolve(ctx.root, 'site/ui/tokens.json')
-  const uiFile = Bun.file(uiJsonPath)
-  if (await uiFile.exists()) {
+  if (await fileExists(uiJsonPath)) {
     const ext = await loadTokens(uiJsonPath)
     return mergeTokenSets(base, ext)
   }

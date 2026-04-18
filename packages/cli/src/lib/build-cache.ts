@@ -2,6 +2,7 @@
 // produced output paths so unchanged components can skip recompilation.
 
 import { resolve } from 'node:path'
+import { fileExists, hashString, readText, writeText } from './runtime'
 
 export const CACHE_VERSION = 1
 export const CACHE_FILENAME = '.buildcache.json'
@@ -26,9 +27,9 @@ export interface BuildCache {
   entries: Record<string, CacheEntry>
 }
 
-/** Hash a string via Bun.hash; short hex is plenty for collision-resistant equality checks. */
+/** Hash a string for cache-equality checks. Short hex is plenty. */
 export function hashContent(content: string): string {
-  return Bun.hash(content).toString(16)
+  return hashString(content)
 }
 
 export function emptyCache(globalHash: string): BuildCache {
@@ -37,10 +38,9 @@ export function emptyCache(globalHash: string): BuildCache {
 
 export async function loadCache(outDir: string): Promise<BuildCache | null> {
   const path = resolve(outDir, CACHE_FILENAME)
-  const file = Bun.file(path)
-  if (!(await file.exists())) return null
+  if (!(await fileExists(path))) return null
   try {
-    const parsed = JSON.parse(await file.text()) as BuildCache
+    const parsed = JSON.parse(await readText(path)) as BuildCache
     if (parsed.version !== CACHE_VERSION) return null
     return parsed
   } catch {
@@ -50,7 +50,7 @@ export async function loadCache(outDir: string): Promise<BuildCache | null> {
 
 export async function saveCache(outDir: string, cache: BuildCache): Promise<void> {
   const path = resolve(outDir, CACHE_FILENAME)
-  await Bun.write(path, JSON.stringify(cache, null, 2))
+  await writeText(path, JSON.stringify(cache, null, 2))
 }
 
 /** True when the entry's source and every recorded dep still has a matching hash. */
