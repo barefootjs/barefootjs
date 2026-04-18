@@ -214,8 +214,14 @@ export function createConfig(options: GoTemplateBuildOptions = {}) {
     if (content) {
       const { resolve } = await import('node:path')
       const outPath = resolve(ctx.projectDir, typesOutputFile)
-      await Bun.write(outPath, content)
-      console.log(`Generated: ${typesOutputFile}`)
+      // Write only when content changed so cache-hit builds don't trip the
+      // dev-reload sentinel (ctx.markChanged) and trigger a spurious reload.
+      const prev = await Bun.file(outPath).text().catch(() => null)
+      if (prev !== content) {
+        await Bun.write(outPath, content)
+        ctx.markChanged?.()
+        console.log(`Generated: ${typesOutputFile}`)
+      }
     }
   }
 

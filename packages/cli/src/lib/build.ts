@@ -500,13 +500,17 @@ export async function build(
     }
   }
 
-  // 7b. Post-build hook (after minification, before manifest write)
+  // 7b. Post-build hook (after minification, before manifest write).
+  // Post-build writes (e.g. adapter-generated Go types) happen outside the
+  // writeIfChanged tracking above, so the hook uses `markChanged()` to bubble
+  // up real file changes — keeps the dev-reload sentinel honest.
   if (config.postBuild) {
     await config.postBuild({
       types: collectedTypes,
       outDir: config.outDir,
       projectDir: config.projectDir,
       manifest,
+      markChanged: () => { anyOutputChanged = true },
     })
   }
 

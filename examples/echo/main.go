@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	bf "github.com/barefootjs/runtime/bf"
+	"github.com/barefootjs/runtime/bf/bfdev"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -114,15 +116,25 @@ func main() {
 
 	// Renderer. In dev mode (APP_ENV=development), templates reload on each
 	// request so edits picked up by `bun run build:watch` appear without
-	// restarting the server.
+	// restarting the server. A dev-only EventSource snippet is injected
+	// before </body> so the browser reloads automatically on every rebuild.
 	devMode := isDevEnv()
+	devSnippet := bfdev.Snippet(bfdev.Config{Disabled: !devMode})
+	layout := defaultLayout
+	if devSnippet != "" {
+		layout = func(ctx *bf.RenderContext) string {
+			html := defaultLayout(ctx)
+			return strings.Replace(html, "</body>", string(devSnippet)+"\n</body>", 1)
+		}
+	}
 	e.Renderer = &EchoRenderer{
-		bf:      bf.NewRenderer(loadTemplates(), defaultLayout),
-		layout:  defaultLayout,
+		bf:      bf.NewRenderer(loadTemplates(), layout),
+		layout:  layout,
 		devMode: devMode,
 	}
 	if devMode {
 		e.Logger.Info("Dev mode: templates will reload on each request")
+		e.GET("/_bf/reload", echo.WrapHandler(bfdev.NewReloadHandler(bfdev.Config{DistDir: "./dist"})))
 	}
 
 	// Routes

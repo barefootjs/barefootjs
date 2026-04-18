@@ -79,6 +79,19 @@ export interface PostBuildContext {
   projectDir: string
   /** Build manifest */
   manifest: Record<string, { clientJs?: string; markedTemplate: string }>
+  /**
+   * Signal that the post-build step wrote (or otherwise altered) outputs the
+   * CLI does not track directly — e.g. adapter-generated files produced
+   * outside `outDir`. Used by the CLI's dev-reload sentinel so the browser
+   * reloads only when a build actually changed the world.
+   *
+   * Adapters should call this after a real write (use your own
+   * write-if-changed logic to decide). Safe to call multiple times per build.
+   *
+   * Optional on the type so older callers that construct a ctx manually (e.g.
+   * in tests) don't have to supply one; the CLI always provides one at runtime.
+   */
+  markChanged?: () => void
 }
 
 export interface BuildOptions {
