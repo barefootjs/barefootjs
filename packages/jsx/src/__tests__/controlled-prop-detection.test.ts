@@ -8,7 +8,7 @@ describe('controlled prop detection (#434)', () => {
   test('props.xxx ?? default generates sync effect', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface SliderProps {
         initial?: number
@@ -32,7 +32,7 @@ describe('controlled prop detection (#434)', () => {
   test('props.defaultXxx ?? default does NOT generate sync effect', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface CheckboxProps {
         defaultChecked?: boolean
@@ -56,7 +56,7 @@ describe('controlled prop detection (#434)', () => {
   test('no redundant double-?? in output', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface SliderProps {
         initial?: number
@@ -82,7 +82,7 @@ describe('controlled prop detection (#434)', () => {
   test('preserves original ?? fallback value in output', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface SliderProps {
         initial?: number
@@ -107,7 +107,7 @@ describe('controlled prop detection (#434)', () => {
   test('preserves boolean fallback value in output', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface CheckboxProps {
         defaultChecked?: boolean
@@ -132,7 +132,7 @@ describe('controlled prop detection (#434)', () => {
   test('preserves string fallback value in output', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface InputProps {
         defaultValue?: string
@@ -156,7 +156,7 @@ describe('controlled prop detection (#434)', () => {
   test('custom props parameter name (e.g., p) generates sync effect', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface SliderProps {
         initial?: number

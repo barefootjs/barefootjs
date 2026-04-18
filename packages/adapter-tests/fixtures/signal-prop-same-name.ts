@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Signal initialized from prop with identical name',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function SignalPropSameName(props: { label?: string }) {
   const [label, setLabel] = createSignal(props.label ?? 'Default')
   return <span>{label()}</span>

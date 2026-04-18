@@ -1,4 +1,4 @@
-import { createSignal, createEffect, provideContext, useContext } from '@barefootjs/client-runtime'
+import { createSignal, createEffect, provideContext, useContext } from '@barefootjs/client/runtime'
 import type { BarRegistration } from './types'
 import { BarChartContext, ChartConfigContext } from './context'
 import { createBandScale, createLinearScale } from './utils/scales'

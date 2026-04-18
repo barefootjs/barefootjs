@@ -87,7 +87,7 @@ describe('Compiler-Runtime Contract', () => {
     test('outer loop uses data-key attribute', () => {
       const js = compileClient(`
         "use client"
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         export function Test() {
           const [items] = createSignal([{id: 1}])
           return <ul>{items().map(item => <li key={item.id}>{item.id}</li>)}</ul>
@@ -100,7 +100,7 @@ describe('Compiler-Runtime Contract', () => {
     test('nested loop uses data-key-N for inner levels', () => {
       const js = compileClient(`
         "use client"
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         export function Test() {
           const [groups] = createSignal([{id: 'g1', items: [{id: 'i1'}]}])
           return <div>{groups().map(group => (
@@ -121,7 +121,7 @@ describe('Compiler-Runtime Contract', () => {
     test('key in HTML template uses data-key attribute name', () => {
       const result = compileJSXSync(`
         "use client"
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         export function Test() {
           const [items] = createSignal([{id: 1}])
           return <ul>{items().map(item => <li key={item.id}>{item.id}</li>)}</ul>
@@ -137,7 +137,7 @@ describe('Compiler-Runtime Contract', () => {
     test('parent-owned slot IDs do not contain ^ in variable names', () => {
       const js = compileClient(`
         "use client"
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         import { Button } from './Button'
         export function Test() {
           const [items] = createSignal(['a', 'b'])
@@ -161,7 +161,7 @@ describe('Compiler-Runtime Contract', () => {
       // Uses the existing test from client-js-generation.test.ts (module-level function scope isolation)
       const js = compileClient(`
         "use client"
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         function computeError(field: { value: string }, allFields: { id: number; value: string }[]) {
           const basicError = field.value === '' ? 'Required' : ''
           const isDuplicate = allFields.some(f => f.id !== 0 && f.value === field.value)
@@ -184,7 +184,7 @@ describe('Compiler-Runtime Contract', () => {
     test('component-level function referencing signals stays inside init', () => {
       const js = compileClient(`
         "use client"
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         export function Test() {
           const [count, setCount] = createSignal(0)
           function increment() { setCount(c => c + 1) }

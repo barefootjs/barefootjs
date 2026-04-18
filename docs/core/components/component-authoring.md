@@ -121,7 +121,7 @@ export function Toggle({ __instanceId, ... }) {
 **Client JS:**
 
 ```js
-import { $, createSignal, hydrate, insert } from '@barefootjs/client-runtime'
+import { $, createSignal, hydrate, insert } from '@barefootjs/client'
 
 export function initToggle(__scope, _p = {}) {
   if (!__scope) return

@@ -39,7 +39,7 @@
     "directory": "packages/chart"
   },
   "peerDependencies": {
-    "@barefootjs/client-runtime": ">=0.0.1"
+    "@barefootjs/client": ">=0.0.1"
   },
   "dependencies": {
     "d3-array": "^3.2.4",

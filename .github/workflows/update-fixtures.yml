@@ -7,7 +7,6 @@ on:
       - 'packages/jsx/**'
       - 'packages/hono/**'
       - 'packages/client/**'
-      - 'packages/client-runtime/**'
       - 'packages/adapter-tests/src/**'
       - 'packages/adapter-tests/scripts/**'
 
@@ -40,7 +39,6 @@ jobs:
       - name: Build packages
         run: |
           bun run --filter '@barefootjs/client' build
-          bun run --filter '@barefootjs/client-runtime' build
           bun run --filter '@barefootjs/jsx' build
           bun run --filter '@barefootjs/hono' build
 

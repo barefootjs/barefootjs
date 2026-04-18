@@ -108,7 +108,7 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
         test: 'bun test',
       },
       dependencies: {
-        '@barefootjs/client-runtime': 'workspace:*',
+        '@barefootjs/client': 'workspace:*',
         '@barefootjs/jsx': 'workspace:*',
       },
       devDependencies: {

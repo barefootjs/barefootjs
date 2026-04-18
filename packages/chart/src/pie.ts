@@ -1,4 +1,4 @@
-import { useContext, createEffect, onCleanup } from '@barefootjs/client-runtime'
+import { useContext, createEffect, onCleanup } from '@barefootjs/client/runtime'
 import { PieChartContext } from './context'
 import { pie as d3Pie, arc as d3Arc } from 'd3-shape'
 import type { PieArcDatum } from 'd3-shape'

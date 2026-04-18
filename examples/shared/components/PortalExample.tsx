@@ -9,7 +9,7 @@
  * - Visibility is controlled via inline style (hidden attribute)
  */
 
-import { createSignal, createPortal, isSSRPortal } from '@barefootjs/client-runtime'
+import { createSignal, createPortal, isSSRPortal } from '@barefootjs/client'
 
 export function PortalExample() {
   const [open, setOpen] = createSignal(false)

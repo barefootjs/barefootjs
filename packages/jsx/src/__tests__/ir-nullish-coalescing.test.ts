@@ -25,7 +25,7 @@ describe('nullish coalescing with JSX (#524)', () => {
   test('compiles reactive ?? with JSX element', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
       export function Fallback() {
         const [label, setLabel] = createSignal<string | null>(null)
         return <div>{label() ?? <span>Fallback</span>}</div>
@@ -44,7 +44,7 @@ describe('nullish coalescing with JSX (#524)', () => {
   test('compiles ?? with JSX inside ternary branch', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
       export function Nested() {
         const [show, setShow] = createSignal(true)
         const [icon, setIcon] = createSignal<any>(null)
@@ -64,7 +64,7 @@ describe('nullish coalescing with JSX (#524)', () => {
   test('non-JSX ?? remains as expression', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
       interface Props { initial?: number }
       export function Counter(props: Props) {
         const [count, setCount] = createSignal(props.initial ?? 0)

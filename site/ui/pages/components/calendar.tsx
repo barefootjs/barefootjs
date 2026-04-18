@@ -37,7 +37,7 @@ const tocItems: TocItem[] = [
 
 const usageCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Calendar } from "@/components/ui/calendar"
 
 function CalendarDemo() {
@@ -67,7 +67,7 @@ function CalendarDemo() {
 
 const basicCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import { Calendar } from "@/components/ui/calendar"
 
 export function CalendarBasicDemo() {
@@ -94,7 +94,7 @@ export function CalendarBasicDemo() {
 
 const formCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import { Calendar } from "@/components/ui/calendar"
 
 export function CalendarFormDemo() {
@@ -149,7 +149,7 @@ export function CalendarFormDemo() {
 
 const constraintsCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import { Calendar } from "@/components/ui/calendar"
 
 export function CalendarWithConstraintsDemo() {

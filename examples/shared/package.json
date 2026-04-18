@@ -8,7 +8,7 @@
     "./styles/*": "./styles/*"
   },
   "devDependencies": {
-    "@barefootjs/client-runtime": "workspace:*",
+    "@barefootjs/client": "workspace:*",
     "@barefootjs/hono": "workspace:*",
     "bun-types": "^1.1.0"
   }

@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Filter by boolean field then map',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 type Todo = { text: string; done: boolean }
 export function FilterSimple() {
   const [todos, setTodos] = createSignal<Todo[]>([])

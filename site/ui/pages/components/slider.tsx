@@ -37,7 +37,7 @@ const tocItems: TocItem[] = [
 
 const usageCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Slider } from "@/components/ui/slider"
 
 function SliderDemo() {
@@ -95,7 +95,7 @@ export function SliderBasicDemo() {
 
 const formCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import { Slider } from "@/components/ui/slider"
 
 export function SliderFormDemo() {
@@ -157,7 +157,7 @@ export function SliderFormDemo() {
 
 const stepCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Slider } from "@/components/ui/slider"
 
 export function SliderStepDemo() {

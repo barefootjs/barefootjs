@@ -6,7 +6,7 @@ describe('sort().map() / toSorted().map()', () => {
   test('sort((a, b) => a.price - b.price).map() produces sortComparator (asc)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function ProductList() {
         const [products, setProducts] = createSignal<any[]>([])
@@ -44,7 +44,7 @@ describe('sort().map() / toSorted().map()', () => {
   test('toSorted((a, b) => b.price - a.price).map() produces sortComparator (desc)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function ProductList() {
         const [products, setProducts] = createSignal<any[]>([])
@@ -78,7 +78,7 @@ describe('sort().map() / toSorted().map()', () => {
   test('filter().sort().map() produces both filterPredicate and sortComparator', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TodoList() {
         const [todos, setTodos] = createSignal<any[]>([])
@@ -114,7 +114,7 @@ describe('sort().map() / toSorted().map()', () => {
   test('sort().filter().map() produces both with correct chainOrder', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TodoList() {
         const [todos, setTodos] = createSignal<any[]>([])
@@ -147,7 +147,7 @@ describe('sort().map() / toSorted().map()', () => {
   test('complex sort comparator with @client keeps sort in array', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TodoList() {
         const [items, setItems] = createSignal<any[]>([])

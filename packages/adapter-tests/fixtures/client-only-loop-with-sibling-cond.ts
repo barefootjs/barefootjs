@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: '@client loop with conditional sibling: SSR emits loop boundary markers (#872)',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function ChatList() {
   const [items, setItems] = createSignal<string[]>([])
   const [streaming, setStreaming] = createSignal(false)

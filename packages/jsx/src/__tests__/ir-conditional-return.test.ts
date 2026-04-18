@@ -8,7 +8,7 @@ describe('conditional JSX returns (if-statement)', () => {
   test('collects event handlers from both branches of conditional return', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Toggle(props: { asChild?: boolean }) {
         const [open, setOpen] = createSignal(false)
@@ -35,7 +35,7 @@ describe('conditional JSX returns (if-statement)', () => {
   test('collects reactive attributes from conditional return branches', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Disclosure(props: { asChild?: boolean }) {
         const [open, setOpen] = createSignal(false)
@@ -62,7 +62,7 @@ describe('conditional JSX returns (if-statement)', () => {
   test('collects child component inits from conditional return branches', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Wrapper(props: { variant?: string }) {
         const [active, setActive] = createSignal(false)

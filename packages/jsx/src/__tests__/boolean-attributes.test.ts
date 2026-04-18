@@ -44,7 +44,7 @@ describe('boolean attributes', () => {
   test('compiles dynamic boolean attribute using DOM property', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Checkbox() {
         const [isChecked, setIsChecked] = createSignal(false)
@@ -68,7 +68,7 @@ describe('boolean attributes', () => {
   test('compiles dynamic disabled attribute using DOM property', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Button() {
         const [isLoading, setIsLoading] = createSignal(false)
@@ -91,7 +91,7 @@ describe('boolean attributes', () => {
   test('compiles data-disabled={expr || undefined} using setAttribute/removeAttribute', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Button(props: { disabled?: boolean }) {
         return (
@@ -118,7 +118,7 @@ describe('boolean attributes', () => {
   test('compiles data-state={open() || undefined} using setAttribute/removeAttribute', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Dialog() {
         const [open, setOpen] = createSignal(false)

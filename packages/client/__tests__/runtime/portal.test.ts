@@ -7,7 +7,7 @@
 
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
-import { createPortal } from '../src/portal'
+import { createPortal } from '../../src/runtime/portal'
 
 beforeAll(() => {
   if (typeof window === 'undefined') {

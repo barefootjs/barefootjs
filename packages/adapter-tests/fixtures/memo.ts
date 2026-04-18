@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Derived value with createMemo',
   source: `
 'use client'
-import { createSignal, createMemo } from '@barefootjs/client-runtime'
+import { createSignal, createMemo } from '@barefootjs/client'
 export function MemoDemo() {
   const [count, setCount] = createSignal(0)
   const doubled = createMemo(() => count() * 2)

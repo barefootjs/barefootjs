@@ -9,7 +9,7 @@
     "test:e2e:ui": "bunx playwright test --ui"
   },
   "dependencies": {
-    "@barefootjs/client-runtime": "workspace:*",
+    "@barefootjs/client": "workspace:*",
     "@barefootjs/hono": "workspace:*",
     "hono": "^4"
   },

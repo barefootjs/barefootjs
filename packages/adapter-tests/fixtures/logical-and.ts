@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Logical AND conditional rendering',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function LogicalAndDemo() {
   const [show, setShow] = createSignal(false)
   return <div>{show() && <span>Shown</span>}</div>

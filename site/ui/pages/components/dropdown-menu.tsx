@@ -32,7 +32,7 @@ const tocItems: TocItem[] = [
 // Code examples
 const usageCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -72,7 +72,7 @@ function MyMenu() {
 
 const basicCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -112,7 +112,7 @@ function BasicMenu() {
 
 const checkboxCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import {
   DropdownMenu,
   DropdownMenuTrigger,

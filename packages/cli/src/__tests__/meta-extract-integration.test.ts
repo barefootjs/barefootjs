@@ -56,7 +56,7 @@ describe('meta-extract integration: checkbox (stateful)', () => {
   })
 
   test('dependencies extracted from imports', () => {
-    expect(meta.dependencies.external).toContain('@barefootjs/client-runtime')
+    expect(meta.dependencies.external).toContain('@barefootjs/client')
   })
 })
 

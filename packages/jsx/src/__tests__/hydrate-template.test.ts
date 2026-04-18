@@ -8,7 +8,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
   test('Counter: gets CSR fallback template for cross-file conditional use', () => {
     const source = `
       'use client'
-      import { createSignal, createMemo } from '@barefootjs/client-runtime'
+      import { createSignal, createMemo } from '@barefootjs/client'
       interface CounterProps { initial?: number }
       export function Counter(props: CounterProps) {
         const [count, setCount] = createSignal(props.initial ?? 0)
@@ -36,7 +36,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
   test('ItemList: gets CSR fallback template for cross-file conditional use', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
       export function ItemList(props: { items: string[] }) {
         const [count, setCount] = createSignal(0)
         return (
@@ -64,7 +64,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
   test('child stateless component gets template, parent also gets CSR fallback', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       function Child(props: { value: number }) {
         return <span>{props.value}</span>
@@ -97,7 +97,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
   test('component used as child gets CSR fallback template', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function StatusBadge(props: { active: boolean }) {
         const [flash, setFlash] = createSignal(false)
@@ -136,7 +136,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
   test('client-only expression: gets CSR fallback template for cross-file conditional use', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
       export function Filtered() {
         const [items, setItems] = createSignal([{id: 1, done: false}])
         return (
@@ -162,7 +162,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
     // which exercises the transformExpr() string-literal protection path.
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
       type Size = 'sm' | 'md' | 'lg'
       const sizeClasses: Record<Size, string> = {
         sm: 'size-4',
@@ -216,7 +216,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
     // by wrapping block bodies with local decls in an IIFE.
     const source = `
       'use client'
-      import { createSignal, createMemo } from '@barefootjs/client-runtime'
+      import { createSignal, createMemo } from '@barefootjs/client'
       interface Props { initialBars: { label: string; value: number }[] }
       export function ChartWidget(props: Props) {
         const [bars] = createSignal(props.initialBars)

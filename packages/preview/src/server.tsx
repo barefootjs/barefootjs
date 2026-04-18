@@ -39,10 +39,13 @@ function WithPredictableIds({ children }: { children: any }) {
   return <>{children}</>
 }
 
-// Import map for resolving @barefootjs/client-runtime in client JS
+// Import map for resolving @barefootjs/client in client JS.
+// Compiler-emitted code imports from `@barefootjs/client/runtime`, which we
+// point at the same runtime bundle (barefoot.js) served as /static/barefoot.js.
 const importMapScript = JSON.stringify({
   imports: {
-    '@barefootjs/client-runtime': '/static/barefoot.js',
+    '@barefootjs/client': '/static/barefoot.js',
+    '@barefootjs/client/runtime': '/static/barefoot.js',
   },
 })
 

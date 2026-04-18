@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Ternary conditional rendering',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function TernaryDemo() {
   const [show, setShow] = createSignal(false)
   return <div>{show() ? <span>Visible</span> : <span>Hidden</span>}</div>

@@ -29,7 +29,7 @@ export function highlight(code: string): string {
 `)
     // Write client JS that imports the utility
     const clientJs = `import { highlight } from './utils'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 console.log(highlight('hello'))
 `
     writeFileSync(resolve(COMPONENTS_DIR, 'Demo-abc123.js'), clientJs)
@@ -46,7 +46,7 @@ console.log(highlight('hello'))
     // Should NOT contain the original import
     expect(result).not.toContain("from './utils'")
     // Should keep package imports untouched
-    expect(result).toContain("from '@barefootjs/client-runtime'")
+    expect(result).toContain("from '@barefootjs/client'")
   })
 
   test('strips .tsx server component import', async () => {
@@ -56,7 +56,7 @@ export function ServerComp() {
 }
 `)
     const clientJs = `import { ServerComp } from './ServerComp'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 console.log('client code')
 `
     writeFileSync(resolve(COMPONENTS_DIR, 'Parent-abc123.js'), clientJs)
@@ -69,7 +69,7 @@ console.log('client code')
 
     const result = await Bun.file(resolve(COMPONENTS_DIR, 'Parent-abc123.js')).text()
     expect(result).not.toContain('ServerComp')
-    expect(result).toContain("from '@barefootjs/client-runtime'")
+    expect(result).toContain("from '@barefootjs/client'")
     expect(result).toContain("console.log('client code')")
   })
 
@@ -103,7 +103,7 @@ console.log('B', VERSION)
   })
 
   test('no-op when no relative imports', async () => {
-    const clientJs = `import { createSignal } from '@barefootjs/client-runtime'
+    const clientJs = `import { createSignal } from '@barefootjs/client'
 const [count, setCount] = createSignal(0)
 `
     writeFileSync(resolve(COMPONENTS_DIR, 'Counter-xyz.js'), clientJs)

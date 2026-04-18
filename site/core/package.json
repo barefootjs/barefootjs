@@ -8,7 +8,7 @@
     "deploy": "bun run build && wrangler deploy"
   },
   "dependencies": {
-    "@barefootjs/client-runtime": "workspace:*",
+    "@barefootjs/client": "workspace:*",
     "@barefootjs/hono": "workspace:*",
     "@barefootjs/site-shared": "workspace:*",
     "hono": "^4",

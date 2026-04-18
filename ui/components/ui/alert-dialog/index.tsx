@@ -38,7 +38,7 @@
  * ```
  */
 
-import { createContext, useContext, createEffect, createPortal, isSSRPortal } from '@barefootjs/client-runtime'
+import { createContext, useContext, createEffect, createPortal, isSSRPortal } from '@barefootjs/client'
 import type { HTMLBaseAttributes, ButtonHTMLAttributes } from '@barefootjs/jsx'
 import type { Child } from '../../../types'
 

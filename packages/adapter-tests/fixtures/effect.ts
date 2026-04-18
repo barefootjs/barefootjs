@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Component with createEffect (SSR renders initial state only)',
   source: `
 'use client'
-import { createSignal, createEffect } from '@barefootjs/client-runtime'
+import { createSignal, createEffect } from '@barefootjs/client'
 export function EffectDemo() {
   const [count, setCount] = createSignal(0)
   createEffect(() => { console.log(count()) })

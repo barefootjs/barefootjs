@@ -15,7 +15,7 @@ describe('signal partial destructuring (getter only)', () => {
   test('compiles without errors', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function ReadOnlyList() {
         const [items] = createSignal([{ id: 1, name: 'A' }])
@@ -35,7 +35,7 @@ describe('signal partial destructuring (getter only)', () => {
   test('client JS declares getter without setter', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Counter() {
         const [count] = createSignal(42)
@@ -57,7 +57,7 @@ describe('signal partial destructuring (getter only)', () => {
   test('SSR template references getter correctly', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Display() {
         const [label] = createSignal('hello')
@@ -76,7 +76,7 @@ describe('signal partial destructuring (getter only)', () => {
   test('getter-only signal works with createMemo dependency', () => {
     const source = `
       'use client'
-      import { createSignal, createMemo } from '@barefootjs/client-runtime'
+      import { createSignal, createMemo } from '@barefootjs/client'
 
       export function Summary() {
         const [items] = createSignal([1, 2, 3])

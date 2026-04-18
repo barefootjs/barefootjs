@@ -37,7 +37,7 @@ const tocItems: TocItem[] = [
 
 const usageCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 function ToggleGroupDemo() {
@@ -65,7 +65,7 @@ function ToggleGroupDemo() {
 
 const basicCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export function ToggleGroupBasicDemo() {
@@ -93,7 +93,7 @@ export function ToggleGroupBasicDemo() {
 
 const outlineCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export function ToggleGroupOutlineDemo() {
@@ -115,7 +115,7 @@ export function ToggleGroupOutlineDemo() {
 
 const multipleCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export function ToggleGroupMultipleDemo() {

@@ -29,7 +29,7 @@ import { getTemplate } from './template'
  * @param props - Props to pass to the component
  *
  * @example
- * import { render } from '@barefootjs/client-runtime'
+ * import { render } from '@barefootjs/client'
  * await import('/static/components/Counter.client.js')
  *
  * render(document.getElementById('app')!, 'Counter', { initialCount: 0 })

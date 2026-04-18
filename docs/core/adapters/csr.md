@@ -42,7 +42,7 @@ dist/
 ## API
 
 ```typescript
-import { render } from '@barefootjs/client-runtime'
+import { render } from '@barefootjs/client'
 
 render(container, componentName, props?)
 ```
@@ -62,13 +62,13 @@ The component must be registered first by importing its `.client.js` file — th
 <html>
 <head>
   <script type="importmap">
-    { "imports": { "@barefootjs/client-runtime": "/static/components/barefoot.js" } }
+    { "imports": { "@barefootjs/client": "/static/components/barefoot.js" } }
   </script>
 </head>
 <body>
   <div id="app"></div>
   <script type="module">
-    import { render } from '@barefootjs/client-runtime'
+    import { render } from '@barefootjs/client'
     await import('/static/components/Counter.client.js')
     render(document.getElementById('app'), 'Counter', { initialCount: 0 })
   </script>

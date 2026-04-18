@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Basic keyed array map rendering',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 type Item = { name: string }
 export function MapBasic() {
   const [items, setItems] = createSignal<Item[]>([])

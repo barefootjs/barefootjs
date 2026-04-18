@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Toggle - CSR</title>
   <script type="importmap">
-    { "imports": { "@barefootjs/client-runtime": "/static/components/barefoot.js" } }
+    { "imports": { "@barefootjs/client/runtime": "/static/components/barefoot.js" } }
   </script>
   <link rel="stylesheet" href="/shared/styles/components.css">
 </head>
@@ -15,7 +15,7 @@
     <p><a href="/">← Back</a></p>
   </div>
   <script type="module">
-    import { render } from '@barefootjs/client-runtime'
+    import { render } from '@barefootjs/client/runtime'
     await import('/static/components/Toggle.client.js')
     const toggleItems = [
       { label: 'Setting 1', defaultOn: true },

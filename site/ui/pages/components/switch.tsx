@@ -37,7 +37,7 @@ const tocItems: TocItem[] = [
 
 const usageCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Switch } from "@/components/ui/switch"
 
 function SwitchDemo() {
@@ -67,7 +67,7 @@ function SwitchDemo() {
 
 const consentCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Switch } from "@/components/ui/switch"
 
 export function SwitchConsentDemo() {
@@ -105,7 +105,7 @@ export function SwitchConsentDemo() {
 
 const formCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Switch } from "@/components/ui/switch"
 
 export function SwitchFormDemo() {
@@ -145,7 +145,7 @@ export function SwitchFormDemo() {
 
 const notificationCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import { Switch } from "@/components/ui/switch"
 
 const channels = [

@@ -14,7 +14,7 @@ describe('Props Destructuring Warning (BF043)', () => {
   test('warns on destructured props in stateful component', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Props {
         checked: boolean
@@ -54,7 +54,7 @@ describe('Props Destructuring Warning (BF043)', () => {
   test('warns on rest props in stateful component', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Props {
         checked: boolean
@@ -75,7 +75,7 @@ describe('Props Destructuring Warning (BF043)', () => {
   test('warns on partial destructuring with rest props in stateful component', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Props {
         onClick: () => void
@@ -97,7 +97,7 @@ describe('Props Destructuring Warning (BF043)', () => {
   test('no warning with @bf-ignore props-destructuring', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Props {
         checked: boolean
@@ -119,7 +119,7 @@ describe('Props Destructuring Warning (BF043)', () => {
   test('no warning when props object is used', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Props {
         checked: boolean
@@ -155,7 +155,7 @@ describe('Props Destructuring Warning (BF043)', () => {
   test('warns on arrow function component with destructuring when stateful', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Props {
         checked: boolean
@@ -176,7 +176,7 @@ describe('Props Destructuring Warning (BF043)', () => {
   test('no warning on arrow function with @bf-ignore', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Props {
         checked: boolean
@@ -198,7 +198,7 @@ describe('Props Destructuring Warning (BF043)', () => {
   test('warns on multiple destructured props in stateful component', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Props {
         checked: boolean
@@ -221,7 +221,7 @@ describe('Props Destructuring Warning (BF043)', () => {
   test('warns when component has memos (stateful)', () => {
     const source = `
       'use client'
-      import { createMemo } from '@barefootjs/client-runtime'
+      import { createMemo } from '@barefootjs/client'
 
       interface Props {
         value: number
@@ -242,7 +242,7 @@ describe('Props Destructuring Warning (BF043)', () => {
   test('warns when component has effects (stateful)', () => {
     const source = `
       'use client'
-      import { createEffect } from '@barefootjs/client-runtime'
+      import { createEffect } from '@barefootjs/client'
 
       interface Props {
         value: number

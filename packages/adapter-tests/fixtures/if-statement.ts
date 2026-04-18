@@ -12,7 +12,7 @@ export const fixture = createFixture({
   description: 'If-statement conditional return renders correct branch',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 
 interface Props { variant?: string }
 export function IfDemo(props: Props) {

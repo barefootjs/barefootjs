@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
-import { findScope, find, $, $c, $t } from '../src/query'
-import { hydratedScopes } from '../src/hydration-state'
+import { findScope, find, $, $c, $t } from '../../src/runtime/query'
+import { hydratedScopes } from '../../src/runtime/hydration-state'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
 beforeAll(() => {

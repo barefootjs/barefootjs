@@ -95,7 +95,7 @@ function PrefixSuffix() {
 
 const buttonCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import {
   InputGroup,
   InputGroupAddon,
@@ -127,7 +127,7 @@ function WithButton() {
 
 const passwordCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import {
   InputGroup,
   InputGroupAddon,

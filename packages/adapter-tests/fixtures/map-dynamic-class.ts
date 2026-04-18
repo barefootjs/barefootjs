@@ -9,7 +9,7 @@ export const fixture = createFixture({
   description: 'Loop items with dynamic className from loop param',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 type Item = { id: number; active: boolean; label: string }
 export function MapDynamicClass() {
   const [items, setItems] = createSignal<Item[]>([])

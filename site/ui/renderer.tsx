@@ -127,7 +127,7 @@ const toolEntries: SidebarEntry[] = [
 const importMapScript = JSON.stringify({
   imports: {
     '@barefootjs/client': '/static/components/barefoot.js',
-    '@barefootjs/client-runtime': '/static/components/barefoot.js',
+    '@barefootjs/client/runtime': '/static/components/barefoot.js',
     '@barefootjs/form': '/static/components/barefoot-form.js',
     '@barefootjs/chart': '/static/components/barefoot-chart.js',
     'zod': '/static/lib/zod.esm.js',

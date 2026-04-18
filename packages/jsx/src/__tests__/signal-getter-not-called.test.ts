@@ -28,7 +28,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('signal getter as attribute value', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -47,7 +47,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('signal getter in JSX children', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -65,7 +65,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('memo as attribute value', () => {
       const source = `
         'use client'
-        import { createSignal, createMemo } from '@barefootjs/client-runtime'
+        import { createSignal, createMemo } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -84,7 +84,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('memo in JSX children', () => {
       const source = `
         'use client'
-        import { createSignal, createMemo } from '@barefootjs/client-runtime'
+        import { createSignal, createMemo } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -103,7 +103,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('error suggestion includes corrected call syntax', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -125,7 +125,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('correct signal call: value={count()}', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -142,7 +142,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('correct memo call: value={doubled()}', () => {
       const source = `
         'use client'
-        import { createSignal, createMemo } from '@barefootjs/client-runtime'
+        import { createSignal, createMemo } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -160,7 +160,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('non-signal identifier: value={someLocal}', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -178,7 +178,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('props access: value={props.checked}', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter(props: { checked: boolean }) {
           const [count, setCount] = createSignal(0)
@@ -195,7 +195,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('complex expression: value={count() + 1}', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -212,7 +212,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('setter passed to event handler: onChange={setCount}', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -231,7 +231,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('IR is still produced despite BF044 error', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -251,7 +251,7 @@ describe('Signal Getter Not Called (BF044)', () => {
     test('compileJSXSync includes BF044 in result errors', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)

@@ -17,7 +17,7 @@ describe('Client JS generation', () => {
     test('compiles simple component', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -72,7 +72,7 @@ describe('Client JS generation', () => {
       // and constants that depend on props should also be included
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         interface Props {
           command: string
@@ -122,7 +122,7 @@ describe('Client JS generation', () => {
       // inlined in the getter for reactivity (SolidJS-style)
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function AccordionItem() {
           const [open, setOpen] = createSignal(false)
@@ -152,7 +152,7 @@ describe('Client JS generation', () => {
     test('includes index parameter in reconcileElements renderItem callback', () => {
       const source = `
         'use client'
-        import { createMemo } from '@barefootjs/client-runtime'
+        import { createMemo } from '@barefootjs/client'
 
         export function List() {
           const items = createMemo(() => ['a', 'b', 'c'])
@@ -180,7 +180,7 @@ describe('Client JS generation', () => {
     test('includes index parameter in key function when key references index', () => {
       const source = `
         'use client'
-        import { createMemo } from '@barefootjs/client-runtime'
+        import { createMemo } from '@barefootjs/client'
 
         export function List() {
           const items = createMemo(() => ['a', 'b', 'c'])
@@ -212,7 +212,7 @@ describe('Client JS generation', () => {
       // treated as arrow functions because they start with "("
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         const iconNames = ['chevron', 'arrow'] as const
         type IconName = typeof iconNames[number]
@@ -241,7 +241,7 @@ describe('Client JS generation', () => {
     test('grouped expression starting with ( should NOT become arrow function stub', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Calculator() {
           const [count, setCount] = createSignal(0)
@@ -353,7 +353,7 @@ describe('Client JS generation', () => {
       // property access but are NOT used as conditional guards.
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         interface Config { theme: string }
         interface Props {
@@ -416,7 +416,7 @@ describe('Client JS generation', () => {
     test('component with signal imports createSignal and createEffect', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -442,7 +442,7 @@ describe('Client JS generation', () => {
     test('component with memo imports createMemo', () => {
       const source = `
         'use client'
-        import { createSignal, createMemo } from '@barefootjs/client-runtime'
+        import { createSignal, createMemo } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -461,10 +461,10 @@ describe('Client JS generation', () => {
       expect(clientJs?.content).toContain('createMemo')
     })
 
-    test('user-defined imports from @barefootjs/client-runtime are preserved', () => {
+    test('user-defined imports from @barefootjs/client are preserved', () => {
       const source = `
         'use client'
-        import { createSignal, createPortal } from '@barefootjs/client-runtime'
+        import { createSignal, createPortal } from '@barefootjs/client'
 
         export function Modal() {
           const [open, setOpen] = createSignal(false)
@@ -485,7 +485,7 @@ describe('Client JS generation', () => {
     test('imports are sorted alphabetically', () => {
       const source = `
         'use client'
-        import { createSignal, createMemo, onMount } from '@barefootjs/client-runtime'
+        import { createSignal, createMemo, onMount } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -503,7 +503,7 @@ describe('Client JS generation', () => {
       expect(clientJs).toBeDefined()
 
       // Extract import line
-      const importMatch = clientJs?.content.match(/import \{ ([^}]+) \} from '@barefootjs\/client-runtime'/)
+      const importMatch = clientJs?.content.match(/import \{ ([^}]+) \} from '@barefootjs\/client\/runtime'/)
       expect(importMatch).not.toBeNull()
 
       const imports = importMatch![1].split(', ')
@@ -585,7 +585,7 @@ describe('Client JS generation', () => {
     test('preserves named props alongside spread props', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Wrapper() {
           const [active, setActive] = createSignal(false)
@@ -663,7 +663,7 @@ describe('Client JS generation', () => {
     test('signal-dependent constant: no CSR fallback for top-level-only component', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Display() {
           const [count, setCount] = createSignal(0)
@@ -686,7 +686,7 @@ describe('Client JS generation', () => {
     test('signal-dependent constant gets CSR fallback when used as child', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Display() {
           const [count, setCount] = createSignal(0)
@@ -861,7 +861,7 @@ describe('Client JS generation', () => {
     test('quotes hyphenated prop names in initChild', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         import { Toggle } from './Toggle'
 
         export function Toolbar() {
@@ -883,7 +883,7 @@ describe('Client JS generation', () => {
     test('quotes data-* prop names in initChild', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         import { Item } from './Item'
 
         export function List() {
@@ -905,7 +905,7 @@ describe('Client JS generation', () => {
     test('does not quote camelCase prop names', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         import { Toggle } from './Toggle'
 
         export function Toolbar() {
@@ -937,7 +937,7 @@ describe('Client JS generation', () => {
     test('all TypeScript syntax patterns are stripped from client JS output', () => {
       const source = `
         'use client'
-        import { createSignal, createMemo, createEffect, createContext, provideContext, onCleanup } from '@barefootjs/client-runtime'
+        import { createSignal, createMemo, createEffect, createContext, provideContext, onCleanup } from '@barefootjs/client'
 
         interface ItemType {
           id: number
@@ -1045,7 +1045,7 @@ describe('Client JS generation', () => {
     test('function declaration used in createSignal initializer is emitted before the signal', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function ToggleGroup(props) {
           function toArray(value) {
@@ -1073,7 +1073,7 @@ describe('Client JS generation', () => {
     test('arrow-function constant used in createSignal initializer is emitted before the signal', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent(props) {
           const normalize = (val) => val == null ? '' : String(val)
@@ -1099,7 +1099,7 @@ describe('Client JS generation', () => {
     test('object literal createSignal initializer is parenthesized in getter output', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const [position, setPosition] = createSignal({ x: 0, y: 0 })
@@ -1120,7 +1120,7 @@ describe('Client JS generation', () => {
     test('module-level helper function internals are not leaked as component constants', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         function computeError(field: { value: string }, allFields: { id: number; value: string }[]) {
           const basicError = field.value === '' ? 'Required' : ''
@@ -1166,7 +1166,7 @@ describe('Client JS generation', () => {
     test('compiles child component value prop using .value = (emitReactivePropBindings)', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         import { Input } from './Input'
 
         export function MultiInputSync() {
@@ -1192,7 +1192,7 @@ describe('Client JS generation', () => {
     test('compiles child component disabled prop using .disabled = !! (emitReactivePropBindings)', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         import { Input } from './Input'
 
         export function DisabledInput() {
@@ -1220,7 +1220,7 @@ describe('Client JS generation', () => {
     test('fragment-root component generates mount with comment: true', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         export function FragComp() {
           const [count, setCount] = createSignal(0)
           return (
@@ -1246,7 +1246,7 @@ describe('Client JS generation', () => {
     test('single-root component generates mount without comment flag', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         export function SingleRoot() {
           const [count, setCount] = createSignal(0)
           return (
@@ -1274,7 +1274,7 @@ describe('Client JS generation', () => {
     test('component-root client component generates mount with comment: true', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         import { Layout } from './Layout'
         export function Wrapper() {
           const [count, setCount] = createSignal(0)
@@ -1298,7 +1298,7 @@ describe('Client JS generation', () => {
     test('element-root client component does NOT generate comment: true', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
         export function Counter() {
           const [count, setCount] = createSignal(0)
           return (
@@ -1326,7 +1326,7 @@ describe('Client JS generation', () => {
     test('let without initializer is emitted in client JS', () => {
       const source = `
         'use client'
-        import { createSignal, createEffect, onCleanup } from '@barefootjs/client-runtime'
+        import { createSignal, createEffect, onCleanup } from '@barefootjs/client'
 
         type ApiType = { scrollPrev: () => void }
 
@@ -1361,7 +1361,7 @@ describe('Client JS generation', () => {
     test('let with initializer is emitted as let, not const', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           let count = 0
@@ -1388,7 +1388,7 @@ describe('Client JS generation', () => {
     test('const declarations still emitted as const (regression)', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const prefix = 'count'
@@ -1416,7 +1416,7 @@ describe('Client JS generation', () => {
     test('constant depending on call expression with arrow argument preserves source order', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyForm(props) {
           const form = createForm({ onSubmit: async (values) => { await fetch('/api', { body: JSON.stringify(values) }) } })
@@ -1444,7 +1444,7 @@ describe('Client JS generation', () => {
     test('signal depending on function: function emitted before signal (#365 regression)', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function ToggleGroup(props) {
           function toArray(value) {
@@ -1471,7 +1471,7 @@ describe('Client JS generation', () => {
     test('memo depending on signal: emitted after signal', () => {
       const source = `
         'use client'
-        import { createSignal, createMemo } from '@barefootjs/client-runtime'
+        import { createSignal, createMemo } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -1498,7 +1498,7 @@ describe('Client JS generation', () => {
       // Use non-inlinable constants (function calls) so they appear in client JS
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent(props) {
           const config = getConfig()
@@ -1525,7 +1525,7 @@ describe('Client JS generation', () => {
     test('transitive dependencies: constant depending on signal', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const [items, setItems] = createSignal([1, 2, 3])
@@ -1554,7 +1554,7 @@ describe('Client JS generation', () => {
     test('text ternary with string equality condition generates insert()', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function SubmitButton() {
           const [status, setStatus] = createSignal('idle')
@@ -1574,7 +1574,7 @@ describe('Client JS generation', () => {
     test('logical AND with string equality generates insert()', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function StatusMessage() {
           const [status, setStatus] = createSignal('idle')
@@ -1594,7 +1594,7 @@ describe('Client JS generation', () => {
     test('full onClick scenario with text ternary and multiple conditionals', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function VerifyForm() {
           const [status, setStatus] = createSignal('idle')
@@ -1636,7 +1636,7 @@ describe('Client JS generation', () => {
       const honoAdapter = new HonoAdapter()
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function SubmitButton() {
           const [status, setStatus] = createSignal('idle')
@@ -1660,7 +1660,7 @@ describe('Client JS generation', () => {
     test('handles block body with variable declaration and return JSX', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function List() {
           const [items, setItems] = createSignal([{ name: 'a' }, { name: 'b' }])
@@ -1691,7 +1691,7 @@ describe('Client JS generation', () => {
     test('handles block body with multiple variable declarations', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function List() {
           const [items, setItems] = createSignal([{ first: 'a', last: 'b' }])
@@ -1721,7 +1721,7 @@ describe('Client JS generation', () => {
     test('expression body (existing) does not set mapPreamble', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function List() {
           const [items, setItems] = createSignal(['a', 'b'])
@@ -1762,7 +1762,7 @@ describe('Client JS generation', () => {
     test('generates mapPreamble in IR', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function List() {
           const [items, setItems] = createSignal([{ name: 'a' }])
@@ -1805,7 +1805,7 @@ describe('Client JS generation', () => {
     test('block body map with onClick: preamble available in event delegation handler (#851)', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function List() {
           const [items, setItems] = createSignal([{ name: 'a' }])
@@ -1839,7 +1839,7 @@ describe('Client JS generation', () => {
       const honoAdapter = new HonoAdapter()
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function List() {
           const [items, setItems] = createSignal([{ name: 'a' }])
@@ -1896,7 +1896,7 @@ describe('Client JS generation', () => {
 
       // Computed spread must use spreadAttrs() to render attributes (#545)
       expect(content).toContain('spreadAttrs(')
-      expect(content).toMatch(/import \{[^}]*spreadAttrs[^}]*\} from '@barefootjs\/client-runtime'/)
+      expect(content).toMatch(/import \{[^}]*spreadAttrs[^}]*\} from '@barefootjs\/client\/runtime'/)
     })
 
     test('computed spread with conditional expression emits spreadAttrs (#545)', () => {
@@ -1940,7 +1940,7 @@ describe('Client JS generation', () => {
     test('rest props spread is NOT emitted as spreadAttrs (#545)', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Button(props: { variant?: string }) {
           const { variant, ...rest } = props
@@ -1966,7 +1966,7 @@ describe('Client JS generation', () => {
       // The compiler must find the props spread even when it's not the first spread.
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         interface WrapperProps {
           className?: string
@@ -1993,7 +1993,7 @@ describe('Client JS generation', () => {
     test('multi-component file: stateless icons in conditional rendering produce renderChild + hydrate', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         function CopyIcon() {
           return <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" /></svg>
@@ -2038,7 +2038,7 @@ describe('Client JS generation', () => {
       // are correctly identified as variable references.
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         function StatusOn() { return <span>ON</span> }
         function StatusOff() { return <span>OFF</span> }
@@ -2072,7 +2072,7 @@ describe('Client JS generation', () => {
       // generate initChild with the handler in propsExpr, but NOT addEventListener.
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         function CustomInput(props: { onChange: (v: string) => void }) {
           return <input onInput={(e) => props.onChange(e.target.value)} />
@@ -2220,7 +2220,7 @@ describe('Client JS generation', () => {
       // The generated client JS must use String(__val ?? '') for text nodes
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Greeting(props: { name?: string }) {
           return <span>{props.name}</span>
@@ -2247,7 +2247,7 @@ describe('Client JS generation', () => {
       // uses $t() runtime lookup instead of init-time refs.
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         function Label(props: { children?: any }) {
           return <span>{props.children}</span>
@@ -2282,7 +2282,7 @@ describe('Client JS generation', () => {
       // update reactively. insideConditional must propagate through fragment nodes.
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [show, setShow] = createSignal(true)
@@ -2313,7 +2313,7 @@ describe('Client JS generation', () => {
     test('emits initChild in bindEvents for component in reactive conditional', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Parent() {
           const [show, setShow] = createSignal(false)
@@ -2341,7 +2341,7 @@ describe('Client JS generation', () => {
     test('emits initChild with props in bindEvents for component with props', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Parent() {
           const [show, setShow] = createSignal(false)
@@ -2370,7 +2370,7 @@ describe('Client JS generation', () => {
     test('generates createEffect for props.xxx with inherited type props', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         interface BaseProps {
           disabled?: boolean
@@ -2396,7 +2396,7 @@ describe('Client JS generation', () => {
     test('does not wrap props.children in createEffect', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Wrapper(props: { children?: any }) {
           const [count, setCount] = createSignal(0)

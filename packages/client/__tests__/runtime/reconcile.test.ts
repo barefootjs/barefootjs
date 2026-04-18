@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
-import { reconcileElements } from '../src/reconcile-elements'
-import { hydratedScopes } from '../src/hydration-state'
+import { reconcileElements } from '../../src/runtime/reconcile-elements'
+import { hydratedScopes } from '../../src/runtime/hydration-state'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
 beforeAll(() => {

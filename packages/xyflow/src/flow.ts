@@ -2,8 +2,8 @@ import {
   createEffect,
   onCleanup,
   untrack,
-} from '@barefootjs/client'
-import { provideContext } from '@barefootjs/client-runtime'
+} from '@barefootjs/client/runtime'
+import { provideContext } from '@barefootjs/client/runtime'
 import { XYPanZoom, PanOnScrollMode } from '@xyflow/system'
 import type {
   Viewport,

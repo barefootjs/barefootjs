@@ -10,8 +10,8 @@ import type {
   InternalNodeBase,
   InternalNodeUpdate,
 } from '@xyflow/system'
-import { render } from '@barefootjs/client-runtime'
-import type { ComponentDef } from '@barefootjs/client-runtime'
+import { render } from '@barefootjs/client/runtime'
+import type { ComponentDef } from '@barefootjs/client/runtime'
 import { setupNodeSelection } from './selection'
 import { attachConnectionHandler } from './connection'
 import type { FlowStore, NodeComponentProps } from './types'

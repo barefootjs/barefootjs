@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Multiple event handler types (onClick, onInput)',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function EventHandlers() {
   const [text, setText] = createSignal('')
   const [count, setCount] = createSignal(0)

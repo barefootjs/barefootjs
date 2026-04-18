@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, beforeEach, mock } from 'bun:test'
-import { __bf_swap, setupStreaming } from '../src/streaming'
-import { hydrate, rehydrateAll } from '../src/hydrate'
+import { __bf_swap, setupStreaming } from '../../src/runtime/streaming'
+import { hydrate, rehydrateAll } from '../../src/runtime/hydrate'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
 beforeAll(() => {

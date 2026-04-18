@@ -22,3 +22,18 @@ export { __slot, type SlotMarker } from './slot'
 export { forwardProps } from './forward-props'
 
 export { unwrap } from './unwrap'
+
+export { createContext, type Context } from './context'
+
+export {
+  useContext,
+  provideContext,
+  createPortal,
+  isSSRPortal,
+  findSiblingSlot,
+  cleanupPortalPlaceholder,
+  type Portal,
+  type PortalChildren,
+  type PortalOptions,
+  type Renderable,
+} from './shims'

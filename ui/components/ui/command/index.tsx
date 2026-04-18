@@ -32,7 +32,7 @@
  * ```
  */
 
-import { createContext, useContext, createSignal, createMemo, createEffect } from '@barefootjs/client-runtime'
+import { createContext, useContext, createSignal, createMemo, createEffect } from '@barefootjs/client'
 import {
   Dialog,
   DialogOverlay,

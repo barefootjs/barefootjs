@@ -52,11 +52,11 @@ function WithPredictableIds({ children }: { children: any }) {
 
 import { themeInitScript } from '@barefootjs/site-shared/lib/theme-init'
 
-// Import map for resolving @barefootjs/client-runtime in client JS
+// Import map for resolving @barefootjs/client in client JS
 const importMapScript = JSON.stringify({
   imports: {
     '@barefootjs/client': '/static/components/barefoot.js',
-    '@barefootjs/client-runtime': '/static/components/barefoot.js',
+    '@barefootjs/client/runtime': '/static/components/barefoot.js',
   },
 })
 

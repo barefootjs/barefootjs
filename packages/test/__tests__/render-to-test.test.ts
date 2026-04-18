@@ -10,7 +10,7 @@ describe('className via intermediate variable (#525)', () => {
     const source = `
 "use client"
 
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 
 function MyComponent(props: { extra?: boolean }) {
   const baseClasses = 'flex items-center gap-2'
@@ -37,7 +37,7 @@ export { MyComponent }
     const source = `
 "use client"
 
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 
 function Compact(props: { compact?: boolean }) {
   const cls = props.compact ? 'p-2 text-sm' : 'p-4 text-base'
@@ -79,7 +79,7 @@ describe('memos and effects fields', () => {
   test('memos contains memo names from createMemo', () => {
     const source = `
 "use client"
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 
 function Counter() {
   const [count, setCount] = createSignal(0)
@@ -97,7 +97,7 @@ export { Counter }
   test('effects counts createEffect calls', () => {
     const source = `
 "use client"
-import { createSignal, createEffect } from "@barefootjs/client-runtime"
+import { createSignal, createEffect } from "@barefootjs/client"
 
 function Logger() {
   const [count, setCount] = createSignal(0)
@@ -128,7 +128,7 @@ export { Static }
 describe('Error detection', () => {
   test('missing "use client" reports BF001', () => {
     const source = `
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 
 function Counter() {
   const [count, setCount] = createSignal(0)

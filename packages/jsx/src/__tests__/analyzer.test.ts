@@ -9,7 +9,7 @@ describe('analyzeComponent', () => {
   test('extracts signals', () => {
     const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -53,7 +53,7 @@ describe('analyzeComponent', () => {
   test('extracts memos', () => {
     const source = `
         'use client'
-        import { createSignal, createMemo } from '@barefootjs/client-runtime'
+        import { createSignal, createMemo } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -98,7 +98,7 @@ describe('analyzeComponent', () => {
   test('ternary constant has valueBranches', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Demo() {
         const [active, setActive] = createSignal(false)
@@ -116,7 +116,7 @@ describe('analyzeComponent', () => {
   test('nested ternary constant has flattened valueBranches', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Demo() {
         const [state, setState] = createSignal(0)
@@ -150,7 +150,7 @@ describe('analyzeComponent', () => {
   test('export { X } named export syntax sets isExported', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       const MY_CONST = 42
 
@@ -170,7 +170,7 @@ describe('analyzeComponent', () => {
   test('isExported flag for export const, internal const, and export let', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export const EXPORTED_A = 'aaa'
       const INTERNAL_B = 'bbb'
@@ -201,7 +201,7 @@ describe('analyzeComponent', () => {
   test('let without initializer is captured', () => {
     const source = `
       'use client'
-      import { createSignal, createEffect, onCleanup } from '@barefootjs/client-runtime'
+      import { createSignal, createEffect, onCleanup } from '@barefootjs/client'
 
       type ApiType = { scrollPrev: () => void }
 
@@ -229,7 +229,7 @@ describe('analyzeComponent', () => {
   test('extracts signal with getter only (no setter)', () => {
     const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function ReadOnlyList() {
           const [items] = createSignal([1, 2, 3])
@@ -248,7 +248,7 @@ describe('analyzeComponent', () => {
   test('detects export default function pattern', () => {
     const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export default function Counter() {
           const [count, setCount] = createSignal(0)
@@ -265,7 +265,7 @@ describe('analyzeComponent', () => {
   test('detects export default ComponentName pattern', () => {
     const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         function Counter() {
           const [count, setCount] = createSignal(0)
@@ -283,7 +283,7 @@ describe('analyzeComponent', () => {
   test('hasDefaultExport is false when no default export', () => {
     const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Counter() {
           const [count, setCount] = createSignal(0)
@@ -300,7 +300,7 @@ describe('analyzeComponent', () => {
   test('hasDefaultExport is false with named export only', () => {
     const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         function Counter() {
           const [count, setCount] = createSignal(0)
@@ -313,5 +313,63 @@ describe('analyzeComponent', () => {
 
     expect(ctx.componentName).toBe('Counter')
     expect(ctx.hasDefaultExport).toBe(false)
+  })
+
+  describe('browser-only APIs require "use client"', () => {
+    const apis: Array<{ name: string; usage: string }> = [
+      {
+        name: 'useContext',
+        usage: 'const v = useContext(Ctx)',
+      },
+      {
+        name: 'provideContext',
+        usage: 'provideContext(Ctx, 1)',
+      },
+      {
+        name: 'createPortal',
+        usage: 'createPortal("<div/>", document.body)',
+      },
+    ]
+
+    for (const { name, usage } of apis) {
+      test(`${name} without "use client" is an error`, () => {
+        const source = `
+          import { ${name}, createContext } from '@barefootjs/client'
+          const Ctx = createContext<number>(0)
+          export function Comp() {
+            ${usage}
+            return <div />
+          }
+        `
+        const ctx = analyzeComponent(source, 'Comp.tsx')
+        const hasMissingUseClient = ctx.errors.some(e => e.code === 'BF001')
+        expect(hasMissingUseClient).toBe(true)
+      })
+
+      test(`${name} with "use client" passes`, () => {
+        const source = `
+          'use client'
+          import { ${name}, createContext } from '@barefootjs/client'
+          const Ctx = createContext<number>(0)
+          export function Comp() {
+            ${usage}
+            return <div />
+          }
+        `
+        const ctx = analyzeComponent(source, 'Comp.tsx')
+        const hasMissingUseClient = ctx.errors.some(e => e.code === 'BF001')
+        expect(hasMissingUseClient).toBe(false)
+      })
+    }
+
+    test('createContext alone does NOT require "use client"', () => {
+      const source = `
+        import { createContext } from '@barefootjs/client'
+        export const Ctx = createContext<number>(0)
+      `
+      const ctx = analyzeComponent(source, 'ctx.ts')
+      const hasMissingUseClient = ctx.errors.some(e => e.code === 'BF006')
+      expect(hasMissingUseClient).toBe(false)
+    })
   })
 })

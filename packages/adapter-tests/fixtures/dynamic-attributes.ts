@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Dynamic data attributes bound to signals',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function DynamicAttributes() {
   const [state, setState] = createSignal('closed')
   const [count, setCount] = createSignal(0)

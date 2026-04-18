@@ -32,7 +32,7 @@ const tocItems: TocItem[] = [
 
 const basicCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select"
@@ -63,7 +63,7 @@ function SelectBasicDemo() {
 
 const formCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select"
@@ -105,7 +105,7 @@ function SelectFormDemo() {
 
 const groupedCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import {
   Select, SelectTrigger, SelectValue, SelectContent,
   SelectItem, SelectGroup, SelectLabel, SelectSeparator,
@@ -145,7 +145,7 @@ function SelectGroupedDemo() {
 
 const usageCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import {
   Select, SelectTrigger, SelectValue,
   SelectContent, SelectItem, SelectGroup,

@@ -18,7 +18,7 @@ describe('Context.Provider JSX', () => {
     // - preserves child elements
     const source = `
       'use client'
-      import { createContext, createSignal, provideContext } from '@barefootjs/client-runtime'
+      import { createContext, createSignal, provideContext } from '@barefootjs/client'
 
       const MenuContext = createContext()
 
@@ -60,7 +60,7 @@ describe('Context.Provider JSX', () => {
     // directly under the IRProvider node, not wrapped.
     const source = `
       'use client'
-      import { createContext, createSignal, provideContext } from '@barefootjs/client-runtime'
+      import { createContext, createSignal, provideContext } from '@barefootjs/client'
 
       const Ctx = createContext()
 
@@ -91,13 +91,13 @@ describe('Context.Provider JSX', () => {
 
   test('compiler generates provideContext() before initChild() in client JS', () => {
     // The generated init function must:
-    // 1. Import provideContext from @barefootjs/client-runtime
+    // 1. Import provideContext from @barefootjs/client
     // 2. Call provideContext(ContextName, valueExpr) BEFORE initChild()
     //    so child components can read the context during their initialization
     const adapter = new TestAdapter()
     const source = `
       'use client'
-      import { createContext, createSignal, provideContext } from '@barefootjs/client-runtime'
+      import { createContext, createSignal, provideContext } from '@barefootjs/client'
 
       const MenuContext = createContext()
 
@@ -136,7 +136,7 @@ describe('Context.Provider JSX', () => {
     // the compiler should auto-wrap in a <div style="display:contents"> with needsScope=true
     const source = `
       'use client'
-      import { createContext, createSignal, provideContext } from '@barefootjs/client-runtime'
+      import { createContext, createSignal, provideContext } from '@barefootjs/client'
 
       const DialogContext = createContext()
 
@@ -175,7 +175,7 @@ describe('Context.Provider JSX', () => {
     // When a provider already contains an HTML element, no wrapper should be added
     const source = `
       'use client'
-      import { createContext, createSignal, provideContext } from '@barefootjs/client-runtime'
+      import { createContext, createSignal, provideContext } from '@barefootjs/client'
 
       const MenuContext = createContext()
 
@@ -210,7 +210,7 @@ describe('Context.Provider JSX', () => {
     const adapter = new TestAdapter()
     const source = `
       'use client'
-      import { createContext, createSignal, provideContext } from '@barefootjs/client-runtime'
+      import { createContext, createSignal, provideContext } from '@barefootjs/client'
 
       const DialogContext = createContext()
 
@@ -239,7 +239,7 @@ describe('Context.Provider JSX', () => {
   test('strips TypeScript type annotations from provider value expression (#341)', () => {
     const source = `
       'use client'
-      import { createContext, createSignal, provideContext } from '@barefootjs/client-runtime'
+      import { createContext, createSignal, provideContext } from '@barefootjs/client'
 
       const Ctx = createContext()
 
@@ -265,7 +265,7 @@ describe('Context.Provider JSX', () => {
   test('named function references in provider value are emitted in client JS (#342)', () => {
     const source = `
       'use client'
-      import { createContext, createSignal, provideContext } from '@barefootjs/client-runtime'
+      import { createContext, createSignal, provideContext } from '@barefootjs/client'
 
       const TabsContext = createContext()
 
@@ -300,7 +300,7 @@ describe('Context.Provider JSX', () => {
     // but with no children (e.g., for provider-only setup components)
     const source = `
       'use client'
-      import { createContext, createSignal, provideContext } from '@barefootjs/client-runtime'
+      import { createContext, createSignal, provideContext } from '@barefootjs/client'
 
       const Ctx = createContext()
 

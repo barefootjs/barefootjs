@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Multiple signals of different types (string + number)',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function MultipleSignals() {
   const [name, setName] = createSignal('')
   const [age, setAge] = createSignal(0)

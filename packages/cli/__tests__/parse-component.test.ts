@@ -124,7 +124,7 @@ describe('parseComponent', () => {
     })
 
     test('detects portal and context dependencies', () => {
-      expect(result.dependencies.external).toContain('@barefootjs/client-runtime')
+      expect(result.dependencies.external).toContain('@barefootjs/client')
     })
 
     test('extracts accessibility info', () => {

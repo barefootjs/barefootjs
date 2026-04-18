@@ -1,4 +1,4 @@
-import { provideContext } from '@barefootjs/client-runtime'
+import { provideContext } from '@barefootjs/client/runtime'
 import { ChartConfigContext } from './context'
 import type { ChartConfig } from './types'
 

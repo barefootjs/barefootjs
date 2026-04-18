@@ -61,7 +61,7 @@ export function Counter({ __instanceId, ... }) {
 **Client script** — Wires up only the interactive parts:
 
 ```js
-import { $, $t, createEffect, createSignal, hydrate } from '@barefootjs/client-runtime'
+import { $, $t, createEffect, createSignal, hydrate } from '@barefootjs/client'
 
 export function initCounter(__scope, _p = {}) {
   if (!__scope) return

@@ -34,7 +34,7 @@ function makeIR(imports: ImportInfo[], componentNames: string[] = []): Component
       effects: [],
       onMounts: [],
       imports,
-      templateImports: imports.filter(imp => !['@barefootjs/client-runtime', '@barefootjs/client'].includes(imp.source)),
+      templateImports: imports.filter(imp => !['@barefootjs/client', '@barefootjs/client'].includes(imp.source)),
       localFunctions: [],
       localConstants: [],
     },
@@ -79,8 +79,8 @@ describe('collectExternalImports', () => {
     expect(result).toEqual(["import { z } from 'zod'"])
   })
 
-  test('skips @barefootjs/client-runtime imports', () => {
-    const ir = makeIR([makeImport('@barefootjs/client-runtime', ['createSignal'])])
+  test('skips @barefootjs/client imports', () => {
+    const ir = makeIR([makeImport('@barefootjs/client', ['createSignal'])])
     const code = 'createSignal(0)'
     const result = collectExternalImports(ir, code)
     expect(result).toEqual([])
@@ -203,8 +203,8 @@ describe('collectExternalImports', () => {
     expect(result).toEqual(["import '@barefootjs/chart'"])
   })
 
-  test('skips @barefootjs/client-runtime side-effect imports', () => {
-    const ir = makeIR([{ source: '@barefootjs/client-runtime', specifiers: [], isTypeOnly: false, loc: dummyLoc }])
+  test('skips @barefootjs/client side-effect imports', () => {
+    const ir = makeIR([{ source: '@barefootjs/client', specifiers: [], isTypeOnly: false, loc: dummyLoc }])
     const code = ''
     const result = collectExternalImports(ir, code)
     expect(result).toEqual([])

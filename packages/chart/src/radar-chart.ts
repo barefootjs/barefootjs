@@ -1,4 +1,4 @@
-import { createSignal, createEffect, provideContext, useContext } from '@barefootjs/client-runtime'
+import { createSignal, createEffect, provideContext, useContext } from '@barefootjs/client/runtime'
 import type { RadarRegistration } from './types'
 import { RadarChartContext, ChartConfigContext } from './context'
 import { scaleLinear, type ScaleLinear } from 'd3-scale'

@@ -68,7 +68,7 @@ function ProgressDemo() {
 // Code examples - Preview (Simulated Upload)
 const previewCode = `"use client"
 
-import { createSignal, createMemo, createEffect, onCleanup } from "@barefootjs/client-runtime"
+import { createSignal, createMemo, createEffect, onCleanup } from "@barefootjs/client"
 import { Progress } from "@/components/ui/progress"
 
 export function ProgressPreviewDemo() {
@@ -134,7 +134,7 @@ export function ProgressBasicDemo() {
 
 const formCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import { Progress } from "@/components/ui/progress"
 
 export function ProgressFormDemo() {

@@ -17,7 +17,7 @@ describe('event delegation depth ordering (#774)', () => {
   test('child onClick is checked before parent onClick in keyed dynamic loop', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Row { id: string; name: string }
 

@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Nested ternary conditional rendering',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function NestedTernaryDemo() {
   const [status, setStatus] = createSignal('idle')
   return <div>{status() === 'loading' ? <span>Loading...</span> : status() === 'error' ? <span>Error</span> : <span>Idle</span>}</div>

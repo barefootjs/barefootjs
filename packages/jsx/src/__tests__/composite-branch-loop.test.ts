@@ -15,7 +15,7 @@ describe('composite loops inside conditional branches (#724)', () => {
   test('loop with child component inside ternary generates composite reconciliation', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function CartDemo() {
         const [items, setItems] = createSignal([
@@ -65,7 +65,7 @@ describe('composite loops inside conditional branches (#724)', () => {
   test('simple loop inside ternary (no components) uses basic reconciliation', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function SimpleList() {
         const [items, setItems] = createSignal(['a', 'b', 'c'])
@@ -101,7 +101,7 @@ describe('composite loops inside conditional branches (#724)', () => {
   test('simple loop with onClick inside conditional generates event delegation (#766)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Item { id: string; name: string }
 
@@ -150,7 +150,7 @@ describe('composite loops inside conditional branches (#724)', () => {
   test('SSR hydration: composite branch loop initializes child components via initChild', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TodoList() {
         const [todos, setTodos] = createSignal([
@@ -190,7 +190,7 @@ describe('direct map call as conditional branch (#783)', () => {
   test('logical AND with direct .map() does not emit jsxDEV calls', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Group { key: string; label: string; items: string[] }
 
@@ -235,7 +235,7 @@ describe('direct map call as conditional branch (#783)', () => {
   test('ternary with direct .map() in true branch', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function ItemList(props) {
         const [items] = createSignal(props.initialItems)
@@ -269,7 +269,7 @@ describe('direct map call as conditional branch (#783)', () => {
   test('parenthesized .map() in conditional branch', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TagList(props) {
         const [show] = createSignal(true)
@@ -303,7 +303,7 @@ describe('mapPreamble in event delegation handlers (#851)', () => {
   test('keyed loop with block body: preamble appears in event delegation handler', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function List() {
         const [items, setItems] = createSignal([{ id: '1', name: 'a' }])
@@ -334,7 +334,7 @@ describe('mapPreamble in event delegation handlers (#851)', () => {
   test('branch loop with block body: preamble appears in branch event delegation handler (#851)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function List() {
         const [items, setItems] = createSignal([{ id: '1', name: 'a' }])

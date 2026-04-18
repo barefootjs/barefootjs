@@ -26,7 +26,7 @@
  */
 
 import type { HTMLBaseAttributes, ButtonHTMLAttributes } from '@barefootjs/jsx'
-import { createContext, useContext, createSignal, createEffect, createMemo } from '@barefootjs/client-runtime'
+import { createContext, useContext, createSignal, createEffect, createMemo } from '@barefootjs/client'
 import type { Child } from '../../../types'
 
 // Context for parent-child state sharing

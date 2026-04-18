@@ -32,8 +32,8 @@ export interface CompileOptionsWithAdapter extends CompileOptions {
  * These packages are only needed by client JS, not by server-side templates.
  */
 const CLIENT_PACKAGE_SOURCES = new Set([
-  '@barefootjs/client-runtime',
   '@barefootjs/client',
+  '@barefootjs/client/runtime',
 ])
 
 function filterTemplateImports(imports: ImportInfo[]): ImportInfo[] {

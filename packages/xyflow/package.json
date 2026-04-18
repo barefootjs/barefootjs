@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "bun run build:js && bun run build:types",
-    "build:js": "bun build ./src/index.ts --outdir ./dist --format esm --external '@barefootjs/client' --external '@barefootjs/client-runtime'",
+    "build:js": "bun build ./src/index.ts --outdir ./dist --format esm --external '@barefootjs/client' --external '@barefootjs/client/runtime'",
     "build:types": "tsc --emitDeclarationOnly --outDir ./dist",
     "test": "bun test src/",
     "test:e2e": "bunx playwright test",
@@ -40,8 +40,7 @@
     "directory": "packages/xyflow"
   },
   "peerDependencies": {
-    "@barefootjs/client": ">=0.0.1",
-    "@barefootjs/client-runtime": ">=0.0.1"
+    "@barefootjs/client": ">=0.0.1"
   },
   "dependencies": {
     "@xyflow/system": "^0.0.76"

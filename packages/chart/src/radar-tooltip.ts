@@ -1,4 +1,4 @@
-import { useContext, createEffect, onCleanup } from '@barefootjs/client-runtime'
+import { useContext, createEffect, onCleanup } from '@barefootjs/client/runtime'
 import { RadarChartContext } from './context'
 import { escapeHtml } from './utils/escape-html'
 

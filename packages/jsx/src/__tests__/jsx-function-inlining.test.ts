@@ -176,7 +176,7 @@ describe('JSX function inlining (#569)', () => {
     test('two calls produce separate IR subtrees with unique slot IDs', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const [count, setCount] = createSignal(0)
@@ -213,7 +213,7 @@ describe('JSX function inlining (#569)', () => {
     test('function call with loop (.map) produces loop IR node', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const [items, setItems] = createSignal([{ name: 'a' }, { name: 'b' }])
@@ -249,7 +249,7 @@ describe('JSX function inlining (#569)', () => {
     test('parameter substitution in generated JS', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const [items, setItems] = createSignal(["a", "b"])
@@ -284,7 +284,7 @@ describe('JSX function inlining (#569)', () => {
     test('function call in conditional branch is inlined', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const [show, setShow] = createSignal(true)
@@ -324,7 +324,7 @@ describe('JSX function inlining (#569)', () => {
     test('does not emit inlined function declaration in client JS', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const [count, setCount] = createSignal(0)
@@ -349,7 +349,7 @@ describe('JSX function inlining (#569)', () => {
     test('does not emit inlined arrow function constant in client JS', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const [count, setCount] = createSignal(0)
@@ -372,7 +372,7 @@ describe('JSX function inlining (#569)', () => {
     test('end-to-end: calendar-style pattern compiles correctly', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         type Week = { days: { date: number; label: string }[] }
 

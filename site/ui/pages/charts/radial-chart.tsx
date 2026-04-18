@@ -144,7 +144,7 @@ export function RadialChartHalfDemo() {
 
 const interactiveCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 
 export function RadialChartInteractiveDemo() {
   const [showAll, setShowAll] = createSignal(true)

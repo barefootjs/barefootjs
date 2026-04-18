@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Child receives multiple reactive props from different signals',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 import { Status } from './status'
 export function Dashboard() {
   const [label, setLabel] = createSignal('idle')

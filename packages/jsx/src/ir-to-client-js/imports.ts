@@ -4,7 +4,7 @@
 
 import type { ComponentIR, IRNode } from '../types'
 
-// All exports from @barefootjs/client-runtime that may be used in generated code
+// All exports from @barefootjs/client/runtime that may be used in generated code
 export const RUNTIME_IMPORT_CANDIDATES = [
   'createSignal', 'createMemo', 'createEffect', 'onCleanup', 'onMount',
   'hydrate', 'insert', 'reconcileElements', 'getLoopChildren', 'mapArray', 'createDisposableEffect',
@@ -18,13 +18,13 @@ export const RUNTIME_IMPORT_CANDIDATES = [
 /** @deprecated Use RUNTIME_IMPORT_CANDIDATES */
 export const DOM_IMPORT_CANDIDATES = RUNTIME_IMPORT_CANDIDATES
 
-export const RUNTIME_MODULE = '@barefootjs/client-runtime'
+export const RUNTIME_MODULE = '@barefootjs/client/runtime'
 
 export const IMPORT_PLACEHOLDER = '/* __BAREFOOTJS_DOM_IMPORTS__ */'
 export const MODULE_CONSTANTS_PLACEHOLDER = '/* __MODULE_LEVEL_CONSTANTS__ */'
 
 /**
- * Detect which @barefootjs/client-runtime functions are actually used in the generated code
+ * Detect which @barefootjs/client/runtime functions are actually used in the generated code
  */
 export function detectUsedImports(code: string): Set<string> {
   const used = new Set<string>()
@@ -50,7 +50,8 @@ export function detectUsedImports(code: string): Set<string> {
 }
 
 /**
- * Collect user-defined imports from @barefootjs/client or @barefootjs/client-runtime
+ * Collect user-defined imports from @barefootjs/client (or the
+ * compiler-emitted /runtime subpath).
  */
 export function collectUserDomImports(ir: ComponentIR): string[] {
   const runtimeSources = new Set([RUNTIME_MODULE, '@barefootjs/client'])

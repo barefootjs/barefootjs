@@ -16,7 +16,7 @@ describe('non-bubbling event delegation (#852)', () => {
   test('onMouseEnter in dynamic loop uses capture-phase delegation', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Item { id: string }
 
@@ -79,7 +79,7 @@ describe('non-bubbling event delegation (#852)', () => {
   test('onPointerEnter in loop uses capture-phase delegation', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Item { id: string }
 
@@ -112,7 +112,7 @@ describe('non-bubbling event delegation (#852)', () => {
   test('onPointerLeave in loop uses capture-phase delegation', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Item { id: string }
 
@@ -145,7 +145,7 @@ describe('non-bubbling event delegation (#852)', () => {
   test('onClick in loop does NOT use capture phase (regression guard)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Item { id: string }
 
@@ -179,7 +179,7 @@ describe('non-bubbling event delegation (#852)', () => {
   test('onFocus in loop uses capture-phase delegation (existing behavior regression guard)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Item { id: string }
 

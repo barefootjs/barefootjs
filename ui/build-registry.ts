@@ -52,7 +52,7 @@ async function resolveFiles(name: string): Promise<string[]> {
 
 /**
  * Resolve npm dependencies for a component.
- * Always includes @barefootjs/jsx. Adds @barefootjs/client-runtime if imported by the
+ * Always includes @barefootjs/jsx. Adds @barefootjs/client if imported by the
  * component or any of its transitive internal deps.
  */
 async function resolveDependencies(files: string[]): Promise<string[]> {
@@ -62,8 +62,8 @@ async function resolveDependencies(files: string[]): Promise<string[]> {
     if (file === 'types/index.tsx') continue
     const absPath = resolve(ROOT_DIR, file)
     const content = await Bun.file(absPath).text()
-    if (content.includes('@barefootjs/client-runtime')) {
-      deps.push('@barefootjs/client-runtime')
+    if (content.includes('@barefootjs/client')) {
+      deps.push('@barefootjs/client')
       break
     }
   }

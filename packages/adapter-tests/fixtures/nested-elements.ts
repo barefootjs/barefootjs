@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Deeply nested elements with dynamic content',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function NestedElements() {
   const [text, setText] = createSignal('hello')
   return (

@@ -18,7 +18,7 @@ import {
 
 const counterSource = `
   'use client'
-  import { createSignal } from '@barefootjs/client-runtime'
+  import { createSignal } from '@barefootjs/client'
 
   export function Counter() {
     const [count, setCount] = createSignal(0)
@@ -32,7 +32,7 @@ const counterSource = `
 
 const dashboardSource = `
   'use client'
-  import { createSignal, createEffect, createMemo } from '@barefootjs/client-runtime'
+  import { createSignal, createEffect, createMemo } from '@barefootjs/client'
 
   export function Dashboard() {
     const [count, setCount] = createSignal(0)
@@ -51,7 +51,7 @@ const dashboardSource = `
 // Component with dynamic attribute bindings (style, aria-*, class)
 const sliderLikeSource = `
   'use client'
-  import { createSignal, createMemo } from '@barefootjs/client-runtime'
+  import { createSignal, createMemo } from '@barefootjs/client'
 
   export function RangeInput() {
     const [value, setValue] = createSignal(50)
@@ -71,7 +71,7 @@ const sliderLikeSource = `
 
 const todoSource = `
   'use client'
-  import { createSignal, createMemo } from '@barefootjs/client-runtime'
+  import { createSignal, createMemo } from '@barefootjs/client'
 
   export function TodoList() {
     const [todos, setTodos] = createSignal([])

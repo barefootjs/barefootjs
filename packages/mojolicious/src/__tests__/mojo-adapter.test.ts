@@ -76,7 +76,7 @@ export function Hello() {
   test('generates conditional with Perl if/else', () => {
     const result = compileAndGenerate(`
 "use client"
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 
 export function Toggle() {
   const [active, setActive] = createSignal(false)
@@ -90,7 +90,7 @@ export function Toggle() {
   test('generates loop with Perl for', () => {
     const result = compileAndGenerate(`
 "use client"
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 
 export function List() {
   const [items, setItems] = createSignal<string[]>([])
@@ -105,7 +105,7 @@ export function List() {
   test('generates script registration for client components', () => {
     const result = compileAndGenerate(`
 "use client"
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 
 export function Counter() {
   const [count, setCount] = createSignal(0)

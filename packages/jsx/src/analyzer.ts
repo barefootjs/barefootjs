@@ -654,11 +654,16 @@ function collectOnMount(node: ts.CallExpression, ctx: AnalyzerContext): void {
 // Import Collection
 // =============================================================================
 
-// Symbols exported from @barefootjs/client (reactive primitives, no DOM types)
+// Symbols exported from @barefootjs/client (the user-facing surface).
+// Reactive primitives are DOM-free. The context/portal entries here are
+// type-level shims — their implementations live in @barefootjs/client/runtime
+// and are emitted by the compiler for 'use client' components.
 const CLIENT_EXPORTS = new Set([
   'createSignal', 'createEffect', 'createDisposableEffect', 'createMemo',
-  'createRoot', 'onCleanup', 'onMount', 'untrack', 'splitProps',
+  'createRoot', 'onCleanup', 'onMount', 'untrack', 'batch', 'splitProps',
   'forwardProps', 'unwrap', '__slot',
+  'createContext', 'useContext', 'provideContext',
+  'createPortal', 'isSSRPortal', 'findSiblingSlot', 'cleanupPortalPlaceholder',
 ])
 
 function collectImport(node: ts.ImportDeclaration, ctx: AnalyzerContext): void {
@@ -681,7 +686,7 @@ function collectImport(node: ts.ImportDeclaration, ctx: AnalyzerContext): void {
         severity: 'error',
         message: `'${wrongImports.join("', '")}' is not exported from '@barefootjs/client'.`,
         suggestion: {
-          message: `Import from '@barefootjs/client-runtime' instead: import { ${wrongImports.join(', ')} } from '@barefootjs/client-runtime'`,
+          message: `These identifiers belong to the compiler-emitted runtime and are not meant to be imported by user code. Remove the import and let the compiler generate it.`,
         },
       }))
     }
@@ -1376,16 +1381,47 @@ function validateContext(ctx: AnalyzerContext): void {
     )
   }
 
-  // Check for 'use client' directive if signals/events exist
-  if (ctx.signals.length > 0 && !ctx.hasUseClientDirective) {
-    ctx.errors.push(
-      createError(ErrorCodes.MISSING_USE_CLIENT, {
-        file: ctx.filePath,
-        start: { line: 1, column: 0 },
-        end: { line: 1, column: 0 },
-      })
-    )
+  // Check for 'use client' directive if any browser-only API is used.
+  // Browser-only APIs include signals AND context/portal runtime hooks:
+  // their implementations live in `@barefootjs/client/runtime` and require
+  // compiler emission to run correctly.
+  if (!ctx.hasUseClientDirective) {
+    const usesBrowserOnlyApi =
+      ctx.signals.length > 0 || importsBrowserOnlyClientApi(ctx)
+    if (usesBrowserOnlyApi) {
+      ctx.errors.push(
+        createError(ErrorCodes.MISSING_USE_CLIENT, {
+          file: ctx.filePath,
+          start: { line: 1, column: 0 },
+          end: { line: 1, column: 0 },
+        })
+      )
+    }
   }
+}
+
+// Identifiers from `@barefootjs/client` whose implementations live in the
+// DOM runtime (`@barefootjs/client/runtime`). Source files importing any of
+// these must be marked with `'use client'` so the compiler rewires them.
+const BROWSER_ONLY_CLIENT_APIS = new Set([
+  'useContext',
+  'provideContext',
+  'createPortal',
+  'isSSRPortal',
+  'findSiblingSlot',
+  'cleanupPortalPlaceholder',
+])
+
+function importsBrowserOnlyClientApi(ctx: AnalyzerContext): boolean {
+  for (const imp of ctx.imports) {
+    if (imp.source !== '@barefootjs/client') continue
+    if (imp.isTypeOnly) continue
+    for (const spec of imp.specifiers) {
+      const importedName = spec.name
+      if (BROWSER_ONLY_CLIENT_APIS.has(importedName)) return true
+    }
+  }
+  return false
 }
 
 // =============================================================================

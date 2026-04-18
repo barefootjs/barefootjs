@@ -16,7 +16,7 @@ describe('reactive attributes inside .map() callbacks', () => {
     const source = `
       'use client'
 
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TagList() {
         const tags = ['all', 'ui', 'form']
@@ -45,7 +45,7 @@ describe('reactive attributes inside .map() callbacks', () => {
     const source = `
       'use client'
 
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function ItemList() {
         const items = ['a', 'b', 'c']
@@ -72,7 +72,7 @@ describe('reactive attributes inside .map() callbacks', () => {
     const source = `
       'use client'
 
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function DynamicTagList() {
         const [tags, setTags] = createSignal(['all', 'ui', 'form'])
@@ -99,7 +99,7 @@ describe('reactive attributes inside .map() callbacks', () => {
     const source = `
       'use client'
 
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TagList() {
         const tags = ['all', 'ui', 'form']
@@ -138,7 +138,7 @@ describe('reactive attributes inside .map() callbacks', () => {
     const source = `
       'use client'
 
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       type Row = { id: string; isActive: boolean }
 
@@ -176,7 +176,7 @@ describe('reactive attributes inside .map() callbacks', () => {
     const source = `
       'use client'
 
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function SimpleList() {
         const items = ['a', 'b', 'c']

@@ -19,7 +19,7 @@ describe('@client loop SSR markers (#872)', () => {
   test('emits bf-loop/bf-/loop markers in SSR output when @client loop has a conditional sibling', () => {
     const source = `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function ChatList() {
   const [items, setItems] = createSignal<string[]>([])
   const [streaming, setStreaming] = createSignal(false)
@@ -62,7 +62,7 @@ export function ChatList() {
   test('emits loop markers for @client loop with no conditional siblings', () => {
     const source = `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function ItemList() {
   const [items, setItems] = createSignal<string[]>([])
   return (
@@ -90,7 +90,7 @@ export function ItemList() {
   test('does not render items in SSR output for @client loop (items are rendered client-side only)', () => {
     const source = `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function ItemList() {
   const [items, setItems] = createSignal<string[]>([])
   return (
@@ -118,7 +118,7 @@ export function ItemList() {
   test('@client filter+map loop emits loop markers in SSR output', () => {
     const source = `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 type Item = { name: string; tags: string[] }
 export function ClientOnly() {
   const [items, setItems] = createSignal<Item[]>([])

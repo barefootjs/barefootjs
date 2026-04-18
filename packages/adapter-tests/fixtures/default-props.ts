@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Props with fallback defaults via ?? in signal initialization',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function DefaultProps(props: { label?: string; size?: number }) {
   const [currentLabel, setCurrentLabel] = createSignal(props.label ?? 'Default')
   const [count, setCount] = createSignal(props.size ?? 1)

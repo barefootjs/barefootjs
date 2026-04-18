@@ -2,7 +2,7 @@
   "name": "portal",
   "title": "Portal",
   "category": "display",
-  "description": "Portal Component A component that renders its children into a different part of the DOM tree. Useful for modals, tooltips, and dropdowns that need to render outside their parent container to avoid overflow or z-index issues. Uses @barefootjs/client-runtime's createPortal utility for client-side portal mounting.",
+  "description": "Portal Component A component that renders its children into a different part of the DOM tree. Useful for modals, tooltips, and dropdowns that need to render outside their parent container to avoid overflow or z-index issues. Uses @barefootjs/client's createPortal utility for client-side portal mounting.",
   "tags": [
     "portal"
   ],
@@ -30,7 +30,7 @@
   "examples": [
     {
       "title": "Basic usage with createPortal",
-      "code": "import { createPortal } from '@barefootjs/client-runtime'\n\nfunction Modal() {\n  const portal = createPortal(\n    '<div class=\"modal\">Modal content</div>',\n    document.body\n  )\n\n  // Later: cleanup\n  portal.unmount()\n}"
+      "code": "import { createPortal } from '@barefootjs/client'\n\nfunction Modal() {\n  const portal = createPortal(\n    '<div class=\"modal\">Modal content</div>',\n    document.body\n  )\n\n  // Later: cleanup\n  portal.unmount()\n}"
     }
   ],
   "accessibility": {

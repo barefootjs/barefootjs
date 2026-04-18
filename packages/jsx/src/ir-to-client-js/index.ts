@@ -13,7 +13,7 @@ import { valueReferencesReactiveData } from './prop-handling'
 import { canGenerateStaticTemplate, irToComponentTemplate, generateCsrTemplate } from './html-template'
 import { PROPS_PARAM } from './utils'
 import { buildInlinableConstants, buildSignalAndMemoMaps, buildCsrInlinableConstants } from './emit-registration'
-import { IMPORT_PLACEHOLDER, detectUsedImports } from './imports'
+import { IMPORT_PLACEHOLDER, RUNTIME_MODULE, detectUsedImports } from './imports'
 import { buildSourceMapFromIR, type SourceMapV3 } from './source-map'
 
 export interface ClientJsResult {
@@ -202,7 +202,7 @@ function generateTemplateOnlyMount(ir: ComponentIR, ctx: ClientJsContext): strin
   const generatedCode = lines.join('\n')
   const usedImports = detectUsedImports(generatedCode)
   const sortedImports = [...usedImports].sort()
-  const importLine = `import { ${sortedImports.join(', ')} } from '@barefootjs/client-runtime'`
+  const importLine = `import { ${sortedImports.join(', ')} } from '${RUNTIME_MODULE}'`
 
   return generatedCode.replace(IMPORT_PLACEHOLDER, importLine)
 }

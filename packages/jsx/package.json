@@ -45,7 +45,7 @@
     "@barefootjs/shared": "workspace:*"
   },
   "peerDependencies": {
-    "@barefootjs/client-runtime": "workspace:*"
+    "@barefootjs/client": "workspace:*"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.0.11",

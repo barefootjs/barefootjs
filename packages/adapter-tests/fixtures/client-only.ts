@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Client-only directive suppresses SSR for expression',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 type Item = { name: string; tags: string[] }
 export function ClientOnly() {
   const [items, setItems] = createSignal<Item[]>([])

@@ -51,7 +51,7 @@ describe('Source map generation via compiler', () => {
   test('compileJSXSync with sourceMaps: true produces source map file', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Counter() {
         const [count, setCount] = createSignal(0)
@@ -84,7 +84,7 @@ describe('Source map generation via compiler', () => {
   test('compileJSXSync without sourceMaps does not produce source map', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Counter() {
         const [count, setCount] = createSignal(0)
@@ -106,7 +106,7 @@ describe('Source map generation via compiler', () => {
   test('source map maps signals to original source locations', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Counter() {
         const [count, setCount] = createSignal(0)
@@ -129,7 +129,7 @@ describe('Source map generation via compiler', () => {
   test('source map for component with effects and memos', () => {
     const source = `
       'use client'
-      import { createSignal, createEffect, createMemo } from '@barefootjs/client-runtime'
+      import { createSignal, createEffect, createMemo } from '@barefootjs/client'
 
       export function Dashboard() {
         const [count, setCount] = createSignal(0)
@@ -156,7 +156,7 @@ describe('buildSourceMapFromIR', () => {
   test('generates mappings for a compiled component', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Toggle() {
         const [on, setOn] = createSignal(false)

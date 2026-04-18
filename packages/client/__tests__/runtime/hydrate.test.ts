@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
-import { hydrate } from '../src/hydrate'
+import { hydrate } from '../../src/runtime/hydrate'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
 beforeAll(() => {

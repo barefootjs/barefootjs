@@ -29,7 +29,7 @@ const tocItems: TocItem[] = [
   { id: 'api-reference', title: 'API Reference' },
 ]
 
-const usageCode = `import { createPortal } from '@barefootjs/client-runtime'
+const usageCode = `import { createPortal } from '@barefootjs/client'
 
 // Mount content at document.body
 const portal = createPortal('<div>Portal content</div>')
@@ -42,7 +42,7 @@ portal.unmount()`
 
 const basicCode = `"use client"
 
-import { createSignal, createPortal } from '@barefootjs/client-runtime'
+import { createSignal, createPortal } from '@barefootjs/client'
 
 function PortalBasic() {
   const [open, setOpen] = createSignal(false)
@@ -72,7 +72,7 @@ function PortalBasic() {
 
 const customContainerCode = `"use client"
 
-import { createSignal, createPortal } from '@barefootjs/client-runtime'
+import { createSignal, createPortal } from '@barefootjs/client'
 
 function PortalCustomContainer() {
   const [open, setOpen] = createSignal(false)

@@ -66,7 +66,7 @@ export function CheckboxBasicDemo() {
 
 const termsCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Checkbox } from "@/components/ui/checkbox"
 
 export function CheckboxTermsDemo() {
@@ -104,7 +104,7 @@ export function CheckboxTermsDemo() {
 
 const formCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Checkbox } from "@/components/ui/checkbox"
 
 export function CheckboxFormDemo() {
@@ -144,7 +144,7 @@ export function CheckboxFormDemo() {
 
 const emailListCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import { Checkbox } from "@/components/ui/checkbox"
 
 const emails = [
@@ -202,7 +202,7 @@ export function CheckboxEmailListDemo() {
 
 const usageCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Checkbox } from "@/components/ui/checkbox"
 
 function CheckboxDemo() {

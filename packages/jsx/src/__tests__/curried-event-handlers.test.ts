@@ -24,7 +24,7 @@ describe('curried event handlers in mapArray (#837)', () => {
     // evaluate handleDragStart(item.id) as a statement (which discards the result).
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       function handleDragStart(id: string) {
         return (e: DragEvent) => { e.dataTransfer?.setData("text/plain", id) }
@@ -65,7 +65,7 @@ describe('curried event handlers in mapArray (#837)', () => {
     // Must still generate correct delegation: (() => removeItem(item.id))(e).
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       type Item = { id: string }
 
@@ -100,7 +100,7 @@ describe('curried event handlers in mapArray (#837)', () => {
     // NOT wrapped in (e) => { handleDragStart(child().id) } which discards the result.
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       function handleDragStart(id: string) {
         return (e: DragEvent) => { e.dataTransfer?.setData("text/plain", id) }

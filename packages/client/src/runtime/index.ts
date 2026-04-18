@@ -1,5 +1,5 @@
-// Re-export all @barefootjs/client APIs so compiler-generated code
-// can use a single import source.
+// Re-export all user-facing @barefootjs/client APIs so compiler-generated
+// code can use a single import source.
 export {
   createSignal,
   createEffect,
@@ -9,21 +9,28 @@ export {
   onCleanup,
   onMount,
   untrack,
+  batch,
   type Reactive,
   type Signal,
   type Memo,
   type CleanupFn,
   type EffectFn,
-  splitProps,
-  __slot,
-  type SlotMarker,
-  forwardProps,
-  unwrap,
-} from '@barefootjs/client'
+} from '../reactive'
 
+export { splitProps } from '../split-props'
+export { __slot, type SlotMarker } from '../slot'
+export { forwardProps } from '../forward-props'
+export { unwrap } from '../unwrap'
 
-// Context API
-export { createContext, useContext, provideContext, setCurrentScope, type Context } from './context'
+// Context API (real DOM-bound implementations; `createContext` is the
+// same pure function re-exported from `../context`).
+export {
+  createContext,
+  useContext,
+  provideContext,
+  setCurrentScope,
+  type Context,
+} from './context'
 
 // Portal system
 export {
@@ -46,7 +53,13 @@ export { mapArray } from './map-array'
 export { registerTemplate, getTemplate, hasTemplate, type TemplateFn } from './template'
 
 // Component creation
-export { createComponent, renderChild, getPropsUpdateFn, getComponentProps, parseHTML } from './component'
+export {
+  createComponent,
+  renderChild,
+  getPropsUpdateFn,
+  getComponentProps,
+  parseHTML,
+} from './component'
 
 // Spread props helpers
 export { applyRestAttrs } from './apply-rest-attrs'

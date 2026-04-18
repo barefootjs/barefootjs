@@ -1,7 +1,7 @@
 {
   "name": "@barefootjs/client",
   "version": "0.0.1",
-  "description": "Reactive primitives for BarefootJS (signals, effects, lifecycle)",
+  "description": "BarefootJS client package: reactive primitives (SSR-safe) plus browser runtime under the `/runtime` subpath (compiler target)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js"
     }
   },
   "files": [
@@ -17,7 +21,7 @@
   ],
   "scripts": {
     "build": "bun run build:js && bun run build:types",
-    "build:js": "bun build ./src/index.ts --outdir ./dist --format esm",
+    "build:js": "bun build ./src/index.ts --outdir ./dist --format esm && bun build ./src/runtime/index.ts --outdir ./dist/runtime --format esm",
     "build:types": "tsc --emitDeclarationOnly --outDir ./dist",
     "test": "bun test",
     "clean": "rm -rf dist"
@@ -25,6 +29,8 @@
   "keywords": [
     "reactive",
     "signals",
+    "dom",
+    "runtime",
     "barefoot"
   ],
   "author": "",
@@ -34,7 +40,11 @@
     "url": "https://github.com/barefootjs/barefootjs",
     "directory": "packages/client"
   },
+  "dependencies": {
+    "@barefootjs/shared": "workspace:*"
+  },
   "devDependencies": {
+    "@happy-dom/global-registrator": "^20.0.11",
     "typescript": "^5.0.0"
   }
 }

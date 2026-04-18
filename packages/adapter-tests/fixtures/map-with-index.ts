@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Array map with index parameter',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 type Entry = { label: string }
 export function MapWithIndex() {
   const [entries, setEntries] = createSignal<Entry[]>([])

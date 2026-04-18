@@ -151,7 +151,7 @@ export function LineChartMultipleDemo() {
 
 const interactiveCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import type { ChartConfig } from "@barefootjs/chart"
 
 const chartConfig: ChartConfig = {

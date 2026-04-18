@@ -30,7 +30,7 @@ const tocItems: TocItem[] = [
 
 const usageCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow,
@@ -129,7 +129,7 @@ function DataTableDemo() {
 
 const filteringCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow,
@@ -208,7 +208,7 @@ function DataTableFiltering() {
 
 const selectionCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow,

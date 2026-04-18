@@ -1,13 +1,13 @@
 /**
  * Minimal test server for @barefootjs/xyflow E2E tests.
- * Bundles xyflow + client + client-runtime on the fly and serves a test page.
+ * Bundles xyflow + @barefootjs/client (main and ./runtime subpath) on the fly
+ * and serves a test page.
  */
 
 import { resolve } from 'path'
 
 const ROOT = resolve(import.meta.dir, '..')
 const CLIENT_ROOT = resolve(ROOT, '../client')
-const RUNTIME_ROOT = resolve(ROOT, '../client-runtime')
 
 // Bundle @barefootjs/client for the browser
 const clientBuild = await Bun.build({
@@ -15,18 +15,19 @@ const clientBuild = await Bun.build({
   format: 'esm',
 })
 
-// Bundle @barefootjs/client-runtime for the browser (external client)
+// Bundle the compiler-emit runtime entry (`@barefootjs/client/runtime`).
+// It consumes the main client entry for reactive primitives.
 const runtimeBuild = await Bun.build({
-  entrypoints: [resolve(RUNTIME_ROOT, 'src/index.ts')],
+  entrypoints: [resolve(CLIENT_ROOT, 'src/runtime/index.ts')],
   format: 'esm',
   external: ['@barefootjs/client'],
 })
 
-// Bundle @barefootjs/xyflow for the browser (external client + client-runtime)
+// Bundle @barefootjs/xyflow for the browser (external client + runtime)
 const xyflowBuild = await Bun.build({
   entrypoints: [resolve(ROOT, 'src/index.ts')],
   format: 'esm',
-  external: ['@barefootjs/client', '@barefootjs/client-runtime'],
+  external: ['@barefootjs/client', '@barefootjs/client/runtime'],
 })
 
 const clientJs = await clientBuild.outputs[0].text()

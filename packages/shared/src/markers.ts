@@ -2,7 +2,7 @@
  * BarefootJS - Hydration Marker Constants
  *
  * Single source of truth for HTML attribute names used as hydration markers.
- * Referenced by both the compiler (@barefootjs/jsx) and runtime (@barefootjs/client-runtime).
+ * Referenced by both the compiler (@barefootjs/jsx) and runtime (@barefootjs/client).
  *
  * These are not data-* attributes (like Angular's ng-, Vue's v-, Alpine's x-).
  */

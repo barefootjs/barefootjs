@@ -26,7 +26,7 @@
  */
 
 import type { HTMLBaseAttributes, ButtonHTMLAttributes } from '@barefootjs/jsx'
-import { createContext, useContext, createSignal, createEffect, createMemo } from '@barefootjs/client-runtime'
+import { createContext, useContext, createSignal, createEffect, createMemo } from '@barefootjs/client'
 import type { Child } from '../../../types'
 
 // Toggle styling (same classes as Toggle component — kept independent for standalone installability)

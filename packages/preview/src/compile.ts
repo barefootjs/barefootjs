@@ -19,7 +19,7 @@ import { resolveRelativeImports } from '../../../cli/src/lib/resolve-imports'
 
 const ROOT_DIR = resolve(import.meta.dir, '../../..')
 const UI_COMPONENTS_DIR = resolve(ROOT_DIR, 'ui/components')
-const DOM_PKG_DIR = resolve(ROOT_DIR, 'packages/dom')
+const DOM_PKG_DIR = resolve(ROOT_DIR, 'packages/client')
 const DIST_DIR = resolve(ROOT_DIR, '.preview-dist')
 const DIST_COMPONENTS_DIR = resolve(DIST_DIR, 'components')
 
@@ -51,9 +51,9 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   }
 
   // 1. Copy barefoot.js runtime
-  const domDistFile = resolve(DOM_PKG_DIR, 'dist/index.js')
+  const domDistFile = resolve(DOM_PKG_DIR, 'dist/runtime/index.js')
   if (!await Bun.file(domDistFile).exists()) {
-    console.log('Building @barefootjs/client-runtime...')
+    console.log('Building @barefootjs/client...')
     const proc = Bun.spawn(['bun', 'run', 'build'], { cwd: DOM_PKG_DIR })
     await proc.exited
   }

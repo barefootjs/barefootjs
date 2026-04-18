@@ -29,7 +29,7 @@
  */
 
 import type { HTMLBaseAttributes } from '@barefootjs/jsx'
-import { createSignal, createMemo, createContext, useContext, createEffect } from '@barefootjs/client-runtime'
+import { createSignal, createMemo, createContext, useContext, createEffect } from '@barefootjs/client'
 import type { Child } from '../../../types'
 import { MinusIcon } from '../icon'
 

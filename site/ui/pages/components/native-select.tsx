@@ -101,7 +101,7 @@ function NativeSelectWithOptGroup() {
 
 const bindingCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import {
   NativeSelect,
   NativeSelectOption,
@@ -132,7 +132,7 @@ function NativeSelectBinding() {
 
 const formCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import {
   NativeSelect,
   NativeSelectOption,

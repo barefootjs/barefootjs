@@ -23,7 +23,7 @@ import type {
   Connection,
 } from '@xyflow/system'
 import type { Signal, Memo } from '@barefootjs/client'
-import type { ComponentDef } from '@barefootjs/client-runtime'
+import type { ComponentDef } from '@barefootjs/client/runtime'
 
 export type FitViewOptions = FitViewOptionsBase
 

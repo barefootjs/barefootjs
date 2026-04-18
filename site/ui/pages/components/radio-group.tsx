@@ -37,7 +37,7 @@ const tocItems: TocItem[] = [
 
 const usageCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 function RadioGroupDemo() {
@@ -90,7 +90,7 @@ function RadioGroupDemo() {
 
 const basicCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 export function RadioGroupBasicDemo() {
@@ -121,7 +121,7 @@ export function RadioGroupBasicDemo() {
 
 const formCode = `"use client"
 
-import { createSignal, createMemo } from "@barefootjs/client-runtime"
+import { createSignal, createMemo } from "@barefootjs/client"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 export function RadioGroupFormDemo() {
@@ -177,7 +177,7 @@ export function RadioGroupFormDemo() {
 
 const cardCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 const plans = [

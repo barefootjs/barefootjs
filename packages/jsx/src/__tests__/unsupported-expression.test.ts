@@ -28,7 +28,7 @@ describe('Unsupported Expression Error (BF021)', () => {
   // by the expression parser for server-side rendering.
   const unsupportedSource = `
     'use client'
-    import { createSignal } from '@barefootjs/client-runtime'
+    import { createSignal } from '@barefootjs/client'
 
     export function TodoList() {
       const [items, setItems] = createSignal<any[]>([])
@@ -53,7 +53,7 @@ describe('Unsupported Expression Error (BF021)', () => {
   test('@client suppresses BF021 error', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TodoList() {
         const [items, setItems] = createSignal<any[]>([])
@@ -76,7 +76,7 @@ describe('Unsupported Expression Error (BF021)', () => {
   test('no BF021 error for supported filter predicate', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TodoList() {
         const [todos, setTodos] = createSignal<any[]>([])
@@ -139,7 +139,7 @@ describe('Unsupported Sort Comparator (BF021)', () => {
   test('emits BF021 error for non-subtraction sort comparator', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TodoList() {
         const [items, setItems] = createSignal<any[]>([])
@@ -163,7 +163,7 @@ describe('Unsupported Sort Comparator (BF021)', () => {
   test('@client suppresses BF021 for unsupported sort comparator', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TodoList() {
         const [items, setItems] = createSignal<any[]>([])
@@ -186,7 +186,7 @@ describe('Unsupported Sort Comparator (BF021)', () => {
   test('emits BF021 error for block body sort comparator', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TodoList() {
         const [items, setItems] = createSignal<any[]>([])
@@ -210,7 +210,7 @@ describe('Unsupported Sort Comparator (BF021)', () => {
   test('no BF021 error for supported sort comparator', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function TodoList() {
         const [items, setItems] = createSignal<any[]>([])

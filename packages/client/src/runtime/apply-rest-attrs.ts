@@ -5,7 +5,7 @@
  * Used when spread props cannot be statically expanded (open types).
  */
 
-import { createEffect } from '@barefootjs/client'
+import { createEffect } from '../reactive'
 
 /** Map of JSX prop names to HTML attribute names */
 function toAttrName(key: string): string {

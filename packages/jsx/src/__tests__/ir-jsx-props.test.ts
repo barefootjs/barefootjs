@@ -31,7 +31,7 @@ describe('JSX props (#559)', () => {
     test('JSX element prop produces jsxChildren in IR', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -58,7 +58,7 @@ describe('JSX props (#559)', () => {
     test('parenthesized JSX prop produces jsxChildren', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -81,7 +81,7 @@ describe('JSX props (#559)', () => {
     test('elements inside JSX props get ^-prefixed slot IDs', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -108,7 +108,7 @@ describe('JSX props (#559)', () => {
     test('mixed JSX and non-JSX props on same component', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -144,7 +144,7 @@ describe('JSX props (#559)', () => {
     test('events inside JSX props are collected in parent client JS', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -170,7 +170,7 @@ describe('JSX props (#559)', () => {
     test('reactive expressions inside JSX props generate proper effects', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [count, setCount] = createSignal(0)
@@ -193,7 +193,7 @@ describe('JSX props (#559)', () => {
     test('does not generate setAttribute for JSX prop values', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -216,7 +216,7 @@ describe('JSX props (#559)', () => {
     test('component references in JSX props are imported in client JS', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -236,7 +236,7 @@ describe('JSX props (#559)', () => {
     test('client JS does not contain raw JSX syntax', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -268,7 +268,7 @@ describe('JSX props (#559)', () => {
     test('__slot() wraps JSX prop when it contains components', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -286,7 +286,7 @@ describe('JSX props (#559)', () => {
     test('__slot() does NOT wrap when no components (HTML-only)', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -304,7 +304,7 @@ describe('JSX props (#559)', () => {
     test('__slot() wraps nested component inside element', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -322,7 +322,7 @@ describe('JSX props (#559)', () => {
     test('__slot import is included when used', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function App() {
           const [val, setVal] = createSignal('')
@@ -345,7 +345,7 @@ describe('JSX props (#559)', () => {
       // Callee component: renders props.controls as text
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Layout(props: { controls: any }) {
           const [x, setX] = createSignal(0)

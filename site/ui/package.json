@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@barefootjs/chart": "workspace:*",
-    "@barefootjs/client-runtime": "workspace:*",
+    "@barefootjs/client": "workspace:*",
     "@barefootjs/form": "workspace:*",
     "@barefootjs/hono": "workspace:*",
     "@barefootjs/site-shared": "workspace:*",

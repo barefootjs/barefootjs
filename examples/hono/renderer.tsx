@@ -9,11 +9,11 @@ import { jsxRenderer } from 'hono/jsx-renderer'
 import { BfScripts } from '../../packages/hono/src/scripts'
 import { BfDevReload } from '../../packages/hono/src/dev'
 
-// Import map for resolving @barefootjs/client-runtime in client JS
+// Import map for resolving @barefootjs/client in client JS
 const importMapScript = JSON.stringify({
   imports: {
     '@barefootjs/client': '/static/components/barefoot.js',
-    '@barefootjs/client-runtime': '/static/components/barefoot.js',
+    '@barefootjs/client/runtime': '/static/components/barefoot.js',
   },
 })
 

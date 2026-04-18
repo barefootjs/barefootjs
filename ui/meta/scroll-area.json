@@ -50,7 +50,7 @@
   "dependencies": {
     "internal": [],
     "external": [
-      "@barefootjs/client-runtime"
+      "@barefootjs/client"
     ]
   },
   "related": [

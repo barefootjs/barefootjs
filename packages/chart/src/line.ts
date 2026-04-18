@@ -1,4 +1,4 @@
-import { useContext, createEffect, onCleanup } from '@barefootjs/client-runtime'
+import { useContext, createEffect, onCleanup } from '@barefootjs/client/runtime'
 import { line as d3Line, curveMonotoneX, curveLinear } from 'd3-shape'
 import { BarChartContext } from './context'
 

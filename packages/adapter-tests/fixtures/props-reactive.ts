@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Stateful component accessing props via props.xxx',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function PropsReactive(props: { label: string }) {
   const [count, setCount] = createSignal(0)
   return <div><span>{props.label}</span><span>{count()}</span></div>

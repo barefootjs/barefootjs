@@ -6,7 +6,7 @@ describe('component as JSX root (#281)', () => {
   test('component with children as root produces IRComponent (no wrapper div)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function MenuDemo() {
         const [open, setOpen] = createSignal(false)
@@ -35,7 +35,7 @@ describe('component as JSX root (#281)', () => {
   test('self-closing component as root produces IRComponent (no wrapper div)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function IconButton() {
         const [active, setActive] = createSignal(false)
@@ -56,7 +56,7 @@ describe('component as JSX root (#281)', () => {
   test('fragment root with component child keeps component as-is', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Layout() {
         const [theme, setTheme] = createSignal('light')
@@ -124,7 +124,7 @@ describe('component as JSX root (#281)', () => {
   test('isRoot does not leak into component slot children', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Demo() {
         const [open, setOpen] = createSignal(false)

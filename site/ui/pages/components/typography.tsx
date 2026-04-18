@@ -106,7 +106,7 @@ const listCode = `<TypographyList>
 
 const inlineCodeCode = `<TypographyP>
   Install the package with{" "}
-  <TypographyInlineCode>bun add @barefootjs/client-runtime</TypographyInlineCode>.
+  <TypographyInlineCode>bun add @barefootjs/client</TypographyInlineCode>.
 </TypographyP>`
 
 const leadCode = `<TypographyLead>
@@ -194,7 +194,7 @@ export function TypographyRefPage() {
             <Example title="Inline Code" code={inlineCodeCode} showLineNumbers={false}>
               <TypographyP>
                 Install the package with{' '}
-                <TypographyInlineCode>bun add @barefootjs/client-runtime</TypographyInlineCode>.
+                <TypographyInlineCode>bun add @barefootjs/client</TypographyInlineCode>.
               </TypographyP>
             </Example>
 

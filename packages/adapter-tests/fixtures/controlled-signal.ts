@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Signal initialized directly from props value',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function ControlledSignal(props: { value: number }) {
   const [val, setVal] = createSignal(props.value)
   return <span>{val()}</span>

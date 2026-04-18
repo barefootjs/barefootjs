@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Dynamic boolean attribute uses DOM property binding',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function BooleanDynamic() {
   const [disabled, setDisabled] = createSignal(false)
   return <button disabled={disabled()} onClick={() => setDisabled(v => !v)}>Click</button>

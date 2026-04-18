@@ -17,7 +17,7 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
   test('Path A: conditional inside conditional emits nested insert()', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       type TreeNode = { id: number; name: string; type: 'file' | 'folder'; expanded: boolean; children: TreeNode[] }
 
@@ -77,7 +77,7 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
   test('Path B: conditional inside inner loop emits insert() in mapArray callback', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       type Reply = { id: number; text: string }
       type Comment = { id: number; text: string; replies: Reply[] }
@@ -143,7 +143,7 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
     //   { const [__rt] = $t(...); if (__rt) createEffect(() => ...) }
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       type Child = { id: string; type: 'text' | 'other'; label: string }
       type Group = { id: string; children: Child[] }
@@ -186,7 +186,7 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
     // the handler is reattached whenever insert() replaces the branch's DOM elements.
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       type Row = { id: string; label: string; isGroup: boolean }
 

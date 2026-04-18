@@ -164,7 +164,7 @@ describe('minification does not re-introduce jsxDEV', () => {
     const { transpile } = await import('../lib/runtime')
 
     const clientJs = `
-import { createSignal, createEffect } from '@barefootjs/client-runtime'
+import { createSignal, createEffect } from '@barefootjs/client'
 export function __bf_init_Counter(el, props) {
   const [count, setCount] = createSignal(props.initial ?? 0)
   const __tpl = document.createElement('template')

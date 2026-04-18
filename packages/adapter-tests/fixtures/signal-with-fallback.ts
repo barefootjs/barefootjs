@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Signal initialized with props fallback via ??',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 export function SignalWithFallback(props: { initial?: number }) {
   const [count, setCount] = createSignal(props.initial ?? 0)
   return <div>{count()}</div>

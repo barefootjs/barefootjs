@@ -21,7 +21,7 @@ describe('sub-component compilation (#786)', () => {
   describe('top-level non-exported function component', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       interface Item { id: string; name: string }
 
@@ -100,7 +100,7 @@ describe('sub-component compilation (#786)', () => {
   describe('top-level non-exported arrow function component', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       const Badge = ({ text }: { text: string }) => (
         <span className="badge" onClick={() => alert(text)}>{text}</span>
@@ -141,7 +141,7 @@ describe('sub-component compilation (#786)', () => {
   describe('non-exported stateless component', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       function Label({ text }: { text: string }) {
         return <span className="label">{text}</span>
@@ -174,7 +174,7 @@ describe('sub-component compilation (#786)', () => {
   describe('non-PascalCase helper with conditional JSX returns', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       function renderStatus(status: string) {
         if (status === 'error') {
@@ -210,7 +210,7 @@ describe('sub-component compilation (#786)', () => {
   describe('re-exported sub-component via export { Name }', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       function Badge({ text }: { text: string }) {
         return <span className="badge" onClick={() => alert(text)}>{text}</span>

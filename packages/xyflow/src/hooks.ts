@@ -1,9 +1,9 @@
-import { useContext } from '@barefootjs/client-runtime'
-import { createMemo, untrack } from '@barefootjs/client'
+import { useContext } from '@barefootjs/client/runtime'
+import { createMemo, untrack } from '@barefootjs/client/runtime'
 import { pointToRendererPoint } from '@xyflow/system'
 import { FlowContext } from './context'
 import type { FlowStore, Viewport, NodeBase, EdgeBase, XYPosition } from './types'
-import type { Signal, Memo } from '@barefootjs/client'
+import type { Signal, Memo } from '@barefootjs/client/runtime'
 
 /**
  * Access the flow store from any child component.

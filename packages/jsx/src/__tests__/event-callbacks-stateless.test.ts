@@ -77,7 +77,7 @@ describe('event callbacks on stateless components', () => {
         effects: ctx.effects,
         onMounts: ctx.onMounts,
         imports: ctx.imports,
-        templateImports: ctx.imports.filter((imp: any) => !['@barefootjs/client-runtime', '@barefootjs/client'].includes(imp.source)),
+        templateImports: ctx.imports.filter((imp: any) => !['@barefootjs/client', '@barefootjs/client'].includes(imp.source)),
         localFunctions: ctx.localFunctions,
         localConstants: ctx.localConstants,
       },
@@ -108,7 +108,7 @@ describe('event callbacks on stateless components', () => {
 
   test('components with reactive primitives still require "use client"', () => {
     const source = `
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Counter() {
         const [count, setCount] = createSignal(0)
@@ -156,7 +156,7 @@ describe('event callbacks on stateless components', () => {
 
   test('HonoAdapter throws for signals without "use client"', () => {
     const source = `
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Counter() {
         const [count, setCount] = createSignal(0)

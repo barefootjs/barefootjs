@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Simple subtraction sort then map',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 type Product = { name: string; price: number }
 export function SortSimple() {
   const [products, setProducts] = createSignal<Product[]>([])

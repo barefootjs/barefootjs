@@ -72,7 +72,7 @@ function InputDisabled() {
 
 const bindingCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Input } from "@/components/ui/input"
 
 function InputBinding() {
@@ -94,7 +94,7 @@ function InputBinding() {
 
 const focusCode = `"use client"
 
-import { createSignal } from "@barefootjs/client-runtime"
+import { createSignal } from "@barefootjs/client"
 import { Input } from "@/components/ui/input"
 
 function InputFocus() {

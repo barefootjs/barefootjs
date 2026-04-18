@@ -102,7 +102,7 @@ export function generatePreview(meta: ComponentMeta): PreviewGenerateResult {
 
   // Imports
   if (needsCreateSignalImport) {
-    lines.push("import { createSignal } from '@barefootjs/client-runtime'")
+    lines.push("import { createSignal } from '@barefootjs/client'")
   }
 
   const componentImports = [pascalName]

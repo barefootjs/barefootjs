@@ -249,10 +249,10 @@ export async function build(
   let anyOutputChanged = false
 
   // 1. Runtime file — copy barefoot.js via writeIfChanged so unchanged runtime is quiet
-  const domPkgDir = resolve(config.projectDir, 'node_modules/@barefootjs/client-runtime')
+  const domPkgDir = resolve(config.projectDir, 'node_modules/@barefootjs/client')
   const domDistCandidates = [
-    resolve(config.projectDir, '../../packages/client-runtime/dist/index.js'),
-    resolve(domPkgDir, 'dist/index.js'),
+    resolve(config.projectDir, '../../packages/client/dist/runtime/index.js'),
+    resolve(domPkgDir, 'dist/runtime/index.js'),
   ]
   let domDistFile: string | null = null
   for (const candidate of domDistCandidates) {
@@ -281,7 +281,7 @@ export async function build(
       console.log(`Generated: ${runtimeSubdir}/barefoot.js`)
     }
   } else {
-    console.warn('Warning: @barefootjs/client-runtime dist not found. Skipping barefoot.js copy.')
+    console.warn('Warning: @barefootjs/client dist not found. Skipping barefoot.js copy.')
   }
 
   // 2. Discover component files
@@ -455,7 +455,7 @@ export async function build(
   // 6b. Resolve relative imports (idempotent — writeIfChanged keeps it quiet)
   await resolveRelativeImports({ distDir: config.outDir, manifest })
 
-  // 6c. Rewrite bare @barefootjs/client-runtime imports to relative barefoot.js path
+  // 6c. Rewrite bare @barefootjs/client imports to relative barefoot.js path
   {
     const runtimeRelFromClient = runtimeSubdir === clientJsSubdir
       ? './barefoot.js'
@@ -465,9 +465,9 @@ export async function build(
       const filePath = resolve(config.outDir, entry.clientJs)
       try {
         let content = await readText(filePath)
-        if (content.includes('@barefootjs/client-runtime')) {
+        if (content.includes('@barefootjs/client')) {
           content = content.replace(
-            /from ['"]@barefootjs\/client-runtime['"]/g,
+            /from ['"]@barefootjs\/client\/runtime['"]/g,
             `from '${runtimeRelFromClient}'`
           )
           if (await writeIfChanged(filePath, content)) {

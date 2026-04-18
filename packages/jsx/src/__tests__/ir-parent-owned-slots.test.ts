@@ -10,7 +10,7 @@ describe('parent-owned slots (^ prefix)', () => {
   test('elements with events inside component children get ^-prefixed slotId in IR', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Parent() {
         const [count, setCount] = createSignal(0)
@@ -47,7 +47,7 @@ describe('parent-owned slots (^ prefix)', () => {
   test('component own slotId does NOT get ^ prefix', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Parent() {
         const [count, setCount] = createSignal(0)
@@ -73,7 +73,7 @@ describe('parent-owned slots (^ prefix)', () => {
   test('generated client JS uses ^-prefixed ID in $() but clean variable name', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Parent() {
         const [count, setCount] = createSignal(0)
@@ -101,7 +101,7 @@ describe('parent-owned slots (^ prefix)', () => {
   test('reactive expressions inside component children get ^-prefixed slotId', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Parent() {
         const [count, setCount] = createSignal(0)
@@ -128,7 +128,7 @@ describe('parent-owned slots (^ prefix)', () => {
   test('nested component slotId does NOT get ^ prefix when inside another component children', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Parent() {
         const [count, setCount] = createSignal(0)
@@ -168,7 +168,7 @@ describe('parent-owned slots (^ prefix)', () => {
   test('self-closing component inside component children does NOT get ^ prefix', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Parent() {
         const [open, setOpen] = createSignal(false)

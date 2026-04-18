@@ -42,7 +42,7 @@ import {
 import {
   createContext,
   useContext,
-} from '@barefootjs/client-runtime'
+} from '@barefootjs/client'
 import type { HTMLBaseAttributes, ButtonHTMLAttributes } from '@barefootjs/jsx'
 import type { Child } from '../../../types'
 import { PanelLeftIcon } from '../icon'

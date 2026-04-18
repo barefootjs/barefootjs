@@ -8,7 +8,7 @@ describe('nested ternary (#495)', () => {
   test('compiles all branches of nested ternary', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
       export function StatusBadge() {
         const [status, setStatus] = createSignal('idle')
         return <div>{status() === 'loading' ? <span>Loading</span> : status() === 'error' ? <span>Error</span> : <span>Idle</span>}</div>
@@ -29,7 +29,7 @@ describe('nested ternary (#495)', () => {
   test('compiles deeply nested ternary (3+ levels)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
       export function DeepTernary() {
         const [v, setV] = createSignal(0)
         return <div>{v() === 1 ? <span>One</span> : v() === 2 ? <span>Two</span> : v() === 3 ? <span>Three</span> : <span>Other</span>}</div>
@@ -68,7 +68,7 @@ describe('nested ternary (#495)', () => {
   test('compiles logical AND inside ternary branch', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
       export function AndInBranch() {
         const [a, setA] = createSignal(false)
         const [b, setB] = createSignal(false)

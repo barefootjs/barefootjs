@@ -160,7 +160,7 @@ describe('child components inside .map() (#344)', () => {
   test('static array: nested component with index in callback and signal access (#480)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
 
@@ -206,7 +206,7 @@ describe('child components inside .map() (#344)', () => {
   test('dynamic signal array: component generates reconcileElements with createComponent', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function RadioGroup() {
         const [items, setItems] = createSignal([{ value: 'a' }, { value: 'b' }])
@@ -286,7 +286,7 @@ describe('child components inside .map() (#344)', () => {
   test('no duplicate variable declaration when .map() slot ID matches component slot ID (#360)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function Parent() {
         const [items, setItems] = createSignal([{ name: 'a' }, { name: 'b' }])
@@ -321,7 +321,7 @@ describe('child components inside .map() (#344)', () => {
   test('dynamic signal array: component with component children emits nested createComponent (#481)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function DataTable() {
         const [payments, setPayments] = createSignal([
@@ -361,7 +361,7 @@ describe('child components inside .map() (#344)', () => {
   test('dynamic signal array: component with mixed children (text + components)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function List() {
         const [items, setItems] = createSignal([{ name: 'a' }, { name: 'b' }])
@@ -392,7 +392,7 @@ describe('child components inside .map() (#344)', () => {
   test('dynamic signal array: component without children does not emit children getter', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function RadioGroup() {
         const [items, setItems] = createSignal([{ value: 'a' }, { value: 'b' }])
@@ -420,7 +420,7 @@ describe('child components inside .map() (#344)', () => {
   test('dynamic signal array: deeply nested components (A > B > C)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function DataTable() {
         const [rows, setRows] = createSignal([{ id: '1', value: 'test' }])
@@ -522,7 +522,7 @@ describe('child components inside .map() (#344)', () => {
     test('arrow expression body: items().map(item => renderItem(item))', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function List() {
           const [items, setItems] = createSignal([{ id: '1' }, { id: '2' }])
@@ -546,7 +546,7 @@ describe('child components inside .map() (#344)', () => {
     test('parenthesized expression: items().map(item => (renderItem(item)))', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function List() {
           const [items, setItems] = createSignal([{ id: '1' }, { id: '2' }])
@@ -569,7 +569,7 @@ describe('child components inside .map() (#344)', () => {
     test('block body with function call return: items().map(item => { return renderItem(item) })', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function List() {
           const [items, setItems] = createSignal([{ id: '1' }, { id: '2' }])
@@ -593,7 +593,7 @@ describe('child components inside .map() (#344)', () => {
       const honoAdapter = new HonoAdapter()
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function List() {
           const [items, setItems] = createSignal([{ id: '1' }, { id: '2' }])
@@ -621,7 +621,7 @@ describe('child components inside .map() (#344)', () => {
   test('dynamic signal array: onClick on plain element still works (regression guard)', () => {
     const source = `
       'use client'
-      import { createSignal } from '@barefootjs/client-runtime'
+      import { createSignal } from '@barefootjs/client'
 
       export function DynList() {
         const [items, setItems] = createSignal([{ id: '1' }, { id: '2' }])

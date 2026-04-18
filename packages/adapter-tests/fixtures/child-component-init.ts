@@ -5,7 +5,7 @@ export const fixture = createFixture({
   description: 'Parent initializes child component with signal-derived props',
   source: `
 'use client'
-import { createSignal } from '@barefootjs/client-runtime'
+import { createSignal } from '@barefootjs/client'
 import { Label } from './label'
 export function Parent() {
   const [text, setText] = createSignal('hello')

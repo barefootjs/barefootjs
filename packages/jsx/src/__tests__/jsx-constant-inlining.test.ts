@@ -50,7 +50,7 @@ describe('JSX constant inlining (#547)', () => {
     test('does not set isJsx for non-JSX constants', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const label = "hello"
@@ -101,7 +101,7 @@ describe('JSX constant inlining (#547)', () => {
     test('does not flag ternary with JSX branches as isJsx', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const [active, setActive] = createSignal(false)
@@ -176,7 +176,7 @@ describe('JSX constant inlining (#547)', () => {
     test('does not emit raw JSX variable declaration in client JS init function', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function MyComponent() {
           const [active, setActive] = createSignal(false)
@@ -222,7 +222,7 @@ describe('JSX constant inlining (#547)', () => {
     test('compiles Calendar-style pattern without errors', () => {
       const source = `
         'use client'
-        import { createSignal } from '@barefootjs/client-runtime'
+        import { createSignal } from '@barefootjs/client'
 
         export function Calendar() {
           const [month, setMonth] = createSignal(0)

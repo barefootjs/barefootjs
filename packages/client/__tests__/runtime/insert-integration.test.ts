@@ -5,9 +5,9 @@
  * that text-only ternary branches update correctly.
  */
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
-import { insert } from '../src/insert'
-import { createSignal, createEffect } from '@barefootjs/client'
-import { $ as query } from '../src/query'
+import { insert } from '../../src/runtime/insert'
+import { createSignal, createEffect } from '../../src/reactive'
+import { $ as query } from '../../src/runtime/query'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
 beforeAll(() => {

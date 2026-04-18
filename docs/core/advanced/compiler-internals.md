@@ -195,7 +195,7 @@ createEffect(() => {
 ### 4. Code Generation Order
 
 ```javascript
-import { $, $t, createEffect, createMemo, createSignal, hydrate, onMount } from '@barefootjs/client-runtime'
+import { $, $t, createEffect, createMemo, createSignal, hydrate, onMount } from '@barefootjs/client'
 
 export function initCounter(__scope, _p = {}) {
   if (!__scope) return
@@ -266,7 +266,7 @@ hydrate('Counter', {
 Only used imports are included:
 
 ```javascript
-import { $, $t, createEffect, createMemo, createSignal, hydrate, onMount } from '@barefootjs/client-runtime'
+import { $, $t, createEffect, createMemo, createSignal, hydrate, onMount } from '@barefootjs/client'
 ```
 
 ### 6. Template Registration

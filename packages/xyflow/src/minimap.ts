@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, untrack } from '@barefootjs/client-runtime'
+import { createEffect, onCleanup, untrack } from '@barefootjs/client'
 import { useFlow } from './hooks'
 import { SVG_NS, INFINITE_EXTENT } from './constants'
 import { applyPositionStyle } from './utils'

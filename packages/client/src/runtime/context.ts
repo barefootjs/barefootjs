@@ -1,27 +1,17 @@
 /**
- * Context API for parent-child state sharing.
+ * Context API: DOM-bound runtime portion.
  *
- * Provides createContext, useContext, and provideContext for
- * compound component patterns (DropdownMenu, Tabs, Dialog, etc.).
+ * `useContext` and `provideContext` walk the DOM (scope-based) to locate
+ * the nearest provider. Portal elements (with bf-po attribute) follow
+ * the logical owner chain.
  *
- * Context values are stored on DOM elements (scope-based), enabling
- * multiple providers of the same context on one page (e.g., two Select
- * components). useContext walks DOM ancestors to find the nearest provider.
- * Portal elements (with bf-po attribute) follow the logical owner chain.
- *
- * A global store is kept as fallback for non-scoped usage.
+ * A global store is kept as a fallback for non-scoped usage.
  */
 
 import { BF_PORTAL_OWNER, BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
+import type { Context } from '../context'
 
-export type Context<T> = {
-  readonly id: symbol
-  readonly defaultValue: T | undefined
-  /** Internal flag: true when default was explicitly provided (even if undefined) */
-  readonly _hasDefault: boolean
-  /** JSX Provider component. Compiled to provideContext() by the compiler. */
-  readonly Provider: (props: { value: T; children?: unknown }) => unknown
-}
+export { createContext, type Context } from '../context'
 
 /** Global fallback store for contexts without a DOM scope. */
 const contextStore = new Map<symbol, unknown>()
@@ -41,23 +31,6 @@ export function setCurrentScope(scope: Element | null): Element | null {
   const prev = currentScope
   currentScope = scope
   return prev
-}
-
-/**
- * Create a new context with an optional default value.
- *
- * When no default is provided, useContext() will throw if no provider is found.
- * When a default is provided (even if `undefined`), useContext() returns that default.
- */
-export function createContext<T>(defaultValue?: T): Context<T> {
-  return {
-    id: Symbol(),
-    defaultValue,
-    _hasDefault: arguments.length > 0,
-    // Provider is compiled away by the JSX compiler into provideContext() calls.
-    // This runtime stub exists only for TypeScript type checking.
-    Provider: (() => { throw new Error('Context.Provider should be compiled away') }) as Context<T>['Provider'],
-  }
 }
 
 /**

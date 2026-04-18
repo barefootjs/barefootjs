@@ -7,7 +7,7 @@ import type { ClientJsContext, ConditionalBranchConditional, ConditionalBranchLo
 import { varSlotId, bodyReferencesComponentScope, PROPS_PARAM } from './utils'
 import { collectUsedIdentifiers, collectUsedFunctions, collectIdentifiersFromIRTree } from './identifiers'
 import { valueReferencesReactiveData, getControlledPropName, detectPropsWithPropertyAccess } from './prop-handling'
-import { IMPORT_PLACEHOLDER, MODULE_CONSTANTS_PLACEHOLDER, detectUsedImports, collectUserDomImports, collectExternalImports } from './imports'
+import { IMPORT_PLACEHOLDER, MODULE_CONSTANTS_PLACEHOLDER, RUNTIME_MODULE, detectUsedImports, collectUserDomImports, collectExternalImports } from './imports'
 import { type Declaration, providedNames, sortDeclarations } from './declaration-sort'
 import {
   collectConditionalSlotIds,
@@ -302,7 +302,7 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   }
 
   const sortedImports = [...usedImports].sort()
-  const importLine = `import { ${sortedImports.join(', ')} } from '@barefootjs/client-runtime'`
+  const importLine = `import { ${sortedImports.join(', ')} } from '${RUNTIME_MODULE}'`
 
   // Collect external (non-DOM) imports used in the generated code
   const externalImportLines = collectExternalImports(_ir, generatedCode, localImportPrefixes)

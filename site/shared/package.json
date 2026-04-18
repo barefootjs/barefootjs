@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@barefootjs/hono": "workspace:*",
-    "@barefootjs/client-runtime": "workspace:*",
+    "@barefootjs/client": "workspace:*",
     "hono": "^4"
   }
 }
