@@ -9,44 +9,64 @@
 import { BF_SCOPE } from '@barefootjs/shared'
 import { hydratedScopes } from './hydration-state'
 import { getComponentInit } from './registry'
-import { getTemplate } from './template'
+import { getTemplate, type TemplateFn } from './template'
+import type { ComponentDef, InitFn } from './types'
 
 /**
- * Render a registered component into a container element (CSR mode).
+ * Render a component into a container element (CSR mode).
  *
- * Looks up the component's init and template functions by name from
- * the registry, generates its DOM from the template, mounts it into
- * the container, and initializes it with the given props.
+ * Accepts either:
+ * - A registered component name (string) — looks up `init` and `template` from the registry
+ *   (the component must be registered first by importing its `.client.js` file).
+ * - A `ComponentDef` — uses the def's `init` and `template` directly, bypassing the registry.
  *
- * The component must be registered first by importing its `.client.js`
- * file (which calls `registerComponent` + `registerTemplate` internally).
- *
- * Unlike hydrate(), this function does not require pre-rendered HTML.
- * The container's content is replaced entirely.
+ * Generates DOM from the template, mounts it into the container, and initializes it
+ * with the given props. Unlike hydrate(), no pre-rendered HTML is required; the
+ * container's content is replaced entirely.
  *
  * @param container - Target DOM element to render into
- * @param componentName - Registered component name (e.g., 'Counter')
+ * @param nameOrDef - Registered component name or a ComponentDef
  * @param props - Props to pass to the component
  *
  * @example
- * import { render } from '@barefootjs/client'
+ * // By name (registry-based)
  * await import('/static/components/Counter.client.js')
- *
  * render(document.getElementById('app')!, 'Counter', { initialCount: 0 })
+ *
+ * @example
+ * // By ComponentDef (registry-free)
+ * render(container, { name: 'MyNode', init, template }, { id: 'n1' })
  */
 export function render(
   container: HTMLElement,
-  componentName: string,
+  nameOrDef: string | ComponentDef,
   props: Record<string, unknown> = {}
 ): void {
-  const init = getComponentInit(componentName)
-  const template = getTemplate(componentName)
+  let name: string
+  let init: InitFn | undefined
+  let template: TemplateFn | undefined
 
-  if (!init || !template) {
-    throw new Error(
-      `[BarefootJS] Component "${componentName}" is not registered. ` +
-      `Did you import its .client.js file before calling render()?`
-    )
+  if (typeof nameOrDef === 'string') {
+    name = nameOrDef
+    init = getComponentInit(name)
+    template = getTemplate(name)
+
+    if (!init || !template) {
+      throw new Error(
+        `[BarefootJS] Component "${name}" is not registered. ` +
+        `Did you import its .client.js file before calling render()?`
+      )
+    }
+  } else {
+    init = nameOrDef.init
+    template = nameOrDef.template
+    name = nameOrDef.name || init.name?.replace(/^init/, '') || 'Component'
+
+    if (!template) {
+      throw new Error(
+        '[BarefootJS] render(): ComponentDef requires a template function'
+      )
+    }
   }
 
   const html = template(props).trim()
@@ -61,7 +81,7 @@ export function render(
 
   if (!element.getAttribute(BF_SCOPE)) {
     const id = Math.random().toString(36).slice(2, 8)
-    element.setAttribute(BF_SCOPE, `${componentName}_${id}`)
+    element.setAttribute(BF_SCOPE, `${name}_${id}`)
   }
 
   container.innerHTML = ''

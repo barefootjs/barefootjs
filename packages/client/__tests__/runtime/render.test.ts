@@ -116,6 +116,69 @@ describe('render', () => {
   })
 })
 
+describe('render with ComponentDef', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  test('renders from ComponentDef without registry lookup', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+
+    const initialized: Array<{ scope: Element; props: Record<string, unknown> }> = []
+    const def: ComponentDef = {
+      name: 'DefBased',
+      init: (scope, props) => { initialized.push({ scope, props }) },
+      template: (props) => `<section>${props.label}</section>`,
+    }
+
+    render(container, def, { label: 'custom-node' })
+
+    expect(container.children.length).toBe(1)
+    expect(container.firstElementChild?.tagName.toLowerCase()).toBe('section')
+    expect(container.firstElementChild?.textContent).toBe('custom-node')
+    expect(initialized.length).toBe(1)
+    expect(initialized[0].props).toEqual({ label: 'custom-node' })
+  })
+
+  test('uses def.name as scope prefix', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+
+    const def: ComponentDef = {
+      name: 'MyScopedDef',
+      init: () => {},
+      template: () => `<div>x</div>`,
+    }
+
+    render(container, def)
+
+    const scope = container.firstElementChild?.getAttribute('bf-s') ?? ''
+    expect(scope.startsWith('MyScopedDef_')).toBe(true)
+  })
+
+  test('throws when ComponentDef has no template', () => {
+    const container = document.createElement('div')
+    const def: ComponentDef = { init: () => {} }
+
+    expect(() => render(container, def)).toThrow('requires a template function')
+  })
+
+  test('marks element in hydratedScopes after init', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+
+    const def: ComponentDef = {
+      init: () => {},
+      template: () => `<div>x</div>`,
+    }
+
+    render(container, def)
+
+    expect(hydratedScopes.has(container.firstElementChild!)).toBe(true)
+  })
+})
+
 describe('createComponent with ComponentDef', () => {
   beforeEach(() => {
     document.body.innerHTML = ''

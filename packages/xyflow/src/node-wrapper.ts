@@ -11,7 +11,6 @@ import type {
   InternalNodeUpdate,
 } from '@xyflow/system'
 import { render } from '@barefootjs/client/runtime'
-import type { ComponentDef } from '@barefootjs/client/runtime'
 import { setupNodeSelection } from './selection'
 import { attachConnectionHandler } from './connection'
 import type { FlowStore, NodeComponentProps } from './types'
@@ -412,7 +411,7 @@ function renderNodeContent<NodeType extends NodeBase>(
       customType.call(contentEl, nodeProps)
     } else {
       // ComponentDef — render via CSR
-      render(contentEl, customType as ComponentDef, nodeProps as unknown as Record<string, unknown>)
+      render(contentEl, customType, nodeProps as unknown as Record<string, unknown>)
     }
 
     // Only add default handles if the custom component didn't create its own.
