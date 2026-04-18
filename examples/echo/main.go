@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -22,15 +23,29 @@ func loadTemplates() *template.Template {
 	)
 }
 
-// EchoRenderer adapts bf.Renderer to Echo's Renderer interface
+// EchoRenderer adapts bf.Renderer to Echo's Renderer interface.
+// When devMode is true, templates are re-parsed on each request so edits
+// made by `bun run build:watch` show up without restarting the server.
 type EchoRenderer struct {
-	bf *bf.Renderer
+	bf      *bf.Renderer
+	layout  bf.LayoutFunc
+	devMode bool
+}
+
+// isDevEnv reports whether the process is running in a development environment,
+// using the common Go convention of APP_ENV=development.
+func isDevEnv() bool {
+	return os.Getenv("APP_ENV") == "development"
 }
 
 func (r *EchoRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
 	opts := data.(bf.RenderOptions)
 	opts.ComponentName = name
-	_, err := w.Write([]byte(r.bf.Render(opts)))
+	renderer := r.bf
+	if r.devMode {
+		renderer = bf.NewRenderer(loadTemplates(), r.layout)
+	}
+	_, err := w.Write([]byte(renderer.Render(opts)))
 	return err
 }
 
@@ -97,8 +112,18 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	// Renderer
-	e.Renderer = &EchoRenderer{bf: bf.NewRenderer(loadTemplates(), defaultLayout)}
+	// Renderer. In dev mode (APP_ENV=development), templates reload on each
+	// request so edits picked up by `bun run build:watch` appear without
+	// restarting the server.
+	devMode := isDevEnv()
+	e.Renderer = &EchoRenderer{
+		bf:      bf.NewRenderer(loadTemplates(), defaultLayout),
+		layout:  defaultLayout,
+		devMode: devMode,
+	}
+	if devMode {
+		e.Logger.Info("Dev mode: templates will reload on each request")
+	}
 
 	// Routes
 	e.GET("/", indexHandler)

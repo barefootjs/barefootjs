@@ -4,7 +4,7 @@
   "scripts": {
     "build": "bun run ../../packages/cli/src/index.ts build",
     "build:watch": "bun run ../../packages/cli/src/index.ts build --watch",
-    "dev": "go run .",
+    "dev": "APP_ENV=development go run .",
     "setup": "go mod tidy",
     "test:e2e": "bunx playwright test",
     "test:e2e:ui": "bunx playwright test --ui"

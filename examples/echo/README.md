@@ -33,10 +33,15 @@ go mod tidy
 ### 3. Run Echo Server
 
 ```bash
-bun run go:run
-# or
-go run main.go
+bun run dev
 ```
+
+This sets `APP_ENV=development` and runs `go run .`. In development mode the
+server re-parses templates on every request, so edits picked up by
+`bun run build:watch` show up on reload without restarting the server.
+
+For production, build a binary and run it without `APP_ENV` set — templates are
+then cached once at startup.
 
 Open http://localhost:8080 in your browser.
 
