@@ -15,6 +15,13 @@ push @{app->static->paths}, app->home->child('../shared');
 # Template directory
 app->renderer->paths->[0] = app->home->child('dist/templates');
 
+# In development mode, disable template caching so edits picked up by
+# `bun run build:watch` reload on each request without restarting the server.
+# Production mode (MOJO_MODE=production) keeps the default cache for speed.
+if (app->mode eq 'development') {
+    app->renderer->cache->max_keys(0);
+}
+
 # ---------------------------------------------------------------------------
 # In-memory todo storage
 # ---------------------------------------------------------------------------
