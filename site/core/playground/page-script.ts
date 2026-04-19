@@ -180,9 +180,54 @@ async function main() {
   statusEl.textContent = 'Loading editor…'
   const monaco = await loadMonaco()
 
+  // Load the BarefootJS type bundle (JSX + signals) before creating the
+  // editor so Monaco's TS service can resolve them on first parse.
+  try {
+    const res = await fetch('/static/playground/types-bundle.json')
+    if (!res.ok) {
+      throw new Error(`types-bundle.json responded ${res.status}`)
+    }
+    const bundle = (await res.json()) as Record<string, string>
+    for (const [path, contents] of Object.entries(bundle)) {
+      monaco.languages.typescript.typescriptDefaults.addExtraLib(contents, path)
+    }
+  } catch (error) {
+    // Non-fatal: editor still works, just without typed JSX. Surface it so
+    // broken type loading is debuggable from the browser devtools.
+    console.warn(
+      'Failed to load playground type bundle; JSX typings may be unavailable.',
+      error,
+    )
+  }
+
+  monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+    target: monaco.languages.typescript.ScriptTarget.ESNext,
+    module: monaco.languages.typescript.ModuleKind.ESNext,
+    moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+    jsx: monaco.languages.typescript.JsxEmit.ReactJSX,
+    jsxImportSource: '@barefootjs/hono/jsx',
+    allowNonTsExtensions: true,
+    allowJs: true,
+    noEmit: true,
+    isolatedModules: true,
+    esModuleInterop: true,
+    skipLibCheck: true,
+  })
+  monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+    noSemanticValidation: false,
+    noSyntaxValidation: false,
+    noSuggestionDiagnostics: true,
+  })
+
+  // Use a virtual .tsx URI so Monaco's TS service treats the buffer as TSX
+  // (otherwise JSX nodes get reported as syntax errors).
+  const model = monaco.editor.createModel(
+    window.PLAYGROUND_INITIAL_SOURCE,
+    'typescript',
+    monaco.Uri.parse('file:///playground/component.tsx'),
+  )
   const editor = monaco.editor.create(editorEl, {
-    value: window.PLAYGROUND_INITIAL_SOURCE,
-    language: 'typescript',
+    model,
     theme: matchMedia('(prefers-color-scheme: dark)').matches
       ? 'vs-dark'
       : 'vs',
@@ -191,19 +236,6 @@ async function main() {
     fontSize: 13,
     tabSize: 2,
     scrollBeyondLastLine: false,
-  })
-
-  // Let Monaco treat the buffer as TSX.
-  monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-    jsx: monaco.languages.typescript.JsxEmit.Preserve,
-    target: monaco.languages.typescript.ScriptTarget.ESNext,
-    allowNonTsExtensions: true,
-    noEmit: true,
-  })
-  // Suppress cross-file diagnostics (we have no real project here).
-  monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-    noSemanticValidation: true,
-    noSyntaxValidation: false,
   })
 
   statusEl.textContent = 'Starting compiler…'

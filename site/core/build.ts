@@ -380,6 +380,66 @@ for (const output of playgroundPage.outputs) {
 }
 console.log('Generated: dist/playground/page.js (+ static copy)')
 
+// Type bundle for Monaco — gives the editor real autocomplete + accurate
+// error reporting against @barefootjs/hono/jsx (used as the JSX source) and
+// @barefootjs/client (signals API).
+const PKG_DIR = resolve(ROOT_DIR, '../../packages')
+
+// Ensure @barefootjs/client has its .d.ts built (step 2 builds the runtime
+// JS if missing, but we also need the declarations here).
+const clientDtsFile = resolve(PKG_DIR, 'client/dist/index.d.ts')
+if (!(await Bun.file(clientDtsFile).exists())) {
+  console.log('Building @barefootjs/client declarations for playground types…')
+  const proc = Bun.spawn(['bun', 'run', 'build:types'], {
+    cwd: resolve(PKG_DIR, 'client'),
+  })
+  await proc.exited
+  if (!(await Bun.file(clientDtsFile).exists())) {
+    throw new Error(
+      'Failed to build @barefootjs/client declarations (dist/index.d.ts missing)',
+    )
+  }
+}
+
+// Minimal shims for the \`hono/jsx\` + \`hono/jsx/jsx-runtime\` modules the
+// @barefootjs/hono declarations reference. Without these Monaco would emit
+// "Cannot find module 'hono/jsx…'" diagnostics once semantic validation is
+// on. We only need the shapes used by the JSX namespace surface.
+const HONO_JSX_SHIM = `declare module 'hono/jsx' {
+  export namespace JSX {
+    type Element = unknown
+  }
+}
+`
+const HONO_JSX_RUNTIME_SHIM = `declare module 'hono/jsx/jsx-runtime' {
+  type Props = Record<string, unknown>
+  export function jsx(tag: string | Function, props: Props, key?: string): unknown
+  export const jsxs: typeof jsx
+  export function Fragment(props: { children?: unknown }): unknown
+  export function jsxAttr(name: string, value: unknown): string
+  export function jsxEscape(value: unknown): string
+  export function jsxTemplate(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): unknown
+}
+`
+
+const typeBundle: Record<string, string> = {
+  'file:///node_modules/@barefootjs/hono/jsx/jsx-runtime/index.d.ts':
+    await Bun.file(resolve(PKG_DIR, 'hono/src/jsx/jsx-runtime/index.d.ts')).text(),
+  'file:///node_modules/@barefootjs/jsx/jsx-runtime/index.d.ts':
+    await Bun.file(resolve(PKG_DIR, 'jsx/src/jsx-runtime/index.d.ts')).text(),
+  'file:///node_modules/@barefootjs/jsx/html-types.d.ts':
+    await Bun.file(resolve(PKG_DIR, 'jsx/src/html-types.ts')).text(),
+  'file:///node_modules/@barefootjs/client/index.d.ts':
+    await Bun.file(clientDtsFile).text(),
+  'file:///node_modules/hono/jsx/index.d.ts': HONO_JSX_SHIM,
+  'file:///node_modules/hono/jsx/jsx-runtime/index.d.ts': HONO_JSX_RUNTIME_SHIM,
+}
+await writePlaygroundAsset('types-bundle.json', new Blob([JSON.stringify(typeBundle)]))
+console.log('Generated: dist/playground/types-bundle.json (+ static copy)')
+
 // ── 9c. Write _headers for Cloudflare Workers static assets ──────
 // The playground iframe runs as `sandbox="allow-scripts"` (no
 // allow-same-origin), so its origin is opaque ("null"). When it imports
