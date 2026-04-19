@@ -18,6 +18,11 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+// basePath is the URL prefix under which every route and static asset is
+// mounted, driven by the BASE_PATH env var. Defaults to /examples/echo so the
+// app is deploy-ready for barefootjs.dev/examples/echo.
+var basePath string
+
 // loadTemplates loads all templates with BarefootJS functions registered
 func loadTemplates() *template.Template {
 	return template.Must(
@@ -73,15 +78,15 @@ func defaultLayout(ctx *bf.RenderContext) string {
 <html>
 <head>
     <title>%s</title>
-    <link rel="stylesheet" href="/shared/styles/components.css">
-    <link rel="stylesheet" href="/shared/styles/todo-app.css">%s%s
+    <link rel="stylesheet" href="%s/shared/styles/components.css">
+    <link rel="stylesheet" href="%s/shared/styles/todo-app.css">%s%s
 </head>
 <body>%s
     <div id="app">%s</div>
-    <p><a href="/">← Back</a></p>
+    <p><a href="%s">← Back</a></p>
     %s%s
 </body>
-</html>`, ctx.Title, headingStyle, extraCSS, headingHTML, ctx.ComponentHTML, ctx.Portals, ctx.Scripts)
+</html>`, ctx.Title, basePath, basePath, headingStyle, extraCSS, headingHTML, ctx.ComponentHTML, basePath, ctx.Portals, ctx.Scripts)
 }
 
 // In-memory todo storage
@@ -108,6 +113,11 @@ func resetTodos() {
 }
 
 func main() {
+	basePath = os.Getenv("BASE_PATH")
+	if basePath == "" {
+		basePath = "/examples/echo"
+	}
+
 	e := echo.New()
 
 	// Middleware
@@ -134,42 +144,46 @@ func main() {
 	}
 	if devMode {
 		e.Logger.Info("Dev mode: templates will reload on each request")
-		e.GET("/_bf/reload", echo.WrapHandler(bfdev.NewReloadHandler(bfdev.Config{DistDir: "./dist"})))
+		e.GET(basePath+"/_bf/reload", echo.WrapHandler(bfdev.NewReloadHandler(bfdev.Config{DistDir: "./dist"})))
 	}
 
-	// Routes
-	e.GET("/", indexHandler)
-	e.GET("/counter", counterHandler)
-	e.GET("/toggle", toggleHandler)
-	e.GET("/todos", todosHandler)
-	e.GET("/todos-ssr", todosSSRHandler)
-	e.GET("/reactive-props", reactivePropsHandler)
-	e.GET("/props-reactivity", propsReactivityHandler)
-	e.GET("/form", formHandler)
-	e.GET("/portal", portalHandler)
-	e.GET("/conditional-return", conditionalReturnHandler)
-	e.GET("/conditional-return-link", conditionalReturnLinkHandler)
-	e.GET("/ai-chat", aiChatHandler)
-	e.GET("/api/ai-chat", aiChatSSEHandler)
+	// Routes (grouped under basePath so the app can be hosted at
+	// barefootjs.dev/examples/echo/* behind a Worker).
+	g := e.Group(basePath)
+	g.GET("", indexHandler)
+	g.GET("/", indexHandler)
+	g.GET("/counter", counterHandler)
+	g.GET("/toggle", toggleHandler)
+	g.GET("/todos", todosHandler)
+	g.GET("/todos-ssr", todosSSRHandler)
+	g.GET("/reactive-props", reactivePropsHandler)
+	g.GET("/props-reactivity", propsReactivityHandler)
+	g.GET("/form", formHandler)
+	g.GET("/portal", portalHandler)
+	g.GET("/conditional-return", conditionalReturnHandler)
+	g.GET("/conditional-return-link", conditionalReturnLinkHandler)
+	g.GET("/ai-chat", aiChatHandler)
+	g.GET("/api/ai-chat", aiChatSSEHandler)
 
 	// Todo API endpoints
-	e.GET("/api/todos", getTodosAPI)
-	e.POST("/api/todos", createTodoAPI)
-	e.PUT("/api/todos/:id", updateTodoAPI)
-	e.DELETE("/api/todos/:id", deleteTodoAPI)
-	e.POST("/api/todos/reset", resetTodosAPI)
+	g.GET("/api/todos", getTodosAPI)
+	g.POST("/api/todos", createTodoAPI)
+	g.PUT("/api/todos/:id", updateTodoAPI)
+	g.DELETE("/api/todos/:id", deleteTodoAPI)
+	g.POST("/api/todos/reset", resetTodosAPI)
 
 	// Static files (for client JS)
-	e.Static("/static", "dist")
+	e.Static(basePath+"/static", "dist")
 
-	// Shared styles
-	e.Static("/shared", "../shared")
+	// Shared styles. `bun run build` copies ../shared into dist/shared so the
+	// same path works in local dev and inside the container image.
+	e.Static(basePath+"/shared", "dist/shared")
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
 
 func indexHandler(c echo.Context) error {
-	return c.HTML(http.StatusOK, `
+	return c.HTML(http.StatusOK, fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
 <head>
@@ -184,15 +198,15 @@ func indexHandler(c echo.Context) error {
     <h1>BarefootJS + Echo Example</h1>
     <p>This example demonstrates server-side rendering with Go Echo and BarefootJS.</p>
     <ul>
-        <li><a href="/counter">Counter</a></li>
-        <li><a href="/toggle">Toggle</a></li>
-        <li><a href="/todos">Todo (@client)</a></li>
-        <li><a href="/todos-ssr">Todo (no @client markers)</a></li>
-        <li><a href="/ai-chat">AI Chat (SSE Streaming)</a></li>
+        <li><a href="%s/counter">Counter</a></li>
+        <li><a href="%s/toggle">Toggle</a></li>
+        <li><a href="%s/todos">Todo (@client)</a></li>
+        <li><a href="%s/todos-ssr">Todo (no @client markers)</a></li>
+        <li><a href="%s/ai-chat">AI Chat (SSE Streaming)</a></li>
     </ul>
 </body>
 </html>
-`)
+`, basePath, basePath, basePath, basePath, basePath))
 }
 
 func counterHandler(c echo.Context) error {
@@ -433,7 +447,7 @@ func aiChatHandler(c echo.Context) error {
 		Title:   "AI Chat — SSE Streaming (Go/Echo)",
 		Heading: "AI Chat — SSE Streaming",
 		Extra: map[string]interface{}{
-			"extra_css": `<link rel="stylesheet" href="/shared/styles/ai-chat.css">`,
+			"extra_css": fmt.Sprintf(`<link rel="stylesheet" href="%s/shared/styles/ai-chat.css">`, basePath),
 		},
 	})
 }
