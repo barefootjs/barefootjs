@@ -201,12 +201,6 @@ export async function Hero() {
             >
               Open Playground
             </a>
-            <a
-              href="https://github.com/barefootjs/barefootjs"
-              className="btn-secondary"
-            >
-              GitHub
-            </a>
           </div>
         </div>
 
