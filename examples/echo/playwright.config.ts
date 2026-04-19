@@ -20,8 +20,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'go run .',
-    url: 'http://localhost:8080',
+    command: 'BASE_PATH=/examples/echo go run .',
+    url: 'http://localhost:8080/examples/echo',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
   },
