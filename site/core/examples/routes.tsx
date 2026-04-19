@@ -30,10 +30,9 @@ function ExamplesIndex() {
       <ul className="list-none p-0 m-0">
         {ADAPTERS.map((a) => (
           <li className="py-3 border-b border-border last:border-b-0">
-            <a href={`/examples/${a.slug}`} className="font-semibold">
-              {a.name}
-            </a>
-            <span className="ml-3 text-sm text-muted-foreground">{a.runtime}</span>
+            <a href={`/examples/${a.slug}`} className="font-semibold">{a.name}</a>
+            {' '}
+            <span className="text-sm text-muted-foreground">{a.runtime}</span>
           </li>
         ))}
       </ul>
