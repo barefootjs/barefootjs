@@ -76,14 +76,30 @@ function buildIframeSrcdoc(opts: {
     <script>
       // Classic script: runs before module scripts, so the handlers are live
       // even if the module below has a parse error or top-level rejection.
+      window.__pgStage = 'loading'
       function __pgReportError(err) {
         var el = document.getElementById('playground-error')
         if (!el) return
-        el.textContent = err && err.stack ? err.stack : String(err)
+        var stage = window.__pgStage || 'unknown'
+        var msg = err && err.stack ? err.stack : String(err)
+        el.textContent = '[stage: ' + stage + ']\\n' + msg
         el.style.display = 'block'
       }
       window.addEventListener('error', function (e) { __pgReportError(e.error || e.message) })
       window.addEventListener('unhandledrejection', function (e) { __pgReportError(e.reason) })
+      // Diagnostic: if the module script never reaches 'mounted', surface
+      // the stage so we can tell parse errors from runtime failures.
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          if (window.__pgStage !== 'mounted') {
+            var el = document.getElementById('playground-error')
+            if (el && !el.textContent) {
+              el.textContent = '[stage: ' + window.__pgStage + '] Module did not reach mount. Check the browser console for module load or parse errors.'
+              el.style.display = 'block'
+            }
+          }
+        }, 250)
+      })
     </script>
   </head>
   <body>
@@ -94,11 +110,15 @@ function buildIframeSrcdoc(opts: {
       // and \`export\` statements are valid. hydrate() calls at the bottom of
       // the compiler output register the component into the runtime's
       // registry before render() consumes it below.
+      window.__pgStage = 'module-start'
       ${safeClientJs}
+      window.__pgStage = 'hydrated'
 
       const { render } = await import('@barefootjs/client/runtime')
+      window.__pgStage = 'runtime-loaded'
       try {
         render(document.getElementById('app'), ${safeComponentName}, ${propsJson})
+        window.__pgStage = 'mounted'
       } catch (err) {
         __pgReportError(err)
       }

@@ -80,7 +80,7 @@ export function createPlaygroundApp() {
         <button id="pg-tab-button-ir" class="pg-tab" data-pg-tab="ir" role="tab" aria-selected="false" aria-controls="pg-tab-ir">IR</button>
         <button id="pg-tab-button-clientjs" class="pg-tab" data-pg-tab="clientJs" role="tab" aria-selected="false" aria-controls="pg-tab-clientjs">Client JS</button>
       </div>
-      <div class="pg-tab-body" id="pg-tab-preview" role="tabpanel" aria-labelledby="pg-tab-button-preview"><iframe id="pg-preview" sandbox="allow-scripts" title="Preview"></iframe></div>
+      <div class="pg-tab-body" id="pg-tab-preview" role="tabpanel" aria-labelledby="pg-tab-button-preview"><iframe id="pg-preview" sandbox="allow-scripts allow-same-origin" title="Preview"></iframe></div>
       <div class="pg-tab-body" id="pg-tab-ir" role="tabpanel" aria-labelledby="pg-tab-button-ir" hidden><pre id="pg-ir" class="pg-code"></pre></div>
       <div class="pg-tab-body" id="pg-tab-clientjs" role="tabpanel" aria-labelledby="pg-tab-button-clientjs" hidden><pre id="pg-clientjs" class="pg-code"></pre></div>
     </section>
