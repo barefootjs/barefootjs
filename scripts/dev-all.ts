@@ -88,11 +88,23 @@ Bun.serve({
 
     const proxyUrl = route.target + url.pathname + url.search
     try {
-      return await fetch(proxyUrl, {
+      const upstream = await fetch(proxyUrl, {
         method: req.method,
         headers: req.headers,
         body: req.method === 'GET' || req.method === 'HEAD' ? undefined : req.body,
         redirect: 'manual',
+      })
+      // Bun's fetch transparently decompresses gzip/brotli responses, but the
+      // Content-Encoding and Content-Length headers come through unchanged.
+      // Strip both so downstream browsers don't try to decompress already-
+      // plain bytes (which manifests as an empty/broken response).
+      const headers = new Headers(upstream.headers)
+      headers.delete('content-encoding')
+      headers.delete('content-length')
+      return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers,
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
