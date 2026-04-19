@@ -9,15 +9,17 @@ FROM perl:5.38-slim AS deps
 RUN apt-get update \
  && apt-get install -y --no-install-recommends make gcc libc-dev \
  && rm -rf /var/lib/apt/lists/*
-RUN cpanm --notest Mojolicious
+# Install CPAN deps into a self-contained prefix so the runtime stage can copy
+# a single directory instead of guessing which /usr/local/... paths exist.
+RUN cpanm --notest --local-lib=/opt/perl-deps Mojolicious
 
 FROM perl:5.38-slim
 RUN useradd -m -r -s /bin/false app
 WORKDIR /app
 
-COPY --from=deps /usr/local/lib/perl5 /usr/local/lib/perl5
-COPY --from=deps /usr/local/share/perl /usr/local/share/perl
-COPY --from=deps /usr/local/bin /usr/local/bin
+COPY --from=deps /opt/perl-deps /opt/perl-deps
+ENV PERL5LIB=/opt/perl-deps/lib/perl5
+ENV PATH=/opt/perl-deps/bin:$PATH
 
 COPY app.pl ./
 COPY lib ./lib
