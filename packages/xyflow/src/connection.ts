@@ -121,6 +121,11 @@ export function attachConnectionHandler<
       for (const candidate of candidates) {
         if (candidate === handleEl) continue
         if (!candidate.dataset.nodeId || candidate.dataset.nodeId === nodeId) continue
+        // Skip same-type handles — source can only connect to target and vice versa.
+        // When source+target handles overlap at the same position, without this
+        // check the source handle (first in DOM) would always win and fail validation.
+        const candidateType = candidate.classList.contains('bf-flow__handle--target') ? 'target' : 'source'
+        if (candidateType === handleType) continue
 
         const rect = candidate.getBoundingClientRect()
         const cx = rect.left + rect.width / 2

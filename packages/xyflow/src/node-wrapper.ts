@@ -302,6 +302,13 @@ export function createNodeWrapper<NodeType extends NodeBase>(
             ),
           )
 
+          // Fire onNodeDragStop callback so consumers can persist positions
+          const cb = store.onNodeDragStop
+          if (cb) {
+            const updatedNode = { ...internalNode.internals.userNode, position: committedPos }
+            cb(e, updatedNode as any, [updatedNode as any])
+          }
+
           document.removeEventListener('mousemove', onMouseMove)
           document.removeEventListener('mouseup', onMouseUp)
         }
@@ -385,12 +392,19 @@ function renderNodeContent<NodeType extends NodeBase>(
     // Reset default node styling for custom types
     el.classList.add('bf-flow__node--custom')
 
-    // Build node component props
+    // Build node component props. `selected` is exposed as a reactive getter
+    // — resolving it inside createEffect lets the custom component track
+    // selection changes after mount. Reading node.selected once at mount
+    // time gave components a stale snapshot and forced them to observe
+    // the bf-flow__node--selected class on their own.
     const nodeProps: NodeComponentProps<NodeType> = {
       id: node.id,
       data: node.internals.userNode.data,
       type: nodeType,
-      selected: node.selected ?? false,
+      selected: () => {
+        const current = store.nodes().find((n) => n.id === node.id)
+        return current?.selected ?? false
+      },
       dragging: node.dragging ?? false,
       positionAbsoluteX: node.internals.positionAbsolute.x,
       positionAbsoluteY: node.internals.positionAbsolute.y,
@@ -474,6 +488,14 @@ export function createNodeRenderer<NodeType extends NodeBase>(
       existingIds.delete(id)
 
       if (!nodeInstances.has(id)) {
+        // Reserve the Map slot BEFORE creating the wrapper. createNodeWrapper
+        // performs synchronous signal writes (via updateNodeInternals and
+        // handle-bound calculations), which can re-trigger this very effect
+        // before the loop finishes. Without a pre-reserved entry, a re-entrant
+        // fire would see the id as missing and create a duplicate DOM node
+        // for the same id.
+        const pending = {} as NodeInstance
+        nodeInstances.set(id, pending)
         const instance = createNodeWrapper(
           internalNode as InternalNodeBase<NodeType>,
           store,

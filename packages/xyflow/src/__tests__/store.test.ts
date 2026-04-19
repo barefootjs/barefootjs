@@ -74,6 +74,53 @@ describe('createFlowStore', () => {
     })
   })
 
+  test('per-node selected getter tracks setNodes updates', () => {
+    // Exercises the pattern NodeComponentProps.selected uses internally:
+    // a getter that looks the node up in store.nodes() so custom components
+    // can observe selection changes after mount via createEffect.
+    createRoot(() => {
+      const store = createFlowStore({
+        nodes: [
+          { id: '1', position: { x: 0, y: 0 }, data: {} },
+          { id: '2', position: { x: 10, y: 0 }, data: {} },
+        ],
+      })
+
+      const isSelected = (id: string) => () => {
+        const n = store.nodes().find((n) => n.id === id) as
+          | { selected?: boolean }
+          | undefined
+        return n?.selected ?? false
+      }
+
+      const log: boolean[] = []
+      const selectedOne = isSelected('1')
+      createEffect(() => {
+        log.push(selectedOne())
+      })
+
+      expect(log).toEqual([false])
+
+      store.setNodes((nds) =>
+        nds.map((n) => (n.id === '1' ? { ...n, selected: true } : n)),
+      )
+      expect(log).toEqual([false, true])
+
+      // Selecting a different node should not re-emit for node 1 since
+      // the underlying value didn't change — but store.nodes() did, so
+      // the effect re-runs. We just assert the latest value is still true.
+      store.setNodes((nds) =>
+        nds.map((n) => (n.id === '2' ? { ...n, selected: true } : n)),
+      )
+      expect(log[log.length - 1]).toBe(true)
+
+      store.setNodes((nds) =>
+        nds.map((n) => (n.id === '1' ? { ...n, selected: false } : n)),
+      )
+      expect(log[log.length - 1]).toBe(false)
+    })
+  })
+
   test('setViewport triggers reactive updates', () => {
     createRoot(() => {
       const store = createFlowStore()

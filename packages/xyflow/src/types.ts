@@ -259,7 +259,12 @@ export type NodeComponentProps<NodeType extends NodeBase = NodeBase> = {
   id: string
   data: NodeType['data']
   type: string
-  selected: boolean
+  /**
+   * Reactive getter for this node's selected state. Call inside a
+   * createEffect to observe selection changes at runtime — reading it once
+   * at mount time only yields the initial value.
+   */
+  selected: () => boolean
   dragging: boolean
   positionAbsoluteX: number
   positionAbsoluteY: number
