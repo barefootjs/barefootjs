@@ -6,6 +6,7 @@ const clientBase = `${basePath}/client/`
 export default createConfig({
   components: ['../shared/components'],
   outDir: 'dist',
+  minify: true,
   adapterOptions: {
     clientJsBasePath: clientBase,
     barefootJsPath: `${clientBase}barefoot.js`,

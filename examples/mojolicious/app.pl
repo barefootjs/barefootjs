@@ -9,14 +9,16 @@ use Mojo::JSON qw(true false encode_json);
 # Load BarefootJS plugin
 plugin 'BarefootJS';
 
-# Dev-only browser auto-reload (no-op in production). The companion snippet
-# is emitted in the layout below via `bf_dev_snippet`.
-plugin 'BarefootJS::DevReload';
-
 # URL prefix the app is mounted under. Defaults to /examples/mojolicious so
 # the app is deploy-ready for barefootjs.dev/examples/mojolicious.
 my $BASE_PATH = $ENV{BASE_PATH} // '/examples/mojolicious';
 app->defaults(base_path => $BASE_PATH);
+
+# Dev-only browser auto-reload (no-op in production). The companion snippet
+# is emitted in the layout below via `bf_dev_snippet`. The plugin registers
+# its route at the app root, so the endpoint must include $BASE_PATH
+# explicitly.
+plugin 'BarefootJS::DevReload' => { endpoint => "$BASE_PATH/_bf/reload" };
 
 # Static file roots: dist/ for generated client JS and templates; ../shared
 # for design-system stylesheets shared across all example backends.
@@ -144,6 +146,7 @@ $r->get('/' => sub ($c) {
         </style>
     </head>
     <body>
+        <p><a href="/examples">← All adapters</a></p>
         <h1>BarefootJS + Mojolicious Example</h1>
         <p>This example demonstrates server-side rendering with Mojolicious and BarefootJS.</p>
         <ul>

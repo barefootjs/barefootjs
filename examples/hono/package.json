@@ -16,6 +16,6 @@
   },
   "devDependencies": {
     "bun-types": "^1.1.0",
-    "wrangler": "^3"
+    "wrangler": "^4"
   }
 }

@@ -195,6 +195,7 @@ func indexHandler(c echo.Context) error {
     </style>
 </head>
 <body>
+    <p><a href="/examples">← All adapters</a></p>
     <h1>BarefootJS + Echo Example</h1>
     <p>This example demonstrates server-side rendering with Go Echo and BarefootJS.</p>
     <ul>
