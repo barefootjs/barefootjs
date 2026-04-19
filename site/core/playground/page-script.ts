@@ -42,22 +42,16 @@ function buildIframeSrcdoc(opts: {
       '@barefootjs/client/runtime': '/static/components/barefoot.js',
     },
   })
-  // The compiler emits top-level `import { ... } from '...'` and
-  // `export function ...`. Neither is valid inside the `try {}` block we wrap
-  // the code with, so rewrite:
-  //   - static imports → dynamic `await import(...)` + destructure
-  //   - `export function` / `export const` → drop the `export` keyword
-  // (the exports aren't used inside the iframe — hydrate() + the closure-
-  //  captured init function do all the registration.)
-  const rewrittenClientJs = clientJs
-    .replace(
-      /^\s*import\s*\{([^}]+)\}\s*from\s*(['"][^'"]+['"])\s*;?/m,
-      // Trailing \n restores the line break the \s* would otherwise eat, so
-      // `export function ...` doesn't end up fused onto this line.
-      'const {$1} = await import($2);\n',
-    )
-    .replace(/^\s*export\s+(function|const|let|var|class)\b/gm, '$1')
-  const safeClientJs = rewrittenClientJs.replace(/<\/script/gi, '<\\/script')
+  // Strip compiler-emitted side-effect markers like
+  //   import '/* @bf-child:Foo */'
+  // They're build-pipeline hints (not real modules) and would fail to fetch
+  // inside the iframe.
+  const cleanedClientJs = clientJs.replace(
+    /^\s*import\s+['"][^'"]*@bf-child:[^'"]*['"]\s*;?\s*$/gm,
+    '',
+  )
+  const safeClientJs = cleanedClientJs.replace(/<\/script/gi, '<\\/script')
+  const safeComponentName = JSON.stringify(componentName)
   return `<!DOCTYPE html>
 <html>
   <head>
@@ -79,25 +73,34 @@ function buildIframeSrcdoc(opts: {
         display: none;
       }
     </style>
+    <script>
+      // Classic script: runs before module scripts, so the handlers are live
+      // even if the module below has a parse error or top-level rejection.
+      function __pgReportError(err) {
+        var el = document.getElementById('playground-error')
+        if (!el) return
+        el.textContent = err && err.stack ? err.stack : String(err)
+        el.style.display = 'block'
+      }
+      window.addEventListener('error', function (e) { __pgReportError(e.error || e.message) })
+      window.addEventListener('unhandledrejection', function (e) { __pgReportError(e.reason) })
+    </script>
   </head>
   <body>
     <div id="app"></div>
     <pre id="playground-error"></pre>
     <script type="module">
-      const reportError = (err) => {
-        const el = document.getElementById('playground-error')
-        el.textContent = err && err.stack ? err.stack : String(err)
-        el.style.display = 'block'
-      }
-      window.addEventListener('error', (e) => reportError(e.error ?? e.message))
-      window.addEventListener('unhandledrejection', (e) => reportError(e.reason))
+      // Compiled client JS lives at module top-level so its static \`import\`
+      // and \`export\` statements are valid. hydrate() calls at the bottom of
+      // the compiler output register the component into the runtime's
+      // registry before render() consumes it below.
+      ${safeClientJs}
 
+      const { render } = await import('@barefootjs/client/runtime')
       try {
-        ${safeClientJs}
-        const { render } = await import('@barefootjs/client/runtime')
-        render(document.getElementById('app'), ${JSON.stringify(componentName)}, ${propsJson})
+        render(document.getElementById('app'), ${safeComponentName}, ${propsJson})
       } catch (err) {
-        reportError(err)
+        __pgReportError(err)
       }
     </script>
   </body>
