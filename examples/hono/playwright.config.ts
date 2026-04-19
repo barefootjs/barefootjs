@@ -20,9 +20,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'bun run server.tsx',
-    url: 'http://localhost:3001',
+    command: 'bun run build && bunx wrangler dev',
+    url: 'http://localhost:3001/examples/hono',
     reuseExistingServer: !process.env.CI,
-    timeout: 10000,
+    timeout: 30000,
   },
 })

@@ -34,7 +34,7 @@ export function AIChatInteractive() {
     setIsStreaming(true)
     setStreamingText('')
 
-    const es = new EventSource(`/api/ai-chat?q=${encodeURIComponent(trimmed)}`)
+    const es = new EventSource(`api/ai-chat?q=${encodeURIComponent(trimmed)}`)
 
     es.onmessage = (e) => {
       if (e.data === '[DONE]') {

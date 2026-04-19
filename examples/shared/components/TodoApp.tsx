@@ -51,7 +51,7 @@ function TodoApp(props: Props) {
     if (!text) return
 
     try {
-      const res = await fetch('/api/todos', {
+      const res = await fetch('api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
@@ -75,7 +75,7 @@ function TodoApp(props: Props) {
     if (!todo) return
 
     try {
-      const res = await fetch(`/api/todos/${id}`, {
+      const res = await fetch(`api/todos/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ done: !todo.done }),
@@ -89,7 +89,7 @@ function TodoApp(props: Props) {
 
   const handleDelete = async (id: number) => {
     try {
-      await fetch(`/api/todos/${id}`, { method: 'DELETE' })
+      await fetch(`api/todos/${id}`, { method: 'DELETE' })
       setTodos(todos().filter(t => t.id !== id))
     } catch (err) {
       console.error('Failed to delete todo:', err)
@@ -108,7 +108,7 @@ function TodoApp(props: Props) {
     }
 
     try {
-      const res = await fetch(`/api/todos/${id}`, {
+      const res = await fetch(`api/todos/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: trimmedText }),
@@ -124,7 +124,7 @@ function TodoApp(props: Props) {
     const completedTodos = todos().filter(t => t.done)
     for (const todo of completedTodos) {
       try {
-        await fetch(`/api/todos/${todo.id}`, { method: 'DELETE' })
+        await fetch(`api/todos/${todo.id}`, { method: 'DELETE' })
       } catch (err) {
         console.error('Failed to delete todo:', err)
       }
@@ -139,7 +139,7 @@ function TodoApp(props: Props) {
     for (const todo of todos()) {
       if (todo.done !== newDoneState) {
         try {
-          await fetch(`/api/todos/${todo.id}`, {
+          await fetch(`api/todos/${todo.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ done: newDoneState }),

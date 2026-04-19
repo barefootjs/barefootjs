@@ -1,13 +1,11 @@
 /**
- * BarefootJS + Hono/JSX SSR Server
+ * BarefootJS + Hono/JSX on Cloudflare Workers
  *
- * Uses hono/jsx with BarefootJS components.
- * Components are imported as JSX and rendered server-side.
+ * Static assets are served by Workers Assets (binding = ASSETS, directory = ./public).
+ * The Worker only handles SSR and API routes.
  */
 
 import { Hono } from 'hono'
-import { serveStatic } from 'hono/bun'
-import { createDevReloader } from '@barefootjs/hono/dev'
 import { renderer } from './renderer'
 import Counter from '@/components/Counter'
 import Toggle from '@/components/Toggle'
@@ -19,25 +17,15 @@ import PortalExample from '@/components/PortalExample'
 import ConditionalReturn from '@/components/ConditionalReturn'
 import { AIChatPage } from './components/AIChatPage'
 
-const app = new Hono()
+const BASE_PATH = process.env.BASE_PATH ?? '/examples/hono'
+const link = (path: string) => `${BASE_PATH}${path === '/' ? '' : path}`
+
+const app = new Hono().basePath(BASE_PATH)
 
 app.use(renderer)
 
-app.use('/static/*', serveStatic({
-  root: './dist',
-  rewriteRequestPath: (path) => path.replace('/static', ''),
-}))
-
-// Serve shared styles
-app.use('/shared/*', serveStatic({
-  root: '../shared',
-  rewriteRequestPath: (path) => path.replace('/shared', ''),
-}))
-
-// Dev-only browser auto-reload (no-op in production).
-app.get('/_bf/reload', createDevReloader({ distDir: './dist' }))
-
-// In-memory todo storage
+// In-memory todo storage. Workers isolates are ephemeral, so this resets
+// on cold start — acceptable for a demo.
 type Todo = { id: number; text: string; done: boolean }
 let todos: Todo[] = [
   { id: 1, text: 'Setup project', done: false },
@@ -46,18 +34,17 @@ let todos: Todo[] = [
 ]
 let nextId = 4
 
-// Pages - using JSX components directly
 app.get('/', (c) => {
   return c.render(
     <div>
       <h1>BarefootJS + Hono/JSX Examples</h1>
       <nav>
         <ul>
-          <li><a href="/counter">Counter</a></li>
-          <li><a href="/toggle">Toggle</a></li>
-          <li><a href="/todos">Todo (@client)</a></li>
-          <li><a href="/todos-ssr">Todo (no @client markers)</a></li>
-          <li><a href="/ai-chat">AI Chat (SSE Streaming)</a></li>
+          <li><a href={link('/counter')}>Counter</a></li>
+          <li><a href={link('/toggle')}>Toggle</a></li>
+          <li><a href={link('/todos')}>Todo (@client)</a></li>
+          <li><a href={link('/todos-ssr')}>Todo (no @client markers)</a></li>
+          <li><a href={link('/ai-chat')}>AI Chat (SSE Streaming)</a></li>
         </ul>
       </nav>
     </div>
@@ -69,7 +56,7 @@ app.get('/counter', (c) => {
     <div>
       <h1>Counter Example</h1>
       <Counter />
-      <p><a href="/">← Back</a></p>
+      <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
@@ -84,7 +71,7 @@ app.get('/toggle', (c) => {
     <div>
       <h1>Toggle Example</h1>
       <Toggle toggleItems={toggleItems} />
-      <p><a href="/">← Back</a></p>
+      <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
@@ -93,7 +80,7 @@ app.get('/todos', (c) => {
   return c.render(
     <div id="app">
       <TodoApp initialTodos={todos} />
-      <p><a href="/">← Back</a></p>
+      <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
@@ -102,63 +89,57 @@ app.get('/todos-ssr', (c) => {
   return c.render(
     <div id="app">
       <TodoAppSSR initialTodos={todos} />
-      <p><a href="/">← Back</a></p>
+      <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
 
-// Reactive Props test page (verifies reactivity model from spec/compiler.md)
 app.get('/reactive-props', (c) => {
   return c.render(
     <div>
       <h1>Reactive Props Test</h1>
       <ReactiveProps />
-      <p><a href="/">← Back</a></p>
+      <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
 
-// Props Reactivity Comparison test page
-// Demonstrates difference between props.xxx (reactive) and destructured (not reactive)
 app.get('/props-reactivity', (c) => {
   return c.render(
     <div>
       <h1>Props Reactivity Comparison</h1>
       <PropsReactivityComparison />
-      <p><a href="/">← Back</a></p>
+      <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
 
-// Form example (checkbox + button interaction)
 app.get('/form', (c) => {
   return c.render(
     <div>
       <h1>Form Example</h1>
       <Form />
-      <p><a href="/">← Back</a></p>
+      <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
 
-// Portal example
 app.get('/portal', (c) => {
   return c.render(
     <div>
       <h1>Portal Example</h1>
       <PortalExample />
-      <p><a href="/">← Back</a></p>
+      <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
 
-// Conditional return (if/else JSX branches)
 app.get('/conditional-return', (c) => {
   return c.render(
     <div>
       <h1>Conditional Return Example</h1>
       <ConditionalReturn />
-      <p><a href="/">← Back</a></p>
+      <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
@@ -168,18 +149,15 @@ app.get('/conditional-return-link', (c) => {
     <div>
       <h1>Conditional Return Example (Link)</h1>
       <ConditionalReturn variant="link" />
-      <p><a href="/">← Back</a></p>
+      <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
 
-// AI Chat with SSE streaming
 app.get('/ai-chat', (c) => {
   return c.render(<AIChatPage />)
 })
 
-// SSE endpoint: streams a dummy response token by token.
-// Replace this endpoint with a real LLM streaming API (e.g. OpenAI, Anthropic) for production use.
 const FAKE_RESPONSES = [
   '[Dummy response] This text is streaming one character at a time via Server-Sent Events. Replace /api/ai-chat in server.tsx with a real LLM API to make this chat functional.',
   '[Dummy response] BarefootJS streams tokens using the SSE protocol. Each character arrives as a separate "data:" event. Wire up OpenAI or Anthropic here for real AI responses.',
@@ -190,7 +168,7 @@ const FAKE_RESPONSES = [
 
 app.get('/api/ai-chat', () => {
   const text = FAKE_RESPONSES[Math.floor(Math.random() * FAKE_RESPONSES.length)]
-  const chars = [...text] // Unicode-safe split
+  const chars = [...text]
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -214,7 +192,6 @@ app.get('/api/ai-chat', () => {
   })
 })
 
-// REST API
 app.get('/api/todos', (c) => c.json(todos))
 
 app.post('/api/todos', async (c) => {
@@ -248,7 +225,6 @@ app.delete('/api/todos/:id', (c) => {
   return c.json({ success: true })
 })
 
-// Reset todos to initial state (for testing)
 app.post('/api/todos/reset', (c) => {
   todos = [
     { id: 1, text: 'Setup project', done: false },
@@ -259,4 +235,4 @@ app.post('/api/todos/reset', (c) => {
   return c.json({ success: true })
 })
 
-export default { port: 3001, fetch: app.fetch }
+export default app

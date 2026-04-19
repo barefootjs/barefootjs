@@ -6,4 +6,4 @@
 
 import { formTests } from '../../shared/e2e/form.spec'
 
-formTests('http://localhost:3001')
+formTests('http://localhost:3001/examples/hono')

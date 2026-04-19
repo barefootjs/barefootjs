@@ -1,0 +1,18 @@
+name = "barefootjs-hono-example"
+main = "server.tsx"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[routes]]
+pattern = "barefootjs.dev/examples/hono/*"
+zone_name = "barefootjs.dev"
+
+[vars]
+BASE_PATH = "/examples/hono"
+
+[dev]
+port = 3001

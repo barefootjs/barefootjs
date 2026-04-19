@@ -40,6 +40,17 @@ interface NestedComponentInfo extends IRLoopChildComponent {
 export interface GoTemplateAdapterOptions {
   /** Go package name for generated types (default: 'components') */
   packageName?: string
+
+  /**
+   * Base path for client JS files (e.g., '/static/client/').
+   * Used to generate script registration paths.
+   */
+  clientJsBasePath?: string
+
+  /**
+   * Path to barefoot.js runtime (e.g., '/static/client/barefoot.js').
+   */
+  barefootJsPath?: string
 }
 
 /**
@@ -76,6 +87,8 @@ export class GoTemplateAdapter extends BaseAdapter {
     super()
     this.options = {
       packageName: options.packageName ?? 'components',
+      clientJsBasePath: options.clientJsBasePath ?? '/static/client/',
+      barefootJsPath: options.barefootJsPath ?? '/static/client/barefoot.js',
     }
   }
 
@@ -236,12 +249,12 @@ export class GoTemplateAdapter extends BaseAdapter {
     const registrations: string[] = []
 
     // Register barefoot.js runtime first
-    registrations.push(`{{.Scripts.Register "/static/client/barefoot.js"}}`)
+    registrations.push(`{{.Scripts.Register "${this.options.barefootJsPath}"}}`)
 
     // Register this component's script
     // Use scriptBaseName if provided (for non-default exports sharing parent's .client.js)
     const scriptName = scriptBaseName || ir.metadata.componentName
-    registrations.push(`{{.Scripts.Register "/static/client/${scriptName}.client.js"}}`)
+    registrations.push(`{{.Scripts.Register "${this.options.clientJsBasePath}${scriptName}.client.js"}}`)
 
     // Wrap in nil check to safely handle cases where Scripts is not set
     return `{{if .Scripts}}${registrations.join('')}{{end}}\n`

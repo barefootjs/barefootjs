@@ -6,4 +6,4 @@
 
 import { conditionalReturnTests } from '../../shared/e2e/conditional-return.spec'
 
-conditionalReturnTests('http://localhost:3001')
+conditionalReturnTests('http://localhost:3001/examples/hono')

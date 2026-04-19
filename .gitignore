@@ -8,6 +8,10 @@ out
 dist
 *.tgz
 
+# Cloudflare Workers artifacts
+examples/*/public
+examples/*/.wrangler
+
 # code coverage
 coverage
 *.lcov

@@ -435,4 +435,33 @@ export function ConditionalComponent(props: { variant: string }) {
       expect(scopeCommentCount).toBeGreaterThanOrEqual(2)
     })
   })
+
+  describe('script registration - asset paths', () => {
+    const source = `
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function Counter() {
+  const [count, setCount] = createSignal(0)
+  return <div>{count()}</div>
+}
+`
+
+    test('defaults to /static/client/', () => {
+      const result = compileAndGenerate(source)
+      expect(result.template).toContain('{{.Scripts.Register "/static/client/barefoot.js"}}')
+      expect(result.template).toContain('{{.Scripts.Register "/static/client/Counter.client.js"}}')
+    })
+
+    test('honors clientJsBasePath and barefootJsPath options', () => {
+      const adapter = new GoTemplateAdapter({
+        clientJsBasePath: '/examples/echo/client/',
+        barefootJsPath: '/examples/echo/client/barefoot.js',
+      })
+      const result = compileAndGenerate(source, adapter)
+      expect(result.template).toContain('{{.Scripts.Register "/examples/echo/client/barefoot.js"}}')
+      expect(result.template).toContain('{{.Scripts.Register "/examples/echo/client/Counter.client.js"}}')
+      expect(result.template).not.toContain('/static/client/')
+    })
+  })
 })
