@@ -6,6 +6,8 @@
  */
 
 import { Hono } from 'hono'
+import type { Context } from 'hono'
+import { getCookie, setCookie } from 'hono/cookie'
 import { createDevReloader } from '@barefootjs/hono/dev-worker'
 import { renderer } from './renderer'
 import Counter from '@/components/Counter'
@@ -35,15 +37,68 @@ app.use(renderer)
 // No-op in production (NODE_ENV=production).
 app.get('/_bf/reload', createDevReloader())
 
-// In-memory todo storage. Workers isolates are ephemeral, so this resets
-// on cold start — acceptable for a demo.
+// Per-session in-memory todo storage. Each browser gets an opaque session
+// id via a cookie scoped to BASE_PATH; the map is keyed by that id so one
+// visitor's list is never visible to another. Workers isolates are
+// ephemeral, so every cold start resets all sessions — acceptable for a
+// demo and also a cheap way to evict stale data.
 type Todo = { id: number; text: string; done: boolean }
-let todos: Todo[] = [
-  { id: 1, text: 'Setup project', done: false },
-  { id: 2, text: 'Create components', done: false },
-  { id: 3, text: 'Write tests', done: true },
-]
-let nextId = 4
+type SessionState = { todos: Todo[]; nextId: number }
+
+const SESSION_COOKIE = 'bf_session'
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30 // 30d
+const MAX_SESSIONS = 1000
+
+const sessions = new Map<string, SessionState>()
+
+function seedTodos(): Todo[] {
+  return [
+    { id: 1, text: 'Setup project', done: false },
+    { id: 2, text: 'Create components', done: false },
+    { id: 3, text: 'Write tests', done: true },
+  ]
+}
+
+function seedSession(): SessionState {
+  return { todos: seedTodos(), nextId: 4 }
+}
+
+function touchLRU(id: string, state: SessionState) {
+  // Re-insert so Map iteration order reflects recency; the first key is
+  // always the least-recently-used session.
+  sessions.delete(id)
+  sessions.set(id, state)
+}
+
+function evictIfNeeded() {
+  while (sessions.size > MAX_SESSIONS) {
+    const oldest = sessions.keys().next().value
+    if (oldest === undefined) break
+    sessions.delete(oldest)
+  }
+}
+
+function getSession(c: Context): SessionState {
+  let id = getCookie(c, SESSION_COOKIE)
+  if (!id) {
+    id = crypto.randomUUID()
+    setCookie(c, SESSION_COOKIE, id, {
+      path: BASE_PATH,
+      httpOnly: true,
+      sameSite: 'Lax',
+      maxAge: SESSION_TTL_SECONDS,
+    })
+  }
+  let state = sessions.get(id)
+  if (!state) {
+    state = seedSession()
+    sessions.set(id, state)
+    evictIfNeeded()
+  } else {
+    touchLRU(id, state)
+  }
+  return state
+}
 
 app.get('/', (c) => {
   return c.render(
@@ -89,18 +144,20 @@ app.get('/toggle', (c) => {
 })
 
 app.get('/todos', (c) => {
+  const session = getSession(c)
   return c.render(
     <div id="app">
-      <TodoApp initialTodos={todos} />
+      <TodoApp initialTodos={session.todos} />
       <p><a href={link('/')}>← Back</a></p>
     </div>
   )
 })
 
 app.get('/todos-ssr', (c) => {
+  const session = getSession(c)
   return c.render(
     <div id="app">
-      <TodoAppSSR initialTodos={todos} />
+      <TodoAppSSR initialTodos={session.todos} />
       <p><a href={link('/')}>← Back</a></p>
     </div>
   )
@@ -204,12 +261,13 @@ app.get('/api/ai-chat', () => {
   })
 })
 
-app.get('/api/todos', (c) => c.json(todos))
+app.get('/api/todos', (c) => c.json(getSession(c).todos))
 
 app.post('/api/todos', async (c) => {
+  const session = getSession(c)
   const body = await c.req.json()
-  const newTodo: Todo = { id: nextId++, text: body.text, done: false }
-  todos.push(newTodo)
+  const newTodo: Todo = { id: session.nextId++, text: body.text, done: false }
+  session.todos.push(newTodo)
   return c.json(newTodo, 201)
 })
 
@@ -217,8 +275,9 @@ app.put('/api/todos/:id', async (c) => {
   const id = parseInt(c.req.param('id'), 10)
   if (isNaN(id)) return c.json({ error: 'Invalid ID' }, 400)
 
+  const session = getSession(c)
   const body = await c.req.json()
-  const todo = todos.find(t => t.id === id)
+  const todo = session.todos.find(t => t.id === id)
   if (!todo) return c.json({ error: 'Todo not found' }, 404)
 
   if (body.text !== undefined) todo.text = body.text
@@ -230,20 +289,18 @@ app.delete('/api/todos/:id', (c) => {
   const id = parseInt(c.req.param('id'), 10)
   if (isNaN(id)) return c.json({ error: 'Invalid ID' }, 400)
 
-  const index = todos.findIndex(t => t.id === id)
+  const session = getSession(c)
+  const index = session.todos.findIndex(t => t.id === id)
   if (index === -1) return c.json({ error: 'Todo not found' }, 404)
 
-  todos.splice(index, 1)
+  session.todos.splice(index, 1)
   return c.json({ success: true })
 })
 
 app.post('/api/todos/reset', (c) => {
-  todos = [
-    { id: 1, text: 'Setup project', done: false },
-    { id: 2, text: 'Create components', done: false },
-    { id: 3, text: 'Write tests', done: true },
-  ]
-  nextId = 4
+  const session = getSession(c)
+  session.todos = seedTodos()
+  session.nextId = 4
   return c.json({ success: true })
 })
 

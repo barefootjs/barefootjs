@@ -1,6 +1,9 @@
 package main
 
 import (
+	"container/list"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -89,27 +92,101 @@ func defaultLayout(ctx *bf.RenderContext) string {
 </html>`, ctx.Title, basePath, basePath, headingStyle, extraCSS, headingHTML, ctx.ComponentHTML, basePath, ctx.Portals, ctx.Scripts)
 }
 
-// In-memory todo storage
-var (
-	todoMutex  sync.RWMutex
-	todoNextID = 4
-	todos      = []Todo{
-		{ID: 1, Text: "Setup project", Done: false, Editing: false},
-		{ID: 2, Text: "Create components", Done: false, Editing: false},
-		{ID: 3, Text: "Write tests", Done: true, Editing: false},
-	}
+// Per-session in-memory todo storage. Each browser gets an opaque session
+// id via a cookie scoped to basePath; sessionStore keys on that id so one
+// visitor's list is never visible to another. LRU-bounded to keep memory
+// usage predictable; oldest sessions get evicted past sessionStoreMax.
+const (
+	sessionCookieName = "bf_session"
+	sessionTTLSeconds = 60 * 60 * 24 * 30 // 30d
+	sessionStoreMax   = 1000
 )
 
-// Reset todos to initial state (for testing)
-func resetTodos() {
-	todoMutex.Lock()
-	defer todoMutex.Unlock()
-	todoNextID = 4
-	todos = []Todo{
+type sessionState struct {
+	mu     sync.Mutex
+	todos  []Todo
+	nextID int
+}
+
+type sessionStoreT struct {
+	mu    sync.Mutex
+	items map[string]*list.Element // session id → list element holding (id, state)
+	order *list.List               // front = most recent, back = least recent
+}
+
+type sessionEntry struct {
+	id    string
+	state *sessionState
+}
+
+var sessionStore = &sessionStoreT{
+	items: make(map[string]*list.Element),
+	order: list.New(),
+}
+
+func seedTodos() []Todo {
+	return []Todo{
 		{ID: 1, Text: "Setup project", Done: false, Editing: false},
 		{ID: 2, Text: "Create components", Done: false, Editing: false},
 		{ID: 3, Text: "Write tests", Done: true, Editing: false},
 	}
+}
+
+func newSessionID() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+// getSession returns the per-session todo state for the caller, creating a
+// new session (and setting the cookie) if none exists yet.
+func getSession(c echo.Context) *sessionState {
+	var id string
+	if ck, err := c.Cookie(sessionCookieName); err == nil && ck.Value != "" {
+		id = ck.Value
+	} else {
+		newID, err := newSessionID()
+		if err != nil {
+			// Fall back to a process-local deterministic id on error; bad
+			// luck for the caller but avoids 500.
+			newID = fmt.Sprintf("fallback-%d", time.Now().UnixNano())
+		}
+		id = newID
+		c.SetCookie(&http.Cookie{
+			Name:     sessionCookieName,
+			Value:    id,
+			Path:     basePath,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   sessionTTLSeconds,
+		})
+	}
+
+	sessionStore.mu.Lock()
+	defer sessionStore.mu.Unlock()
+
+	if elem, ok := sessionStore.items[id]; ok {
+		sessionStore.order.MoveToFront(elem)
+		return elem.Value.(*sessionEntry).state
+	}
+
+	state := &sessionState{todos: seedTodos(), nextID: 4}
+	elem := sessionStore.order.PushFront(&sessionEntry{id: id, state: state})
+	sessionStore.items[id] = elem
+
+	// Evict least-recently-used sessions if we're over capacity.
+	for sessionStore.order.Len() > sessionStoreMax {
+		oldest := sessionStore.order.Back()
+		if oldest == nil {
+			break
+		}
+		sessionStore.order.Remove(oldest)
+		delete(sessionStore.items, oldest.Value.(*sessionEntry).id)
+	}
+
+	return state
 }
 
 func main() {
@@ -236,10 +313,11 @@ func toggleHandler(c echo.Context) error {
 }
 
 func todosHandler(c echo.Context) error {
-	todoMutex.RLock()
-	currentTodos := make([]Todo, len(todos))
-	copy(currentTodos, todos)
-	todoMutex.RUnlock()
+	state := getSession(c)
+	state.mu.Lock()
+	currentTodos := make([]Todo, len(state.todos))
+	copy(currentTodos, state.todos)
+	state.mu.Unlock()
 
 	// Build TodoItemProps array with ScopeID for each item
 	todoItems := make([]TodoItemProps, len(currentTodos))
@@ -318,10 +396,11 @@ func conditionalReturnLinkHandler(c echo.Context) error {
 }
 
 func todosSSRHandler(c echo.Context) error {
-	todoMutex.RLock()
-	currentTodos := make([]Todo, len(todos))
-	copy(currentTodos, todos)
-	todoMutex.RUnlock()
+	state := getSession(c)
+	state.mu.Lock()
+	currentTodos := make([]Todo, len(state.todos))
+	copy(currentTodos, state.todos)
+	state.mu.Unlock()
 
 	// Build TodoItemProps array with ScopeID for each item
 	todoItems := make([]TodoItemProps, len(currentTodos))
@@ -347,9 +426,10 @@ func todosSSRHandler(c echo.Context) error {
 
 // Todo API handlers
 func getTodosAPI(c echo.Context) error {
-	todoMutex.RLock()
-	defer todoMutex.RUnlock()
-	return c.JSON(http.StatusOK, todos)
+	state := getSession(c)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return c.JSON(http.StatusOK, state.todos)
 }
 
 func createTodoAPI(c echo.Context) error {
@@ -360,15 +440,16 @@ func createTodoAPI(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid input"})
 	}
 
-	todoMutex.Lock()
+	state := getSession(c)
+	state.mu.Lock()
 	newTodo := Todo{
-		ID:   todoNextID,
+		ID:   state.nextID,
 		Text: input.Text,
 		Done: false,
 	}
-	todoNextID++
-	todos = append(todos, newTodo)
-	todoMutex.Unlock()
+	state.nextID++
+	state.todos = append(state.todos, newTodo)
+	state.mu.Unlock()
 
 	return c.JSON(http.StatusCreated, newTodo)
 }
@@ -387,18 +468,19 @@ func updateTodoAPI(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid input"})
 	}
 
-	todoMutex.Lock()
-	defer todoMutex.Unlock()
+	state := getSession(c)
+	state.mu.Lock()
+	defer state.mu.Unlock()
 
-	for i, todo := range todos {
+	for i, todo := range state.todos {
 		if todo.ID == id {
 			if input.Text != nil {
-				todos[i].Text = *input.Text
+				state.todos[i].Text = *input.Text
 			}
 			if input.Done != nil {
-				todos[i].Done = *input.Done
+				state.todos[i].Done = *input.Done
 			}
-			return c.JSON(http.StatusOK, todos[i])
+			return c.JSON(http.StatusOK, state.todos[i])
 		}
 	}
 
@@ -411,12 +493,13 @@ func deleteTodoAPI(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
 	}
 
-	todoMutex.Lock()
-	defer todoMutex.Unlock()
+	state := getSession(c)
+	state.mu.Lock()
+	defer state.mu.Unlock()
 
-	for i, todo := range todos {
+	for i, todo := range state.todos {
 		if todo.ID == id {
-			todos = append(todos[:i], todos[i+1:]...)
+			state.todos = append(state.todos[:i], state.todos[i+1:]...)
 			return c.NoContent(http.StatusNoContent)
 		}
 	}
@@ -425,7 +508,11 @@ func deleteTodoAPI(c echo.Context) error {
 }
 
 func resetTodosAPI(c echo.Context) error {
-	resetTodos()
+	state := getSession(c)
+	state.mu.Lock()
+	state.todos = seedTodos()
+	state.nextID = 4
+	state.mu.Unlock()
 	return c.NoContent(http.StatusOK)
 }
 

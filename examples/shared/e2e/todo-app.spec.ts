@@ -19,9 +19,12 @@ export function todoAppTests(baseUrl: string, todosPath: string = '/todos') {
     // Increase timeout for TodoApp tests (hydration can take time)
     test.setTimeout(30000)
 
-    test.beforeEach(async ({ page, request }) => {
-      // Reset server state before each test
-      await request.post(`${baseUrl}/api/todos/reset`)
+    test.beforeEach(async ({ page }) => {
+      // Reset server state before each test. Use `page.request` (not the
+      // standalone `request` fixture) so the reset POST shares cookies —
+      // and therefore the per-session todo list — with the page navigation
+      // that follows.
+      await page.request.post(`${baseUrl}/api/todos/reset`)
       await page.goto(`${baseUrl}${todosPath}`)
       // Wait for todoapp to be loaded
       await page.waitForSelector('.todoapp')
@@ -167,9 +170,9 @@ export function todoAppTests(baseUrl: string, todosPath: string = '/todos') {
       await expect(page.locator('.todo-list li').first()).toContainText('Write tests')
     })
 
-    test('filters on direct URL access - #/active', async ({ page, request }) => {
-      // Reset server state
-      await request.post(`${baseUrl}/api/todos/reset`)
+    test('filters on direct URL access - #/active', async ({ page }) => {
+      // Reset server state (page-bound request shares the session cookie)
+      await page.request.post(`${baseUrl}/api/todos/reset`)
 
       // Navigate directly to /todos#/active
       await page.goto(`${baseUrl}${todosPath}#/active`)
@@ -187,9 +190,9 @@ export function todoAppTests(baseUrl: string, todosPath: string = '/todos') {
       await expect(page.locator('.todo-list li')).not.toContainText(['Write tests'])
     })
 
-    test('filters on direct URL access - #/completed', async ({ page, request }) => {
-      // Reset server state
-      await request.post(`${baseUrl}/api/todos/reset`)
+    test('filters on direct URL access - #/completed', async ({ page }) => {
+      // Reset server state (page-bound request shares the session cookie)
+      await page.request.post(`${baseUrl}/api/todos/reset`)
 
       // Navigate directly to /todos#/completed
       await page.goto(`${baseUrl}${todosPath}#/completed`)

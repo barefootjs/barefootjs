@@ -36,23 +36,73 @@ if (app->mode eq 'development') {
 }
 
 # ---------------------------------------------------------------------------
-# In-memory todo storage
+# Per-session in-memory todo storage
+#
+# Each browser gets an opaque session id via a cookie scoped to $BASE_PATH;
+# %sessions keys on that id so one visitor's list is never visible to
+# another. LRU-bounded so memory usage stays predictable.
 # ---------------------------------------------------------------------------
 
-my @todos = (
-    { id => 1, text => 'Setup project',     done => false, editing => false },
-    { id => 2, text => 'Create components', done => false, editing => false },
-    { id => 3, text => 'Write tests',       done => true,  editing => false },
-);
-my $next_id = 4;
+use constant {
+    SESSION_COOKIE     => 'bf_session',
+    SESSION_TTL_SEC    => 60 * 60 * 24 * 30, # 30d
+    SESSION_STORE_MAX  => 1000,
+};
 
-sub reset_todos {
-    @todos = (
+my %sessions;          # id => { todos => [...], next_id => N }
+my @session_order;     # ids in access order, oldest at index 0
+
+sub seed_todos {
+    return [
         { id => 1, text => 'Setup project',     done => false, editing => false },
         { id => 2, text => 'Create components', done => false, editing => false },
         { id => 3, text => 'Write tests',       done => true,  editing => false },
-    );
-    $next_id = 4;
+    ];
+}
+
+sub new_session_id {
+    # 16 bytes of /dev/urandom, hex-encoded (32 chars). Fall back to a
+    # time+rand combo if urandom is unavailable — good enough for a demo.
+    if (open my $fh, '<:raw', '/dev/urandom') {
+        read $fh, my $bytes, 16;
+        close $fh;
+        return unpack 'H*', $bytes if length $bytes == 16;
+    }
+    return sprintf '%d-%d', time, int(rand(2 ** 31));
+}
+
+sub get_session ($c) {
+    my $id = $c->cookie(SESSION_COOKIE);
+    unless (defined $id && length $id && exists $sessions{$id}) {
+        unless (defined $id && length $id) {
+            $id = new_session_id();
+            $c->cookie(
+                SESSION_COOKIE,
+                $id,
+                {
+                    path     => $BASE_PATH,
+                    httponly => 1,
+                    samesite => 'Lax',
+                    max_age  => SESSION_TTL_SEC,
+                },
+            );
+        }
+        if (!exists $sessions{$id}) {
+            $sessions{$id} = { todos => seed_todos(), next_id => 4 };
+            push @session_order, $id;
+            # Evict oldest if over capacity.
+            while (scalar @session_order > SESSION_STORE_MAX) {
+                my $oldest = shift @session_order;
+                delete $sessions{$oldest};
+            }
+        }
+    }
+    else {
+        # Touch LRU: move to back of access order.
+        @session_order = grep { $_ ne $id } @session_order;
+        push @session_order, $id;
+    }
+    return $sessions{$id};
 }
 
 # ---------------------------------------------------------------------------
@@ -227,7 +277,8 @@ $r->get('/conditional-return-link' => sub ($c) {
 });
 
 $r->get('/todos' => sub ($c) {
-    my @current_todos = map { {%$_} } @todos;  # shallow copy
+    my $session = get_session($c);
+    my @current_todos = map { {%$_} } @{ $session->{todos} };  # shallow copy
     my $done_count = scalar grep { $_->{done} } @current_todos;
 
     $c->render_component('TodoApp',
@@ -243,7 +294,8 @@ $r->get('/todos' => sub ($c) {
 });
 
 $r->get('/todos-ssr' => sub ($c) {
-    my @current_todos = map { {%$_} } @todos;
+    my $session = get_session($c);
+    my @current_todos = map { {%$_} } @{ $session->{todos} };
     my $done_count = scalar grep { $_->{done} } @current_todos;
 
     $c->render_component('TodoAppSSR',
@@ -342,25 +394,28 @@ $r->get('/api/ai-chat' => sub ($c) {
 # ---------------------------------------------------------------------------
 
 $r->get('/api/todos' => sub ($c) {
-    $c->render(json => \@todos);
+    my $session = get_session($c);
+    $c->render(json => $session->{todos});
 });
 
 $r->post('/api/todos' => sub ($c) {
+    my $session = get_session($c);
     my $input = $c->req->json;
     my $todo = {
-        id      => $next_id++,
+        id      => $session->{next_id}++,
         text    => $input->{text},
         done    => false,
         editing => false,
     };
-    push @todos, $todo;
+    push @{ $session->{todos} }, $todo;
     $c->render(json => $todo, status => 201);
 });
 
 $r->put('/api/todos/:id' => sub ($c) {
+    my $session = get_session($c);
     my $id = $c->param('id');
     my $input = $c->req->json;
-    for my $todo (@todos) {
+    for my $todo (@{ $session->{todos} }) {
         if ($todo->{id} == $id) {
             $todo->{text} = $input->{text} if exists $input->{text};
             $todo->{done} = $input->{done} ? true : false if exists $input->{done};
@@ -371,13 +426,16 @@ $r->put('/api/todos/:id' => sub ($c) {
 });
 
 $r->delete('/api/todos/:id' => sub ($c) {
+    my $session = get_session($c);
     my $id = $c->param('id');
-    @todos = grep { $_->{id} != $id } @todos;
+    $session->{todos} = [ grep { $_->{id} != $id } @{ $session->{todos} } ];
     $c->rendered(204);
 });
 
 $r->post('/api/todos/reset' => sub ($c) {
-    reset_todos();
+    my $session = get_session($c);
+    $session->{todos}   = seed_todos();
+    $session->{next_id} = 4;
     $c->rendered(200);
 });
 
