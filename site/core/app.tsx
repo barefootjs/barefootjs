@@ -1,14 +1,16 @@
 /**
  * Top-level Hono application for the BarefootJS site.
  *
- * Mounts two sub-apps:
- *   GET /          → Landing page
- *   GET /docs/...  → Documentation
+ * Mounts sub-apps:
+ *   GET /              → Landing page
+ *   GET /docs/...      → Documentation
+ *   GET /playground    → In-browser compiler playground
  */
 
 import { Hono } from 'hono'
 import { createDocsApp } from './docs-app'
 import { createLandingApp } from './landing/routes'
+import { createPlaygroundApp } from './playground/routes'
 import type { Page, ContentMap } from './lib/content'
 
 /**
@@ -27,6 +29,9 @@ export async function createApp(content: ContentMap, pages: Page[]): Promise<Hon
   // Documentation (GET /docs/...)
   const docsApp = await createDocsApp(content, pages)
   app.route('/docs', docsApp)
+
+  // Playground (GET /playground)
+  app.route('/playground', createPlaygroundApp())
 
   return app
 }

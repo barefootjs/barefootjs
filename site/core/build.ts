@@ -331,6 +331,55 @@ if (logoFiles.length > 0) {
   console.log(`Copied: dist/logos/, dist/static/logos/ (${logoFiles.length} files)`)
 }
 
+// ── 9b. Build playground worker + page script ─────────────────
+const PLAYGROUND_SRC_DIR = resolve(ROOT_DIR, 'playground')
+const PLAYGROUND_DIST_DIR = resolve(DIST_DIR, 'playground')
+const PLAYGROUND_STATIC_DIR = resolve(DIST_STATIC_DIR, 'playground')
+await mkdir(PLAYGROUND_DIST_DIR, { recursive: true })
+await mkdir(PLAYGROUND_STATIC_DIR, { recursive: true })
+
+async function writePlaygroundAsset(name: string, output: Blob) {
+  // Write to both dist/playground/ (dev serveStatic strips /static) and
+  // dist/static/playground/ (Cloudflare Workers assets preserve the prefix).
+  await Bun.write(resolve(PLAYGROUND_DIST_DIR, name), output)
+  await Bun.write(resolve(PLAYGROUND_STATIC_DIR, name), Bun.file(resolve(PLAYGROUND_DIST_DIR, name)))
+}
+
+// Worker: bundles @barefootjs/jsx + typescript inline so the playground can
+// compile JSX entirely in the browser.
+const playgroundWorker = await Bun.build({
+  entrypoints: [resolve(PLAYGROUND_SRC_DIR, 'worker.ts')],
+  target: 'browser',
+  format: 'esm',
+  minify: true,
+})
+if (!playgroundWorker.success) {
+  console.error('Playground worker build failed')
+  for (const log of playgroundWorker.logs) console.error(log)
+  throw new Error('Playground worker bundle failed to build')
+}
+for (const output of playgroundWorker.outputs) {
+  await writePlaygroundAsset('worker.js', output)
+}
+console.log('Generated: dist/playground/worker.js (+ static copy)')
+
+// Page script: Monaco glue + worker orchestration.
+const playgroundPage = await Bun.build({
+  entrypoints: [resolve(PLAYGROUND_SRC_DIR, 'page-script.ts')],
+  target: 'browser',
+  format: 'esm',
+  minify: true,
+})
+if (!playgroundPage.success) {
+  console.error('Playground page script build failed')
+  for (const log of playgroundPage.logs) console.error(log)
+  throw new Error('Playground page bundle failed to build')
+}
+for (const output of playgroundPage.outputs) {
+  await writePlaygroundAsset('page.js', output)
+}
+console.log('Generated: dist/playground/page.js (+ static copy)')
+
 // ── 10. Generate llms.txt ──────────────────────────────────────
 const coreDocs = scanCoreDocs(CONTENT_DIR)
 const coreLlmsTxt = generateCoreLlmsTxt(coreDocs, 'https://barefootjs.dev/docs')
