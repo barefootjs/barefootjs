@@ -356,12 +356,12 @@ const playgroundWorker = await Bun.build({
 if (!playgroundWorker.success) {
   console.error('Playground worker build failed')
   for (const log of playgroundWorker.logs) console.error(log)
-} else {
-  for (const output of playgroundWorker.outputs) {
-    await writePlaygroundAsset('worker.js', output)
-  }
-  console.log('Generated: dist/playground/worker.js (+ static copy)')
+  throw new Error('Playground worker bundle failed to build')
 }
+for (const output of playgroundWorker.outputs) {
+  await writePlaygroundAsset('worker.js', output)
+}
+console.log('Generated: dist/playground/worker.js (+ static copy)')
 
 // Page script: Monaco glue + worker orchestration.
 const playgroundPage = await Bun.build({
@@ -373,12 +373,12 @@ const playgroundPage = await Bun.build({
 if (!playgroundPage.success) {
   console.error('Playground page script build failed')
   for (const log of playgroundPage.logs) console.error(log)
-} else {
-  for (const output of playgroundPage.outputs) {
-    await writePlaygroundAsset('page.js', output)
-  }
-  console.log('Generated: dist/playground/page.js (+ static copy)')
+  throw new Error('Playground page bundle failed to build')
 }
+for (const output of playgroundPage.outputs) {
+  await writePlaygroundAsset('page.js', output)
+}
+console.log('Generated: dist/playground/page.js (+ static copy)')
 
 // ── 10. Generate llms.txt ──────────────────────────────────────
 const coreDocs = scanCoreDocs(CONTENT_DIR)

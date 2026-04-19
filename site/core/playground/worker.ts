@@ -51,30 +51,47 @@ function compile(source: string): CompileResponse | null {
         {
           severity: 'error',
           message:
-            'No exported component function found. Export a function that returns JSX.',
+            'No component function found. Add a PascalCase function that returns JSX.',
         },
       ],
     }
   }
 
-  // Use the last exported component as the entry (so helper components above
+  // Use the last detected component as the entry (so helper components above
   // it are still compiled into the same bundle via child registration).
   const entryName = names[names.length - 1]
-  const ctx = analyzeComponent(source, VIRTUAL_PATH)
+  const ctx = analyzeComponent(source, VIRTUAL_PATH, entryName)
   const errors = ctx.errors.filter((e) => e.severity === 'error')
   const warnings = ctx.errors.filter((e) => e.severity === 'warning')
 
+  if (errors.length > 0) {
+    return { id: 0, ok: false, errors }
+  }
+
   if (!ctx.jsxReturn) {
-    return { id: 0, ok: false, errors: errors.length ? errors : [
-      { severity: 'error', message: 'Component has no JSX return value.' },
-    ] }
+    return {
+      id: 0,
+      ok: false,
+      errors: [
+        { severity: 'error', message: 'Component has no JSX return value.' },
+      ],
+    }
   }
 
   const ir = jsxToIR(ctx)
+  // jsxToIR can surface new errors into ctx.errors — re-check before emitting.
+  const postIrErrors = ctx.errors.filter((e) => e.severity === 'error')
+  if (postIrErrors.length > 0) {
+    return { id: 0, ok: false, errors: postIrErrors }
+  }
   if (!ir) {
-    return { id: 0, ok: false, errors: errors.length ? errors : [
-      { severity: 'error', message: 'Failed to build IR for component.' },
-    ] }
+    return {
+      id: 0,
+      ok: false,
+      errors: [
+        { severity: 'error', message: 'Failed to build IR for component.' },
+      ],
+    }
   }
 
   const componentIR: ComponentIR = {
