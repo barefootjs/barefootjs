@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-type Tab = 'preview' | 'ir' | 'clientJs'
+type Tab = 'preview' | 'ir' | 'clientJs' | 'template'
 
 const MONACO_CDN = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs'
 
@@ -151,6 +151,7 @@ async function main() {
   ) as HTMLIFrameElement
   const irPanel = document.getElementById('pg-ir')!
   const clientJsPanel = document.getElementById('pg-clientjs')!
+  const templatePanel = document.getElementById('pg-template')!
   const statusEl = document.getElementById('pg-status')!
   const errorEl = document.getElementById('pg-error')!
   const tabButtons = document.querySelectorAll<HTMLButtonElement>(
@@ -160,6 +161,7 @@ async function main() {
     preview: document.getElementById('pg-tab-preview')!,
     ir: document.getElementById('pg-tab-ir')!,
     clientJs: document.getElementById('pg-tab-clientjs')!,
+    template: document.getElementById('pg-tab-template')!,
   }
 
   function setTab(tab: Tab) {
@@ -294,6 +296,7 @@ async function main() {
 
     clientJsPanel.textContent = msg.clientJs
     irPanel.textContent = JSON.stringify(msg.ir, null, 2)
+    templatePanel.textContent = msg.template ?? ''
 
     previewFrame.srcdoc = buildIframeSrcdoc({
       clientJs: msg.clientJs,

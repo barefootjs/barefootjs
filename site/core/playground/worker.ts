@@ -16,6 +16,7 @@ import {
   listComponentFunctions,
   type ComponentIR,
 } from '@barefootjs/jsx'
+import { HonoAdapter } from '@barefootjs/hono/adapter'
 
 type CompileRequest = {
   id: number
@@ -30,6 +31,7 @@ type CompileResponse =
       ok: true
       componentName: string
       clientJs: string
+      template: string
       ir: ComponentIR
       warnings: CompilerError[]
     }
@@ -40,6 +42,7 @@ type CompileResponse =
     }
 
 const VIRTUAL_PATH = '/playground/component.tsx'
+const adapter = new HonoAdapter()
 
 function compile(source: string): CompileResponse | null {
   const names = listComponentFunctions(source, VIRTUAL_PATH)
@@ -103,12 +106,21 @@ function compile(source: string): CompileResponse | null {
   componentIR.metadata.clientAnalysis = analyzeClientNeeds(componentIR)
 
   const clientJs = generateClientJs(componentIR)
+  let template = ''
+  try {
+    template = adapter.generate(componentIR).template
+  } catch (err) {
+    template = `// Adapter failed to generate template: ${
+      err instanceof Error ? err.message : String(err)
+    }`
+  }
 
   return {
     id: 0,
     ok: true,
     componentName: entryName,
     clientJs,
+    template,
     ir: componentIR,
     warnings,
   }
