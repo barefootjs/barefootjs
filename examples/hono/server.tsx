@@ -19,9 +19,13 @@ import ConditionalReturn from '@/components/ConditionalReturn'
 import { AIChatPage } from './components/AIChatPage'
 
 const BASE_PATH = process.env.BASE_PATH ?? '/examples/hono'
-const link = (path: string) => `${BASE_PATH}${path === '/' ? '' : path}`
+const link = (path: string) => `${BASE_PATH}${path}`
 
-const app = new Hono().basePath(BASE_PATH)
+type Bindings = {
+  ASSETS: { fetch: (req: Request) => Promise<Response> }
+}
+
+const app = new Hono<{ Bindings: Bindings }>().basePath(BASE_PATH)
 
 app.use(renderer)
 
@@ -240,6 +244,23 @@ app.post('/api/todos/reset', (c) => {
   ]
   nextId = 4
   return c.json({ success: true })
+})
+
+// Fallthrough for anything not matched above. Two cases to handle:
+//   1. `${BASE_PATH}/` (trailing slash on the home page): Hono's basePath
+//      matches the no-slash variant only, and Workers Assets would try to
+//      serve the directory and 404, so we redirect to the canonical
+//      no-slash URL.
+//   2. Everything else (e.g. /examples/hono/static/*): forward to Workers
+//      Assets. This path is reached because wrangler.toml sets
+//      `run_worker_first = true`, giving the Worker first crack at every
+//      request.
+app.all('*', (c) => {
+  const url = new URL(c.req.url)
+  if (url.pathname === `${BASE_PATH}/`) {
+    return c.redirect(BASE_PATH + url.search, 308)
+  }
+  return c.env.ASSETS.fetch(c.req.raw)
 })
 
 export default app
