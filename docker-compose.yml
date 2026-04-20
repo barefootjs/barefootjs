@@ -38,7 +38,7 @@ services:
       context: .
       dockerfile: integrations/mojolicious/Dockerfile.dev
     ports:
-      - "3004:3004"
+      - "3000:3000"
     environment:
       BASE_PATH: /integrations/mojolicious
       MOJO_MODE: development

@@ -7,8 +7,8 @@ same JSX components on a different stack:
 |---|---|---|---|
 | `hono` | TypeScript / Cloudflare Workers | 3001 | host (`wrangler dev`) |
 | `echo` | Go / Labstack Echo | 8080 | container |
-| `mojolicious` | Perl / Mojolicious::Lite | 3004 | container |
-| `csr` | TypeScript (no SSR) | 3000 | host |
+| `mojolicious` | Perl / Mojolicious::Lite | 3000 | container |
+| `csr` | TypeScript (no SSR) | 3002 | host |
 
 ## Development setup
 
@@ -45,7 +45,7 @@ docker compose up echo mojolicious
 ```
 
 The container exposes its port directly to the host, so hit
-`http://localhost:3004/integrations/mojolicious` (or `8080/integrations/echo`)
+`http://localhost:3000/integrations/mojolicious` (or `8080/integrations/echo`)
 without needing the proxy.
 
 ### Working on the full stack
