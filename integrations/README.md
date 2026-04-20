@@ -51,9 +51,18 @@ bun install
 bun run --filter 'barefootjs-*-example' build:watch
 
 # Terminal 2 — bring up the proxy + all adapters + site-core
-docker compose up
+bun run dev          # alias for `docker compose up`
 # → http://localhost:4000
 ```
+
+Other useful root scripts (all from the repo root):
+
+| Command | What it does |
+|---|---|
+| `bun run dev` | `docker compose up` |
+| `bun run dev:build` | `docker compose build` (rebuild dev images) |
+| `bun run dev:down` | `docker compose down` |
+| `bun run dev:logs` | `docker compose logs -f` |
 
 ### Working on a single adapter
 
