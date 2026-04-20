@@ -12,6 +12,10 @@ dist
 integrations/*/public
 integrations/*/.wrangler
 
+# air (Go live-reload) tmp dir + the host-binary built by `go run .`
+integrations/echo/tmp/
+integrations/echo/echo
+
 # Mojolicious example: staged BarefootJS Perl plugin copy
 integrations/mojolicious/lib
 

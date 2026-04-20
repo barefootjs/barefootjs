@@ -1,0 +1,52 @@
+# Development docker-compose for BarefootJS integrations.
+#
+# What runs where:
+#   - host: BarefootJS compile (`bun run build` per integration), Hono (via
+#     `wrangler dev`), and the dev proxy (`scripts/dev-all.ts`).
+#   - containers: integrations whose runtime is heavier to set up locally
+#     (Go, Perl, etc.). Source and the host-built dist/ are bind-mounted in,
+#     so editing JSX on the host triggers a recompile that the container
+#     picks up immediately.
+#
+# Each service is independent — there are no `depends_on` between adapters,
+# so `docker compose up mojolicious` brings up only Mojolicious. Run multiple
+# in one go (`docker compose up echo mojolicious`) when comparing.
+#
+# Production images live next to each integration (`Dockerfile`) and are
+# consumed by `wrangler deploy`. These dev images (`Dockerfile.dev`) are
+# separate so they can carry watcher tools without bloating production.
+
+services:
+  echo:
+    build:
+      context: .
+      dockerfile: integrations/echo/Dockerfile.dev
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV: development
+      BASE_PATH: /integrations/echo
+    working_dir: /workspace/integrations/echo
+    volumes:
+      - ./integrations/echo:/workspace/integrations/echo
+      - ./packages/go-template/runtime:/workspace/packages/go-template/runtime
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+
+  mojolicious:
+    build:
+      context: .
+      dockerfile: integrations/mojolicious/Dockerfile.dev
+    ports:
+      - "3004:3004"
+    environment:
+      BASE_PATH: /integrations/mojolicious
+      MOJO_MODE: development
+    working_dir: /workspace/integrations/mojolicious
+    volumes:
+      - ./integrations/mojolicious:/workspace/integrations/mojolicious
+      - ./packages/mojolicious/lib:/workspace/packages/mojolicious/lib
+
+volumes:
+  go-mod-cache:
+  go-build-cache:
