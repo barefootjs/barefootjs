@@ -248,9 +248,17 @@ export async function build(
       : emptyCache(globalHash)
   let anyOutputChanged = false
 
-  // 1. Runtime file — copy barefoot.js via writeIfChanged so unchanged runtime is quiet
+  // 1. Runtime file — copy the standalone runtime bundle (reactive inlined)
+  //    to barefoot.js. The sibling `./runtime` entry keeps
+  //    `@barefootjs/client/reactive` as an external import so downstream
+  //    bundlers can dedupe it against the main entry; when we ship a file
+  //    for the browser to load directly, we need the self-contained build.
   const domPkgDir = resolve(config.projectDir, 'node_modules/@barefootjs/client')
   const domDistCandidates = [
+    resolve(config.projectDir, '../../packages/client/dist/runtime/standalone.js'),
+    resolve(domPkgDir, 'dist/runtime/standalone.js'),
+    // Legacy fallback for older @barefootjs/client dists that only shipped
+    // the single runtime entry.
     resolve(config.projectDir, '../../packages/client/dist/runtime/index.js'),
     resolve(domPkgDir, 'dist/runtime/index.js'),
   ]
