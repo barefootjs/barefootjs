@@ -94,10 +94,39 @@ function emitBranchBindings(
           ? `(${loop.param}${loop.index ? `, ${loop.index}` : ''}) => String(${loop.key})`
           : 'null'
         const indexParam = loop.index || '__idx'
-        if (loop.mapPreamble) {
-          lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => { if (__existing) return __existing; if (typeof ${loop.param} === 'function') ${loop.param} = ${loop.param}(); ${loop.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+        const hasReactiveEffects = (loop.childReactiveAttrs?.length ?? 0) > 0
+          || (loop.childReactiveTexts?.length ?? 0) > 0
+          || (loop.childConditionals?.length ?? 0) > 0
+
+        if (!hasReactiveEffects) {
+          // Simple case: no reactive effects — return existing DOM as-is.
+          // Template expressions use loopParam() to read the current item, so the
+          // signal accessor stays intact without any unwrap.
+          if (loop.mapPreamble) {
+            lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => { if (__existing) return __existing; ${loop.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+          } else {
+            lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => { if (__existing) return __existing; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+          }
         } else {
-          lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => { if (__existing) return __existing; if (typeof ${loop.param} === 'function') ${loop.param} = ${loop.param}(); const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+          // Multi-line renderItem with fine-grained effects — applies to both
+          // SSR (existing DOM) and CSR (freshly created) paths so reactive reads
+          // of non-item signals propagate to existing items too.
+          lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => {`)
+          if (loop.mapPreamble) {
+            lines.push(`        ${loop.mapPreamble}`)
+          }
+          lines.push(`        const __el = __existing ?? (() => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })()`)
+          emitLoopChildReactiveEffects(
+            lines,
+            '        ',
+            '__el',
+            loop.childReactiveAttrs ?? [],
+            loop.childReactiveTexts ?? [],
+            loop.childConditionals,
+            loop.param,
+          )
+          lines.push(`        return __el`)
+          lines.push(`      })`)
         }
         emitBranchLoopEventDelegation(lines, loop, cv)
       }
@@ -796,7 +825,9 @@ function emitPlainElementLoopReconciliation(lines: string[], elem: LoopElement, 
   const indexParam = elem.index || '__idx'
   const wrap = (expr: string) => wrapLoopParamAsAccessor(expr, elem.param)
 
-  const hasReactiveEffects = elem.childReactiveAttrs.length > 0 || elem.childReactiveTexts.length > 0
+  const hasReactiveEffects = elem.childReactiveAttrs.length > 0
+    || elem.childReactiveTexts.length > 0
+    || (elem.childConditionals?.length ?? 0) > 0
 
   if (!hasReactiveEffects) {
     // Simple case: no reactive effects

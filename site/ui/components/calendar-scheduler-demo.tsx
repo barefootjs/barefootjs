@@ -156,18 +156,6 @@ export function CalendarSchedulerDemo() {
     return map
   })
 
-  // Combined memo: calendarDays + event counts.
-  // Including count in the key forces mapArray to recreate the cell DOM when the
-  // count changes (mapArray returns __existing for unchanged keys, so reactive
-  // reads inside the cell body won't update without this).
-  const calendarDaysWithCounts = createMemo(() => {
-    const byDate = eventsByDate()
-    return calendarDays().map(cell => ({
-      ...cell,
-      count: byDate[cell.key]?.length ?? 0,
-    }))
-  })
-
   // Day panel: flat loop of events for the selected date (avoids nested-loop click bug)
   const dayPanelEvents = createMemo(() => {
     const date = selectedDate()
@@ -527,9 +515,9 @@ export function CalendarSchedulerDemo() {
             ))}
           </div>
           <div className="grid grid-cols-7">
-            {calendarDaysWithCounts().map(cell => (
+            {calendarDays().map(cell => (
               <button
-                key={`${cell.key}:${cell.count}`}
+                key={cell.key}
                 type="button"
                 className={`month-day-cell min-h-24 border-b border-r border-border p-1 text-left hover:bg-accent/40 ${cell.isCurrentMonth ? '' : 'opacity-40'}`}
                 onClick={() => selectDay(cell.key)}
@@ -539,9 +527,9 @@ export function CalendarSchedulerDemo() {
                 >
                   {cell.date.getDate()}
                 </div>
-                {cell.count > 0 ? (
+                {(eventsByDate()[cell.key]?.length ?? 0) > 0 ? (
                   <div className="event-dot-count text-xs text-muted-foreground">
-                    {cell.count} event{cell.count > 1 ? 's' : ''}
+                    {eventsByDate()[cell.key].length} event{eventsByDate()[cell.key].length > 1 ? 's' : ''}
                   </div>
                 ) : null}
               </button>

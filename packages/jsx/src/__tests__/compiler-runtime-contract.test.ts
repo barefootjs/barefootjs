@@ -158,6 +158,42 @@ describe('Compiler-Runtime Contract', () => {
       expect(js).toMatch(/data-key-1="['"] \+ \(item\.id\)/)
     })
 
+    test('loop inside conditional wires reactive conditionals in mapArray callback', () => {
+      // Regression: simple loops inside conditional branches used to skip
+      // reactive-effect setup and just `return __existing` for hydrated items.
+      // That meant conditionals inside the loop body that read non-item signals
+      // (e.g., memos) never re-evaluated when those signals changed.
+      const js = compileClient(`
+        "use client"
+        import { createSignal, createMemo } from '@barefootjs/client'
+        type CountMap = Record<string, number>
+        export function Test() {
+          const [show] = createSignal(true)
+          const [events] = createSignal<number[]>([])
+          const [days] = createSignal([{key: 'd1'}, {key: 'd2'}])
+          const countByDay = createMemo<CountMap>(() => ({ d1: events().length }))
+          return (
+            <div>
+              {show() ? (
+                <div>
+                  {days().map(d => (
+                    <div key={d.key}>
+                      {(countByDay()[d.key] ?? 0) > 0 ? (
+                        <span className="count">{countByDay()[d.key]}</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )
+        }
+      `)
+      // The mapArray callback must set up the reactive conditional via insert()
+      // instead of short-circuiting with `if (__existing) return __existing`.
+      expect(js).toMatch(/mapArray\(\(\) => days\(\),[\s\S]+?insert\(__el,/)
+    })
+
     test('key in HTML template uses data-key attribute name', () => {
       const result = compileJSXSync(`
         "use client"
