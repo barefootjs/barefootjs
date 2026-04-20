@@ -1,6 +1,6 @@
 "use client"
 
-import { createSignal, createEffect, onMount, onCleanup } from '@barefootjs/client'
+import { createSignal, createEffect } from '@barefootjs/client'
 import { readUnreadCount, writeUnreadCount } from '../../shared/gallery-admin-storage'
 
 export function AdminUnreadBadge() {
@@ -14,12 +14,11 @@ export function AdminUnreadBadge() {
   // "Notify on-call" button or the notifications page's "Mark all read")
   // writes a new unread count to sessionStorage. Separate hydration scopes
   // don't share signal memory, so we bridge through a synthetic DOM event
-  // fired from writeRaw().
-  onMount(() => {
-    const sync = () => setUnread(readUnreadCount())
-    window.addEventListener('barefoot:admin-storage', sync)
-    onCleanup(() => window.removeEventListener('barefoot:admin-storage', sync))
-  })
+  // fired from writeRaw(). Each admin route is a full page navigation so
+  // listeners don't accumulate — no onCleanup needed.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('barefoot:admin-storage', () => setUnread(readUnreadCount()))
+  }
 
   return (
     <a

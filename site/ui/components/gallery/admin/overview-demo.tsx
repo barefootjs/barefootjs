@@ -1,6 +1,6 @@
 "use client"
 
-import { createMemo, createSignal, createEffect, onMount, onCleanup } from '@barefootjs/client'
+import { createMemo, createSignal, createEffect } from '@barefootjs/client'
 import {
   Card,
   CardHeader,
@@ -104,14 +104,13 @@ export function AdminOverviewDemo() {
   // Pick up time-range + unread changes dispatched by sibling islands
   // (header filter + unread badge) — separate hydration scopes share state
   // only through the sessionStorage event bridge. See admin-storage.ts.
-  onMount(() => {
-    const sync = () => {
+  // Each admin route is a full page nav so listeners don't accumulate.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('barefoot:admin-storage', () => {
       setTimeRange(readTimeRange())
       setUnread(readUnreadCount())
-    }
-    window.addEventListener('barefoot:admin-storage', sync)
-    onCleanup(() => window.removeEventListener('barefoot:admin-storage', sync))
-  })
+    })
+  }
 
   const revenue = createMemo(() => Math.round(BASE_REVENUE * TIME_RANGE_MULTIPLIER[timeRange()]))
   const orderCount = createMemo(() => Math.round(BASE_ORDERS * TIME_RANGE_MULTIPLIER[timeRange()]))

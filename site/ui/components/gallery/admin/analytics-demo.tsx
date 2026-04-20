@@ -1,6 +1,6 @@
 "use client"
 
-import { createSignal, createMemo, createEffect, onMount, onCleanup } from '@barefootjs/client'
+import { createSignal, createMemo, createEffect } from '@barefootjs/client'
 import type { ChartConfig } from '@barefootjs/chart'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@ui/components/ui/card'
 import { Badge } from '@ui/components/ui/badge'
@@ -136,11 +136,10 @@ export function AdminAnalyticsDemo() {
 
   // Bridge: pick up time-range changes dispatched by the header's
   // AdminTimeRange island so this page's metrics re-scale in real time.
-  onMount(() => {
-    const sync = () => setTimeRange(readTimeRange())
-    window.addEventListener('barefoot:admin-storage', sync)
-    onCleanup(() => window.removeEventListener('barefoot:admin-storage', sync))
-  })
+  // Each admin route is a full page nav so listeners don't accumulate.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('barefoot:admin-storage', () => setTimeRange(readTimeRange()))
+  }
 
   const multiplier = createMemo(() => TIME_RANGE_MULTIPLIER[timeRange()])
 
