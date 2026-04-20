@@ -38,7 +38,10 @@ server.use('/llms.txt', serveStatic({
 const app = await createApp(content, pages)
 server.route('/', app)
 
-const port = Number(process.env.PORT) || 3001
+// 4000 is the dev proxy; site/core sits next to it at 4001 so the
+// host-developer-facing ports are grouped. 3xxx is reserved for the
+// integration adapters' natural defaults.
+const port = Number(process.env.PORT) || 4001
 
 export default {
   port,

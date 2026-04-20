@@ -32,7 +32,7 @@ const routes: readonly Route[] = [
   { prefix: '/integrations/mojolicious', target: process.env.MOJOLICIOUS_TARGET ?? 'http://mojolicious:3000', label: 'Mojolicious (Perl)' },
 ] as const
 
-const DEFAULT_TARGET = process.env.SITE_CORE_TARGET ?? 'http://site-core:3005'
+const DEFAULT_TARGET = process.env.SITE_CORE_TARGET ?? 'http://site-core:4001'
 
 function matchRoute(pathname: string): Route | null {
   for (const route of routes) {

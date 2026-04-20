@@ -73,8 +73,6 @@ services:
       context: .
       dockerfile: site/core/Dockerfile.dev
     working_dir: /workspace/site/core
-    environment:
-      PORT: "3005"
     volumes:
       - .:/workspace:cached
 

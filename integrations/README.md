@@ -10,9 +10,11 @@ same JSX components on a different stack:
 | `mojolicious` | Perl / Mojolicious::Lite | 3000 (morbo default) | container |
 | `csr` | TypeScript (no SSR) | 3002 | host (manual) |
 
-Plus `site/core` (the docs / landing / catalog site) which also runs in a
-container during dev so a single `docker compose up` brings up the full
-public surface.
+Plus `site/core` (the docs / landing / catalog site) on internal port 4001
+— it also runs in a container during dev so a single `docker compose up`
+brings up the full public surface. The 4xxx range groups the host-developer
+entrypoints (proxy at 4000, site shell at 4001); 3xxx is reserved for each
+adapter's natural backend default.
 
 ## Development setup
 

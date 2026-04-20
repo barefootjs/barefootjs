@@ -10,6 +10,6 @@ FROM oven/bun:1.3-alpine
 
 WORKDIR /workspace/site/core
 
-EXPOSE 3005
+EXPOSE 4001
 
 CMD ["bun", "run", "--watch", "server.tsx"]
