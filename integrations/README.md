@@ -3,71 +3,93 @@
 Backend integration showcases. Each subdirectory is a small app that runs the
 same JSX components on a different stack:
 
-| Adapter | Runtime | Port | Where it runs in dev |
+| Adapter | Runtime | Internal port | Where it runs in dev |
 |---|---|---|---|
-| `hono` | TypeScript / Cloudflare Workers | 3001 | host (`wrangler dev`) |
+| `hono` | TypeScript / Cloudflare Workers | 3000 (bun default) | container |
 | `echo` | Go / Labstack Echo | 8080 | container |
-| `mojolicious` | Perl / Mojolicious::Lite | 3000 | container |
-| `csr` | TypeScript (no SSR) | 3002 | host |
+| `mojolicious` | Perl / Mojolicious::Lite | 3000 (morbo default) | container |
+| `csr` | TypeScript (no SSR) | 3002 | host (manual) |
+
+Plus `site/core` (the docs / landing / catalog site) which also runs in a
+container during dev so a single `docker compose up` brings up the full
+public surface.
 
 ## Development setup
 
-The split is intentional: BarefootJS compilation (`bun run build`) and Hono
-run on the host because the iteration loop is fastest there; Go and Perl
-adapters run in containers so contributors don't need a local Go or Perl
-toolchain.
+`docker compose up` starts everything inside the compose network and exposes
+**only the proxy port (4000) to the host** — no per-adapter port collisions
+to manage. BarefootJS compilation stays on the host (`bun run build:watch`)
+because that's where the JSX iteration loop is fastest; containers
+bind-mount the host-built `dist/` and the file-watchers (`bun --watch`,
+`air`, `morbo`) pick up the rebuilt output.
 
 ```
-host:                              containers (docker compose):
-  - bun run build (per integration)  - echo        (golang + air)
-  - hono dev (wrangler)              - mojolicious (perl + morbo)
-  - dev proxy (scripts/dev-all.ts)
+host:                                  containers (docker compose):
+  - bun install (workspace deps)         - proxy        (bun, 4000 exposed)
+  - bun run build:watch per integration  - hono         (bun + Hono)
+                                         - echo         (golang + air)
+                                         - mojolicious  (perl + morbo)
+                                         - site-core    (bun + Hono)
 ```
 
-Containers bind-mount source and the host-built `dist/`, so editing JSX
-on the host triggers a recompile that the container picks up via its
-file-watcher.
+The proxy routes by path prefix:
+
+```
+:4000/integrations/hono/*        → hono service
+:4000/integrations/echo/*        → echo service
+:4000/integrations/mojolicious/* → mojolicious service
+:4000/*                          → site-core (landing / docs / catalog)
+```
+
+### Full stack
+
+```sh
+# Terminal 1 — workspace install + watch-build the JSX for every integration
+bun install
+bun run --filter 'barefootjs-*-example' build:watch
+
+# Terminal 2 — bring up the proxy + all adapters + site-core
+docker compose up
+# → http://localhost:4000
+```
 
 ### Working on a single adapter
 
-Each compose service is independent (no `depends_on` between adapters), so
-you can bring up just the one you're debugging:
+Each compose service is independent (no `depends_on` between them), so any
+subset can be brought up. The cleanest way to debug one adapter is to start
+it together with the proxy so the URL space stays the same:
 
 ```sh
-# Just Mojolicious
-docker compose up mojolicious
-
-# Just Echo
-docker compose up echo
-
-# Both
-docker compose up echo mojolicious
+docker compose up proxy mojolicious
+# → http://localhost:4000/integrations/mojolicious
+# (other routes return 502 until you start their service too)
 ```
 
-The container exposes its port directly to the host, so hit
-`http://localhost:3000/integrations/mojolicious` (or `8080/integrations/echo`)
-without needing the proxy.
-
-### Working on the full stack
+Or skip the proxy and hit the container directly via `docker compose run`
+with an explicit port mapping:
 
 ```sh
-# Terminal 1 — recompile JSX on change for every adapter
-bun run --filter 'barefootjs-*-example' build:watch
-
-# Terminal 2 — bring up the container adapters
-docker compose up
-
-# Terminal 3 — Hono on host (Cloudflare Workers runtime)
-bun run --filter barefootjs-hono-jsx-example dev
-
-# Terminal 4 — proxy that fronts everything on a single port
-bun run scripts/dev-all.ts   # http://localhost:4000
+docker compose run --service-ports -p 3010:3000 mojolicious
+# → http://localhost:3010/integrations/mojolicious
 ```
+
+### Pointing the proxy at a host process
+
+If you want to run an adapter outside compose (say, attaching a debugger to
+a host-side Hono process), keep `proxy` in compose and override that one
+target via env so it forwards to the host:
+
+```sh
+HONO_TARGET=http://host.docker.internal:3001 docker compose up proxy
+```
+
+The same env var pattern works for `ECHO_TARGET`, `MOJOLICIOUS_TARGET`, and
+`SITE_CORE_TARGET`.
 
 ### Why dev images are separate from `Dockerfile`
 
-`Dockerfile` (production) is consumed by `wrangler deploy` and ships only
-the runtime + the host-built artifacts. `Dockerfile.dev` adds watcher tools
-(`air` for Go, `morbo` for Perl) and expects source via bind mount. Keeping
-them separate avoids bloating the production image and lets dev tooling
-evolve independently.
+`Dockerfile` (production) is consumed by `wrangler deploy` for echo /
+mojolicious and ships only the runtime + the host-built artifacts.
+`Dockerfile.dev` variants add watcher tools (`air`, `morbo`, `bun --watch`)
+and expect source via bind mount. Keeping them separate avoids bloating the
+production image and lets dev tooling evolve independently.

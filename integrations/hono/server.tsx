@@ -8,6 +8,7 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { getCookie, setCookie } from 'hono/cookie'
+import { serveStatic } from 'hono/bun'
 import { createDevReloader } from '@barefootjs/hono/dev-worker'
 import { renderer } from './renderer'
 import Counter from '@/components/Counter'
@@ -303,15 +304,21 @@ app.post('/api/todos/reset', (c) => {
   return c.json({ success: true })
 })
 
+// Static file fallback for plain bun (dev compose container): when there's
+// no Workers ASSETS binding, serve files from ./public/. Mounted as
+// middleware so it runs before the catch-all; serveStatic forwards
+// non-file requests to next() so dynamic routes still work.
+const publicStatic = serveStatic({ root: './public' })
+app.use('*', (c, next) => (c.env?.ASSETS ? next() : publicStatic(c, next)))
+
 // Fallthrough for anything not matched above. Two cases to handle:
 //   1. `${BASE_PATH}/` (trailing slash on the home page): Hono's basePath
 //      matches the no-slash variant only, and Workers Assets would try to
 //      serve the directory and 404, so we redirect to the canonical
 //      no-slash URL.
-//   2. Everything else (e.g. /integrations/hono/static/*): forward to Workers
-//      Assets. This path is reached because wrangler.toml sets
-//      `run_worker_first = true`, giving the Worker first crack at every
-//      request.
+//   2. Workers / wrangler dev: forward to the ASSETS binding. This path
+//      is reached because wrangler.toml sets `run_worker_first = true`,
+//      giving the Worker first crack at every request.
 app.all('*', (c) => {
   const url = new URL(c.req.url)
   if (url.pathname === `${BASE_PATH}/`) {

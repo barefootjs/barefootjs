@@ -1,32 +1,55 @@
-# Development docker-compose for BarefootJS integrations.
+# Development docker-compose for BarefootJS.
 #
-# What runs where:
-#   - host: BarefootJS compile (`bun run build` per integration), Hono (via
-#     `wrangler dev`), and the dev proxy (`scripts/dev-all.ts`).
-#   - containers: integrations whose runtime is heavier to set up locally
-#     (Go, Perl, etc.). Source and the host-built dist/ are bind-mounted in,
-#     so editing JSX on the host triggers a recompile that the container
-#     picks up immediately.
+# Single host port (4000) is exposed; everything else is reached through the
+# proxy. BarefootJS compilation (`bun run build`) still runs on the host so
+# the JSX iteration loop stays fast — containers bind-mount the host-built
+# `dist/` so they pick up recompiled output immediately.
 #
-# Each service is independent — there are no `depends_on` between adapters,
-# so `docker compose up mojolicious` brings up only Mojolicious. Run multiple
-# in one go (`docker compose up echo mojolicious`) when comparing.
+# Each service is independent (no `depends_on`), so any subset can be brought
+# up for focused debugging:
 #
-# Production images live next to each integration (`Dockerfile`) and are
-# consumed by `wrangler deploy`. These dev images (`Dockerfile.dev`) are
-# separate so they can carry watcher tools without bloating production.
+#   docker compose up                        # everything (proxy + 4 services)
+#   docker compose up proxy mojolicious      # just one adapter, via proxy
+#   docker compose up mojolicious            # adapter only (no proxy)
+#
+# Production images for the container adapters live next to each integration
+# (`Dockerfile`) and are consumed by `wrangler deploy`; the `Dockerfile.dev`
+# variants here add watcher tools (air, morbo, bun --watch) and rely on
+# bind mounts.
 
 services:
+  proxy:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile.dev-proxy
+    ports:
+      - "4000:4000"
+    working_dir: /workspace
+    volumes:
+      - ./scripts:/workspace/scripts:ro
+    environment:
+      DEV_ALL_PORT: "4000"
+
+  hono:
+    build:
+      context: .
+      dockerfile: integrations/hono/Dockerfile.dev
+    working_dir: /workspace/integrations/hono
+    environment:
+      BASE_PATH: /integrations/hono
+    volumes:
+      # Mount the whole repo so workspace deps (`@barefootjs/*`) resolve via
+      # the root node_modules created by `bun install` on the host.
+      - .:/workspace:cached
+
   echo:
     build:
       context: .
       dockerfile: integrations/echo/Dockerfile.dev
-    ports:
-      - "8080:8080"
+    working_dir: /workspace/integrations/echo
     environment:
       APP_ENV: development
       BASE_PATH: /integrations/echo
-    working_dir: /workspace/integrations/echo
     volumes:
       - ./integrations/echo:/workspace/integrations/echo
       - ./packages/go-template/runtime:/workspace/packages/go-template/runtime
@@ -37,15 +60,23 @@ services:
     build:
       context: .
       dockerfile: integrations/mojolicious/Dockerfile.dev
-    ports:
-      - "3000:3000"
+    working_dir: /workspace/integrations/mojolicious
     environment:
       BASE_PATH: /integrations/mojolicious
       MOJO_MODE: development
-    working_dir: /workspace/integrations/mojolicious
     volumes:
       - ./integrations/mojolicious:/workspace/integrations/mojolicious
       - ./packages/mojolicious/lib:/workspace/packages/mojolicious/lib
+
+  site-core:
+    build:
+      context: .
+      dockerfile: site/core/Dockerfile.dev
+    working_dir: /workspace/site/core
+    environment:
+      PORT: "3005"
+    volumes:
+      - .:/workspace:cached
 
 volumes:
   go-mod-cache:
