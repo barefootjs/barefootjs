@@ -85,6 +85,7 @@ import { PermissionMatrixRefPage } from './pages/components/permission-matrix'
 import { FormBuilderRefPage } from './pages/components/form-builder'
 import { PivotTableRefPage } from './pages/components/pivot-table'
 import { DashboardBuilderRefPage } from './pages/components/dashboard-builder'
+import { CalendarSchedulerRefPage } from './pages/components/calendar-scheduler'
 import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
@@ -576,6 +577,11 @@ export function createApp() {
   // Dashboard Builder block page
   app.get('/components/dashboard-builder', (c) => {
     return c.render(<DashboardBuilderRefPage />)
+  })
+
+  // Calendar Scheduler block page
+  app.get('/components/calendar-scheduler', (c) => {
+    return c.render(<CalendarSchedulerRefPage />)
   })
 
   // Bar Chart reference page

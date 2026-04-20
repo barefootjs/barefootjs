@@ -6,7 +6,7 @@
 
 import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, ConditionalBranchLoop, ConditionalBranchConditional, LoopChildEvent, LoopChildConditional, LoopChildReactiveText, LoopElement, NestedLoopInfo } from './types'
 import type { IRLoopChildComponent } from '../types'
-import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent } from './utils'
+import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent } from './utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
 import { emitAttrUpdate } from './emit-reactive'
 
@@ -82,32 +82,51 @@ function emitBranchBindings(
 
     // Emit loop reconciliation effects for loops inside this branch.
     // The loop's container is found via $() and updated reactively via reconcileElements.
-    // SSR templates use data-key-1 for loops inside conditionals (depth 1 in the
-    // inline template), but reconcileElements uses data-key (depth 0 for independent loops).
-    // Rename SSR attributes on hydration so reconcileElements can find them.
     for (const loop of branchLoops) {
       const cv = varSlotId(loop.containerSlotId)
       lines.push(`      const [__loop_${cv}] = $(__branchScope, '${loop.containerSlotId}')`)
 
       if (loop.useElementReconciliation && loop.nestedComponents?.length) {
         // Composite loop: items contain child components — use createComponent in renderItem.
-        // Do NOT rename data-key-1 → data-key here: the hydration guard inside the
-        // disposable effect checks !hasAttribute('data-key') to detect template-generated
-        // elements and initialize child components via initChild. Premature rename would
-        // skip hydration, leaving components uninitialized.
         emitCompositeBranchLoop(lines, loop, cv)
       } else {
-        // Simple loop: rename SSR data-key-1 → data-key for mapArray compatibility.
-        // Safe for simple loops (no child components to initialize).
-        lines.push(`      if (__loop_${cv}) getLoopChildren(__loop_${cv}).forEach(__el => { if (__el.hasAttribute('${DATA_KEY_PREFIX}1') && !__el.hasAttribute('${DATA_KEY}')) { __el.setAttribute('${DATA_KEY}', __el.getAttribute('${DATA_KEY_PREFIX}1')); __el.removeAttribute('${DATA_KEY_PREFIX}1') } })`)
         const keyFn = loop.key
           ? `(${loop.param}${loop.index ? `, ${loop.index}` : ''}) => String(${loop.key})`
           : 'null'
         const indexParam = loop.index || '__idx'
-        if (loop.mapPreamble) {
-          lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => { if (__existing) return __existing; if (typeof ${loop.param} === 'function') ${loop.param} = ${loop.param}(); ${loop.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+        const hasReactiveEffects = (loop.childReactiveAttrs?.length ?? 0) > 0
+          || (loop.childReactiveTexts?.length ?? 0) > 0
+          || (loop.childConditionals?.length ?? 0) > 0
+
+        if (!hasReactiveEffects) {
+          // Simple case: no reactive effects — return existing DOM as-is.
+          // Template expressions use loopParam() to read the current item, so the
+          // signal accessor stays intact without any unwrap.
+          if (loop.mapPreamble) {
+            lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => { if (__existing) return __existing; ${loop.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+          } else {
+            lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => { if (__existing) return __existing; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+          }
         } else {
-          lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => { if (__existing) return __existing; if (typeof ${loop.param} === 'function') ${loop.param} = ${loop.param}(); const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+          // Multi-line renderItem with fine-grained effects — applies to both
+          // SSR (existing DOM) and CSR (freshly created) paths so reactive reads
+          // of non-item signals propagate to existing items too.
+          lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => {`)
+          if (loop.mapPreamble) {
+            lines.push(`        ${loop.mapPreamble}`)
+          }
+          lines.push(`        const __el = __existing ?? (() => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })()`)
+          emitLoopChildReactiveEffects(
+            lines,
+            '        ',
+            '__el',
+            loop.childReactiveAttrs ?? [],
+            loop.childReactiveTexts ?? [],
+            loop.childConditionals,
+            loop.param,
+          )
+          lines.push(`        return __el`)
+          lines.push(`      })`)
         }
         emitBranchLoopEventDelegation(lines, loop, cv)
       }
@@ -806,7 +825,9 @@ function emitPlainElementLoopReconciliation(lines: string[], elem: LoopElement, 
   const indexParam = elem.index || '__idx'
   const wrap = (expr: string) => wrapLoopParamAsAccessor(expr, elem.param)
 
-  const hasReactiveEffects = elem.childReactiveAttrs.length > 0 || elem.childReactiveTexts.length > 0
+  const hasReactiveEffects = elem.childReactiveAttrs.length > 0
+    || elem.childReactiveTexts.length > 0
+    || (elem.childConditionals?.length ?? 0) > 0
 
   if (!hasReactiveEffects) {
     // Simple case: no reactive effects

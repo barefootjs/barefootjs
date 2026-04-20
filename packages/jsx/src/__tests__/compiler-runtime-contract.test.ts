@@ -118,6 +118,82 @@ describe('Compiler-Runtime Contract', () => {
       expect(js).not.toContain('data-key-0')
     })
 
+    test('loop inside conditional: outer=data-key, inner=data-key-1 in SSR template', () => {
+      // Regression: SSR template for conditional branch used to generate
+      // data-key-1/data-key-2 (off-by-one), mismatching the event dispatcher
+      // which expects data-key/data-key-1. Broke click handlers on inner-loop
+      // elements inside conditional branches.
+      const js = compileClient(`
+        "use client"
+        import { createSignal } from '@barefootjs/client'
+        export function Test() {
+          const [show] = createSignal(true)
+          const [groups] = createSignal([{id: 'g1', items: [{id: 'i1'}]}])
+          return (
+            <div>
+              {show() ? (
+                <div>
+                  {groups().map(group => (
+                    <div key={group.id}>
+                      {group.items.map(item => (
+                        <button key={item.id} onClick={() => {}}>
+                          {item.id}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )
+        }
+      `)
+      // The SSR template inside insert(..., { template: () => ... }) must use
+      // data-key for outer items and data-key-1 for inner items, matching
+      // what the event dispatcher searches for.
+      expect(js).not.toContain('data-key-2')
+      // Outer loop items must have data-key in the SSR branch template
+      expect(js).toMatch(/data-key="['"] \+ \(group\.id\)/)
+      // Inner loop items must have data-key-1 in the SSR branch template
+      expect(js).toMatch(/data-key-1="['"] \+ \(item\.id\)/)
+    })
+
+    test('loop inside conditional wires reactive conditionals in mapArray callback', () => {
+      // Regression: simple loops inside conditional branches used to skip
+      // reactive-effect setup and just `return __existing` for hydrated items.
+      // That meant conditionals inside the loop body that read non-item signals
+      // (e.g., memos) never re-evaluated when those signals changed.
+      const js = compileClient(`
+        "use client"
+        import { createSignal, createMemo } from '@barefootjs/client'
+        type CountMap = Record<string, number>
+        export function Test() {
+          const [show] = createSignal(true)
+          const [events] = createSignal<number[]>([])
+          const [days] = createSignal([{key: 'd1'}, {key: 'd2'}])
+          const countByDay = createMemo<CountMap>(() => ({ d1: events().length }))
+          return (
+            <div>
+              {show() ? (
+                <div>
+                  {days().map(d => (
+                    <div key={d.key}>
+                      {(countByDay()[d.key] ?? 0) > 0 ? (
+                        <span className="count">{countByDay()[d.key]}</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )
+        }
+      `)
+      // The mapArray callback must set up the reactive conditional via insert()
+      // instead of short-circuiting with `if (__existing) return __existing`.
+      expect(js).toMatch(/mapArray\(\(\) => days\(\),[\s\S]+?insert\(__el,/)
+    })
+
     test('key in HTML template uses data-key attribute name', () => {
       const result = compileJSXSync(`
         "use client"

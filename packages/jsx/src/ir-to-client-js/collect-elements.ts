@@ -606,15 +606,21 @@ function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): ConditionalBra
         // Build the item template from loop children.
         // Use loopDepth=0: this loop gets its own reconcileElements (independent
         // from the conditional's template), so items use data-key (not data-key-1).
+        // Pass loopParams so expressions reference the per-item signal accessor,
+        // keeping the template consistent with reactive effect expressions that
+        // use `param()` to read the current item value.
         let childTemplate: string
         if (useElementReconciliation && n.children[0]) {
-          childTemplate = irToPlaceholderTemplate(n.children[0], restNames, 0)
+          childTemplate = irToPlaceholderTemplate(n.children[0], restNames, 0, [n.param])
         } else {
-          childTemplate = n.children.map(c => irToHtmlTemplate(c, undefined, 0)).join('')
+          childTemplate = n.children.map(c => irToHtmlTemplate(c, undefined, 0, [n.param])).join('')
         }
 
-        // Collect child events for ALL loops (needed for event delegation).
-        // Reactive fields (texts, attrs, conditionals) are composite-only.
+        // Collect child events, reactive texts/attrs, and conditionals for ALL
+        // branch loops — simple loops also need reactive wiring when their
+        // item body reads non-item signals (e.g., memos). Previously these
+        // were only collected for composite loops, which caused reactive
+        // reads inside simple loop bodies to silently no-op for existing items.
         const childEvents: LoopChildEvent[] = []
         const childReactiveTexts: import('./types').LoopChildReactiveText[] = []
         const childReactiveAttrs: import('./types').LoopChildReactiveAttr[] = []
@@ -622,10 +628,6 @@ function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): ConditionalBra
         if (ctx) {
           for (const child of n.children) {
             childEvents.push(...collectLoopChildEventsWithNesting(child))
-          }
-        }
-        if (useElementReconciliation && ctx) {
-          for (const child of n.children) {
             childReactiveTexts.push(...collectLoopChildReactiveTexts(child, ctx, n.param))
             childReactiveAttrs.push(...collectLoopChildReactiveAttrs(child, ctx, n.param))
             childConditionals.push(...collectLoopChildConditionals(child, ctx, n.param))
@@ -642,9 +644,9 @@ function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): ConditionalBra
           mapPreamble: n.mapPreamble ?? null,
           nestedComponents: useElementReconciliation ? n.nestedComponents : undefined,
           childEvents,
-          childReactiveTexts: useElementReconciliation ? childReactiveTexts : undefined,
-          childReactiveAttrs: useElementReconciliation ? childReactiveAttrs : undefined,
-          childConditionals: useElementReconciliation ? childConditionals : undefined,
+          childReactiveTexts: childReactiveTexts.length > 0 ? childReactiveTexts : undefined,
+          childReactiveAttrs: childReactiveAttrs.length > 0 ? childReactiveAttrs : undefined,
+          childConditionals: childConditionals.length > 0 ? childConditionals : undefined,
           innerLoops: useElementReconciliation ? collectInnerLoops(n.children, n.param) : undefined,
           useElementReconciliation: useElementReconciliation || undefined,
         })
@@ -673,11 +675,14 @@ function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): ConditionalBra
  */
 function buildConditionalMetadata(node: IRNode & { type: 'conditional' }, ctx: ClientJsContext): ConditionalElement {
   const restNames = buildRestSpreadNames(ctx)
+  // Use loopDepth=-1 so the first loop encountered inside the branch emits
+  // data-key (depth 0) for its items, matching the mapArray item template
+  // and event dispatcher convention. Matches irToComponentTemplate/generateCsrTemplate.
   return {
     slotId: node.slotId!,
     condition: node.condition,
-    whenTrueHtml: irToHtmlTemplate(node.whenTrue, restNames),
-    whenFalseHtml: irToHtmlTemplate(node.whenFalse, restNames),
+    whenTrueHtml: irToHtmlTemplate(node.whenTrue, restNames, -1),
+    whenFalseHtml: irToHtmlTemplate(node.whenFalse, restNames, -1),
     whenTrueEvents: collectConditionalBranchEvents(node.whenTrue),
     whenFalseEvents: collectConditionalBranchEvents(node.whenFalse),
     whenTrueRefs: collectConditionalBranchRefs(node.whenTrue),

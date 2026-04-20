@@ -130,6 +130,7 @@ export const blockEntries: BlockEntry[] = [
   { slug: 'form-builder', title: 'Form Builder', description: 'Signal-driven form builder with heterogeneous loop, dynamic field type switching, nested groups, and conditional visibility' },
   { slug: 'pivot-table', title: 'Pivot Table', description: 'Dynamic row/column grouping with multi-level aggregation, drag axis config, and expand/collapse groups' },
   { slug: 'dashboard-builder', title: 'Dashboard Builder', description: 'Dynamic widget composition with per-widget signal isolation, dynamic component switching per item, and layout memo driven by widget count' },
+  { slug: 'calendar-scheduler', title: 'Calendar Scheduler', description: '2D grid calendar with month/week view toggle, 4-level overlap layout memo chain, per-cell complex conditionals, and deep nested event handlers' },
 ]
 
 // Helper: get components filtered by category
