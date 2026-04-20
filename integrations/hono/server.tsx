@@ -8,7 +8,6 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { getCookie, setCookie } from 'hono/cookie'
-import { serveStatic } from 'hono/bun'
 import { createDevReloader } from '@barefootjs/hono/dev-worker'
 import { renderer } from './renderer'
 import Counter from '@/components/Counter'
@@ -305,11 +304,21 @@ app.post('/api/todos/reset', (c) => {
 })
 
 // Static file fallback for plain bun (dev compose container): when there's
-// no Workers ASSETS binding, serve files from ./public/. Mounted as
-// middleware so it runs before the catch-all; serveStatic forwards
-// non-file requests to next() so dynamic routes still work.
-const publicStatic = serveStatic({ root: './public' })
-app.use('*', (c, next) => (c.env?.ASSETS ? next() : publicStatic(c, next)))
+// no Workers ASSETS binding, serve files from ./public/. Inlined with
+// Bun.file rather than imported from `hono/bun` so the Workers bundle
+// stays free of any module-level Bun references — `hono/bun`'s top-level
+// code throws `ReferenceError: Bun is not defined` when loaded under
+// workerd. `./public/` mirrors the URL space (including the basePath),
+// matching how Workers Assets serves it in production.
+app.use('*', async (c, next) => {
+  if (c.env?.ASSETS) return next()
+  if (typeof globalThis.Bun === 'undefined') return next()
+  const { pathname } = new URL(c.req.url)
+  if (pathname === BASE_PATH || pathname === `${BASE_PATH}/`) return next()
+  const file = globalThis.Bun.file(`./public${pathname}`)
+  if (await file.exists()) return new Response(file)
+  return next()
+})
 
 // Fallthrough for anything not matched above. Two cases to handle:
 //   1. `${BASE_PATH}/` (trailing slash on the home page): Hono's basePath
