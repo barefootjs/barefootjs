@@ -303,15 +303,31 @@ app.post('/api/todos/reset', (c) => {
   return c.json({ success: true })
 })
 
+// Static file fallback for plain bun (dev compose container): when there's
+// no Workers ASSETS binding, serve files from ./public/. Inlined with
+// Bun.file rather than imported from `hono/bun` so the Workers bundle
+// stays free of any module-level Bun references — `hono/bun`'s top-level
+// code throws `ReferenceError: Bun is not defined` when loaded under
+// workerd. `./public/` mirrors the URL space (including the basePath),
+// matching how Workers Assets serves it in production.
+app.use('*', async (c, next) => {
+  if (c.env?.ASSETS) return next()
+  if (typeof globalThis.Bun === 'undefined') return next()
+  const { pathname } = new URL(c.req.url)
+  if (pathname === BASE_PATH || pathname === `${BASE_PATH}/`) return next()
+  const file = globalThis.Bun.file(`./public${pathname}`)
+  if (await file.exists()) return new Response(file)
+  return next()
+})
+
 // Fallthrough for anything not matched above. Two cases to handle:
 //   1. `${BASE_PATH}/` (trailing slash on the home page): Hono's basePath
 //      matches the no-slash variant only, and Workers Assets would try to
 //      serve the directory and 404, so we redirect to the canonical
 //      no-slash URL.
-//   2. Everything else (e.g. /integrations/hono/static/*): forward to Workers
-//      Assets. This path is reached because wrangler.toml sets
-//      `run_worker_first = true`, giving the Worker first crack at every
-//      request.
+//   2. Workers / wrangler dev: forward to the ASSETS binding. This path
+//      is reached because wrangler.toml sets `run_worker_first = true`,
+//      giving the Worker first crack at every request.
 app.all('*', (c) => {
   const url = new URL(c.req.url)
   if (url.pathname === `${BASE_PATH}/`) {

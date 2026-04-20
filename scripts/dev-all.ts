@@ -2,15 +2,20 @@
 /**
  * Dev-all proxy: expose every adapter and the main site under one origin.
  *
- *   localhost:4000/integrations/hono/*             → localhost:3001 (wrangler dev)
- *   localhost:4000/integrations/echo/*             → localhost:8080 (go run .)
- *   localhost:4000/integrations/mojolicious/*      → localhost:3004 (perl app.pl)
- *   localhost:4000/*                           → localhost:3000 (site/core)
+ *   :4000/integrations/hono/*        → hono service
+ *   :4000/integrations/echo/*        → echo service
+ *   :4000/integrations/mojolicious/* → mojolicious service
+ *   :4000/*                          → site-core service
  *
- * Each adapter mounts under /examples/<name>, so we dispatch by path prefix
- * and forward the request verbatim. Anything else falls through to site/core
- * (landing + docs). SSE and streaming responses work because Bun.serve
- * returns the upstream body stream directly without buffering.
+ * Designed to run inside the dev docker-compose network where service names
+ * (hono, echo, mojolicious, site-core) resolve via Docker DNS. Each upstream
+ * target is overridable via env vars so the same script also works on the
+ * host (e.g. when iterating on the proxy itself), and so individual targets
+ * can be redirected to host.docker.internal when an integration is being run
+ * outside compose for focused debugging.
+ *
+ * SSE and streaming responses work because Bun.serve returns the upstream
+ * body stream directly without buffering.
  */
 
 const PORT = Number(process.env.DEV_ALL_PORT ?? 4000)
@@ -22,12 +27,12 @@ type Route = {
 }
 
 const routes: readonly Route[] = [
-  { prefix: '/integrations/hono',        target: 'http://localhost:3001', label: 'Hono (Workers)' },
-  { prefix: '/integrations/echo',        target: 'http://localhost:8080', label: 'Echo (Go)' },
-  { prefix: '/integrations/mojolicious', target: 'http://localhost:3004', label: 'Mojolicious (Perl)' },
+  { prefix: '/integrations/hono',        target: process.env.HONO_TARGET        ?? 'http://hono:3000',        label: 'Hono' },
+  { prefix: '/integrations/echo',        target: process.env.ECHO_TARGET        ?? 'http://echo:8080',        label: 'Echo (Go)' },
+  { prefix: '/integrations/mojolicious', target: process.env.MOJOLICIOUS_TARGET ?? 'http://mojolicious:3000', label: 'Mojolicious (Perl)' },
 ] as const
 
-const DEFAULT_TARGET = 'http://localhost:3005' // site/core
+const DEFAULT_TARGET = process.env.SITE_CORE_TARGET ?? 'http://site-core:4001'
 
 function matchRoute(pathname: string): Route | null {
   for (const route of routes) {
@@ -44,7 +49,7 @@ Bun.serve({
     const url = new URL(req.url)
     const route = matchRoute(url.pathname)
     const target = route?.target ?? DEFAULT_TARGET
-    const label = route ? route.prefix : 'site/core'
+    const label = route ? route.prefix : 'site-core'
 
     const proxyUrl = target + url.pathname + url.search
     try {
@@ -69,7 +74,8 @@ Bun.serve({
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       return new Response(
-        `Upstream ${target} (${label}) unreachable (${msg}). Is that dev server running?`,
+        `Upstream ${target} (${label}) unreachable (${msg}). Is that service up? ` +
+        `In single-adapter mode, only the adapter you started will respond.`,
         { status: 502, headers: { 'Content-Type': 'text/plain' } },
       )
     }
@@ -80,4 +86,4 @@ console.log(`dev-all proxy listening on http://localhost:${PORT}`)
 for (const r of routes) {
   console.log(`  ${r.prefix.padEnd(26)} → ${r.target}`)
 }
-console.log(`  ${'(fallback)'.padEnd(26)} → ${DEFAULT_TARGET} (site/core)`)
+console.log(`  ${'(fallback)'.padEnd(26)} → ${DEFAULT_TARGET} (site-core)`)

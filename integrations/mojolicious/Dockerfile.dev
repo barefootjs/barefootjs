@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+#
+# Development image for the Mojolicious integration. Source (app.pl) and the
+# host-built dist/ are bind-mounted in; morbo watches for changes and
+# restarts on .pl / .pm edits. Templates re-render on each request because
+# the dev-mode renderer cache is disabled (see app.pl).
+
+FROM perl:5.42-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends make gcc libc-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN cpanm --notest Mojolicious
+
+WORKDIR /workspace/integrations/mojolicious
+
+# morbo defaults to http://*:3000 — no -l override.
+EXPOSE 3000
+
+# morbo's default watch list covers app.pl, lib/, and templates/. Add the
+# bind-mounted plugin source so plugin edits also trigger a restart.
+CMD ["morbo", "-w", "app.pl", "-w", "lib", "-w", "/workspace/packages/mojolicious/lib", "app.pl"]

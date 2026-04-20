@@ -1,0 +1,13 @@
+# syntax=docker/dockerfile:1
+#
+# Tiny bun container for the dev proxy (scripts/dev-all.ts). Runs inside the
+# compose network and routes incoming requests to the integration services
+# by their compose service names.
+
+FROM oven/bun:1.3-alpine
+
+WORKDIR /workspace
+
+EXPOSE 4000
+
+CMD ["bun", "run", "scripts/dev-all.ts"]
