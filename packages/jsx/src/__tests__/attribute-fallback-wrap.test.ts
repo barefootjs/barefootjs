@@ -11,11 +11,14 @@
  * attribute was evaluated once; the client never re-evaluated it, so the
  * attribute stayed frozen.
  *
- * The fix widens the gate to also wrap when the expanded expression contains
- * a function call (`/\b\w+\s*\(/`). Over-wrapping a pure call that
- * subscribes to nothing is harmless (one closure at init time, no rerun);
- * under-wrapping a reactive read is the bug class we're closing. Pure static
- * literals and bare identifiers without calls stay un-wrapped.
+ * #940 originally closed this by adding a regex fallback
+ * (`/\b\w+\s*\(/`) with quote-strip on the expanded value. The DRY
+ * consolidation (follow-up to #952 for `IRProp`) replaced that
+ * post-expansion regex with AST flags computed Phase 1 on the source
+ * JSX expression — matching the shape #939 / #941 / #942 / #943 already
+ * use. Over-wrap (extra createEffect that subscribes to nothing) stays
+ * harmless; under-wrap (silent drop of a reactive attribute read) stays
+ * the class of bug we're closing.
  */
 
 import { describe, test, expect } from 'bun:test'
@@ -134,12 +137,27 @@ describe('Solid-style wrap-by-default fallback for attributes (#940)', () => {
     expect(clientJs).not.toMatch(/className\s*=\s*[^;]*cls/)
   })
 
-  test('spread-expanded prop whose expansion contains a call wraps', () => {
-    // `classes` is a local const whose value contains a call
-    // (`format(variant)`). expandConstantForReactivity inlines the reference
-    // before the gate runs, so the expanded string matches the call regex
-    // and the attribute wraps. This protects the same silent-drop case for
-    // code that factors class construction into a local variable.
+  test('local-const identifier attribute stays un-wrapped (DRY source-level vs post-expansion guard)', () => {
+    // DRY consolidation replaced the post-expansion regex gate with AST
+    // flags computed on the attribute's source expression. This changes
+    // behaviour for a specific shape: a local-const identifier whose
+    // initializer contains a call, used as an attribute value.
+    //
+    // Source: `class={classes}` where
+    // `const classes = \`\${base} \${format(variant)}\``. The old regex
+    // expanded `classes` first, then matched `format(` on the expansion
+    // — forcing wrap. The AST flags see only the source identifier
+    // `classes` (no CallExpression), so `hasFunctionCalls` is false.
+    // `needsEffectWrapper` on the expanded text also stays false
+    // because `base`, `format`, and `variant` aren't registered as
+    // reactive (no signals/memos/props match). The attribute stays
+    // un-wrapped.
+    //
+    // That is the correct semantic under #937: wrap based on what the
+    // attribute's source expression *does*, not on what its transitive
+    // inlining happens to contain. The SSR-rendered attribute is
+    // already frozen into the DOM and none of the transitive reads are
+    // reactive, so the previous wrap was dead weight.
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -155,7 +173,33 @@ describe('Solid-style wrap-by-default fallback for attributes (#940)', () => {
     `
 
     const clientJs = getClientJs(source, 'Tag.tsx')
-    expect(clientJs).toContain('createEffect')
-    expect(clientJs).toContain('format(')
+    expect(clientJs).not.toContain('createEffect')
+  })
+
+  test('string-literal-only function-like pattern stays un-wrapped (AST-flag structural check)', () => {
+    // Before DRY consolidation, collect-elements.ts scanned the expanded
+    // attribute value with /\b\w+\s*\(/ after stripping quoted strings.
+    // A structural regex over stripped text is still a regex — any future
+    // regression in the strip step would silently re-introduce hsl / rgb
+    // / url / etc. false positives. The AST flag approach can't be fooled
+    // this way: `{ color: 'hsl(221 83% 53%)' }` is an object literal with
+    // a StringLiteral value, not a CallExpression, so `hasFunctionCalls`
+    // is structurally false.
+    //
+    // The enclosing expression has no reactive source (no signal, no
+    // memo, no \`props.\`), so the attribute must NOT appear in
+    // reactiveAttrs.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function Palette() {
+        const [, setFoo] = createSignal(0)
+        return <div style={{ color: 'hsl(221 83% 53%)' }} onClick={() => setFoo(1)}>x</div>
+      }
+    `
+
+    const clientJs = getClientJs(source, 'Palette.tsx')
+    expect(clientJs).not.toContain('createEffect')
   })
 })

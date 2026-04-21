@@ -373,6 +373,10 @@ export interface IRAttribute extends AttrMeta {
   dynamic: boolean
   isLiteral: boolean // true if value came from a string literal attribute
   loc: SourceLocation
+  /** When true, attr expression calls signal getters or memos (computed from AST). (#940 DRY consolidation) */
+  callsReactiveGetters?: boolean
+  /** When true, attr expression contains any `identifier()` pattern (computed from AST). (#940 DRY consolidation) */
+  hasFunctionCalls?: boolean
 }
 
 export interface IREvent {
