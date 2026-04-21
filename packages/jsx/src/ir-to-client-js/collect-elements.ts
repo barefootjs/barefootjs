@@ -438,15 +438,19 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
           //
           // Single- and double-quoted strings are stripped before the
           // regex runs, to avoid false positives on object-literal prop
-          // values like `{ color: 'hsl(221 83% 53%)' }`. Template literals
-          // are left intact because `${calls()}` inside them is live code.
+          // values like `{ color: 'hsl(221 83% 53%)' }`. A single
+          // alternation regex handles both quote kinds in one pass, so
+          // there is no order dependency for inputs that mix them
+          // (e.g. `"It's fine"`). Template literals are left intact
+          // because `${calls()}` inside them is live code.
           const hasPropsRef = expandedValue.includes('props.')
           const hasReactiveExpr = needsEffectWrapper(expandedValue, ctx)
-          const withoutStringLiterals = expandedValue
-            .replace(/'(?:[^'\\]|\\.)*'/g, "''")
-            .replace(/"(?:[^"\\]|\\.)*"/g, '""')
-          const hasAnyCall = /\b\w+\s*\(/.test(withoutStringLiterals)
-          if (hasPropsRef || hasReactiveExpr || hasAnyCall) {
+          const withoutStringLiterals = expandedValue.replace(
+            /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g,
+            '',
+          )
+          const hasCallOutsideString = /\b\w+\s*\(/.test(withoutStringLiterals)
+          if (hasPropsRef || hasReactiveExpr || hasCallOutsideString) {
             const attrName = prop.name === 'className' ? 'class' : prop.name
             ctx.reactiveChildProps.push({
               componentName: node.name,
