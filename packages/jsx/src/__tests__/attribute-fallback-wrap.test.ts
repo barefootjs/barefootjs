@@ -137,7 +137,7 @@ describe('Solid-style wrap-by-default fallback for attributes (#940)', () => {
     expect(clientJs).not.toMatch(/className\s*=\s*[^;]*cls/)
   })
 
-  test('local-const identifier attribute stays un-wrapped (DRY source-level vs post-expansion guard)', () => {
+  test('local-const identifier attribute stays un-wrapped (#953 source-level vs post-expansion guard)', () => {
     // DRY consolidation replaced the post-expansion regex gate with AST
     // flags computed on the attribute's source expression. This changes
     // behaviour for a specific shape: a local-const identifier whose
@@ -173,10 +173,19 @@ describe('Solid-style wrap-by-default fallback for attributes (#940)', () => {
     `
 
     const clientJs = getClientJs(source, 'Tag.tsx')
-    expect(clientJs).not.toContain('createEffect')
+    // Narrowed from `not.toContain('createEffect')` so a future optimisation
+    // that happens to wrap something else in this component doesn't fail
+    // this test for the wrong reason. The thing we actually pin is that
+    // the `class` attribute is not re-bound via a reactive-attrs entry:
+    // `// Reactive attributes` is the emitter-stable section header for
+    // that block in collect-elements.ts, and `class` is the only
+    // attribute in `Tag` that could regress into it.
+    expect(clientJs).not.toContain('Reactive attributes')
+    expect(clientJs).not.toMatch(/setAttribute\(\s*['"]class['"]/)
+    expect(clientJs).not.toMatch(/\.className\s*=/)
   })
 
-  test('string-literal-only function-like pattern stays un-wrapped (AST-flag structural check)', () => {
+  test('string-literal-only function-like pattern stays un-wrapped (#953 AST-flag structural check)', () => {
     // Before DRY consolidation, collect-elements.ts scanned the expanded
     // attribute value with /\b\w+\s*\(/ after stripping quoted strings.
     // A structural regex over stripped text is still a regex — any future
@@ -200,6 +209,11 @@ describe('Solid-style wrap-by-default fallback for attributes (#940)', () => {
     `
 
     const clientJs = getClientJs(source, 'Palette.tsx')
-    expect(clientJs).not.toContain('createEffect')
+    // Pin the `style` attribute specifically, not the whole module — see
+    // the comment on the previous test for the rationale. Palette has no
+    // other attribute that could regress into reactive-attrs, so this is
+    // a tight structural guard.
+    expect(clientJs).not.toContain('Reactive attributes')
+    expect(clientJs).not.toMatch(/setAttribute\(\s*['"]style['"]/)
   })
 })
