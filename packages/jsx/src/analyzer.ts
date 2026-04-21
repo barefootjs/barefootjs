@@ -241,6 +241,29 @@ function visit(
     collectTypeAliasDefinition(node, ctx)
   }
 
+  // Module-level multi-return JSX helper (#932): a PascalCase function
+  // whose body is a switch / if-else chain where every exit returns JSX
+  // or null. In non-`"use client"` files the component pipeline collapses
+  // such bodies into an empty output (conditional-returns machinery only
+  // runs on the target component); preserve the function verbatim as a
+  // helper so the marked-template emitter can include it in any
+  // component that references it (<HelperName />).
+  //
+  // `"use client"` files are left alone — their multi-return components
+  // are legitimately stateful (createSignal + onClick branches per
+  // variant) and rely on `conditionalReturns` handling at IR time.
+  if (
+    !ctx.hasUseClientDirective &&
+    ts.isFunctionDeclaration(node) &&
+    node.name &&
+    node.body &&
+    isMultiReturnJsxFunctionBody(node.body)
+  ) {
+    const isExported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
+    collectFunction(node, ctx, true, isExported)
+    return
+  }
+
   // Component function
   if (isComponentFunction(node)) {
     if (!targetComponentName || node.name.text === targetComponentName) {
@@ -970,6 +993,48 @@ function extractSingleJsxReturn(
   return jsxReturn
 }
 
+/**
+ * Detect a multi-return JSX helper: every top-level exit point is a
+ * `return <jsx>` or `return null`, and at least one return is JSX. Used
+ * to reclassify module-level PascalCase functions with a `switch` / if-else
+ * chain body as verbatim helpers rather than components — otherwise the
+ * component pipeline collapses multi-branch bodies into an empty output
+ * and SSR throws `ReferenceError: <Name> is not defined`. (#932)
+ *
+ * Does not descend into nested function/arrow bodies.
+ */
+export function isMultiReturnJsxFunctionBody(body: ts.Block): boolean {
+  let returnCount = 0
+  let hasJsxReturn = false
+  let allReturnsAreJsxOrNull = true
+
+  function visit(node: ts.Node): void {
+    if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) return
+    if (ts.isReturnStatement(node)) {
+      returnCount++
+      if (!node.expression) {
+        allReturnsAreJsxOrNull = false
+        return
+      }
+      let expr: ts.Expression = node.expression
+      while (ts.isParenthesizedExpression(expr)) expr = expr.expression
+      const isJsx =
+        ts.isJsxElement(expr) ||
+        ts.isJsxSelfClosingElement(expr) ||
+        ts.isJsxFragment(expr)
+      const isNull = expr.kind === ts.SyntaxKind.NullKeyword
+      if (isJsx) hasJsxReturn = true
+      if (!isJsx && !isNull) allReturnsAreJsxOrNull = false
+      return
+    }
+    ts.forEachChild(node, visit)
+  }
+
+  ts.forEachChild(body, visit)
+
+  return returnCount > 1 && hasJsxReturn && allReturnsAreJsxOrNull
+}
+
 function collectFunction(
   node: ts.FunctionDeclaration,
   ctx: AnalyzerContext,
@@ -1672,10 +1737,29 @@ export function listComponentFunctions(
 
   const componentNames: string[] = []
 
+  // 'use client' directive detection (controls whether multi-return JSX
+  // PascalCase functions are treated as components or as verbatim helpers).
+  // See #932.
+  const hasUseClient = sourceFile.statements.some(stmt =>
+    ts.isExpressionStatement(stmt) &&
+    ts.isStringLiteral(stmt.expression) &&
+    (stmt.expression.text === 'use client' || stmt.expression.text === "'use client'")
+  )
+
   function collectComponents(node: ts.Node): void {
     // Exported function declaration
     if (isComponentFunction(node)) {
-      componentNames.push(node.name.text)
+      // In non-"use client" files, PascalCase functions whose body is a
+      // multi-return JSX dispatch (switch / if-else chain) are preserved
+      // verbatim as helpers rather than compiled as standalone components
+      // (see #932 — the component pipeline drops their body). Skip them
+      // here so `compileMultipleComponents` does not emit a broken file
+      // for them.
+      if (!hasUseClient && node.body && isMultiReturnJsxFunctionBody(node.body)) {
+        // fall through to forEachChild
+      } else {
+        componentNames.push(node.name.text)
+      }
     }
 
     // Exported arrow function component
