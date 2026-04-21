@@ -303,6 +303,11 @@ function visit(
     const hasNamedExport = namedExports?.has(node.name.text) ?? false
     if (!hasInlineExport && !hasNamedExport) {
       collectFunction(node, ctx, true, false)
+      // Mark as a multi-return JSX helper so downstream emission (client JS)
+      // can distinguish it from ordinary module-level helpers whose `body`
+      // happens to contain JSX-like characters inside string literals.
+      const fn = ctx.localFunctions.find(f => f.name === node.name!.text)
+      if (fn) fn.isMultiReturnJsxHelper = true
       return
     }
   }

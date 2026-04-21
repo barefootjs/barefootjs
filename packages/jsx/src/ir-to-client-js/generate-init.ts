@@ -221,13 +221,15 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   const moduleLevelFunctions: FunctionInfo[] = []
   for (const fn of ctx.localFunctions) {
     if (fn.isJsxFunction) continue  // Inlined at call sites (#569)
-    // Multi-return JSX helpers (#932) have `containsJsx: true` but no
-    // `isJsxFunction` — they are preserved verbatim for the SSR marked
-    // template, but their body contains raw JSX syntax that is not valid
-    // JavaScript. Skip them here so client JS stays parseable; hydration
-    // of the referencing component does not need the helper at runtime
-    // (the SVG / JSX was already rendered by SSR).
-    if (fn.containsJsx) continue
+    // Multi-return JSX helpers (#932) are preserved verbatim for the SSR
+    // marked template, but their body contains raw JSX syntax that is
+    // not valid JavaScript. Skip them here so client JS stays parseable;
+    // hydration of the referencing component does not need the helper at
+    // runtime (the SVG / JSX was already rendered by SSR). Do NOT rely on
+    // `containsJsx` — that regex flag also matches helpers whose body has
+    // JSX-like strings inside string literals (e.g. a code-snippet
+    // builder), and skipping those would regress real client-side logic.
+    if (fn.isMultiReturnJsxHelper) continue
     if (!usedIdentifiers.has(fn.name)) continue
     if (fn.isModule && !bodyReferencesComponentScope(fn.body, componentScopeNames)) {
       moduleLevelFunctions.push(fn)
