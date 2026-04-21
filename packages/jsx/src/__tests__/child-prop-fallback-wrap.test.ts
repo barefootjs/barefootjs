@@ -158,6 +158,38 @@ describe('Solid-style wrap-by-default fallback for child-component props (#942)'
     expect(clientJs).not.toContain('Reactive child component props')
   })
 
+  test('string-literal-only function-like pattern stays un-wrapped (AST-flag structural check, #942 DRY)', () => {
+    // Before #942 DRY consolidation, collect-elements.ts scanned the
+    // expanded expression text with /\b\w+\s*\(/ after stripping quoted
+    // strings. Structural regex over stripped text is still a regex —
+    // any future regression in the strip step would silently re-introduce
+    // hsl/rgb/url/etc. false positives. The AST flag approach can't be
+    // fooled this way: `{ color: 'hsl(221 83% 53%)' }` is an object
+    // literal with a StringLiteral value, not a CallExpression, so
+    // `hasFunctionCalls` is structurally false.
+    //
+    // The enclosing expression has no reactive source (no signal, no
+    // memo, no `props.`), so none of the OR branches should fire and the
+    // prop must NOT appear in reactiveChildProps.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Card } from './Card'
+
+      export function Palette() {
+        const [, setFoo] = createSignal(0)
+        return (
+          <div onClick={() => setFoo(1)}>
+            <Card config={{ color: 'hsl(221 83% 53%)' }} />
+          </div>
+        )
+      }
+    `
+
+    const clientJs = getClientJs(source, 'Palette.tsx')
+    expect(clientJs).not.toContain('Reactive child component props')
+  })
+
   test('props.xxx access in child prop still wraps (hasPropsRef regression guard)', () => {
     // The existing `hasPropsRef` branch remains — `props.title` is a
     // direct prop reference even though it contains no function call.
