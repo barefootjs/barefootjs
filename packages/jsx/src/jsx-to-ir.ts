@@ -1870,6 +1870,22 @@ function processAttributes(
     if (dynamic && typeof value === 'string' && attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
       templateValue = rewriteBarePropRefs(value, attr.initializer.expression, ctx)
     }
+
+    // AST-derived reactivity flags for Solid-style wrap-by-default fallback
+    // (#940 DRY consolidation). Lets collect-elements.ts decide wrapping
+    // structurally instead of regex-scanning the expanded value string —
+    // a regex can false-match call-like substrings inside string literals
+    // (e.g. `style={{ color: 'hsl(221 83% 53%)' }}`) and is forced to
+    // re-strip quotes every time. Flags are computed on the source JSX
+    // expression before local-const expansion, matching the structural
+    // guarantee #942 / #952 established for `IRProp`.
+    let callsReactive = false
+    let hasCalls = false
+    if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+      callsReactive = exprCallsReactiveGetters(attr.initializer.expression, ctx)
+      hasCalls = exprHasFunctionCalls(attr.initializer.expression)
+    }
+
     attrs.push({
       name,
       value,
@@ -1877,6 +1893,8 @@ function processAttributes(
       dynamic,
       isLiteral,
       loc: getSourceLocation(attr, ctx.sourceFile, ctx.filePath),
+      callsReactiveGetters: callsReactive || undefined,
+      hasFunctionCalls: hasCalls || undefined,
       ...pickAttrMeta(attrResult),
     })
   }

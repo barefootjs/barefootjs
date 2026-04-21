@@ -565,19 +565,29 @@ function collectFromElement(element: IRElement, ctx: ClientJsContext, _insideCon
         // e.g., `classes` → `` `${baseClasses} ${variantClasses[variant]} ${className}` ``
         const expandedValueStr = expandConstantForReactivity(valueStr, ctx)
 
-        // Solid-style wrap-by-default fallback (#940, follow-up to #937/#939):
-        // wrap attribute bindings in createEffect not only for statically-proven
-        // reactive expressions, but also for any expression the analyzer can't
-        // prove non-reactive — i.e. anything that contains a function call.
-        // Pure static literals and bare identifiers (no calls) stay un-wrapped
-        // because their SSR value is already in the DOM.
+        // Solid-style wrap-by-default fallback (#940, DRY-consolidated
+        // with #939/#941/#942/#943 via IRAttribute AST flags). Wrap
+        // attribute bindings in createEffect not only for
+        // statically-proven reactive expressions, but also for any
+        // expression the analyzer can't prove non-reactive — AST flags
+        // carry that signal from Phase 1. Pure literals and bare
+        // identifiers (no calls) stay un-wrapped because their SSR value
+        // is already in the DOM.
         //
-        // False positive (extra createEffect that subscribes to nothing) is
-        // harmless; false negative (silent drop of a reactive read) is the
-        // bug class this gate closes. Phase 2 has no AST access, so a cheap
-        // regex over the expanded expression is sufficient here.
-        const hasFunctionCall = /\b\w+\s*\(/.test(expandedValueStr)
-        if (needsEffectWrapper(expandedValueStr, ctx) || hasFunctionCall) {
+        // `needsEffectWrapper(expandedValueStr, ctx)` stays as a
+        // string-level check because it recognises known signal getters,
+        // memos, and prop names inside expanded local-const references
+        // (e.g. `const classes = \`btn \${count()}\`; <div class={classes}>`).
+        // `attr.callsReactiveGetters` / `attr.hasFunctionCalls` are
+        // computed structurally from the AST of the source expression, so
+        // they can't false-match call-like substrings inside string
+        // literals (e.g. `style={{ color: 'hsl(221 83% 53%)' }}`) and
+        // don't depend on the expansion order of local constants.
+        if (
+          needsEffectWrapper(expandedValueStr, ctx)
+          || attr.callsReactiveGetters
+          || attr.hasFunctionCalls
+        ) {
           ctx.reactiveAttrs.push({
             slotId: element.slotId,
             attrName: attr.name,
