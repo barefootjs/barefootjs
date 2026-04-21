@@ -107,8 +107,11 @@ describe('Solid-style wrap-by-default fallback for conditionals (#941)', () => {
 
   test('static literal-derived condition stays un-wrapped', () => {
     // `staticValue` is a bare local const with no function calls; neither
-    // the old gate nor the new fallback fires. No insert() — the branch
-    // baked into SSR output stays as-is on the client.
+    // the old gate nor the new fallback fires. The conditional stays baked
+    // into SSR output. Assert specifically that `staticValue` is not passed
+    // to an `insert(...)` callback — tighter than `.not.toContain('insert')`,
+    // which would flip red on any unrelated future insert() site in the
+    // same component.
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -125,29 +128,30 @@ describe('Solid-style wrap-by-default fallback for conditionals (#941)', () => {
     `
 
     const clientJs = getClientJs(source, 'Banner.tsx')
-    expect(clientJs).not.toContain('insert')
+    expect(clientJs).not.toMatch(/insert\s*\([^)]*staticValue/)
   })
 
   test('bare identifier in nullish coalescing stays un-wrapped', () => {
-    // `a` is a bare local const with no calls. `a ?? <Fallback/>` has
-    // nothing to re-evaluate on the client. No insert() emitted.
+    // `greeting` is a bare local const with no calls. `greeting ??
+    // <Fallback/>` has nothing to re-evaluate on the client. Slot-scoped
+    // assertion: `greeting` must not appear inside an insert(...) callback.
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
 
       export function Message() {
         const [, setFoo] = createSignal(0)
-        const a = 'hello'
+        const greeting = 'hello'
         return (
           <div onClick={() => setFoo(1)}>
-            {a ?? <span>fallback</span>}
+            {greeting ?? <span>fallback</span>}
           </div>
         )
       }
     `
 
     const clientJs = getClientJs(source, 'Message.tsx')
-    expect(clientJs).not.toContain('insert')
+    expect(clientJs).not.toMatch(/insert\s*\([^)]*greeting/)
   })
 
   test('nested ternaries with unrecognised calls wrap at both levels', () => {
@@ -172,9 +176,10 @@ describe('Solid-style wrap-by-default fallback for conditionals (#941)', () => {
     const clientJs = getClientJs(source, 'Nested.tsx')
     expect(clientJs).toContain('outer()')
     expect(clientJs).toContain('inner()')
-    // Both conditionals produce insert() call sites. Two insert(...) calls
-    // for the outer + the nested inner.
+    // Outer + nested inner conditional each get their own insert() call —
+    // exactly two. Using toBe(2) (rather than >=2) catches both the
+    // silent-drop regression *and* any accidental duplicate emission.
     const insertCount = (clientJs.match(/\binsert\s*\(/g) ?? []).length
-    expect(insertCount).toBeGreaterThanOrEqual(2)
+    expect(insertCount).toBe(2)
   })
 })
