@@ -20,18 +20,29 @@ import { emitAttrUpdate } from './emit-reactive'
  * synthetic accessor name and unwrap once at body entry, so destructured
  * bindings become plain locals that the rest of the emitted body can read.
  *
+ * The `__bf_` prefix is a barefoot-reserved namespace — avoids any chance
+ * of collision if the user writes `.map(item => ...)` with a matching name.
+ *
+ * Detection relies on `param` being the trimmed output of
+ * `firstParam.name.getText()` in `jsx-to-ir.ts::transformMapCall` — no
+ * leading parens, no type annotations, no trivia whitespace. If that
+ * upstream contract changes, the prefix check must be widened in lockstep
+ * or the #949 crash resurfaces silently.
+ *
  * Known limitation: destructured locals are captured at first render and
  * will not refresh on same-key setItem updates. Array-level updates (add /
  * remove / reorder / key change) work correctly because a new renderItem
  * call produces fresh locals. Same-key fine-grained reactivity through
  * destructured bindings requires template-time rewriting of binding
- * references to `__loopItem().path` — tracked as an Option 3 follow-up.
+ * references to `__bfItem().path` — tracked as an Option 3 follow-up.
+ * See the pinning test in `map-array.test.ts::destructured locals
+ * captured once (known limitation)`.
  */
 function destructureLoopParam(param: string): { head: string; unwrap: string } {
   if (param.startsWith('[') || param.startsWith('{')) {
     return {
-      head: '__loopItem',
-      unwrap: `const ${param} = __loopItem();`,
+      head: '__bfItem',
+      unwrap: `const ${param} = __bfItem();`,
     }
   }
   return { head: param, unwrap: '' }

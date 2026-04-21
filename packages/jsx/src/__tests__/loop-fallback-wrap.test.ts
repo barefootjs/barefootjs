@@ -216,10 +216,10 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
 
     const clientJs = getClientJs(source, 'Legend.tsx')
     // mapArray is emitted (widening now applies). renderItem uses the
-    // synthetic `__loopItem` param and unwraps at entry.
+    // synthetic `__bfItem` param and unwraps at entry.
     expect(clientJs).toContain('mapArray(')
-    expect(clientJs).toContain('(__loopItem, ')
-    expect(clientJs).toContain('const [, cfg] = __loopItem();')
+    expect(clientJs).toContain('(__bfItem, ')
+    expect(clientJs).toContain('const [, cfg] = __bfItem();')
   })
 
   test('loop with child component on unrecognised-call array reconciles', () => {
@@ -275,8 +275,8 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
 
     const clientJs = getClientJs(source, 'TypedLegend.tsx')
     expect(clientJs).toContain('mapArray(')
-    expect(clientJs).toContain('(__loopItem, ')
-    expect(clientJs).toContain('const [, cfg] = __loopItem();')
+    expect(clientJs).toContain('(__bfItem, ')
+    expect(clientJs).toContain('const [, cfg] = __bfItem();')
   })
 
   test('object-destructured map param on signal array reconciles (#949)', () => {
@@ -304,7 +304,7 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
 
     const clientJs = getClientJs(source, 'Fields.tsx')
     expect(clientJs).toContain('mapArray(')
-    expect(clientJs).toContain('(__loopItem, ')
-    expect(clientJs).toContain('const { label, value } = __loopItem();')
+    expect(clientJs).toContain('(__bfItem, ')
+    expect(clientJs).toContain('const { label, value } = __bfItem();')
   })
 })
