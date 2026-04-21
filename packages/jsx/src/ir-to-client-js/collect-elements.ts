@@ -422,9 +422,31 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
           const expandedValue = expandDynamicPropValue(prop.value, ctx)
           propsForInit.push(`get ${quotePropName(prop.name)}() { return ${expandedValue} }`)
 
+          // Solid-style wrap-by-default fallback (#942, follow-up to
+          // #937/#939/#940/#941). Wrap child-component prop bindings in
+          // createEffect not only for statically-proven-reactive values,
+          // but also for any expression the analyzer can't prove
+          // non-reactive — anything containing a function call. Pure
+          // literals and bare identifiers (no calls) stay un-wrapped via
+          // the other branches of this if/else.
+          //
+          // False positive (extra createEffect that subscribes to nothing)
+          // is harmless; false negative (silent drop of a reactive read in
+          // a child prop like `<Card title={format(x)} />`) is the bug
+          // class this closes. Phase 2 has no AST access here, so a cheap
+          // regex on the expanded expression is sufficient.
+          //
+          // Single- and double-quoted strings are stripped before the
+          // regex runs, to avoid false positives on object-literal prop
+          // values like `{ color: 'hsl(221 83% 53%)' }`. Template literals
+          // are left intact because `${calls()}` inside them is live code.
           const hasPropsRef = expandedValue.includes('props.')
           const hasReactiveExpr = needsEffectWrapper(expandedValue, ctx)
-          if (hasPropsRef || hasReactiveExpr) {
+          const withoutStringLiterals = expandedValue
+            .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+            .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+          const hasAnyCall = /\b\w+\s*\(/.test(withoutStringLiterals)
+          if (hasPropsRef || hasReactiveExpr || hasAnyCall) {
             const attrName = prop.name === 'className' ? 'class' : prop.name
             ctx.reactiveChildProps.push({
               componentName: node.name,
