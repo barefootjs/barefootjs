@@ -301,4 +301,86 @@ describe('mapArray', () => {
     expect(renderCount).toBe(1)
     expect(container.children[0].textContent).toBe('B')
   })
+
+  // Regression: #949. The emitter (see destructureLoopParam in
+  // emit-control-flow.ts) now renames the renderItem param to a synthetic
+  // accessor and unwraps once at body entry. This shape — "function-typed
+  // param unwrapped via __loopItem()" — is what the compiled output
+  // produces for `signalArr().map(([a, b]) => ...)`. The test exercises
+  // the contract directly against the runtime so the fix doesn't silently
+  // regress on the client side.
+  test('destructuring via accessor unwrap works for array-pattern params', () => {
+    const [items, setItems] = createSignal<[string, string][]>([
+      ['1', 'A'],
+      ['2', 'B'],
+    ])
+
+    mapArray(
+      items,
+      container,
+      (item, _i) => item[0],
+      // Shape matches compiled output: synthetic __loopItem, unwrap at entry.
+      (__loopItem) => {
+        const [a, b] = __loopItem()
+        const li = document.createElement('li')
+        li.setAttribute('data-a', a)
+        li.textContent = b
+        return li
+      },
+    )
+
+    expect(container.children.length).toBe(2)
+    expect(container.children[0].getAttribute('data-a')).toBe('1')
+    expect(container.children[0].textContent).toBe('A')
+    expect(container.children[1].getAttribute('data-a')).toBe('2')
+    expect(container.children[1].textContent).toBe('B')
+
+    // Array-level update: add + reorder must update DOM.
+    setItems([
+      ['3', 'C'],
+      ['1', 'A'],
+      ['2', 'B'],
+    ])
+
+    expect(container.children.length).toBe(3)
+    expect(container.children[0].getAttribute('data-a')).toBe('3')
+    expect(container.children[1].getAttribute('data-a')).toBe('1')
+    expect(container.children[2].getAttribute('data-a')).toBe('2')
+
+    // Remove one.
+    setItems([['1', 'A']])
+    expect(container.children.length).toBe(1)
+    expect(container.children[0].getAttribute('data-a')).toBe('1')
+  })
+
+  test('destructuring via accessor unwrap works for object-pattern params', () => {
+    const [items, setItems] = createSignal([
+      { id: '1', label: 'A' },
+      { id: '2', label: 'B' },
+    ])
+
+    mapArray(
+      items,
+      container,
+      (item) => item.id,
+      (__loopItem) => {
+        const { id, label } = __loopItem()
+        const li = document.createElement('li')
+        li.setAttribute('data-id', id)
+        li.textContent = label
+        return li
+      },
+    )
+
+    expect(container.children.length).toBe(2)
+    expect(container.children[0].getAttribute('data-id')).toBe('1')
+    expect(container.children[0].textContent).toBe('A')
+
+    setItems([{ id: '2', label: 'B' }, { id: '3', label: 'C' }])
+
+    expect(container.children.length).toBe(2)
+    expect(container.children[0].getAttribute('data-id')).toBe('2')
+    expect(container.children[1].getAttribute('data-id')).toBe('3')
+    expect(container.children[1].textContent).toBe('C')
+  })
 })

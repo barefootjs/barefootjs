@@ -187,18 +187,15 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
     expect(clientJs).toContain('o.children')
   })
 
-  test('destructured map param skips widening (latent mapArray bug)', () => {
+  test('destructured map param now reconciles (#949 emitter fix)', () => {
     // `mapArray` passes the item as a signal accessor (a function) to the
-    // renderItem callback; destructuring a function throws
-    // "function is not iterable" at runtime. The emitter currently
-    // interpolates `elem.param` verbatim into the renderItem arrow head,
-    // so `([, cfg]) => ...` on a dynamic array crashes at hydration.
-    //
-    // Until the emitter is taught to unwrap `item()` for destructured
-    // params, the #943 widening skips these cases to avoid regressing
-    // previously-working SSR-only components. The call shape is present
-    // but the array stays on the static path — a known trade-off, not a
-    // silent-drop (the frozen SSR output is the existing behaviour).
+    // renderItem callback; destructuring a function would throw
+    // "function is not iterable" at runtime. Before #949 the emitter
+    // interpolated `elem.param` verbatim into the renderItem arrow head,
+    // so this path was excluded from the #943 widening to avoid the
+    // crash. With #949 the emitter renames the param to a synthetic
+    // accessor and unwraps once at body entry, so destructured-param
+    // callbacks are safe to reconcile like any other dynamic array.
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -218,10 +215,11 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
     `
 
     const clientJs = getClientJs(source, 'Legend.tsx')
-    // Destructured param + call on array → widening is intentionally
-    // skipped. No mapArray emitted; the inline `.map().join('')` static
-    // template remains.
-    expect(clientJs).not.toMatch(/\bmapArray\s*\(/)
+    // mapArray is emitted (widening now applies). renderItem uses the
+    // synthetic `__loopItem` param and unwraps at entry.
+    expect(clientJs).toContain('mapArray(')
+    expect(clientJs).toContain('(__loopItem, ')
+    expect(clientJs).toContain('const [, cfg] = __loopItem();')
   })
 
   test('loop with child component on unrecognised-call array reconciles', () => {
@@ -250,13 +248,12 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
     expect(clientJs).toContain('listOf()')
   })
 
-  test('typed destructured map param also skips widening', () => {
+  test('typed destructured map param also reconciles (#949)', () => {
     // TypeScript type annotations on the binding pattern live in
     // `firstParam.type`, not `firstParam.name`. The emitter extracts
     // `param` from `firstParam.name.getText()`, so a typed destructure
-    // still yields `param = "[, cfg]"` — the prefix check fires
-    // correctly. Pin this behaviour so the #949 emitter fix, when it
-    // lands, updates both plain and typed paths consistently.
+    // still yields `param = "[, cfg]"`. Once #949 landed, the
+    // destructureLoopParam helper picks up both plain and typed forms.
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -277,6 +274,37 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
     `
 
     const clientJs = getClientJs(source, 'TypedLegend.tsx')
-    expect(clientJs).not.toContain('mapArray(')
+    expect(clientJs).toContain('mapArray(')
+    expect(clientJs).toContain('(__loopItem, ')
+    expect(clientJs).toContain('const [, cfg] = __loopItem();')
+  })
+
+  test('object-destructured map param on signal array reconciles (#949)', () => {
+    // Object-pattern destructure on a signal array. Before #949 this
+    // produced `({ label, value }, __idx, __existing) =>` as the
+    // renderItem head, and mapArray's accessor contract meant the
+    // destructure tried to unpack a function at hydration. With the
+    // emitter fix, the synthetic accessor + entry unwrap keeps the
+    // destructured bindings in scope for the template body.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function Fields() {
+        const [items, setItems] = createSignal([{ label: 'a', value: '1' }])
+        return (
+          <ul onClick={() => setItems(prev => [...prev, { label: 'b', value: '2' }])}>
+            {items().map(({ label, value }) => (
+              <li key={value}>{label}:{value}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+
+    const clientJs = getClientJs(source, 'Fields.tsx')
+    expect(clientJs).toContain('mapArray(')
+    expect(clientJs).toContain('(__loopItem, ')
+    expect(clientJs).toContain('const { label, value } = __loopItem();')
   })
 })
