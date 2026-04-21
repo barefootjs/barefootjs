@@ -86,6 +86,26 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   // because collectUsedIdentifiers didn't extract from a specific context.
   collectIdentifiersFromIRTree(_ir.root, usedIdentifiers)
 
+  // Init statements (#930) reference identifiers via raw source text — not
+  // visible to IR-based identifier collection. Add their pre-computed free
+  // identifier sets so module-level declarations they depend on (#933) are
+  // not dropped from the output, and track assignment targets separately
+  // so those specific declarations are routed to module scope (where the
+  // assignment needs them to live).
+  const initStmtAssignedIdentifiers = new Set<string>()
+  for (const stmt of ctx.initStatements) {
+    if (stmt.freeIdentifiers) {
+      for (const id of stmt.freeIdentifiers) {
+        usedIdentifiers.add(id)
+      }
+    }
+    if (stmt.assignedIdentifiers) {
+      for (const id of stmt.assignedIdentifiers) {
+        initStmtAssignedIdentifiers.add(id)
+      }
+    }
+  }
+
   const neededProps = new Set<string>()
   const neededConstants: ConstantInfo[] = []
   const moduleLevelConstants: ConstantInfo[] = []
@@ -103,6 +123,19 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
       // createContext() and new WeakMap() must be at module level to enable
       // cross-component sharing (unique Symbol / identity-based store)
       if (constant.systemConstructKind) {
+        moduleLevelConstants.push(constant)
+        moduleLevelConstantNames.add(constant.name)
+        continue
+      }
+
+      // A module-level declaration that an init statement writes to must
+      // be emitted at module scope, otherwise the assignment resolves to
+      // an undeclared identifier in ESM strict mode and hydration throws
+      // `ReferenceError` (#933). Pure-read module constants keep the
+      // existing `neededConstants` (inside-init) path — moving them out
+      // would regress unrelated components whose module consts are
+      // scoped per-instance today.
+      if (constant.isModule && initStmtAssignedIdentifiers.has(constant.name)) {
         moduleLevelConstants.push(constant)
         moduleLevelConstantNames.add(constant.name)
         continue
