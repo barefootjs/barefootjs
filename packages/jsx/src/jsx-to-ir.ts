@@ -1697,12 +1697,17 @@ function transformMapCall(
   // and the emitter interpolates `elem.param` verbatim into the
   // renderItem arrow head. Destructuring a function throws
   // "function is not iterable" at runtime. This is a latent emitter
-  // bug that predates #943; until the emitter unwraps `item()` for
+  // bug tracked in #949 — until the emitter unwraps `item()` for
   // destructured params, keep these cases on the existing static path
   // so we don't regress previously-working SSR-only components (e.g.
   // `Object.entries(chartConfig).map(([, cfg]) => ...)` in
   // site/ui/components/pie-chart-demo.tsx). Simple-name params are the
   // common case and the wrap-by-default widening applies there.
+  //
+  // Typed destructures (`([, cfg]: [string, Cfg]) => ...`) are also
+  // covered: `firstParam.name.getText()` returns just the binding
+  // pattern without the type annotation, so the prefix check still
+  // fires. See loop-fallback-wrap.test.ts for the pinning test.
   const isDestructuredParam = param.startsWith('[') || param.startsWith('{')
   const isStaticArray =
     !isSignalOrMemoArray(array, ctx)

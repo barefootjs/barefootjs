@@ -56,8 +56,9 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
     `
 
     const clientJs = getClientJs(source, 'List.tsx')
-    // Dynamic loops emit reconcileList / reconcileElements via mapArray.
-    expect(clientJs).toMatch(/mapArray|reconcile/)
+    // Dynamic loops emit a `mapArray(` call site. Tighter than
+    // `/mapArray|reconcile/` which would fire on any stray mention.
+    expect(clientJs).toContain('mapArray(')
     expect(clientJs).toContain('items()')
   })
 
@@ -82,7 +83,7 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
     `
 
     const clientJs = getClientJs(source, 'List.tsx')
-    expect(clientJs).toMatch(/mapArray|reconcile/)
+    expect(clientJs).toContain('mapArray(')
     expect(clientJs).toContain('getItems()')
   })
 
@@ -149,7 +150,7 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
     `
 
     const clientJs = getClientJs(source, 'DoneList.tsx')
-    expect(clientJs).toMatch(/mapArray|reconcile/)
+    expect(clientJs).toContain('mapArray(')
     expect(clientJs).toContain('computeItems()')
   })
 
@@ -178,8 +179,12 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
     `
 
     const clientJs = getClientJs(source, 'Groups.tsx')
-    expect(clientJs).toMatch(/mapArray|reconcile/)
+    // Outer reconciles via mapArray. Also assert the inner loop's array
+    // expression (`o.children`) appears in the emitted template — without
+    // this, the test would pass even if the inner loop were dropped.
+    expect(clientJs).toContain('mapArray(')
     expect(clientJs).toContain('outer()')
+    expect(clientJs).toContain('o.children')
   })
 
   test('destructured map param skips widening (latent mapArray bug)', () => {
@@ -241,7 +246,37 @@ describe('Solid-style wrap-by-default fallback for loops (#943)', () => {
     `
 
     const clientJs = getClientJs(source, 'Shelf.tsx')
-    expect(clientJs).toMatch(/mapArray|reconcile/)
+    expect(clientJs).toContain('mapArray(')
     expect(clientJs).toContain('listOf()')
+  })
+
+  test('typed destructured map param also skips widening', () => {
+    // TypeScript type annotations on the binding pattern live in
+    // `firstParam.type`, not `firstParam.name`. The emitter extracts
+    // `param` from `firstParam.name.getText()`, so a typed destructure
+    // still yields `param = "[, cfg]"` — the prefix check fires
+    // correctly. Pin this behaviour so the #949 emitter fix, when it
+    // lands, updates both plain and typed paths consistently.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      type Cfg = { color: string }
+      const chartConfig: Record<string, Cfg> = { a: { color: 'red' } }
+
+      export function TypedLegend() {
+        const [, setFoo] = createSignal(0)
+        return (
+          <div onClick={() => setFoo(1)}>
+            {Object.entries(chartConfig).map(([, cfg]: [string, Cfg]) => (
+              <span key={cfg.color}>{cfg.color}</span>
+            ))}
+          </div>
+        )
+      }
+    `
+
+    const clientJs = getClientJs(source, 'TypedLegend.tsx')
+    expect(clientJs).not.toContain('mapArray(')
   })
 })
