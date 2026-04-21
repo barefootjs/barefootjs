@@ -512,6 +512,13 @@ export interface FunctionInfo {
   isModule?: boolean
   /** When true, this function returns JSX and is inlined at call sites (#569). */
   isJsxFunction?: boolean
+  /**
+   * When true, this is a module-level multi-return JSX helper reclassified
+   * from the component path (#932). The body is preserved verbatim for the
+   * SSR marked template but MUST be skipped from client-JS emission — the
+   * body contains actual JSX syntax, not just JSX-like string literals.
+   */
+  isMultiReturnJsxHelper?: boolean
   loc: SourceLocation
 }
 

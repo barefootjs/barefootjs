@@ -171,8 +171,15 @@ export function analyzeComponent(
     targetComponentName = findDefaultExportedComponent(sourceFile)
   }
 
+  // Pre-scan named exports (`export { Foo, Bar }`) so the multi-return
+  // JSX helper reclassifier (#932) can refuse to demote functions that
+  // other files import as components. Inline `export function Foo` is
+  // picked up via the modifier, but named-export declarations only land
+  // at the end of the file — too late for the visit.
+  const namedExports = collectNamedExports(sourceFile)
+
   // Single pass visitor
-  visit(sourceFile, ctx, targetComponentName)
+  visit(sourceFile, ctx, targetComponentName, namedExports)
 
   // Post-processing validations
   validateContext(ctx)
@@ -209,6 +216,32 @@ function findDefaultExportedComponent(sourceFile: ts.SourceFile): string | undef
   return defaultExportName
 }
 
+/**
+ * Collect the set of top-level names exported via `export { Name }` or
+ * `export { Name as Alias }`. Used by the multi-return JSX helper
+ * reclassifier (#932) to keep any PascalCase function that other files
+ * import as a component on the component-compilation path.
+ */
+function collectNamedExports(sourceFile: ts.SourceFile): Set<string> {
+  const exported = new Set<string>()
+  for (const stmt of sourceFile.statements) {
+    if (
+      ts.isExportDeclaration(stmt) &&
+      stmt.exportClause &&
+      ts.isNamedExports(stmt.exportClause)
+    ) {
+      for (const spec of stmt.exportClause.elements) {
+        // `export { LocalName as ExternalName }` — the declaration we
+        // care about is identified by the local (`propertyName`) or, if
+        // no alias, `name`.
+        const local = (spec.propertyName ?? spec.name).text
+        exported.add(local)
+      }
+    }
+  }
+  return exported
+}
+
 // =============================================================================
 // Single Pass Visitor
 // =============================================================================
@@ -216,7 +249,8 @@ function findDefaultExportedComponent(sourceFile: ts.SourceFile): string | undef
 function visit(
   node: ts.Node,
   ctx: AnalyzerContext,
-  targetComponentName?: string
+  targetComponentName?: string,
+  namedExports?: Set<string>
 ): void {
   // Check for 'use client' directive at module level
   if (ts.isExpressionStatement(node) && ts.isStringLiteral(node.expression)) {
@@ -239,6 +273,43 @@ function visit(
   }
   if (ts.isTypeAliasDeclaration(node)) {
     collectTypeAliasDefinition(node, ctx)
+  }
+
+  // Module-level multi-return JSX helper (#932): a PascalCase function
+  // whose body is a switch / if-else chain where every exit returns JSX
+  // or null. In non-`"use client"` files the component pipeline collapses
+  // such bodies into an empty output (conditional-returns machinery only
+  // runs on the target component); preserve the function verbatim as a
+  // helper so the marked-template emitter can include it in any
+  // component that references it (<HelperName />).
+  //
+  // Reclassification only applies to *internal* helpers — functions that
+  // aren't exported (inline `export function` or trailing `export { X }`).
+  // Exported PascalCase functions are part of this file's public API and
+  // other files import them as components; demoting them would break
+  // cross-file consumers.
+  //
+  // `"use client"` files are also left alone — their multi-return
+  // components are legitimately stateful (createSignal + onClick branches
+  // per variant) and rely on `conditionalReturns` handling at IR time.
+  if (
+    !ctx.hasUseClientDirective &&
+    ts.isFunctionDeclaration(node) &&
+    node.name &&
+    node.body &&
+    isMultiReturnJsxFunctionBody(node.body)
+  ) {
+    const hasInlineExport = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
+    const hasNamedExport = namedExports?.has(node.name.text) ?? false
+    if (!hasInlineExport && !hasNamedExport) {
+      collectFunction(node, ctx, true, false)
+      // Mark as a multi-return JSX helper so downstream emission (client JS)
+      // can distinguish it from ordinary module-level helpers whose `body`
+      // happens to contain JSX-like characters inside string literals.
+      const fn = ctx.localFunctions.find(f => f.name === node.name!.text)
+      if (fn) fn.isMultiReturnJsxHelper = true
+      return
+    }
   }
 
   // Component function
@@ -333,7 +404,7 @@ function visit(
     }
   }
 
-  ts.forEachChild(node, (child) => visit(child, ctx, targetComponentName))
+  ts.forEachChild(node, (child) => visit(child, ctx, targetComponentName, namedExports))
 }
 
 // =============================================================================
@@ -968,6 +1039,48 @@ function extractSingleJsxReturn(
   // Only inline functions with exactly one return statement
   if (returnCount !== 1) return null
   return jsxReturn
+}
+
+/**
+ * Detect a multi-return JSX helper: every top-level exit point is a
+ * `return <jsx>` or `return null`, and at least one return is JSX. Used
+ * to reclassify module-level PascalCase functions with a `switch` / if-else
+ * chain body as verbatim helpers rather than components — otherwise the
+ * component pipeline collapses multi-branch bodies into an empty output
+ * and SSR throws `ReferenceError: <Name> is not defined`. (#932)
+ *
+ * Does not descend into nested function/arrow bodies.
+ */
+export function isMultiReturnJsxFunctionBody(body: ts.Block): boolean {
+  let returnCount = 0
+  let hasJsxReturn = false
+  let allReturnsAreJsxOrNull = true
+
+  function visit(node: ts.Node): void {
+    if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) return
+    if (ts.isReturnStatement(node)) {
+      returnCount++
+      if (!node.expression) {
+        allReturnsAreJsxOrNull = false
+        return
+      }
+      let expr: ts.Expression = node.expression
+      while (ts.isParenthesizedExpression(expr)) expr = expr.expression
+      const isJsx =
+        ts.isJsxElement(expr) ||
+        ts.isJsxSelfClosingElement(expr) ||
+        ts.isJsxFragment(expr)
+      const isNull = expr.kind === ts.SyntaxKind.NullKeyword
+      if (isJsx) hasJsxReturn = true
+      if (!isJsx && !isNull) allReturnsAreJsxOrNull = false
+      return
+    }
+    ts.forEachChild(node, visit)
+  }
+
+  ts.forEachChild(body, visit)
+
+  return returnCount > 1 && hasJsxReturn && allReturnsAreJsxOrNull
 }
 
 function collectFunction(
@@ -1672,10 +1785,40 @@ export function listComponentFunctions(
 
   const componentNames: string[] = []
 
+  // 'use client' directive detection (controls whether multi-return JSX
+  // PascalCase functions are treated as components or as verbatim helpers).
+  // See #932.
+  const hasUseClient = sourceFile.statements.some(stmt =>
+    ts.isExpressionStatement(stmt) &&
+    ts.isStringLiteral(stmt.expression) &&
+    (stmt.expression.text === 'use client' || stmt.expression.text === "'use client'")
+  )
+  const namedExports = collectNamedExports(sourceFile)
+
   function collectComponents(node: ts.Node): void {
     // Exported function declaration
     if (isComponentFunction(node)) {
-      componentNames.push(node.name.text)
+      // In non-"use client" files, PascalCase functions whose body is a
+      // multi-return JSX dispatch (switch / if-else chain) are preserved
+      // verbatim as helpers rather than compiled as standalone components
+      // (see #932 — the component pipeline drops their body). Skip them
+      // here so `compileMultipleComponents` does not emit a broken file
+      // for them. Only applies to *internal* helpers; anything exported
+      // (inline or via `export { Name }`) is part of the file's public
+      // API and must stay on the component-compilation path.
+      const hasInlineExport = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
+      const hasNamedExport = namedExports.has(node.name.text)
+      const isExported = hasInlineExport || hasNamedExport
+      if (
+        !hasUseClient &&
+        !isExported &&
+        node.body &&
+        isMultiReturnJsxFunctionBody(node.body)
+      ) {
+        // fall through to forEachChild
+      } else {
+        componentNames.push(node.name.text)
+      }
     }
 
     // Exported arrow function component
