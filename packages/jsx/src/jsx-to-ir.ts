@@ -1691,27 +1691,14 @@ function transformMapCall(
   // call costs one extra `reconcileList` per loop; under-reconciling
   // is the silent-drop bug this closes.
   //
-  // Guard: skip the widening when the map callback destructures its
-  // item parameter (`([, cfg]) => ...` or `({ a, b }) => ...`). The
-  // current `mapArray` contract passes an item accessor (a function),
-  // and the emitter interpolates `elem.param` verbatim into the
-  // renderItem arrow head. Destructuring a function throws
-  // "function is not iterable" at runtime. This is a latent emitter
-  // bug tracked in #949 — until the emitter unwraps `item()` for
-  // destructured params, keep these cases on the existing static path
-  // so we don't regress previously-working SSR-only components (e.g.
-  // `Object.entries(chartConfig).map(([, cfg]) => ...)` in
-  // site/ui/components/pie-chart-demo.tsx). Simple-name params are the
-  // common case and the wrap-by-default widening applies there.
-  //
-  // Typed destructures (`([, cfg]: [string, Cfg]) => ...`) are also
-  // covered: `firstParam.name.getText()` returns just the binding
-  // pattern without the type annotation, so the prefix check still
-  // fires. See loop-fallback-wrap.test.ts for the pinning test.
-  const isDestructuredParam = param.startsWith('[') || param.startsWith('{')
+  // Destructured map params (`([, cfg]) => ...`, `({ a, b }) => ...`,
+  // typed forms) used to be excluded from the widening to avoid a
+  // latent crash in the `mapArray` renderItem emitter — see #949 and
+  // the emitter-side `destructureLoopParam` helper, which now unwraps
+  // the signal accessor at renderItem body entry. No more skip.
   const isStaticArray =
     !isSignalOrMemoArray(array, ctx)
-    && (isDestructuredParam || !exprHasFunctionCalls(arrayExpr))
+    && !exprHasFunctionCalls(arrayExpr)
 
   // Collect nested components for both static and dynamic arrays.
   // Static arrays: needed for initChild hydration.

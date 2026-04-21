@@ -11,6 +11,44 @@ import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
 import { emitAttrUpdate } from './emit-reactive'
 
 /**
+ * Compute the mapArray renderItem parameter head and any unwrap statement
+ * needed when the map callback destructures its item parameter (#949).
+ *
+ * mapArray passes the item to renderItem as a signal accessor (function).
+ * Interpolating `[a, b]` or `{ x, y }` verbatim into the arrow head crashes
+ * at hydration with "function is not iterable". We rename the param to a
+ * synthetic accessor name and unwrap once at body entry, so destructured
+ * bindings become plain locals that the rest of the emitted body can read.
+ *
+ * The `__bf_` prefix is a barefoot-reserved namespace — avoids any chance
+ * of collision if the user writes `.map(item => ...)` with a matching name.
+ *
+ * Detection relies on `param` being the trimmed output of
+ * `firstParam.name.getText()` in `jsx-to-ir.ts::transformMapCall` — no
+ * leading parens, no type annotations, no trivia whitespace. If that
+ * upstream contract changes, the prefix check must be widened in lockstep
+ * or the #949 crash resurfaces silently.
+ *
+ * Known limitation: destructured locals are captured at first render and
+ * will not refresh on same-key setItem updates. Array-level updates (add /
+ * remove / reorder / key change) work correctly because a new renderItem
+ * call produces fresh locals. Same-key fine-grained reactivity through
+ * destructured bindings requires template-time rewriting of binding
+ * references to `__bfItem().path` — tracked in #951 (Option 3 follow-up).
+ * See the pinning test in `map-array.test.ts::destructured locals
+ * captured once — frozen on same-key update (known limitation)`.
+ */
+function destructureLoopParam(param: string): { head: string; unwrap: string } {
+  if (param.startsWith('[') || param.startsWith('{')) {
+    return {
+      head: '__bfItem',
+      unwrap: `const ${param} = __bfItem();`,
+    }
+  }
+  return { head: param, unwrap: '' }
+}
+
+/**
  * Emit find() + event binding + ref callbacks + child component inits for a conditional branch.
  * Used by both emitConditionalUpdates and emitClientOnlyConditionals.
  */
@@ -101,20 +139,26 @@ function emitBranchBindings(
           || (loop.childReactiveTexts?.length ?? 0) > 0
           || (loop.childConditionals?.length ?? 0) > 0
 
+        const { head: pHead, unwrap: pUnwrap } = destructureLoopParam(loop.param)
+        const unwrapInline = pUnwrap ? `${pUnwrap} ` : ''
+
         if (!hasReactiveEffects) {
           // Simple case: no reactive effects — return existing DOM as-is.
           // Template expressions use loopParam() to read the current item, so the
           // signal accessor stays intact without any unwrap.
           if (loop.mapPreamble) {
-            lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => { if (__existing) return __existing; ${loop.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+            lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => { ${unwrapInline}if (__existing) return __existing; ${loop.mapPreamble}; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
           } else {
-            lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => { if (__existing) return __existing; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+            lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => { ${unwrapInline}if (__existing) return __existing; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
           }
         } else {
           // Multi-line renderItem with fine-grained effects — applies to both
           // SSR (existing DOM) and CSR (freshly created) paths so reactive reads
           // of non-item signals propagate to existing items too.
-          lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => {`)
+          lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => {`)
+          if (pUnwrap) {
+            lines.push(`        ${pUnwrap}`)
+          }
           if (loop.mapPreamble) {
             lines.push(`        ${loop.mapPreamble}`)
           }
@@ -212,11 +256,16 @@ function emitCompositeBranchLoop(
     ? `(${loop.param}${loop.index ? `, ${loop.index}` : ''}) => String(${loop.key})`
     : 'null'
 
+  const { head: pHead, unwrap: pUnwrap } = destructureLoopParam(loop.param)
+
   // Wrap everything in a disposable effect for branch cleanup
   // Clear template-generated children so mapArray creates fresh elements
   // with properly initialized components via createComponent in renderItem.
   lines.push(`      if (__loop_${cv}) getLoopChildren(__loop_${cv}).forEach(__el => __el.remove())`)
-  lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${loop.param}, ${indexParam}, __existing) => {`)
+  lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => {`)
+  if (pUnwrap) {
+    lines.push(`        ${pUnwrap}`)
+  }
   emitCompositeRenderItemBody(lines, '        ', ctx)
   lines.push(`      })`)
 }
@@ -353,8 +402,13 @@ function emitBranchInnerLoops(
       ? `(${scopeVar}.querySelector('[bf="${csl}"]') ?? ${scopeVar}.querySelector('[bf-s$="_${csl}"]') ?? ${scopeVar})`
       : scopeVar
 
+    const { head: innerHead, unwrap: innerUnwrap } = destructureLoopParam(inner.param)
+
     lines.push(`${indent}{ const __bic${uid} = ${containerExpr}`)
-    lines.push(`${indent}if (__bic${uid}) mapArray(() => ${arrayExpr} || [], __bic${uid}, ${keyFn}, (${inner.param}, __bidx${uid}, __existing) => {`)
+    lines.push(`${indent}if (__bic${uid}) mapArray(() => ${arrayExpr} || [], __bic${uid}, ${keyFn}, (${innerHead}, __bidx${uid}, __existing) => {`)
+    if (innerUnwrap) {
+      lines.push(`${indent}  ${innerUnwrap}`)
+    }
     lines.push(`${indent}  let __bel${uid} = __existing ?? (() => { const __t = document.createElement('template'); __t.innerHTML = \`${wrappedTemplate}\`; return __t.content.firstElementChild.cloneNode(true) })()`)
     if (inner.key) {
       const wrappedKey = wrapLoopParamAsAccessor(inner.key, inner.param)
@@ -731,8 +785,12 @@ function emitComponentLoopReconciliation(lines: string[], elem: LoopElement, key
   const chainedExpr = buildChainedArrayExpr(elem)
   // Only init components at loopDepth 0 — inner-loop components are handled by their own loop
   const nestedComps = (elem.nestedComponents ?? []).filter(c => !c.loopDepth)
+  const { head: pHead, unwrap: pUnwrap } = destructureLoopParam(elem.param)
 
-  lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}, __existing) => {`)
+  lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => {`)
+  if (pUnwrap) {
+    lines.push(`    ${pUnwrap}`)
+  }
   if (nestedComps.length > 0) {
     // Unified renderItem: SSR hydrates nested components, CSR creates from scratch
     lines.push(`    if (__existing) {`)
@@ -831,15 +889,20 @@ function emitPlainElementLoopReconciliation(lines: string[], elem: LoopElement, 
   const hasReactiveEffects = elem.childReactiveAttrs.length > 0
     || elem.childReactiveTexts.length > 0
     || (elem.childConditionals?.length ?? 0) > 0
+  const { head: pHead, unwrap: pUnwrap } = destructureLoopParam(elem.param)
+  const unwrapInline = pUnwrap ? `${pUnwrap} ` : ''
 
   if (!hasReactiveEffects) {
     // Simple case: no reactive effects
     // Template is already wrapped at generation time (irToPlaceholderTemplate with loopParams)
     const preamble = elem.mapPreamble ? `${wrap(elem.mapPreamble)}; ` : ''
-    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}, __existing) => { ${preamble}if (__existing) return __existing; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
+    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => { ${unwrapInline}${preamble}if (__existing) return __existing; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
   } else {
     // Multi-line renderItem with fine-grained effects (shared for CSR and SSR)
-    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}, __existing) => {`)
+    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => {`)
+    if (pUnwrap) {
+      lines.push(`    ${pUnwrap}`)
+    }
     if (elem.mapPreamble) {
       lines.push(`    ${wrap(elem.mapPreamble)}`)
     }
@@ -1184,9 +1247,13 @@ function emitInnerLoopSetup(
         : 'null'
       // Template is already wrapped at generation time (irToPlaceholderTemplate with loopParams)
       const wrappedTemplate = inner.itemTemplate!
+      const { head: innerHead, unwrap: innerUnwrap } = destructureLoopParam(inner.param)
       ls.push(`${indent}// Reactive inner loop: ${inner.array}`)
       ls.push(`${indent}{ const __ic${uid} = ${containerSelector !== 'null' ? `qsa(${parentElVar}, ${containerSelector})` : parentElVar}`)
-      ls.push(`${indent}if (__ic${uid}) mapArray(() => ${arrayExpr} || [], __ic${uid}, ${keyFn}, (${inner.param}, __innerIdx${uid}, __existing) => {`)
+      ls.push(`${indent}if (__ic${uid}) mapArray(() => ${arrayExpr} || [], __ic${uid}, ${keyFn}, (${innerHead}, __innerIdx${uid}, __existing) => {`)
+      if (innerUnwrap) {
+        ls.push(`${indent}  ${innerUnwrap}`)
+      }
       // SSR/CSR branch
       ls.push(`${indent}  let __innerEl${uid} = __existing ?? (() => { const __t = document.createElement('template'); __t.innerHTML = \`${wrappedTemplate}\`; return __t.content.firstElementChild.cloneNode(true) })()`)
       if (inner.key) {
@@ -1305,7 +1372,11 @@ function emitCompositeElementReconciliation(
     depthLevels,
   }
 
-  lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${elem.param}, ${indexParam}, __existing) => {`)
+  const { head: pHead, unwrap: pUnwrap } = destructureLoopParam(elem.param)
+  lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => {`)
+  if (pUnwrap) {
+    lines.push(`    ${pUnwrap}`)
+  }
   emitCompositeRenderItemBody(lines, '    ', ctx)
   lines.push(`  })`)
 }
