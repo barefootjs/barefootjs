@@ -15,6 +15,8 @@
 import type { HTMLBaseAttributes } from '@barefootjs/jsx'
 import type { Child } from '../../../types'
 
+const aspectRatioClasses = 'relative w-full'
+
 interface AspectRatioProps extends HTMLBaseAttributes {
   /** Width-to-height ratio (e.g. 16/9, 4/3, 1) */
   ratio?: number
@@ -23,10 +25,11 @@ interface AspectRatioProps extends HTMLBaseAttributes {
 }
 
 function AspectRatio({ ratio = 1, children, className = '', ...props }: AspectRatioProps) {
+  const classes = `${aspectRatioClasses} ${className}`
   return (
     <div
       data-slot="aspect-ratio"
-      className={`relative w-full ${className}`}
+      className={classes}
       style={`position:relative;aspect-ratio:${ratio}`}
       {...props}
     >

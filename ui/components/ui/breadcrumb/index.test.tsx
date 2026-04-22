@@ -107,6 +107,11 @@ describe('BreadcrumbPage', () => {
     expect(result.root.aria['current']).toBe('page')
   })
 
+  test('has role=link and aria-disabled=true', () => {
+    expect(result.root.role).toBe('link')
+    expect(result.root.aria['disabled']).toBe('true')
+  })
+
   test('has data-slot=breadcrumb-page', () => {
     expect(result.root.props['data-slot']).toBe('breadcrumb-page')
   })
@@ -149,7 +154,17 @@ describe('BreadcrumbEllipsis', () => {
     expect(result.root.role).toBe('presentation')
   })
 
+  test('has aria-hidden=true', () => {
+    expect(result.root.aria['hidden']).toBe('true')
+  })
+
   test('has data-slot=breadcrumb-ellipsis', () => {
     expect(result.root.props['data-slot']).toBe('breadcrumb-ellipsis')
+  })
+
+  test('contains sr-only "More" text for screen readers', () => {
+    const srOnly = result.findAll({ tag: 'span' }).find((n) => n.classes.includes('sr-only'))
+    expect(srOnly).not.toBeUndefined()
+    expect(srOnly!.children.some((c) => c.text === 'More')).toBe(true)
   })
 })
