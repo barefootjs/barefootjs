@@ -110,6 +110,21 @@ export type ExternalSpec =
   | { chunk?: true; preload?: boolean; rebundle?: boolean }
   | { url: string; preload?: boolean }
 
+/**
+ * An entry point to bundle directly with esbuild.
+ * Externals declared in `BuildOptions.externals` are applied automatically.
+ * Use this for modules that are not barefoot components (e.g. plain TS entry
+ * points that import external vendor packages).
+ */
+export interface BundleEntry {
+  /** Entry file path relative to the config file */
+  entry: string
+  /** Output filename placed in the client JS output directory */
+  outfile: string
+  /** Additional packages to mark as external beyond those in `externals` */
+  externals?: string[]
+}
+
 export interface BuildOptions {
   /** Source component directories relative to config file */
   components?: string[]
@@ -140,6 +155,13 @@ export interface BuildOptions {
    * Defaults to `/<runtimeSubdir>/` (e.g., `/static/components/`).
    */
   externalsBasePath?: string
+  /**
+   * Additional entry points to bundle with esbuild directly, bypassing the
+   * barefoot component compiler. Useful for plain TS/TSX modules (e.g. canvas
+   * init entry points) that import vendor packages listed in `externals`.
+   * Each entry is bundled as ESM with all `externals` automatically excluded.
+   */
+  bundleEntries?: BundleEntry[]
 }
 
 // CSS Layer Prefixer

@@ -1,7 +1,7 @@
 // Core build module: shared pipeline for `barefoot build`.
 
 import { compileJSX, combineParentChildClientJs } from '@barefootjs/jsx'
-import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec } from '@barefootjs/jsx'
+import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec, BundleEntry } from '@barefootjs/jsx'
 import { mkdir, readdir, stat, unlink } from 'node:fs/promises'
 import { resolve, basename, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -48,6 +48,8 @@ export interface BuildConfig {
   externals?: Record<string, ExternalSpec>
   /** URL base path for vendor chunks in the emitted importmap (default: /<runtimeSubdir>/) */
   externalsBasePath?: string
+  /** Additional entry points to bundle with esbuild, with config.externals auto-applied */
+  bundleEntries?: BundleEntry[]
 }
 
 export interface BuildResult {
@@ -144,7 +146,7 @@ export function generateHash(content: string): string {
  */
 export function resolveBuildConfigFromTs(
   projectDir: string,
-  tsConfig: { adapter: TemplateAdapter; components?: string[]; outDir?: string; minify?: boolean; contentHash?: boolean; clientOnly?: boolean; transformMarkedTemplate?: (content: string, componentId: string, clientJsPath: string) => string; outputLayout?: OutputLayout; postBuild?: (ctx: PostBuildContext) => Promise<void> | void; externals?: Record<string, ExternalSpec>; externalsBasePath?: string },
+  tsConfig: { adapter: TemplateAdapter; components?: string[]; outDir?: string; minify?: boolean; contentHash?: boolean; clientOnly?: boolean; transformMarkedTemplate?: (content: string, componentId: string, clientJsPath: string) => string; outputLayout?: OutputLayout; postBuild?: (ctx: PostBuildContext) => Promise<void> | void; externals?: Record<string, ExternalSpec>; externalsBasePath?: string; bundleEntries?: BundleEntry[] },
   overrides?: { minify?: boolean }
 ): BuildConfig {
   const componentDirs = (tsConfig.components ?? ['components']).map(
@@ -165,6 +167,11 @@ export function resolveBuildConfigFromTs(
     postBuild: tsConfig.postBuild,
     externals: tsConfig.externals,
     externalsBasePath: tsConfig.externalsBasePath,
+    bundleEntries: tsConfig.bundleEntries?.map(e => ({
+      entry: resolve(projectDir, e.entry),
+      outfile: e.outfile,
+      externals: e.externals,
+    })),
   }
 }
 
@@ -300,7 +307,11 @@ export async function build(
   }
 
   // 1b. Externals — copy vendor chunks, emit importmap + barefoot-externals.json
-  if (await processExternals(config, runtimeSubdir, runtimeOutDir)) {
+  const { changed: externalsChanged, allExternals } = await processExternals(config, runtimeSubdir, runtimeOutDir)
+  if (externalsChanged) anyOutputChanged = true
+
+  // 1c. bundleEntries entries — bundle with esbuild using auto-applied externals
+  if (await processBunBuild(config, clientJsOutDir, clientJsSubdir, allExternals)) {
     anyOutputChanged = true
   }
 
@@ -651,13 +662,14 @@ export interface ExternalsManifest {
 /**
  * Process the `externals` config: copy vendor chunks to outDir, build the
  * importmap JSON, and write `barefoot-externals.json`.
+ * Returns whether any output file changed and the full list of external package names.
  */
 export async function processExternals(
   config: BuildConfig,
   runtimeSubdir: string,
   runtimeOutDir: string,
-): Promise<boolean> {
-  if (!config.externals || Object.keys(config.externals).length === 0) return false
+): Promise<{ changed: boolean; allExternals: string[] }> {
+  if (!config.externals || Object.keys(config.externals).length === 0) return { changed: false, allExternals: [] }
 
   const basePath = config.externalsBasePath ?? `/${runtimeSubdir}/`
   const base = basePath.endsWith('/') ? basePath : basePath + '/'
@@ -754,6 +766,37 @@ export async function processExternals(
     console.log('Generated: barefoot-externals.json')
   }
 
+  return { changed: anyChanged, allExternals }
+}
+
+/**
+ * Bundle entries listed in `config.bundleEntries` directly with esbuild.
+ * Each entry is compiled as an ESM bundle with all externals from
+ * `config.externals` (plus any per-entry overrides) excluded from the bundle.
+ */
+async function processBunBuild(
+  config: BuildConfig,
+  clientJsOutDir: string,
+  clientJsSubdir: string,
+  allExternals: string[],
+): Promise<boolean> {
+  if (!config.bundleEntries || config.bundleEntries.length === 0) return false
+
+  let anyChanged = false
+  for (const entry of config.bundleEntries) {
+    const entryExternals = [...allExternals, ...(entry.externals ?? [])]
+    const outfilePath = resolve(clientJsOutDir, entry.outfile)
+    await esbuildBuild({
+      entryPoints: [entry.entry],
+      outfile: outfilePath,
+      format: 'esm',
+      bundle: true,
+      minify: config.minify,
+      external: entryExternals,
+    })
+    anyChanged = true
+    console.log(`Generated (bun-build): ${clientJsSubdir}/${entry.outfile}`)
+  }
   return anyChanged
 }
 
