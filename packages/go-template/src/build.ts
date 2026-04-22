@@ -241,6 +241,9 @@ export function createConfig(options: GoTemplateBuildOptions = {}) {
     minify: options.minify,
     contentHash: options.contentHash,
     clientOnly: options.clientOnly,
+    externals: options.externals,
+    externalsBasePath: options.externalsBasePath,
+    bundleEntries: options.bundleEntries,
     outputLayout: options.outputLayout ?? {
       templates: 'templates',
       clientJs: 'client',
