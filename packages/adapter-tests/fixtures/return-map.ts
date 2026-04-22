@@ -22,6 +22,9 @@ export function ReturnMap() {
 }
 `,
   expectedHtml: `
-    <div style="display:contents" bf-s="test"><li data-key="a"><!--bf:s0-->a<!--/--></li><li data-key="b"><!--bf:s0-->b<!--/--></li></div>
+    <div style="display:contents" bf-s="test">
+      <li data-key="a"><!--bf:s0-->a<!--/--></li>
+      <li data-key="b"><!--bf:s0-->b<!--/--></li>
+    </div>
   `,
 })
