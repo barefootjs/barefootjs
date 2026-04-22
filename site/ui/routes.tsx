@@ -117,6 +117,10 @@ import { AdminSettingsPage } from './pages/gallery/admin/settings'
 import { ShopCatalogPage } from './pages/gallery/shop/index'
 import { ShopCartPage } from './pages/gallery/shop/cart'
 import { ShopCheckoutPage } from './pages/gallery/shop/checkout'
+import { ProductivityMailPage } from './pages/gallery/productivity/mail'
+import { ProductivityFilesPage } from './pages/gallery/productivity/files'
+import { ProductivityBoardPage } from './pages/gallery/productivity/board'
+import { ProductivityCalendarPage } from './pages/gallery/productivity/calendar'
 
 // Form pattern pages
 import { ControlledInputPage } from './pages/forms/controlled-input'
@@ -632,6 +636,27 @@ export function createApp() {
 
   app.get('/gallery/shop/checkout', (c) => {
     return c.render(<ShopCheckoutPage />)
+  })
+
+  // Gallery — Productivity app (Phase 9)
+  app.get('/gallery/productivity', (c) => {
+    return c.render(<ProductivityMailPage />)
+  })
+
+  app.get('/gallery/productivity/mail', (c) => {
+    return c.render(<ProductivityMailPage />)
+  })
+
+  app.get('/gallery/productivity/files', (c) => {
+    return c.render(<ProductivityFilesPage />)
+  })
+
+  app.get('/gallery/productivity/board', (c) => {
+    return c.render(<ProductivityBoardPage />)
+  })
+
+  app.get('/gallery/productivity/calendar', (c) => {
+    return c.render(<ProductivityCalendarPage />)
   })
 
   // Bar Chart reference page
