@@ -745,10 +745,27 @@ Ruling: **Forbidden**. Emit `BF051 — YieldExpression not allowed in render pos
 
 ### A.4 Verification
 
-The classification table above is the source of truth for `transformJsxExpression`. Verification path:
+The classification table above is the source of truth for `transformJsxExpression`. Verification is layered:
 
-1. The dispatcher's `switch (expr.kind)` has one `case` label per Transparent / JSX-structural / Scalar leaf / Forbidden / Unreachable entry.
-2. The `default` branch calls `assertNever(expr)` with the `expr: never` type check, which fails at `tsc` compile time if any enumerated kind is missing.
-3. A compile-time regression test (added in a later PR of the #971 series) deliberately omits one `case` to assert that `tsc` reports an error — this prevents the exhaustiveness check from being silently weakened by a future edit.
+1. **Dispatcher structure.** The dispatcher's `switch (expr.kind)` has one `case` label per Transparent / JSX-structural / Scalar leaf / Forbidden / Unreachable entry. The local narrowing cast `const node: JsxEmbeddableExpression = expr as JsxEmbeddableExpression` makes the switch operate over a union where each kind is a literal type, so TypeScript can perform exhaustiveness inference.
 
-When TypeScript upstream adds a new `ts.Expression`-valued `SyntaxKind`, the expected workflow is: (a) the next `tsc` run fails on `transformJsxExpression`, (b) the author classifies the new kind using this appendix's five-class rubric, (c) the appendix and the `switch` are updated in the same PR.
+2. **Compile-time exhaustiveness via `assertNever`.** The `default` branch calls `assertNever(expr: never): never` with the narrowed `node`. If any case is missing from the switch, `node` in the `default` branch is not `never` and `tsgo` fails with:
+   ```
+   Argument of type '<KindName>' is not assignable to parameter of type 'never'. (TS2345)
+   ```
+   This is the #971 single-source-of-truth guarantee: adding or removing a renderable shape must pass through this switch to even build.
+
+3. **CI gate.** `cd packages/jsx && bun run build` runs `tsgo --emitDeclarationOnly` as part of CI. Removing a `case` is therefore a red build, not a silent runtime drop. Every package-local test workflow depends on this build step, so the gate covers every adapter and the documentation site as well.
+
+4. **Manual verification.** To reproduce the compile error locally:
+   ```sh
+   # In packages/jsx/src/jsx-to-ir.ts, comment out any one case — e.g.:
+   # // case ts.SyntaxKind.TaggedTemplateExpression:
+   cd packages/jsx && bun run build
+   # Expect: tsgo error TS2345 on the assertNever(node) call.
+   # Uncomment the case to restore.
+   ```
+
+5. **Contract regression test.** `packages/jsx/src/__tests__/dispatcher-exhaustiveness.test.ts` asserts that (a) the helper stays `assertNever(expr: never): never`, (b) the dispatcher's `default` branch calls it without an `as`-cast or `!`-assertion escape hatch, (c) the `JsxEmbeddableExpression` union and the switch both list every kind in this appendix. These runtime checks catch the failure mode where the *union* is shrunk in lockstep with the switch — in that case `tsgo` stays green but the silent-drop surface reappears.
+
+When TypeScript upstream adds a new `ts.Expression`-valued `SyntaxKind`, the expected workflow is: (a) the next `tsgo` run fails on `transformJsxExpression`, (b) the author classifies the new kind using this appendix's five-class rubric, (c) the appendix table, the `JsxEmbeddableExpression` union, and the `switch` are updated in the same PR. The dispatcher-exhaustiveness test fails until the appendix is updated, surfacing the requirement.
