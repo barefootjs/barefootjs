@@ -40,6 +40,10 @@ import { fixture as clientOnlyLoopWithSiblingCond } from './client-only-loop-wit
 import { fixture as eventHandlers } from './event-handlers'
 import { fixture as defaultProps } from './default-props'
 import { fixture as nullishCoalescingText } from './nullish-coalescing-text'
+import { fixture as nullishCoalescingJsx } from './nullish-coalescing-jsx'
+import { fixture as logicalOrJsx } from './logical-or-jsx'
+import { fixture as branchSelfClosing } from './branch-self-closing'
+import { fixture as branchMap } from './branch-map'
 // Priority 7: Multi-file composition
 import { fixture as childComponent } from './child-component'
 import { fixture as multipleInstances } from './multiple-instances'
@@ -94,6 +98,10 @@ export const jsxFixtures: JSXFixture[] = [
   eventHandlers,
   defaultProps,
   nullishCoalescingText,
+  nullishCoalescingJsx,
+  logicalOrJsx,
+  branchSelfClosing,
+  branchMap,
   // Priority 7: Multi-file composition
   childComponent,
   multipleInstances,
