@@ -135,4 +135,20 @@ export function Counter() {
     expect(config.contentHash).toBe(true)
     expect(config.clientOnly).toBe(true)
   })
+
+  test('passes through externals and externalsBasePath', () => {
+    const externals = { react: { url: 'https://cdn.example.com/react.js' } }
+    const config = createConfig({
+      externals,
+      externalsBasePath: '/cdn/',
+    })
+    expect(config.externals).toBe(externals)
+    expect(config.externalsBasePath).toBe('/cdn/')
+  })
+
+  test('externals and externalsBasePath default to undefined', () => {
+    const config = createConfig()
+    expect(config.externals).toBeUndefined()
+    expect(config.externalsBasePath).toBeUndefined()
+  })
 })
