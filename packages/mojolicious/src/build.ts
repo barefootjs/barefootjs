@@ -23,6 +23,9 @@ export function createConfig(options: MojoBuildOptions = {}) {
     minify: options.minify,
     contentHash: options.contentHash,
     clientOnly: options.clientOnly,
+    externals: options.externals,
+    externalsBasePath: options.externalsBasePath,
+    bundleEntries: options.bundleEntries,
     outputLayout: options.outputLayout ?? {
       templates: 'templates',
       clientJs: 'client',
