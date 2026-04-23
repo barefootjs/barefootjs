@@ -3,9 +3,9 @@
  */
 
 import { type IRNode, type IRElement, type IRComponent, type IRLoop, type IRProp, pickAttrMeta } from '../types'
-import type { ClientJsContext, ConditionalBranchChildComponent, BranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildEvent, LoopChildReactiveAttr, NestedLoop } from './types'
-import { attrValueToString, quotePropName, PROPS_PARAM } from './utils'
-import { decideWrapForAttr, decideWrapForChildProp, decideWrapFromAstFlags, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts, collectLoopChildConditionals } from './reactivity'
+import type { ClientJsContext, ConditionalBranchChildComponent, BranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildConditional, LoopChildEvent, LoopChildReactiveAttr, NestedLoop } from './types'
+import { attrValueToString, exprReferencesIdent, quotePropName, PROPS_PARAM } from './utils'
+import { classifyReactivity, decideWrapForAttr, decideWrapForChildProp, decideWrapFromAstFlags, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts } from './reactivity'
 import { irToHtmlTemplate, irToPlaceholderTemplate, irChildrenToJsExpr } from './html-template'
 import { expandDynamicPropValue, expandConstantForReactivity } from './prop-handling'
 import { walkIR, stopAt } from './walker'
@@ -822,4 +822,67 @@ function collectBranchConditionals(
     },
   })
   return result
+}
+
+/**
+ * Collect reactive conditionals from loop children.
+ * These are conditional nodes with a slotId that have reactive conditions,
+ * needing insert() calls for fine-grained conditional switching.
+ *
+ * Lives in collect-elements.ts (not reactivity.ts) because it composes
+ * `collectInnerLoops` and `irToHtmlTemplate` to build per-branch metadata
+ * — a branch-summary concern rather than a reactivity-classification one.
+ * Placement here eliminates the former lazy-`require()` cycle between
+ * reactivity.ts and collect-elements.ts.
+ */
+export function collectLoopChildConditionals(
+  node: IRNode,
+  ctx: ClientJsContext,
+  siblingOffsets: Map<IRLoop, number>,
+  loopParam?: string,
+): LoopChildConditional[] {
+  const conditionals: LoopChildConditional[] = []
+
+  walkIR(node, null, {
+    // element / fragment / component / provider auto-descend with same scope.
+    // loop / async / if-statement skipped — nested loops have their own
+    // mapArray, async + if-statement don't appear in loop-body conditionals.
+    ...stopAt<null>('loop', 'async', 'ifStatement'),
+    conditional: ({ node: n }) => {
+      // Don't recurse into conditional branches — nested conditionals
+      // inside branches will be handled by insert()'s own bindEvents.
+      // Non-reactive, non-loop-param conditionals are ignored entirely.
+      if (!n.slotId) return
+      const refsLoopParamInSource = loopParam ? exprReferencesIdent(n.condition, loopParam) : false
+      // Pre-gate using AST `reactive` flag on the source condition before
+      // paying for constant expansion — matches the legacy short-circuit.
+      if (!n.reactive && !refsLoopParamInSource) return
+      const expanded = expandConstantForReactivity(n.condition, ctx)
+      // Loop-param conditionals are reactive via per-item signal accessors;
+      // classifyReactivity sees both paths (signal/memo/prop + loop-param).
+      if (classifyReactivity(expanded, ctx, loopParam).kind === 'none') return
+
+      const loopParamsForCond = loopParam ? [loopParam] : undefined
+      const whenTrueHtml = irToHtmlTemplate(n.whenTrue, undefined, 0, loopParamsForCond)
+      const whenFalseHtml = irToHtmlTemplate(n.whenFalse, undefined, 0, loopParamsForCond)
+      const trueInner = collectInnerLoops([n.whenTrue], siblingOffsets, loopParam, ctx, branchInnerLoopOptions)
+      const falseInner = collectInnerLoops([n.whenFalse], siblingOffsets, loopParam, ctx, branchInnerLoopOptions)
+      conditionals.push({
+        slotId: n.slotId,
+        condition: expanded,
+        whenTrueHtml,
+        whenFalseHtml,
+        whenTrueComponents: collectConditionalBranchChildComponents(n.whenTrue),
+        whenFalseComponents: collectConditionalBranchChildComponents(n.whenFalse),
+        whenTrueInnerLoops: trueInner.length > 0 ? trueInner : undefined,
+        whenFalseInnerLoops: falseInner.length > 0 ? falseInner : undefined,
+        whenTrueConditionals: collectLoopChildConditionals(n.whenTrue, ctx, siblingOffsets, loopParam),
+        whenFalseConditionals: collectLoopChildConditionals(n.whenFalse, ctx, siblingOffsets, loopParam),
+        whenTrueEvents: collectConditionalBranchEvents(n.whenTrue),
+        whenFalseEvents: collectConditionalBranchEvents(n.whenFalse),
+      })
+    },
+  })
+
+  return conditionals
 }
