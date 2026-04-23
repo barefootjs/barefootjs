@@ -107,6 +107,8 @@ export const navSections: NavSection[] = [
           { title: 'Admin Dashboard', href: '/gallery/admin' },
           { title: 'E-Commerce Shop', href: '/gallery/shop' },
           { title: 'Productivity Suite', href: '/gallery/productivity' },
+          { title: 'SaaS Marketing', href: '/gallery/saas' },
+          { title: 'Social App', href: '/gallery/social' },
         ],
         matchPath: (p) => p.startsWith('/gallery/'),
       },

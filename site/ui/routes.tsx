@@ -126,6 +126,10 @@ import { SaasPricingPage } from './pages/gallery/saas/pricing'
 import { SaasLoginPage } from './pages/gallery/saas/login'
 import { SaasBlogPage } from './pages/gallery/saas/blog'
 import { SaasBlogPostPage } from './pages/gallery/saas/blog-post'
+import { SocialFeedPage } from './pages/gallery/social/index'
+import { SocialProfilePage } from './pages/gallery/social/profile'
+import { SocialThreadPage } from './pages/gallery/social/thread'
+import { SocialMessagesPage } from './pages/gallery/social/messages'
 
 // Form pattern pages
 import { ControlledInputPage } from './pages/forms/controlled-input'
@@ -684,6 +688,22 @@ export function createApp() {
   app.get('/gallery/saas/blog/:slug', (c) => {
     const slug = c.req.param('slug')
     return c.render(<SaasBlogPostPage slug={slug} />)
+  })
+
+  app.get('/gallery/social', (c) => {
+    return c.render(<SocialFeedPage />)
+  })
+
+  app.get('/gallery/social/profile', (c) => {
+    return c.render(<SocialProfilePage />)
+  })
+
+  app.get('/gallery/social/thread', (c) => {
+    return c.render(<SocialThreadPage />)
+  })
+
+  app.get('/gallery/social/messages', (c) => {
+    return c.render(<SocialMessagesPage />)
   })
 
   // Bar Chart reference page
