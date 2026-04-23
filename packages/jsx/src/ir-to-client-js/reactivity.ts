@@ -15,6 +15,7 @@ import type {
 } from './types'
 import { attrValueToString, exprReferencesIdent } from './utils'
 import { expandConstantForReactivity } from './prop-handling'
+import { walkIR } from './walker'
 
 /**
  * Phase 2 reactivity detection: determines if a code expression needs `createEffect`
@@ -141,54 +142,24 @@ export function needsEffectWrapper(expr: string, ctx: ClientJsContext): boolean 
  */
 export function collectEventHandlersFromIR(node: IRNode): string[] {
   const handlers: string[] = []
-
-  switch (node.type) {
-    case 'element':
-      for (const event of node.events) {
-        handlers.push(event.handler)
-      }
-      for (const child of node.children) {
-        handlers.push(...collectEventHandlersFromIR(child))
-      }
-      break
-    case 'fragment':
-      for (const child of node.children) {
-        handlers.push(...collectEventHandlersFromIR(child))
-      }
-      break
-    case 'conditional':
-      handlers.push(...collectEventHandlersFromIR(node.whenTrue))
-      handlers.push(...collectEventHandlersFromIR(node.whenFalse))
-      break
-    case 'component':
+  walkIR(node, null, {
+    element: ({ node, descend }) => {
+      for (const event of node.events) handlers.push(event.handler)
+      descend()
+    },
+    component: ({ node, descend }) => {
       for (const prop of node.props) {
         if (prop.name.startsWith('on') && prop.name.length > 2) {
           handlers.push(prop.value)
         }
       }
-      for (const child of node.children) {
-        handlers.push(...collectEventHandlersFromIR(child))
-      }
-      break
-    case 'if-statement':
-      handlers.push(...collectEventHandlersFromIR(node.consequent))
-      if (node.alternate) {
-        handlers.push(...collectEventHandlersFromIR(node.alternate))
-      }
-      break
-    case 'provider':
-    case 'async':
-      for (const child of node.children) {
-        handlers.push(...collectEventHandlersFromIR(child))
-      }
-      break
-    case 'loop':
-      for (const child of node.children) {
-        handlers.push(...collectEventHandlersFromIR(child))
-      }
-      break
-  }
-
+      descend()
+    },
+    // Non-container kinds (text / expression / slot) have no children, so
+    // the walker's default no-descent behaviour is correct for them.
+    // Every other container kind (fragment / conditional / if-statement /
+    // provider / async / loop) uses the walker's default descent.
+  })
   return handlers
 }
 
@@ -196,37 +167,22 @@ export function collectEventHandlersFromIR(node: IRNode): string[] {
  * Traverse an IR tree depth-first, calling visitor for each element node.
  * Shared by collectConditionalBranchEvents, collectConditionalBranchRefs,
  * and collectLoopChildEvents to avoid duplicating the traversal logic.
+ *
+ * 'loop' is intentionally skipped. Nested .map() event delegation requires
+ * a different approach (nested data-key lookup + inner loop variable
+ * resolution) that isn't implemented yet. See memory:
+ * compiler-reconcile-templates-events.md
  */
-function traverseElements(node: IRNode, visitor: (el: IRElement, domDepth: number) => void, domDepth = 0): void {
-  switch (node.type) {
-    case 'element':
-      visitor(node, domDepth)
-      for (const child of node.children) {
-        traverseElements(child, visitor, domDepth + 1)
-      }
-      break
-    case 'fragment':
-    case 'component':
-    case 'provider':
-    case 'async':
-      for (const child of node.children) {
-        traverseElements(child, visitor, domDepth)
-      }
-      break
-    case 'conditional':
-      traverseElements(node.whenTrue, visitor, domDepth)
-      traverseElements(node.whenFalse, visitor, domDepth)
-      break
-    case 'if-statement':
-      traverseElements(node.consequent, visitor, domDepth)
-      if (node.alternate) {
-        traverseElements(node.alternate, visitor, domDepth)
-      }
-      break
-    // Note: 'loop' case is intentionally omitted. Nested .map() event delegation
-    // requires a different approach (nested data-key lookup + inner loop variable
-    // resolution) that isn't implemented yet. See memory: compiler-reconcile-templates-events.md
-  }
+function traverseElements(node: IRNode, visitor: (el: IRElement, domDepth: number) => void): void {
+  walkIR(node, 0, {
+    element: ({ node: el, scope: domDepth, descend }) => {
+      visitor(el, domDepth)
+      descend(domDepth + 1)
+    },
+    loop: () => {
+      // skip: nested-loop event delegation is handled separately
+    },
+  })
 }
 
 /**
@@ -294,68 +250,64 @@ export function collectLoopChildEvents(node: IRNode): LoopChildEvent[] {
  */
 export function collectLoopChildEventsWithNesting(
   node: IRNode,
-  nestingStack: NestedLoop[] = [],
+  initialNestingStack: NestedLoop[] = [],
 ): LoopChildEvent[] {
-  const events: LoopChildEvent[] = []
-
-  let lastElementSlotId: string | null = null
-
-  function walk(n: IRNode, domDepth = 0): void {
-    switch (n.type) {
-      case 'element': {
-        const prevSlotId = lastElementSlotId
-        if (n.slotId) lastElementSlotId = n.slotId
-        if (n.slotId) {
-          for (const event of n.events) {
-            events.push({
-              eventName: event.name,
-              childSlotId: n.slotId,
-              handler: event.handler,
-              nestedLoops: [...nestingStack],
-              domDepth,
-            })
-          }
-        }
-        for (const child of n.children) walk(child, domDepth + 1)
-        lastElementSlotId = prevSlotId
-        break
-      }
-      case 'loop':
-        // Enter nested loop — push nesting info with container element's slotId
-        nestingStack.push({
-          kind: 'nested',
-          depth: nestingStack.length + 1,
-          array: n.array,
-          param: n.param,
-          key: n.key,
-          containerSlotId: lastElementSlotId,
-        })
-        for (const child of n.children) walk(child, domDepth)
-        nestingStack.pop()
-        break
-      case 'fragment':
-      case 'component':
-      case 'provider':
-      case 'async':
-        for (const child of n.children) walk(child, domDepth)
-        break
-      case 'conditional':
-        // Reactive conditionals (slotId set) are managed by insert() + bindEvents.
-        // Their events are collected into LoopChildConditional.whenTrue/FalseEvents
-        // and emitted inside bindEvents — not via delegation (#839).
-        if (!n.slotId) {
-          walk(n.whenTrue, domDepth)
-          walk(n.whenFalse, domDepth)
-        }
-        break
-      case 'if-statement':
-        walk(n.consequent, domDepth)
-        if (n.alternate) walk(n.alternate, domDepth)
-        break
-    }
+  type Scope = {
+    nestingStack: NestedLoop[]
+    lastElementSlotId: string | null
+    domDepth: number
   }
-
-  walk(node)
+  const events: LoopChildEvent[] = []
+  const initialScope: Scope = {
+    nestingStack: initialNestingStack,
+    lastElementSlotId: null,
+    domDepth: 0,
+  }
+  walkIR(node, initialScope, {
+    element: ({ node: el, scope, descend }) => {
+      if (el.slotId) {
+        for (const event of el.events) {
+          events.push({
+            eventName: event.name,
+            childSlotId: el.slotId,
+            handler: event.handler,
+            nestedLoops: [...scope.nestingStack],
+            domDepth: scope.domDepth,
+          })
+        }
+      }
+      descend({
+        ...scope,
+        lastElementSlotId: el.slotId ?? scope.lastElementSlotId,
+        domDepth: scope.domDepth + 1,
+      })
+    },
+    loop: ({ node: l, scope, descend }) => {
+      // Enter nested loop — push nesting info with container element's slotId.
+      descend({
+        ...scope,
+        nestingStack: [
+          ...scope.nestingStack,
+          {
+            kind: 'nested',
+            depth: scope.nestingStack.length + 1,
+            array: l.array,
+            param: l.param,
+            key: l.key,
+            containerSlotId: scope.lastElementSlotId,
+          },
+        ],
+      })
+    },
+    conditional: ({ node: c, scope, descend }) => {
+      // Reactive conditionals (slotId set) are managed by insert() + bindEvents.
+      // Their events are collected into LoopChildConditional.whenTrue/FalseEvents
+      // and emitted inside bindEvents — not via delegation (#839).
+      if (!c.slotId) descend(scope)
+    },
+    // fragment / component / provider / async / if-statement use the default
+    // auto-descent, which preserves scope (no domDepth bump, no stack push).
+  })
   return events
 }
 
@@ -384,40 +336,23 @@ function traverseForComponents(
   components: Array<{ name: string; slotId: string | null; props: IRProp[]; children: IRNode[] }>,
   skipConditionals = false,
 ): void {
-  switch (node.type) {
-    case 'element':
-    case 'fragment':
-    case 'provider':
-    case 'async':
-      for (const child of node.children) {
-        traverseForComponents(child, components, skipConditionals)
-      }
-      break
-    case 'component':
+  walkIR(node, null, {
+    component: ({ node, descend }) => {
       components.push({
         name: node.name,
         slotId: node.slotId,
         props: node.props,
         children: node.children,
       })
-      // Recurse into JSX children passed to this component
-      for (const child of node.children) {
-        traverseForComponents(child, components, skipConditionals)
-      }
-      break
-    case 'conditional':
-      if (skipConditionals) return
-      traverseForComponents(node.whenTrue, components, skipConditionals)
-      traverseForComponents(node.whenFalse, components, skipConditionals)
-      break
-    case 'if-statement':
-      if (skipConditionals) return
-      traverseForComponents(node.consequent, components, skipConditionals)
-      if (node.alternate) {
-        traverseForComponents(node.alternate, components, skipConditionals)
-      }
-      break
-  }
+      // Recurse into children passed to this component.
+      descend()
+    },
+    // Loops never contain collected components via this walker; halting
+    // here matches the pre-walker behaviour (no 'loop' case in the switch).
+    loop: () => {},
+    conditional: skipConditionals ? () => {} : undefined,
+    ifStatement: skipConditionals ? () => {} : undefined,
+  })
 }
 
 /**
@@ -432,31 +367,26 @@ export function collectLoopChildReactiveTexts(
   loopParam?: string,
 ): LoopChildReactiveText[] {
   const texts: LoopChildReactiveText[] = []
-
-  function walk(n: IRNode, insideConditional = false): void {
-    if (n.type === 'expression' && n.slotId) {
+  walkIR(node, false, {
+    expression: ({ node: n, scope: insideConditional }) => {
+      if (!n.slotId) return
       const expanded = expandConstantForReactivity(n.expr, ctx)
       // Include if expression reads signals OR references the loop parameter
-      // (loop param becomes a signal accessor via per-item signals)
+      // (loop param becomes a signal accessor via per-item signals).
       const isReactive = needsEffectWrapper(expanded, ctx)
       const refsLoopParam = loopParam ? exprReferencesIdent(expanded, loopParam) : false
       if (isReactive || refsLoopParam) {
         texts.push({ slotId: n.slotId, expression: expanded, insideConditional: insideConditional || undefined })
       }
-    }
-    if (n.type === 'element') {
-      for (const child of n.children) walk(child, insideConditional)
-    }
-    if (n.type === 'fragment' || n.type === 'component' || n.type === 'provider') {
-      for (const child of n.children) walk(child, insideConditional)
-    }
-    if (n.type === 'conditional') {
-      walk(n.whenTrue, true)
-      walk(n.whenFalse, true)
-    }
-  }
-
-  walk(node)
+    },
+    conditional: ({ descend }) => {
+      descend(true)
+    },
+    // Skip loop/async/if-statement subtrees — the original walker omitted them.
+    loop: () => {},
+    async: () => {},
+    ifStatement: () => {},
+  })
   return texts
 }
 
@@ -477,9 +407,12 @@ export function collectLoopChildConditionals(
   // cycle; same pattern as irToHtmlTemplate / irToPlaceholderTemplate above.
   const { collectInnerLoops, branchInnerLoopOptions } = require('./collect-elements')
 
-  function walk(n: IRNode): void {
-    if (n.type === 'conditional' && n.slotId) {
-      // Include conditionals that are reactive OR reference the loop param
+  walkIR(node, null, {
+    conditional: ({ node: n }) => {
+      // Don't recurse into conditional branches — nested conditionals
+      // inside branches will be handled by insert()'s own bindEvents.
+      // Non-reactive, non-loop-param conditionals are ignored entirely.
+      if (!n.slotId) return
       const isReactive = n.reactive
       const refsLoopParam = loopParam ? exprReferencesIdent(n.condition, loopParam) : false
       if (!isReactive && !refsLoopParam) return
@@ -487,41 +420,35 @@ export function collectLoopChildConditionals(
       // Loop-param conditionals are reactive via per-item signal accessors;
       // needsEffectWrapper only knows about signals/memos/props, not loop params.
       if (!refsLoopParam && !needsEffectWrapper(expanded, ctx)) return
-      {
-        const loopParamsForCond = loopParam ? [loopParam] : undefined
-        const whenTrueHtml = irToHtmlTemplate(n.whenTrue, undefined, 0, loopParamsForCond)
-        const whenFalseHtml = irToHtmlTemplate(n.whenFalse, undefined, 0, loopParamsForCond)
-        const trueInner = collectInnerLoops([n.whenTrue], siblingOffsets, loopParam, ctx, branchInnerLoopOptions)
-        const falseInner = collectInnerLoops([n.whenFalse], siblingOffsets, loopParam, ctx, branchInnerLoopOptions)
-        conditionals.push({
-          slotId: n.slotId,
-          condition: expanded,
-          whenTrueHtml,
-          whenFalseHtml,
-          whenTrueComponents: collectConditionalBranchChildComponents(n.whenTrue),
-          whenFalseComponents: collectConditionalBranchChildComponents(n.whenFalse),
-          whenTrueInnerLoops: trueInner.length > 0 ? trueInner : undefined,
-          whenFalseInnerLoops: falseInner.length > 0 ? falseInner : undefined,
-          whenTrueConditionals: collectLoopChildConditionals(n.whenTrue, ctx, siblingOffsets, loopParam),
-          whenFalseConditionals: collectLoopChildConditionals(n.whenFalse, ctx, siblingOffsets, loopParam),
-          whenTrueEvents: collectConditionalBranchEvents(n.whenTrue),
-          whenFalseEvents: collectConditionalBranchEvents(n.whenFalse),
-        })
-      }
-      // Don't recurse into conditional branches — nested conditionals
-      // inside branches will be handled by insert()'s own bindEvents
-      return
-    }
-    if (n.type === 'element') {
-      for (const child of n.children) walk(child)
-    }
-    if (n.type === 'fragment' || n.type === 'component' || n.type === 'provider') {
-      for (const child of n.children) walk(child)
-    }
-    // Don't recurse into nested loops — they have their own mapArray
-  }
 
-  walk(node)
+      const loopParamsForCond = loopParam ? [loopParam] : undefined
+      const whenTrueHtml = irToHtmlTemplate(n.whenTrue, undefined, 0, loopParamsForCond)
+      const whenFalseHtml = irToHtmlTemplate(n.whenFalse, undefined, 0, loopParamsForCond)
+      const trueInner = collectInnerLoops([n.whenTrue], siblingOffsets, loopParam, ctx, branchInnerLoopOptions)
+      const falseInner = collectInnerLoops([n.whenFalse], siblingOffsets, loopParam, ctx, branchInnerLoopOptions)
+      conditionals.push({
+        slotId: n.slotId,
+        condition: expanded,
+        whenTrueHtml,
+        whenFalseHtml,
+        whenTrueComponents: collectConditionalBranchChildComponents(n.whenTrue),
+        whenFalseComponents: collectConditionalBranchChildComponents(n.whenFalse),
+        whenTrueInnerLoops: trueInner.length > 0 ? trueInner : undefined,
+        whenFalseInnerLoops: falseInner.length > 0 ? falseInner : undefined,
+        whenTrueConditionals: collectLoopChildConditionals(n.whenTrue, ctx, siblingOffsets, loopParam),
+        whenFalseConditionals: collectLoopChildConditionals(n.whenFalse, ctx, siblingOffsets, loopParam),
+        whenTrueEvents: collectConditionalBranchEvents(n.whenTrue),
+        whenFalseEvents: collectConditionalBranchEvents(n.whenFalse),
+      })
+    },
+    // element / fragment / component / provider auto-descend with same scope.
+    // loop / async / if-statement skipped — nested loops have their own
+    // mapArray, async + if-statement don't appear in loop-body conditionals.
+    loop: () => {},
+    async: () => {},
+    ifStatement: () => {},
+  })
+
   return conditionals
 }
 
