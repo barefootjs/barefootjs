@@ -11,7 +11,7 @@ import type {
   LoopChildReactiveAttr,
   LoopChildReactiveText,
   LoopChildConditional,
-  NestedLoopInfo,
+  NestedLoop,
 } from './types'
 import { attrValueToString, exprReferencesIdent } from './utils'
 import { expandConstantForReactivity } from './prop-handling'
@@ -289,12 +289,12 @@ export function collectLoopChildEvents(node: IRNode): LoopChildEvent[] {
 
 /**
  * Collect events from loop children INCLUDING nested inner loops.
- * Recursively descends into nested IRLoop nodes, building NestedLoopInfo
+ * Recursively descends into nested IRLoop nodes, building NestedLoop
  * for multi-level event delegation (data-key-N resolution).
  */
 export function collectLoopChildEventsWithNesting(
   node: IRNode,
-  nestingStack: NestedLoopInfo[] = [],
+  nestingStack: NestedLoop[] = [],
 ): LoopChildEvent[] {
   const events: LoopChildEvent[] = []
 
@@ -323,6 +323,7 @@ export function collectLoopChildEventsWithNesting(
       case 'loop':
         // Enter nested loop — push nesting info with container element's slotId
         nestingStack.push({
+          kind: 'nested',
           depth: nestingStack.length + 1,
           array: n.array,
           param: n.param,
@@ -529,7 +530,7 @@ function collectBranchInnerLoops(
   ctx?: ClientJsContext,
 ): LoopChildConditional['whenTrueInnerLoops'] {
   const { irToPlaceholderTemplate } = require('./html-template')
-  const loops: import('./types').NestedLoopInfo[] = []
+  const loops: import('./types').NestedLoop[] = []
 
   // Pass the current container's slotId down through the tree.
   // A loop uses parentContainerSlotId as its container.
@@ -590,6 +591,7 @@ function collectBranchInnerLoops(
           )
         : []
       loops.push({
+        kind: 'nested',
         depth: 1,
         array: n.array,
         param: n.param,
