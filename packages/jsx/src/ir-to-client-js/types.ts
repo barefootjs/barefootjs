@@ -152,14 +152,21 @@ export interface NestedLoopInfo {
   depth: number    // 1 for first nesting level, 2 for second, etc.
   array: string    // Inner loop array expression (e.g., 'col.tasks')
   param: string    // Inner loop parameter name (e.g., 'task')
-  key: string      // Inner loop key expression (e.g., 'task.id')
+  // Aligned with LoopElement / ConditionalBranchLoop which already allow
+  // `null` — loops without an explicit key expression omit it rather than
+  // coerce to `''`. Makes the three loop-info types share one nullability
+  // story, a prerequisite for the planned discriminated-union unification.
+  key: string | null
   containerSlotId: string | null // Slot ID of the parent element containing the loop (for hydration)
   /** HTML template for a single inner loop item (for mapArray CSR rendering) */
-  itemTemplate?: string
+  // Field renamed from `itemTemplate` to match LoopElement/ConditionalBranchLoop.
+  template?: string
   /** Whether the inner array references the outer loop param (needs reactive mapArray) */
   refsOuterParam?: boolean
   /** Reactive text expressions inside inner loop items (slotId → expression) */
-  reactiveTexts?: LoopChildReactiveText[]
+  // Renamed from `reactiveTexts` so every loop-info type uses the same
+  // `child*` prefix for per-item reactive wiring.
+  childReactiveTexts?: LoopChildReactiveText[]
   /** Child components inside inner loop items (for initChild/createComponent) */
   childComponents?: import('../types').IRLoopChildComponent[]
   /** Event handlers inside inner loop items */
