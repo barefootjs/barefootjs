@@ -4,7 +4,7 @@
  * and event delegation within loop containers.
  */
 
-import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, ConditionalBranchLoop, ConditionalBranchConditional, LoopChildEvent, LoopChildConditional, LoopChildReactiveText, LoopElement, NestedLoopInfo } from './types'
+import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, ConditionalBranchLoop, ConditionalBranchConditional, LoopChildEvent, LoopChildConditional, LoopElement, NestedLoopInfo } from './types'
 import type { IRLoopChildComponent } from '../types'
 import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent } from './utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
@@ -385,7 +385,7 @@ function emitBranchInnerLoops(
 
   for (let i = 0; i < innerLoops.length; i++) {
     const inner = innerLoops[i]
-    if (!inner.refsOuterParam || !inner.itemTemplate) continue
+    if (!inner.refsOuterParam || !inner.template) continue
 
     const uid = `br_${i}`
     const arrayExpr = wrapOuter(inner.array)
@@ -394,7 +394,7 @@ function emitBranchInnerLoops(
       : 'null'
     const wrapBoth = (expr: string) => wrapLoopParamAsAccessor(wrapOuter(expr), inner.param)
     // Template is already wrapped at generation time (irToPlaceholderTemplate with loopParams)
-    const wrappedTemplate = inner.itemTemplate
+    const wrappedTemplate = inner.template
     // Find the container for the inner loop. Try bf= attribute (plain elements) first,
     // then bf-s$ suffix match (component scope elements like SelectContent).
     const csl = inner.containerSlotId
@@ -442,8 +442,8 @@ function emitBranchInnerLoops(
       lines.push(`${indent}  }`)
     }
     // Reactive text effects for inner loop items
-    if (inner.reactiveTexts && inner.reactiveTexts.length > 0) {
-      for (const text of inner.reactiveTexts) {
+    if (inner.childReactiveTexts && inner.childReactiveTexts.length > 0) {
+      for (const text of inner.childReactiveTexts) {
         const wrappedExpr = wrapBoth(text.expression)
         if (text.insideConditional) {
           // Text is inside a conditional branch: insert() may replace the DOM element,
@@ -947,7 +947,11 @@ function emitDynamicLoopEventDelegation(lines: string[], elem: LoopElement): voi
         ls.push(`      const ${elem.param} = ${elem.array}.find(item => String(${keyWithItem}) === outerKey)`)
         // Resolve inner loop variables via the outer param's nested array
         for (const nested of ev.nestedLoops) {
-          const innerKeyExpr = nested.key.replace(new RegExp(`\\b${nested.param}\\b`, 'g'), 'item')
+          // `nested.key` can be null for unkeyed loops; coerce to '' so the
+          // resolution silently no-ops (String('') never matches a real
+          // key), matching prior behavior when NestedLoopInfo.key was
+          // always a string defaulting to ''.
+          const innerKeyExpr = (nested.key ?? '').replace(new RegExp(`\\b${nested.param}\\b`, 'g'), 'item')
           ls.push(`      const ${nested.param} = ${elem.param} && ${nested.array}.find(item => String(${innerKeyExpr}) === innerKey${nested.depth})`)
         }
         // Guard all resolved variables
@@ -1002,7 +1006,8 @@ function emitBranchLoopEventDelegation(lines: string[], loop: ConditionalBranchL
         ls.push(`      const outerKey = outerLi?.getAttribute('${DATA_KEY}')`)
         ls.push(`      const ${loop.param} = ${loop.array}.find(item => String(${keyWithItem}) === outerKey)`)
         for (const nested of ev.nestedLoops) {
-          const innerKeyExpr = nested.key.replace(new RegExp(`\\b${nested.param}\\b`, 'g'), 'item')
+          // See sibling comment above — `nested.key` may be null.
+          const innerKeyExpr = (nested.key ?? '').replace(new RegExp(`\\b${nested.param}\\b`, 'g'), 'item')
           ls.push(`      const ${nested.param} = ${loop.param} && ${nested.array}.find(item => String(${innerKeyExpr}) === innerKey${nested.depth})`)
         }
         const allParams = [loop.param, ...ev.nestedLoops.map(n => n.param)]
@@ -1028,7 +1033,7 @@ function emitBranchLoopEventDelegation(lines: string[], loop: ConditionalBranchL
 interface DepthLevel {
   comps: (LoopElement['nestedComponents'] & {})[number][]
   events: LoopChildEvent[]
-  loopInfo: { array: string; param: string; key: string; depth: number; containerSlotId?: string | null; itemTemplate?: string; refsOuterParam?: boolean; reactiveTexts?: LoopChildReactiveText[]; insideConditional?: boolean } | null
+  loopInfo: NestedLoopInfo | null
 }
 
 /**
@@ -1245,14 +1250,14 @@ function emitInnerLoopSetup(
     const arrayExpr = wrapOuter(inner.array)
     const containerSelector = inner.containerSlotId ? `'[bf="${inner.containerSlotId}"]'` : 'null'
 
-    if (inner.refsOuterParam && inner.itemTemplate && outerLoopParam) {
+    if (inner.refsOuterParam && inner.template && outerLoopParam) {
       // Reactive inner loop: use mapArray for proper add/remove/update
       // Key function receives plain item value (not accessor) per mapArray contract
       const keyFn = inner.key
         ? `(${inner.param}) => String(${inner.key})`
         : 'null'
       // Template is already wrapped at generation time (irToPlaceholderTemplate with loopParams)
-      const wrappedTemplate = inner.itemTemplate!
+      const wrappedTemplate = inner.template!
       const { head: innerHead, unwrap: innerUnwrap } = destructureLoopParam(inner.param)
       ls.push(`${indent}// Reactive inner loop: ${inner.array}`)
       ls.push(`${indent}{ const __ic${uid} = ${containerSelector !== 'null' ? `qsa(${parentElVar}, ${containerSelector})` : parentElVar}`)
@@ -1314,8 +1319,8 @@ function emitInnerLoopSetup(
         emitInnerLoopSetup(ls, `${indent}  `, `__innerEl${uid}`, childLevels, mode, outerLoopParam)
       }
       // Reactive text effects for inner loop items
-      if (inner.reactiveTexts && inner.reactiveTexts.length > 0) {
-        for (const text of inner.reactiveTexts) {
+      if (inner.childReactiveTexts && inner.childReactiveTexts.length > 0) {
+        for (const text of inner.childReactiveTexts) {
           const wrappedExpr = wrapLoopParamAsAccessor(wrapOuter(text.expression), inner.param)
           if (text.insideConditional) {
             // Text is inside a conditional branch: insert() may replace the DOM element,

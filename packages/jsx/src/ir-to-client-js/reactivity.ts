@@ -326,7 +326,7 @@ export function collectLoopChildEventsWithNesting(
           depth: nestingStack.length + 1,
           array: n.array,
           param: n.param,
-          key: n.key ?? '',
+          key: n.key,
           containerSlotId: lastElementSlotId,
         })
         for (const child of n.children) walk(child, domDepth)
@@ -542,14 +542,14 @@ function collectBranchInnerLoops(
       for (const child of n.children) walk(child, mySlotId)
     } else if (n.type === 'loop') {
       const loopParamsForTemplate = outerLoopParam ? [outerLoopParam, n.param] : undefined
-      const itemTemplate = n.children.map((c: IRNode) => irToPlaceholderTemplate(c, undefined, 1, loopParamsForTemplate)).join('')
+      const template = n.children.map((c: IRNode) => irToPlaceholderTemplate(c, undefined, 1, loopParamsForTemplate)).join('')
       const refsOuter = outerLoopParam
         ? new RegExp(`\\b${outerLoopParam}\\b`).test(n.array)
         : false
-      const reactiveTexts: Array<{ slotId: string; expression: string }> = []
+      const childReactiveTexts: Array<{ slotId: string; expression: string }> = []
       if (refsOuter && ctx) {
         for (const child of n.children) {
-          reactiveTexts.push(...collectLoopChildReactiveTexts(child, ctx, n.param))
+          childReactiveTexts.push(...collectLoopChildReactiveTexts(child, ctx, n.param))
         }
       }
       // Collect child components and events inside inner loop items.
@@ -593,11 +593,11 @@ function collectBranchInnerLoops(
         depth: 1,
         array: n.array,
         param: n.param,
-        key: n.key ?? '',
+        key: n.key,
         containerSlotId: parentContainerSlotId,
-        itemTemplate,
+        template,
         refsOuterParam: refsOuter,
-        reactiveTexts: reactiveTexts.length > 0 ? reactiveTexts : undefined,
+        childReactiveTexts: childReactiveTexts.length > 0 ? childReactiveTexts : undefined,
         childComponents: childComponents.length > 0 ? childComponents : undefined,
         childEvents: childEvents.length > 0 ? childEvents : undefined,
         childConditionals: childConditionals.length > 0 ? childConditionals : undefined,
