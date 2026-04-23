@@ -81,11 +81,10 @@ export function initBackground(scope: Element, props: Record<string, unknown>): 
       circle.setAttribute('cy', String(scaledGap / 2))
     } else if (variant === 'lines') {
       const path = patternContent as SVGPathElement
-      path.setAttribute('d', `M${scaledGap / 2} 0 V${scaledGap}`)
+      path.setAttribute('d', `M0 0 V${scaledGap}`)
     } else {
       const path = patternContent as SVGPathElement
-      const half = scaledGap / 2
-      path.setAttribute('d', `M${half} 0 V${scaledGap} M0 ${half} H${scaledGap}`)
+      path.setAttribute('d', `M0 0 V${scaledGap} M0 0 H${scaledGap}`)
     }
   })
 
