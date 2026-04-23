@@ -4,7 +4,7 @@
  * and event delegation within loop containers.
  */
 
-import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, ConditionalBranchLoop, ConditionalBranchConditional, LoopChildEvent, LoopChildConditional, LoopElement, NestedLoopInfo } from './types'
+import type { ClientJsContext, ConditionalBranchEvent, ConditionalBranchRef, ConditionalBranchChildComponent, ConditionalBranchTextEffect, BranchLoop, ConditionalBranchConditional, LoopChildEvent, LoopChildConditional, TopLevelLoop, NestedLoop } from './types'
 import type { IRLoopChildComponent } from '../types'
 import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent } from './utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
@@ -59,7 +59,7 @@ function emitBranchBindings(
   childComponents: ConditionalBranchChildComponent[],
   eventNameFn: (eventName: string) => string,
   textEffects: ConditionalBranchTextEffect[] = [],
-  branchLoops: ConditionalBranchLoop[] = [],
+  branchLoops: BranchLoop[] = [],
   branchConditionals: ConditionalBranchConditional[] = []
 ): void {
   const allSlotIds = new Set<string>()
@@ -222,7 +222,7 @@ function emitNestedBranchConditional(
  */
 function emitCompositeBranchLoop(
   lines: string[],
-  loop: ConditionalBranchLoop,
+  loop: BranchLoop,
   cv: string,
 ): void {
   const nestedComps = loop.nestedComponents!
@@ -235,7 +235,7 @@ function emitCompositeBranchLoop(
   const outerComps = nestedComps.filter(c => !c.loopDepth || c.loopDepth === 0)
   const outerEvents = childEvents.filter(ev => ev.nestedLoops.length === 0)
 
-  // Build a partial LoopElement-compatible object for CompositeLoopContext
+  // Build a partial TopLevelLoop-compatible object for CompositeLoopContext
   const pseudoElem = {
     param: loop.param,
     template: loop.template,
@@ -243,7 +243,7 @@ function emitCompositeBranchLoop(
     childReactiveTexts: loop.childReactiveTexts ?? [],
     childReactiveAttrs: loop.childReactiveAttrs ?? [],
     childConditionals: loop.childConditionals ?? [],
-  } as unknown as LoopElement
+  } as unknown as TopLevelLoop
 
   const ctx: CompositeLoopContext = {
     elem: pseudoElem,
@@ -376,7 +376,7 @@ function emitBranchInnerLoops(
   lines: string[],
   indent: string,
   scopeVar: string,
-  innerLoops: import('./types').NestedLoopInfo[] | undefined,
+  innerLoops: import('./types').NestedLoop[] | undefined,
   outerLoopParam?: string,
   outerWrapFn?: (expr: string) => string,
 ): void {
@@ -541,9 +541,9 @@ function emitLoopChildReactiveEffects(
   lines: string[],
   indent: string,
   elVar: string,
-  attrs: LoopElement['childReactiveAttrs'],
-  texts: LoopElement['childReactiveTexts'],
-  conditionals?: LoopElement['childConditionals'],
+  attrs: TopLevelLoop['childReactiveAttrs'],
+  texts: TopLevelLoop['childReactiveTexts'],
+  conditionals?: TopLevelLoop['childConditionals'],
   loopParam?: string,
 ): void {
   const wrap = loopParam ? (expr: string) => wrapLoopParamAsAccessor(expr, loopParam) : (expr: string) => expr
@@ -636,7 +636,7 @@ function emitLoopChildReactiveEffects(
  * Static arrays are server-rendered once; only signal-dependent attributes
  * and event handlers need client-side setup.
  */
-function emitStaticArrayUpdates(lines: string[], elem: LoopElement): void {
+function emitStaticArrayUpdates(lines: string[], elem: TopLevelLoop): void {
   // Static array initChild calls are deferred to emitStaticArrayChildInits()
   // so that parent context providers (provideContext) run first.
 
@@ -727,7 +727,7 @@ function emitStaticArrayUpdates(lines: string[], elem: LoopElement): void {
  *   - Plain element → reconcileElements + template + hydration
  * Then emits event delegation handlers if needed.
  */
-function emitDynamicLoopUpdates(lines: string[], elem: LoopElement): void {
+function emitDynamicLoopUpdates(lines: string[], elem: TopLevelLoop): void {
   const keyFn = elem.key
     ? `(${elem.param}${elem.index ? `, ${elem.index}` : ''}) => String(${elem.key})`
     : 'null'
@@ -776,7 +776,7 @@ function buildComponentPropsExpr(
 }
 
 /** Emit mapArray for a loop whose body is a single child component. */
-function emitComponentLoopReconciliation(lines: string[], elem: LoopElement, keyFn: string): void {
+function emitComponentLoopReconciliation(lines: string[], elem: TopLevelLoop, keyFn: string): void {
   const { name } = elem.childComponent!
   const vLoop = varSlotId(elem.slotId)
   const propsExpr = buildComponentPropsExpr(elem.childComponent!, elem.param)
@@ -854,7 +854,7 @@ function emitComponentLoopReconciliation(lines: string[], elem: LoopElement, key
  */
 function emitHydrationTagging(
   lines: string[],
-  elem: LoopElement,
+  elem: TopLevelLoop,
   vLoop: string,
   indexParam: string,
   afterTag?: (lines: string[]) => void,
@@ -880,7 +880,7 @@ function emitHydrationTagging(
 }
 
 /** Emit mapArray for a plain element loop with unified CSR/SSR. */
-function emitPlainElementLoopReconciliation(lines: string[], elem: LoopElement, keyFn: string): void {
+function emitPlainElementLoopReconciliation(lines: string[], elem: TopLevelLoop, keyFn: string): void {
   const vLoop = varSlotId(elem.slotId)
   const chainedExpr = buildChainedArrayExpr(elem)
   const indexParam = elem.index || '__idx'
@@ -915,7 +915,7 @@ function emitPlainElementLoopReconciliation(lines: string[], elem: LoopElement, 
 }
 
 /** Emit event delegation for dynamic (non-static) loop child events. */
-function emitDynamicLoopEventDelegation(lines: string[], elem: LoopElement): void {
+function emitDynamicLoopEventDelegation(lines: string[], elem: TopLevelLoop): void {
   const vLoop = varSlotId(elem.slotId)
 
   if (elem.key) {
@@ -949,7 +949,7 @@ function emitDynamicLoopEventDelegation(lines: string[], elem: LoopElement): voi
         for (const nested of ev.nestedLoops) {
           // `nested.key` can be null for unkeyed loops; coerce to '' so the
           // resolution silently no-ops (String('') never matches a real
-          // key), matching prior behavior when NestedLoopInfo.key was
+          // key), matching prior behavior when NestedLoop.key was
           // always a string defaulting to ''.
           const innerKeyExpr = (nested.key ?? '').replace(new RegExp(`\\b${nested.param}\\b`, 'g'), 'item')
           ls.push(`      const ${nested.param} = ${elem.param} && ${nested.array}.find(item => String(${innerKeyExpr}) === innerKey${nested.depth})`)
@@ -978,7 +978,7 @@ function emitDynamicLoopEventDelegation(lines: string[], elem: LoopElement): voi
  * Emit event delegation for simple (non-composite) loops inside conditional branches (#766).
  * Mirrors emitDynamicLoopEventDelegation but uses branch-scoped container variable.
  */
-function emitBranchLoopEventDelegation(lines: string[], loop: ConditionalBranchLoop, cv: string): void {
+function emitBranchLoopEventDelegation(lines: string[], loop: BranchLoop, cv: string): void {
   const containerVar = `__loop_${cv}`
   const childEvents = loop.childEvents
 
@@ -1031,9 +1031,9 @@ function emitBranchLoopEventDelegation(lines: string[], loop: ConditionalBranchL
 
 /** Per-inner-loop data for composite loop emission. */
 interface DepthLevel {
-  comps: (LoopElement['nestedComponents'] & {})[number][]
+  comps: (TopLevelLoop['nestedComponents'] & {})[number][]
   events: LoopChildEvent[]
-  loopInfo: NestedLoopInfo | null
+  loopInfo: NestedLoop | null
 }
 
 /**
@@ -1042,7 +1042,7 @@ interface DepthLevel {
  * same depth (e.g., reactions.map + replies.map) each get their own forEach block.
  */
 function buildDepthLevels(
-  innerLoops: NestedLoopInfo[],
+  innerLoops: NestedLoop[],
   nestedComps: IRLoopChildComponent[],
   childEvents: LoopChildEvent[],
 ): DepthLevel[] {
@@ -1067,9 +1067,9 @@ function buildDepthLevels(
 
 /** Nesting-level-separated data for composite loop emission. */
 interface CompositeLoopContext {
-  elem: LoopElement
+  elem: TopLevelLoop
   /** Components and events at the outer level (depth 0) */
-  outerComps: LoopElement['nestedComponents'] & {}
+  outerComps: TopLevelLoop['nestedComponents'] & {}
   outerEvents: LoopChildEvent[]
   /** Components, events, and loop info grouped by depth (depth 1, 2, ...) */
   depthLevels: DepthLevel[]
@@ -1364,7 +1364,7 @@ function emitInnerLoopSetup(
  */
 function emitCompositeElementReconciliation(
   lines: string[],
-  elem: LoopElement,
+  elem: TopLevelLoop,
   keyFn: string,
 ): void {
   const vLoop = varSlotId(elem.slotId)

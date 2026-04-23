@@ -4,7 +4,7 @@
  */
 
 import type { IRTemplateLiteral } from '../types'
-import type { LoopElement } from './types'
+import type { TopLevelLoop } from './types'
 import {
   BF_KEY as DATA_KEY,
   BF_KEY_PREFIX as DATA_KEY_PREFIX,
@@ -64,7 +64,7 @@ export function attrValueToString(value: string | IRTemplateLiteral | null, opts
  * Chains .toSorted() and .filter() in the correct order based on chainOrder.
  * Always uses .toSorted() (non-mutating) regardless of source method.
  */
-export function buildChainedArrayExpr(elem: LoopElement): string {
+export function buildChainedArrayExpr(elem: TopLevelLoop): string {
   const sortExpr = elem.sortComparator
     ? `.toSorted((${elem.sortComparator.paramA}, ${elem.sortComparator.paramB}) => ${elem.sortComparator.raw})`
     : ''

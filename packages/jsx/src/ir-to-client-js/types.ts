@@ -35,7 +35,7 @@ export interface ClientJsContext {
   interactiveElements: InteractiveElement[]
   dynamicElements: DynamicElement[]
   conditionalElements: ConditionalElement[]
-  loopElements: LoopElement[]
+  loopElements: TopLevelLoop[]
   refElements: RefElement[]
   childInits: ChildInit[]
   reactiveProps: ReactiveComponentProp[]
@@ -103,12 +103,24 @@ export interface ConditionalBranchTextEffect {
   expression: string
 }
 
+/**
+ * Fields shared by every flavour of collected loop (top-level, branch-scoped, nested).
+ * The three loop-info variants (`TopLevelLoop`, `BranchLoop`, `NestedLoop`) each extend
+ * this base and add a `kind` discriminator so callers can narrow exhaustively.
+ */
+export interface LoopCore {
+  /** Array expression — e.g. `items()`, `col.tasks`. */
+  array: string
+  /** Loop parameter name — e.g. `item`, `task`. */
+  param: string
+  /** Key expression — e.g. `item.id`. `null` when the loop has no explicit key. */
+  key: string | null
+}
+
 /** Loop info extracted from a conditional branch for reactive reconciliation. */
-export interface ConditionalBranchLoop {
-  array: string       // Array expression (e.g., 'items()')
-  param: string       // Loop parameter name (e.g., 'item')
+export interface BranchLoop extends LoopCore {
+  kind: 'branch'
   index: string | null // Index parameter (e.g., 'i')
-  key: string | null   // Key expression (e.g., 'item.id')
   template: string     // HTML template for each item
   containerSlotId: string // bf slot ID of the container element (e.g., 's1' for <ul bf="s1">)
   mapPreamble: string | null
@@ -118,7 +130,7 @@ export interface ConditionalBranchLoop {
   childReactiveTexts?: LoopChildReactiveText[]
   childReactiveAttrs?: LoopChildReactiveAttr[]
   childConditionals?: LoopChildConditional[]
-  innerLoops?: NestedLoopInfo[]
+  innerLoops?: NestedLoop[]
   useElementReconciliation?: boolean
 }
 
@@ -135,8 +147,8 @@ export interface ConditionalElement {
   whenFalseChildComponents: ConditionalBranchChildComponent[]
   whenTrueTextEffects: ConditionalBranchTextEffect[]
   whenFalseTextEffects: ConditionalBranchTextEffect[]
-  whenTrueLoops: ConditionalBranchLoop[]
-  whenFalseLoops: ConditionalBranchLoop[]
+  whenTrueLoops: BranchLoop[]
+  whenFalseLoops: BranchLoop[]
   whenTrueConditionals: ConditionalBranchConditional[]
   whenFalseConditionals: ConditionalBranchConditional[]
 }
@@ -148,24 +160,15 @@ export interface ConditionalElement {
  */
 export type ConditionalBranchConditional = ConditionalElement
 
-export interface NestedLoopInfo {
+export interface NestedLoop extends LoopCore {
+  kind: 'nested'
   depth: number    // 1 for first nesting level, 2 for second, etc.
-  array: string    // Inner loop array expression (e.g., 'col.tasks')
-  param: string    // Inner loop parameter name (e.g., 'task')
-  // Aligned with LoopElement / ConditionalBranchLoop which already allow
-  // `null` — loops without an explicit key expression omit it rather than
-  // coerce to `''`. Makes the three loop-info types share one nullability
-  // story, a prerequisite for the planned discriminated-union unification.
-  key: string | null
   containerSlotId: string | null // Slot ID of the parent element containing the loop (for hydration)
   /** HTML template for a single inner loop item (for mapArray CSR rendering) */
-  // Field renamed from `itemTemplate` to match LoopElement/ConditionalBranchLoop.
   template?: string
   /** Whether the inner array references the outer loop param (needs reactive mapArray) */
   refsOuterParam?: boolean
   /** Reactive text expressions inside inner loop items (slotId → expression) */
-  // Renamed from `reactiveTexts` so every loop-info type uses the same
-  // `child*` prefix for per-item reactive wiring.
   childReactiveTexts?: LoopChildReactiveText[]
   /** Child components inside inner loop items (for initChild/createComponent) */
   childComponents?: import('../types').IRLoopChildComponent[]
@@ -184,7 +187,7 @@ export interface LoopChildEvent {
   childSlotId: string // bf slot ID of the element with the event
   handler: string // Handler expression (may reference loop param)
   /** Nesting info for events inside nested inner loops. Empty = direct child. */
-  nestedLoops: NestedLoopInfo[]
+  nestedLoops: NestedLoop[]
   /** DOM nesting depth (0 = loop body root). Deepest-first sorting for event delegation (#774). */
   domDepth: number
 }
@@ -209,9 +212,9 @@ export interface LoopChildConditional {
   whenTrueComponents: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[]; children: import('../types').IRNode[] }>
   whenFalseComponents: Array<{ name: string; slotId: string | null; props: import('../types').IRProp[]; children: import('../types').IRNode[] }>
   /** Inner loops inside whenTrue branch that need mapArray setup */
-  whenTrueInnerLoops?: NestedLoopInfo[]
+  whenTrueInnerLoops?: NestedLoop[]
   /** Inner loops inside whenFalse branch that need mapArray setup */
-  whenFalseInnerLoops?: NestedLoopInfo[]
+  whenFalseInnerLoops?: NestedLoop[]
   /** Nested conditionals inside whenTrue branch (recursive — Path A, #830) */
   whenTrueConditionals?: LoopChildConditional[]
   /** Nested conditionals inside whenFalse branch (recursive — Path A, #830) */
@@ -222,12 +225,10 @@ export interface LoopChildConditional {
   whenFalseEvents?: ConditionalBranchEvent[]
 }
 
-export interface LoopElement {
+export interface TopLevelLoop extends LoopCore {
+  kind: 'top-level'
   slotId: string
-  array: string
-  param: string
   index: string | null
-  key: string | null
   template: string
   childEventHandlers: string[] // Event handlers from child elements (for identifier extraction)
   childEvents: LoopChildEvent[] // Detailed event info for delegation
@@ -239,7 +240,7 @@ export interface LoopElement {
   isStaticArray: boolean // True if array is a static prop (not a signal)
   useElementReconciliation?: boolean // True: reconcileElements + composite rendering (native root with child components)
   /** Inner loop metadata for composite element reconciliation (array, param, key, container) */
-  innerLoops?: NestedLoopInfo[]
+  innerLoops?: NestedLoop[]
   /** Number of non-loop DOM siblings before this loop in its parent element. Used to offset children[idx] access. */
   siblingOffset?: number
   filterPredicate?: {
@@ -254,6 +255,13 @@ export interface LoopElement {
   chainOrder?: 'filter-sort' | 'sort-filter'
   mapPreamble?: string
 }
+
+/**
+ * Discriminated union over every collected loop flavour. Narrow on `kind`
+ * to get exhaustive handling — adding a new flavour becomes a typed,
+ * compile-time fan-out instead of a silent structural match.
+ */
+export type CollectedLoop = TopLevelLoop | BranchLoop | NestedLoop
 
 export interface RefElement {
   slotId: string
@@ -290,8 +298,8 @@ export interface ClientOnlyConditional {
   whenFalseChildComponents: ConditionalBranchChildComponent[]
   whenTrueTextEffects: ConditionalBranchTextEffect[]
   whenFalseTextEffects: ConditionalBranchTextEffect[]
-  whenTrueLoops: ConditionalBranchLoop[]
-  whenFalseLoops: ConditionalBranchLoop[]
+  whenTrueLoops: BranchLoop[]
+  whenFalseLoops: BranchLoop[]
   whenTrueConditionals: ConditionalBranchConditional[]
   whenFalseConditionals: ConditionalBranchConditional[]
 }

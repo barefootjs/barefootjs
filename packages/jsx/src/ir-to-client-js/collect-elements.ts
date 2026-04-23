@@ -3,7 +3,7 @@
  */
 
 import { type IRNode, type IRElement, type IRProp, pickAttrMeta } from '../types'
-import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchConditional, ConditionalBranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildEvent, LoopChildReactiveAttr, NestedLoopInfo } from './types'
+import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchConditional, BranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildEvent, LoopChildReactiveAttr, NestedLoop } from './types'
 import { attrValueToString, quotePropName, PROPS_PARAM } from './utils'
 import { decideWrapForAttr, decideWrapForChildProp, decideWrapFromAstFlags, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts, collectLoopChildConditionals } from './reactivity'
 import { irToHtmlTemplate, irToPlaceholderTemplate, irChildrenToJsExpr } from './html-template'
@@ -12,7 +12,7 @@ import { expandDynamicPropValue, expandConstantForReactivity } from './prop-hand
 /**
  * WeakMap to store the number of non-loop DOM siblings before each loop node
  * in its parent element. Populated during collectElements element traversal,
- * read when constructing LoopElements.
+ * read when constructing TopLevelLoops.
  */
 const loopSiblingOffsets = new WeakMap<IRNode, number>()
 
@@ -26,11 +26,11 @@ function producesDomChild(node: IRNode): boolean {
 
 /**
  * Collect inner loop metadata from an IR subtree.
- * Returns NestedLoopInfo for each loop node found within the tree,
+ * Returns NestedLoop for each loop node found within the tree,
  * tracking the nearest ancestor element's slotId as container.
  */
-function collectInnerLoops(nodes: IRNode[], outerLoopParam?: string, ctx?: ClientJsContext): NestedLoopInfo[] {
-  const result: NestedLoopInfo[] = []
+function collectInnerLoops(nodes: IRNode[], outerLoopParam?: string, ctx?: ClientJsContext): NestedLoop[] {
+  const result: NestedLoop[] = []
   let depth = 0
   let insideCond = false
 
@@ -68,6 +68,7 @@ function collectInnerLoops(nodes: IRNode[], outerLoopParam?: string, ctx?: Clien
           }
         }
         result.push({
+          kind: 'nested',
           depth,
           array: n.array,
           param: n.param,
@@ -316,6 +317,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         }
 
         ctx.loopElements.push({
+          kind: 'top-level',
           slotId: node.slotId,
           array: node.array,
           param: node.param,
@@ -630,8 +632,8 @@ function collectBranchTextEffects(node: IRNode): ConditionalBranchTextEffect[] {
  * Only collects top-level loops (not nested loops inside other loops).
  * Detects composite loops (with child components) and collects extra metadata.
  */
-function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): ConditionalBranchLoop[] {
-  const loops: ConditionalBranchLoop[] = []
+function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): BranchLoop[] {
+  const loops: BranchLoop[] = []
   let parentSlotId: string | null = null
   const restNames = ctx ? buildRestSpreadNames(ctx) : undefined
 
@@ -697,6 +699,7 @@ function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): ConditionalBra
         }
 
         loops.push({
+          kind: 'branch',
           array: n.array,
           param: n.param,
           index: n.index,
