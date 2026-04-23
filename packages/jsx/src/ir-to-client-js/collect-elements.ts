@@ -2,7 +2,7 @@
  * IR tree traversal → collect elements into ClientJsContext.
  */
 
-import { type IRNode, type IRElement, type IRProp, pickAttrMeta } from '../types'
+import { type IRNode, type IRElement, type IRComponent, type IRProp, pickAttrMeta } from '../types'
 import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchConditional, BranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildEvent, LoopChildReactiveAttr, NestedLoop } from './types'
 import { attrValueToString, quotePropName, PROPS_PARAM } from './utils'
 import { decideWrapForAttr, decideWrapForChildProp, decideWrapFromAstFlags, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts, collectLoopChildConditionals } from './reactivity'
@@ -178,6 +178,35 @@ function buildComponentPropsExpr(props: IRProp[], ctx: ClientJsContext): string 
     return `forwardProps(${spreadSource}, ${overrides}, ${excludeKeys})`
   }
   return propsForInit.length > 0 ? `{ ${propsForInit.join(', ')} }` : '{}'
+}
+
+/**
+ * Push reactive child-prop entries for a component node into `ctx.reactiveChildProps`.
+ * Mirrors the wrap-decision pass done during propsExpr construction; kept as a dedicated
+ * side-effect helper so `buildComponentPropsExpr` stays a pure function.
+ */
+function collectReactiveChildProps(node: IRComponent, ctx: ClientJsContext): void {
+  for (const prop of node.props) {
+    if (prop.name === '...' || prop.name.startsWith('...')) continue
+    if (prop.jsxChildren) continue
+    const isEventHandler =
+      prop.name.startsWith('on') &&
+      prop.name.length > 2 &&
+      prop.name[2] === prop.name[2].toUpperCase()
+    if (isEventHandler) continue
+    if (!prop.dynamic) continue
+    const expandedValue = expandDynamicPropValue(prop.value, ctx)
+    if (!decideWrapForChildProp(expandedValue, ctx, prop).wrap) continue
+    const attrName = prop.name === 'className' ? 'class' : prop.name
+    ctx.reactiveChildProps.push({
+      componentName: node.name,
+      slotId: node.slotId,
+      propName: prop.name,
+      attrName,
+      expression: expandedValue,
+      ...pickAttrMeta(prop),
+    })
+  }
 }
 
 /** Convert raw component info from IR traversal to ConditionalBranchChildComponent with built propsExpr. */
@@ -376,93 +405,12 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         }
       }
 
-      // Detect unexpanded spread props (open type — Phase 1 couldn't resolve keys)
-      // Only handle spreads whose source matches the component's rest/props parameter name.
-      // Other identifiers (e.g., local variables) may not exist in the compiled init scope.
-      // Always use PROPS_PARAM as the actual source since the init function parameter is PROPS_PARAM.
-      // Find the spread prop matching the component's rest/props parameter.
-      // A component may have multiple spreads (e.g., <Tag {...childProps} {...props}>).
-      // We need to find the one that matches, not just the first spread.
-      const restName = ctx.restPropsName
-      const propsObjName = ctx.propsObjectName
-      const knownSpreadProp = node.props.find(p =>
-        (p.name === '...' || p.name.startsWith('...')) &&
-        (p.value === restName || p.value === propsObjName)
-      )
-      const spreadSource = knownSpreadProp ? PROPS_PARAM : null
-
-      const propsForInit: string[] = []
-      const explicitPropNames: string[] = []
-      for (const prop of node.props) {
-        if (prop.name === '...' || prop.name.startsWith('...')) continue
-        explicitPropNames.push(prop.name)
-        const isEventHandler =
-          prop.name.startsWith('on') &&
-          prop.name.length > 2 &&
-          prop.name[2] === prop.name[2].toUpperCase()
-        if (isEventHandler) {
-          propsForInit.push(`${quotePropName(prop.name)}: ${prop.value}`)
-        } else if (prop.jsxChildren) {
-          // JSX prop: generate getter using IR children → JS expression
-          const jsxExpr = irChildrenToJsExpr(prop.jsxChildren)
-          if (jsxChildrenContainComponent(prop.jsxChildren)) {
-            // Wrap with __slot() so callee text effects skip nodeValue update,
-            // preserving server-rendered component DOM for hydration.
-            propsForInit.push(`get ${quotePropName(prop.name)}() { return __slot(() => ${jsxExpr}) }`)
-          } else {
-            propsForInit.push(`get ${quotePropName(prop.name)}() { return ${jsxExpr} }`)
-          }
-        } else if (prop.dynamic) {
-          const expandedValue = expandDynamicPropValue(prop.value, ctx)
-          propsForInit.push(`get ${quotePropName(prop.name)}() { return ${expandedValue} }`)
-
-          // Solid-style wrap-by-default fallback (#942, DRY-consolidated
-          // with #939/#941/#943 via IRProp AST flags). Wrap child-component
-          // prop bindings in createEffect not only for statically-proven
-          // reactive values, but also for any expression the analyzer
-          // can't prove non-reactive — AST flags carry that signal from
-          // Phase 1. Pure literals and bare identifiers (no calls) stay
-          // un-wrapped via the other branches of this if/else.
-          //
-          // `hasPropsRef` stays as a string-level check because the
-          // props-param rename lives in Phase 1 (IRProp.value already has
-          // `props.xxx` substituted); string-literal stripping isn't
-          // needed for it, and `prop.callsReactiveGetters` /
-          // `prop.hasFunctionCalls` are computed structurally from the AST
-          // so they can't false-match call-like substrings inside string
-          // literals (e.g. `{ color: 'hsl(221 83% 53%)' }`).
-          if (decideWrapForChildProp(expandedValue, ctx, prop).wrap) {
-            const attrName = prop.name === 'className' ? 'class' : prop.name
-            ctx.reactiveChildProps.push({
-              componentName: node.name,
-              slotId: node.slotId,
-              propName: prop.name,
-              attrName,
-              expression: expandedValue,
-              ...pickAttrMeta(prop),
-            })
-          }
-        } else if (prop.isLiteral) {
-          propsForInit.push(`${quotePropName(prop.name)}: ${JSON.stringify(prop.value)}`)
-        } else {
-          propsForInit.push(`${quotePropName(prop.name)}: ${prop.value}`)
-        }
-      }
-
-      let propsExpr: string
-      if (spreadSource) {
-        // Use forwardProps() to merge spread source with explicit overrides
-        const overrides = propsForInit.length > 0 ? `{ ${propsForInit.join(', ')} }` : '{}'
-        const excludeKeys = JSON.stringify(explicitPropNames)
-        propsExpr = `forwardProps(${spreadSource}, ${overrides}, ${excludeKeys})`
-      } else {
-        propsExpr = propsForInit.length > 0 ? `{ ${propsForInit.join(', ')} }` : '{}'
-      }
+      collectReactiveChildProps(node, ctx)
 
       ctx.childInits.push({
         name: node.name,
         slotId: node.slotId,
-        propsExpr,
+        propsExpr: buildComponentPropsExpr(node.props, ctx),
       })
       for (const child of node.children) {
         collectElements(child, ctx, insideConditional)
