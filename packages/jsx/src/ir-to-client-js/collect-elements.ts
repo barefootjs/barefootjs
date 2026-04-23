@@ -2,19 +2,12 @@
  * IR tree traversal → collect elements into ClientJsContext.
  */
 
-import { type IRNode, type IRElement, type IRComponent, type IRProp, pickAttrMeta } from '../types'
+import { type IRNode, type IRElement, type IRComponent, type IRLoop, type IRProp, pickAttrMeta } from '../types'
 import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchConditional, BranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildEvent, LoopChildReactiveAttr, NestedLoop } from './types'
 import { attrValueToString, quotePropName, PROPS_PARAM } from './utils'
 import { decideWrapForAttr, decideWrapForChildProp, decideWrapFromAstFlags, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEvents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts, collectLoopChildConditionals } from './reactivity'
 import { irToHtmlTemplate, irToPlaceholderTemplate, irChildrenToJsExpr } from './html-template'
 import { expandDynamicPropValue, expandConstantForReactivity } from './prop-handling'
-
-/**
- * WeakMap to store the number of non-loop DOM siblings before each loop node
- * in its parent element. Populated during collectElements element traversal,
- * read when constructing TopLevelLoops.
- */
-const loopSiblingOffsets = new WeakMap<IRNode, number>()
 
 /** Check if an IR node produces a DOM child element (for sibling offset counting). */
 function producesDomChild(node: IRNode): boolean {
@@ -25,11 +18,65 @@ function producesDomChild(node: IRNode): boolean {
 }
 
 /**
+ * Pre-pass: for every loop node in the IR tree, record the number of non-loop
+ * DOM siblings that appear before it in its parent element. Read when
+ * constructing TopLevelLoop and NestedLoop so the client JS can offset
+ * children[idx] access past statically-rendered siblings.
+ *
+ * Computed once up front (instead of during collection) so the offset data
+ * lives in an explicit value rather than a module-level WeakMap mutated by
+ * two separate traversals.
+ */
+export function computeLoopSiblingOffsets(root: IRNode): Map<IRLoop, number> {
+  const offsets = new Map<IRLoop, number>()
+
+  function walk(n: IRNode): void {
+    switch (n.type) {
+      case 'element': {
+        let nonLoopCount = 0
+        for (const child of n.children) {
+          if (child.type === 'loop') {
+            if (nonLoopCount > 0) offsets.set(child, nonLoopCount)
+          } else if (producesDomChild(child)) {
+            nonLoopCount++
+          }
+        }
+        for (const child of n.children) walk(child)
+        break
+      }
+      case 'fragment':
+      case 'component':
+      case 'provider':
+      case 'async':
+      case 'loop':
+        for (const child of n.children) walk(child)
+        break
+      case 'conditional':
+        walk(n.whenTrue)
+        walk(n.whenFalse)
+        break
+      case 'if-statement':
+        walk(n.consequent)
+        if (n.alternate) walk(n.alternate)
+        break
+    }
+  }
+
+  walk(root)
+  return offsets
+}
+
+/**
  * Collect inner loop metadata from an IR subtree.
  * Returns NestedLoop for each loop node found within the tree,
  * tracking the nearest ancestor element's slotId as container.
  */
-function collectInnerLoops(nodes: IRNode[], outerLoopParam?: string, ctx?: ClientJsContext): NestedLoop[] {
+function collectInnerLoops(
+  nodes: IRNode[],
+  siblingOffsets: Map<IRLoop, number>,
+  outerLoopParam?: string,
+  ctx?: ClientJsContext,
+): NestedLoop[] {
   const result: NestedLoop[] = []
   let depth = 0
   let insideCond = false
@@ -38,15 +85,6 @@ function collectInnerLoops(nodes: IRNode[], outerLoopParam?: string, ctx?: Clien
     switch (n.type) {
       case 'element': {
         const mySlotId = n.slotId ?? parentSlotId
-        // Count non-loop siblings for inner loop offset
-        let nonLoopCount = 0
-        for (const child of n.children) {
-          if (child.type === 'loop') {
-            if (nonLoopCount > 0) loopSiblingOffsets.set(child, nonLoopCount)
-          } else if (producesDomChild(child)) {
-            nonLoopCount++
-          }
-        }
         for (const child of n.children) walk(child, mySlotId)
         break
       }
@@ -78,7 +116,7 @@ function collectInnerLoops(nodes: IRNode[], outerLoopParam?: string, ctx?: Clien
           refsOuterParam: refsOuter,
           childReactiveTexts: innerReactiveTexts.length > 0 ? innerReactiveTexts : undefined,
           insideConditional: insideCond || undefined,
-          siblingOffset: loopSiblingOffsets.get(n) || undefined,
+          siblingOffset: siblingOffsets.get(n) || undefined,
         })
         for (const child of n.children) walk(child, parentSlotId)
         depth--
@@ -222,23 +260,17 @@ function buildBranchChildComponents(
 }
 
 /** Recursively walk the IR tree and populate ctx with interactive/dynamic/loop/conditional elements. */
-export function collectElements(node: IRNode, ctx: ClientJsContext, insideConditional = false): void {
+export function collectElements(
+  node: IRNode,
+  ctx: ClientJsContext,
+  siblingOffsets: Map<IRLoop, number>,
+  insideConditional = false,
+): void {
   switch (node.type) {
     case 'element':
       collectFromElement(node, ctx, insideConditional)
-      // Pre-compute sibling offsets for any loop children in this element
-      {
-        let nonLoopCount = 0
-        for (const child of node.children) {
-          if (child.type === 'loop') {
-            if (nonLoopCount > 0) loopSiblingOffsets.set(child, nonLoopCount)
-          } else if (producesDomChild(child)) {
-            nonLoopCount++
-          }
-        }
-      }
       for (const child of node.children) {
-        collectElements(child, ctx, insideConditional)
+        collectElements(child, ctx, siblingOffsets, insideConditional)
       }
       break
 
@@ -275,7 +307,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
 
     case 'conditional':
       if (node.clientOnly && node.slotId) {
-        ctx.clientOnlyConditionals.push(buildConditionalMetadata(node, ctx))
+        ctx.clientOnlyConditionals.push(buildConditionalMetadata(node, ctx, siblingOffsets))
       } else if (node.slotId) {
         // Solid-style wrap-by-default fallback (#941, follow-up to #937/#939).
         // Wrap not only statically-proven-reactive conditions, but also any
@@ -286,14 +318,14 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
             // Nested conditionals are collected by the parent via collectBranchConditionals.
             // Don't push to ctx.conditionalElements — they'll be emitted inside the parent's bindEvents.
           } else {
-            ctx.conditionalElements.push(buildConditionalMetadata(node, ctx))
+            ctx.conditionalElements.push(buildConditionalMetadata(node, ctx, siblingOffsets))
           }
         }
       }
       // Recurse into conditional branches with insideConditional = true
       // to collect nested conditionals, events, refs, child components, and reactive attrs
-      collectElements(node.whenTrue, ctx, true)
-      collectElements(node.whenFalse, ctx, true)
+      collectElements(node.whenTrue, ctx, siblingOffsets, true)
+      collectElements(node.whenFalse, ctx, siblingOffsets, true)
       break
 
     case 'loop':
@@ -327,7 +359,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         // or when inner loops need their own mapArray for events/reactive text.
         const hasNestedComps = (node.nestedComponents?.length ?? 0) > 0
         const innerLoops = !node.childComponent
-          ? collectInnerLoops(node.children, node.param, ctx)
+          ? collectInnerLoops(node.children, siblingOffsets, node.param, ctx)
           : undefined
         const hasInnerLoops = (innerLoops?.length ?? 0) > 0
         const useElementReconciliation = !node.childComponent
@@ -363,7 +395,7 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
           isStaticArray: node.isStaticArray,
           useElementReconciliation,
           innerLoops: (useElementReconciliation || (node.isStaticArray && innerLoops?.length)) ? innerLoops : undefined,
-          siblingOffset: loopSiblingOffsets.get(node) || undefined,
+          siblingOffset: siblingOffsets.get(node) || undefined,
           filterPredicate: node.filterPredicate ? {
             param: node.filterPredicate.param,
             raw: node.filterPredicate.raw,
@@ -413,14 +445,14 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         propsExpr: buildComponentPropsExpr(node.props, ctx),
       })
       for (const child of node.children) {
-        collectElements(child, ctx, insideConditional)
+        collectElements(child, ctx, siblingOffsets, insideConditional)
       }
       // Traverse JSX prop children so events, reactive expressions,
       // and nested components inside JSX props are collected
       for (const prop of node.props) {
         if (prop.jsxChildren) {
           for (const child of prop.jsxChildren) {
-            collectElements(child, ctx, insideConditional)
+            collectElements(child, ctx, siblingOffsets, insideConditional)
           }
         }
       }
@@ -428,14 +460,14 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
 
     case 'fragment':
       for (const child of node.children) {
-        collectElements(child, ctx, insideConditional)
+        collectElements(child, ctx, siblingOffsets, insideConditional)
       }
       break
 
     case 'if-statement':
-      collectElements(node.consequent, ctx, insideConditional)
+      collectElements(node.consequent, ctx, siblingOffsets, insideConditional)
       if (node.alternate) {
-        collectElements(node.alternate, ctx, insideConditional)
+        collectElements(node.alternate, ctx, siblingOffsets, insideConditional)
       }
       break
 
@@ -445,14 +477,14 @@ export function collectElements(node: IRNode, ctx: ClientJsContext, insideCondit
         valueExpr: node.valueProp.value,
       })
       for (const child of node.children) {
-        collectElements(child, ctx, insideConditional)
+        collectElements(child, ctx, siblingOffsets, insideConditional)
       }
       break
 
     case 'async':
       // Async boundaries are transparent for client JS — just traverse children
       for (const child of node.children) {
-        collectElements(child, ctx, insideConditional)
+        collectElements(child, ctx, siblingOffsets, insideConditional)
       }
       break
   }
@@ -580,7 +612,11 @@ function collectBranchTextEffects(node: IRNode): ConditionalBranchTextEffect[] {
  * Only collects top-level loops (not nested loops inside other loops).
  * Detects composite loops (with child components) and collects extra metadata.
  */
-function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): BranchLoop[] {
+function collectBranchLoops(
+  node: IRNode,
+  ctx: ClientJsContext | undefined,
+  siblingOffsets: Map<IRLoop, number>,
+): BranchLoop[] {
   const loops: BranchLoop[] = []
   let parentSlotId: string | null = null
   const restNames = ctx ? buildRestSpreadNames(ctx) : undefined
@@ -608,7 +644,7 @@ function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): BranchLoop[] {
         // conditional branch.
         const hasNestedComps = (n.nestedComponents?.length ?? 0) > 0
         const innerLoopsCollected = !n.childComponent
-          ? collectInnerLoops(n.children, n.param)
+          ? collectInnerLoops(n.children, siblingOffsets, n.param)
           : undefined
         const hasInnerLoops = (innerLoopsCollected?.length ?? 0) > 0
         const useElementReconciliation = !n.childComponent
@@ -686,7 +722,11 @@ function collectBranchLoops(node: IRNode, ctx?: ClientJsContext): BranchLoop[] {
  * Build full conditional metadata for a reactive conditional node.
  * Shared by top-level conditionals and nested branch conditionals.
  */
-function buildConditionalMetadata(node: IRNode & { type: 'conditional' }, ctx: ClientJsContext): ConditionalElement {
+function buildConditionalMetadata(
+  node: IRNode & { type: 'conditional' },
+  ctx: ClientJsContext,
+  siblingOffsets: Map<IRLoop, number>,
+): ConditionalElement {
   const restNames = buildRestSpreadNames(ctx)
   // Use loopDepth=-1 so the first loop encountered inside the branch emits
   // data-key (depth 0) for its items, matching the mapArray item template
@@ -704,10 +744,10 @@ function buildConditionalMetadata(node: IRNode & { type: 'conditional' }, ctx: C
     whenFalseChildComponents: buildBranchChildComponents(collectConditionalBranchChildComponents(node.whenFalse), ctx),
     whenTrueTextEffects: collectBranchTextEffects(node.whenTrue),
     whenFalseTextEffects: collectBranchTextEffects(node.whenFalse),
-    whenTrueLoops: collectBranchLoops(node.whenTrue, ctx),
-    whenFalseLoops: collectBranchLoops(node.whenFalse, ctx),
-    whenTrueConditionals: collectBranchConditionals(node.whenTrue, ctx),
-    whenFalseConditionals: collectBranchConditionals(node.whenFalse, ctx),
+    whenTrueLoops: collectBranchLoops(node.whenTrue, ctx, siblingOffsets),
+    whenFalseLoops: collectBranchLoops(node.whenFalse, ctx, siblingOffsets),
+    whenTrueConditionals: collectBranchConditionals(node.whenTrue, ctx, siblingOffsets),
+    whenFalseConditionals: collectBranchConditionals(node.whenFalse, ctx, siblingOffsets),
   }
 }
 
@@ -715,7 +755,11 @@ function buildConditionalMetadata(node: IRNode & { type: 'conditional' }, ctx: C
  * Collect nested reactive conditionals from a branch for emission inside bindEvents.
  * Finds reactive conditional nodes within a branch subtree (not recursing into loops).
  */
-function collectBranchConditionals(node: IRNode, ctx: ClientJsContext): ConditionalElement[] {
+function collectBranchConditionals(
+  node: IRNode,
+  ctx: ClientJsContext,
+  siblingOffsets: Map<IRLoop, number>,
+): ConditionalElement[] {
   const result: ConditionalElement[] = []
 
   function walk(n: IRNode): void {
@@ -724,7 +768,7 @@ function collectBranchConditionals(node: IRNode, ctx: ClientJsContext): Conditio
         // Wrap-by-default fallback (#941) — mirror the top-level gate in
         // `case 'conditional'` at collectElements().
         if (n.slotId && decideWrapFromAstFlags(n).wrap) {
-          result.push(buildConditionalMetadata(n, ctx))
+          result.push(buildConditionalMetadata(n, ctx, siblingOffsets))
         }
         // Don't recurse further — the nested conditional handles its own branches
         break
