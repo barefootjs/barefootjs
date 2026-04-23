@@ -1,7 +1,8 @@
 // Core build module: shared pipeline for `barefoot build`.
 
-import { compileJSX, combineParentChildClientJs } from '@barefootjs/jsx'
+import { compileJSX, combineParentChildClientJs, createProgramForCorpus } from '@barefootjs/jsx'
 import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec, BundleEntry } from '@barefootjs/jsx'
+import type ts from 'typescript'
 import { mkdir, readdir, stat, unlink } from 'node:fs/promises'
 import { resolve, basename, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -65,11 +66,25 @@ export interface BuildResult {
   manifest: Record<string, { clientJs?: string; markedTemplate: string }>
   /** True when any output file on disk was changed (write or delete) */
   changed: boolean
+  /**
+   * The shared ts.Program used (or lazily built) during this run, if any.
+   * Surfaced so watch mode can pass it back in as `oldProgram` on the next
+   * tick, letting TypeScript reuse parsed SourceFiles for unchanged files
+   * and avoiding a full ~500 ms Program reconstruction per save.
+   */
+  sharedProgram?: ts.Program
 }
 
 export interface BuildRunOptions {
   /** Ignore the build cache and recompile every entry. */
   force?: boolean
+  /**
+   * Program from a previous build() invocation. When provided, the shared
+   * Program constructor passes it as `oldProgram` to `ts.createProgram`,
+   * which reuses cached SourceFile objects for files whose content on disk
+   * has not changed since the old Program was built. Used by watch mode.
+   */
+  oldProgram?: ts.Program
 }
 
 // ── Utility functions ────────────────────────────────────────────────────
@@ -234,7 +249,7 @@ export async function build(
   config: BuildConfig,
   options: BuildRunOptions = {},
 ): Promise<BuildResult> {
-  const { force = false } = options
+  const { force = false, oldProgram } = options
 
   // Resolve output directories based on layout
   const layout = config.outputLayout
@@ -365,6 +380,44 @@ export async function build(
     return sourceHashes.get(absPath) ?? extraDepHashes.get(absPath) ?? null
   }
 
+  // Lazy shared ts.Program. The Program is expensive to construct
+  // (~300-500 ms on a typical corpus) but essentially free to query
+  // through its TypeChecker. To keep cache-only builds — where every
+  // entry is fresh and nothing recompiles — at their current cost, we
+  // only pay the construction when the first compile actually runs.
+  //
+  // On full rebuilds the cost is amortised over every file; on no-op
+  // builds it is skipped entirely.
+  let sharedProgram: ts.Program | undefined
+  let sharedProgramInitialized = false
+  const getSharedProgram = (): ts.Program | undefined => {
+    if (sharedProgramInitialized) return sharedProgram
+    sharedProgramInitialized = true
+    if (allFiles.length === 0) return undefined
+    const programBuildStart = performance.now()
+    try {
+      // Passing `oldProgram` lets TypeScript reuse SourceFile objects for
+      // unchanged files. In watch mode this turns the per-tick Program cost
+      // from ~500 ms (full reconstruction) into ~tens of ms (reparse only
+      // the edited file).
+      sharedProgram = createProgramForCorpus(allFiles, { oldProgram })
+      const programBuildMs = performance.now() - programBuildStart
+      if (programBuildMs > 200) {
+        console.log(`Built shared ts.Program for ${allFiles.length} files in ${programBuildMs.toFixed(0)} ms`)
+      }
+    } catch (err) {
+      // Module-resolution edge cases (virtual file paths, missing
+      // tsconfig anchors) can trip Program construction. Fail open: the
+      // analyzer's name-based fast path still works, aliased imports just
+      // degrade to regex detection the way they did pre-refactor.
+      sharedProgram = undefined
+      console.warn(
+        `Shared ts.Program construction failed; falling back to name-based reactive primitive detection. (${(err as Error).message})`
+      )
+    }
+    return sharedProgram
+  }
+
   // 4. Compile each component (or reuse from cache)
   for (const entryPath of allFiles) {
     const sourceContent = sourceContents.get(entryPath)!
@@ -400,6 +453,7 @@ export async function build(
       clientJsSubdir,
       templatesOutDir,
       clientJsOutDir,
+      sharedProgram: getSharedProgram(),
     })
 
     if (result.kind === 'error') {
@@ -589,6 +643,7 @@ export async function build(
     errorCount,
     manifest,
     changed: anyOutputChanged,
+    sharedProgram,
   }
 }
 
@@ -922,6 +977,13 @@ interface CompileEntryArgs {
   clientJsSubdir: string
   templatesOutDir: string
   clientJsOutDir: string
+  /**
+   * Shared ts.Program built once per build invocation. Passed through to
+   * compileJSX so the analyzer's TypeChecker can resolve import aliases and
+   * namespace-qualified calls to @barefootjs/client primitives. Optional —
+   * absent means the analyzer falls back to name-based detection only.
+   */
+  sharedProgram?: ts.Program
 }
 
 type CompileEntryOutcome =
@@ -947,6 +1009,7 @@ async function compileEntry(args: CompileEntryArgs): Promise<CompileEntryOutcome
     clientJsSubdir,
     templatesOutDir,
     clientJsOutDir,
+    sharedProgram,
   } = args
 
   const baseFileName = basename(entryPath)
@@ -963,7 +1026,7 @@ async function compileEntry(args: CompileEntryArgs): Promise<CompileEntryOutcome
   const result = await compileJSX(
     entryPath,
     async (path) => readText(path),
-    { adapter: config.adapter },
+    { adapter: config.adapter, program: sharedProgram },
   )
 
   const errors = result.errors.filter(e => e.severity === 'error')
@@ -1107,6 +1170,13 @@ export async function watch(
 
   // Initial build
   const initial = await build(config)
+  // Thread the shared ts.Program across rebuilds so TypeScript can reuse
+  // parsed SourceFile objects for unchanged files. A cold Program build on
+  // a 264-file corpus is ~500 ms; an incremental reuse is tens of ms. The
+  // alternative — rebuilding the Program on every keystroke-triggered
+  // save — was the "checker reinit storm" failure mode called out in the
+  // pre-implementation design discussion.
+  let cachedProgram: ts.Program | undefined = initial.sharedProgram
   console.log('')
   console.log(
     `Initial build: ${initial.compiledCount} compiled, ${initial.cachedCount} cached, ${initial.errorCount} errors`,
@@ -1134,7 +1204,8 @@ export async function watch(
     pending = false
 
     const t0 = performance.now()
-    const result = await build(config)
+    const result = await build(config, { oldProgram: cachedProgram })
+    cachedProgram = result.sharedProgram ?? cachedProgram
     const ms = (performance.now() - t0).toFixed(0)
     console.log(
       `Rebuild: ${result.compiledCount} compiled, ${result.cachedCount} cached, ${result.errorCount} errors (${ms}ms)`,
