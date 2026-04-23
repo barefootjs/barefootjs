@@ -148,8 +148,8 @@ test.describe('Gallery: Social app', () => {
 
       // Messages page initializes with unread messages → writes to sessionStorage
       // Badge should appear on messages nav item in sidebar
-      await expect(page.locator('.social-unread-count')).toBeVisible()
-      const badgeText = await page.locator('.social-unread-count').textContent()
+      await expect(page.locator('[data-social-sidebar] .social-unread-count')).toBeVisible()
+      const badgeText = await page.locator('[data-social-sidebar] .social-unread-count').textContent()
       const initialUnread = parseInt(badgeText ?? '0', 10)
       expect(initialUnread).toBeGreaterThan(0)
 
@@ -157,8 +157,8 @@ test.describe('Gallery: Social app', () => {
       await page.locator('[data-social-sidebar] [data-social-nav-item="feed"]').click()
       await page.waitForURL('**/gallery/social')
 
-      await expect(page.locator('.social-unread-count')).toBeVisible()
-      await expect(page.locator('.social-unread-count')).toHaveText(String(initialUnread))
+      await expect(page.locator('[data-social-sidebar] .social-unread-count')).toBeVisible()
+      await expect(page.locator('[data-social-sidebar] .social-unread-count')).toHaveText(String(initialUnread))
     })
   })
 })

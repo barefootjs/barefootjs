@@ -90,8 +90,8 @@ test.describe('Gallery: Productivity app', () => {
 
       // Mail page initializes with unread mails → writes to sessionStorage
       // Badge should appear on mail nav item
-      await expect(page.locator('.productivity-unread-count')).toBeVisible()
-      const badgeText = await page.locator('.productivity-unread-count').textContent()
+      await expect(page.locator('[data-productivity-sidebar] .productivity-unread-count')).toBeVisible()
+      const badgeText = await page.locator('[data-productivity-sidebar] .productivity-unread-count').textContent()
       const initialUnread = parseInt(badgeText ?? '0', 10)
       expect(initialUnread).toBeGreaterThan(0)
 
@@ -99,23 +99,23 @@ test.describe('Gallery: Productivity app', () => {
       await page.locator('[data-productivity-sidebar] [data-productivity-nav-item="files"]').click()
       await page.waitForURL('**/gallery/productivity/files')
 
-      await expect(page.locator('.productivity-unread-count')).toBeVisible()
-      await expect(page.locator('.productivity-unread-count')).toHaveText(String(initialUnread))
+      await expect(page.locator('[data-productivity-sidebar] .productivity-unread-count')).toBeVisible()
+      await expect(page.locator('[data-productivity-sidebar] .productivity-unread-count')).toHaveText(String(initialUnread))
     })
 
     test('reading a mail reduces the unread badge count', async ({ page }) => {
       await page.goto('/gallery/productivity/mail')
 
       // Get initial unread count
-      await expect(page.locator('.productivity-unread-count')).toBeVisible()
-      const initialText = await page.locator('.productivity-unread-count').textContent()
+      await expect(page.locator('[data-productivity-sidebar] .productivity-unread-count')).toBeVisible()
+      const initialText = await page.locator('[data-productivity-sidebar] .productivity-unread-count').textContent()
       const initialCount = parseInt(initialText ?? '0', 10)
 
       // Click an unread mail to mark it as read
       await page.locator('.mail-row').filter({ has: page.locator('.mail-content [class*="font-semibold"]') }).first().locator('.mail-content').click()
 
       // After selecting, unread count should decrease
-      const newText = await page.locator('.productivity-unread-count').textContent()
+      const newText = await page.locator('[data-productivity-sidebar] .productivity-unread-count').textContent()
       const newCount = parseInt(newText ?? '0', 10)
       expect(newCount).toBeLessThan(initialCount)
     })

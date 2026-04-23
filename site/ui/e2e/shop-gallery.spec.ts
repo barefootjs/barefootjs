@@ -100,7 +100,7 @@ test.describe('Gallery: E-Commerce Shop', () => {
 
     test('checkout link navigates to checkout page', async ({ page }) => {
       await page.goto('/gallery/shop/cart')
-      const checkoutLink = page.locator('a[href="/gallery/shop/checkout"]')
+      const checkoutLink = page.locator('[data-shop-nav] a[href="/gallery/shop/checkout"]')
       await expect(checkoutLink).toBeVisible()
       await checkoutLink.click()
       await page.waitForURL('**/gallery/shop/checkout')
