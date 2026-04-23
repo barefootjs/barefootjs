@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 const routes = [
-  { path: '/gallery/admin', key: 'overview', title: 'Overview' },
+  { path: '/gallery/admin/overview', key: 'overview', title: 'Overview' },
   { path: '/gallery/admin/analytics', key: 'analytics', title: 'Analytics' },
   { path: '/gallery/admin/orders', key: 'orders', title: 'Orders' },
   { path: '/gallery/admin/notifications', key: 'notifications', title: 'Notifications' },
@@ -46,7 +46,7 @@ test.describe('Gallery: Admin app', () => {
 
   test.describe('Cross-page state', () => {
     test('time range selection persists between overview and analytics', async ({ page }) => {
-      await page.goto('/gallery/admin')
+      await page.goto('/gallery/admin/overview')
 
       // Change from default (30d) to 90d on overview
       await page.locator('.admin-time-range [data-range="90d"]').click()
@@ -70,7 +70,7 @@ test.describe('Gallery: Admin app', () => {
       await expect(page.locator('.admin-analytics-range')).toContainText('Last 7 days')
 
       await page.locator('[data-admin-sidebar] [data-admin-nav-item="overview"]').click()
-      await page.waitForURL('**/gallery/admin')
+      await page.waitForURL('**/gallery/admin/overview')
       await expect(page.locator('.admin-time-range [data-range="7d"]')).toHaveAttribute(
         'data-active',
         'true'
@@ -111,7 +111,7 @@ test.describe('Gallery: Admin app', () => {
     })
 
     test('gallery meta link is outside the admin shell', async ({ page }) => {
-      await page.goto('/gallery/admin')
+      await page.goto('/gallery/admin/overview')
       const githubLinks = page.locator('a[href*="components/gallery/admin"]')
       await expect(githubLinks).toHaveCount(1)
       // The link must be a sibling of (not descendant of) the admin shell.
@@ -135,7 +135,7 @@ test.describe('Gallery: Admin app', () => {
 
       // Navigate to another route and verify the header badge is still cleared
       await page.locator('[data-admin-sidebar] [data-admin-nav-item="overview"]').click()
-      await page.waitForURL('**/gallery/admin')
+      await page.waitForURL('**/gallery/admin/overview')
       await expect(page.locator('.admin-unread-count')).toHaveCount(0)
 
       // Overview exposes a "Notify on-call" button that bumps the unread count.

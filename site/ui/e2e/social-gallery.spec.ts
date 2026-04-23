@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 const routes = [
-  { path: '/gallery/social', key: 'feed', title: 'Feed' },
+  { path: '/gallery/social/feed', key: 'feed', title: 'Feed' },
   { path: '/gallery/social/profile', key: 'profile', title: 'Profile' },
   { path: '/gallery/social/thread', key: 'thread', title: 'Thread' },
   { path: '/gallery/social/messages', key: 'messages', title: 'Messages' },
@@ -27,7 +27,7 @@ test.describe('Gallery: Social app', () => {
     })
 
     test('gallery meta link is outside the social shell', async ({ page }) => {
-      await page.goto('/gallery/social')
+      await page.goto('/gallery/social/feed')
       const githubLinks = page.locator('a[href*="components/gallery/social"]')
       await expect(githubLinks).toHaveCount(1)
       const insideShell = await page
@@ -55,14 +55,14 @@ test.describe('Gallery: Social app', () => {
 
   test.describe('Feed page', () => {
     test('renders posts with like and comment buttons', async ({ page }) => {
-      await page.goto('/gallery/social')
+      await page.goto('/gallery/social/feed')
       await expect(page.locator('.feed-post').first()).toBeVisible()
       const count = await page.locator('.feed-post').count()
       expect(count).toBeGreaterThan(0)
     })
 
     test('liking a post increments the like count', async ({ page }) => {
-      await page.goto('/gallery/social')
+      await page.goto('/gallery/social/feed')
 
       const firstPost = page.locator('.feed-post').first()
       const likeBtn = firstPost.locator('.post-like-btn')
@@ -155,7 +155,7 @@ test.describe('Gallery: Social app', () => {
 
       // Navigate to feed — badge on messages nav item should persist
       await page.locator('[data-social-sidebar] [data-social-nav-item="feed"]').click()
-      await page.waitForURL('**/gallery/social')
+      await page.waitForURL('**/gallery/social/feed')
 
       await expect(page.locator('[data-social-sidebar] .social-unread-count')).toBeVisible()
       await expect(page.locator('[data-social-sidebar] .social-unread-count')).toHaveText(String(initialUnread))

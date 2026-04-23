@@ -26,7 +26,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { key: 'feed', href: '/gallery/social', label: 'Feed', icon: 'feed' },
+  { key: 'feed', href: '/gallery/social/feed', label: 'Feed', icon: 'feed' },
   { key: 'profile', href: '/gallery/social/profile', label: 'Profile', icon: 'profile' },
   { key: 'thread', href: '/gallery/social/thread', label: 'Thread', icon: 'thread' },
   { key: 'messages', href: '/gallery/social/messages', label: 'Messages', icon: 'messages' },

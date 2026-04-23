@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 const routes = [
-  { path: '/gallery/shop', key: 'catalog', label: 'Catalog' },
+  { path: '/gallery/shop/catalog', key: 'catalog', label: 'Catalog' },
   { path: '/gallery/shop/cart', key: 'cart', label: 'Cart' },
   { path: '/gallery/shop/checkout', key: 'checkout', label: 'Checkout' },
 ] as const
@@ -25,7 +25,7 @@ test.describe('Gallery: E-Commerce Shop', () => {
     })
 
     test('gallery meta link is outside the shop shell', async ({ page }) => {
-      await page.goto('/gallery/shop')
+      await page.goto('/gallery/shop/catalog')
       const githubLinks = page.locator('a[href*="components/gallery/shop"]')
       await expect(githubLinks).toHaveCount(1)
       const insideShell = await page
@@ -37,7 +37,7 @@ test.describe('Gallery: E-Commerce Shop', () => {
 
   test.describe('Navigation', () => {
     test('navigates between all shop routes via the top nav', async ({ page }) => {
-      await page.goto('/gallery/shop')
+      await page.goto('/gallery/shop/catalog')
 
       // To cart
       await page.locator('[data-shop-nav] [data-shop-nav-item="cart"]').click()
@@ -52,21 +52,21 @@ test.describe('Gallery: E-Commerce Shop', () => {
 
       // Back to catalog
       await page.locator('[data-shop-nav] [data-shop-nav-item="catalog"]').click()
-      await page.waitForURL('**/gallery/shop')
-      await expect(page).toHaveURL(/\/gallery\/shop$/)
+      await page.waitForURL('**/gallery/shop/catalog')
+      await expect(page).toHaveURL(/\/gallery\/shop\/catalog$/)
     })
   })
 
   test.describe('Catalog page', () => {
     test('renders product grid with products', async ({ page }) => {
-      await page.goto('/gallery/shop')
+      await page.goto('/gallery/shop/catalog')
       await expect(page.locator('.product-card').first()).toBeVisible()
       const count = await page.locator('.product-card').count()
       expect(count).toBeGreaterThan(0)
     })
 
     test('product count updates when filtering by category', async ({ page }) => {
-      await page.goto('/gallery/shop')
+      await page.goto('/gallery/shop/catalog')
 
       const allCount = await page.locator('.product-card').count()
 
@@ -79,7 +79,7 @@ test.describe('Gallery: E-Commerce Shop', () => {
     })
 
     test('add to cart updates cart count in the sidebar', async ({ page }) => {
-      await page.goto('/gallery/shop')
+      await page.goto('/gallery/shop/catalog')
 
       // Initial cart shows empty
       await expect(page.locator('.cart-empty')).toBeVisible()
@@ -136,7 +136,7 @@ test.describe('Gallery: E-Commerce Shop', () => {
 
   test.describe('Cross-page state', () => {
     test('cart badge in nav reflects items added on catalog page', async ({ page }) => {
-      await page.goto('/gallery/shop')
+      await page.goto('/gallery/shop/catalog')
 
       // No badge initially
       await expect(page.locator('.shop-cart-count')).toHaveCount(0)

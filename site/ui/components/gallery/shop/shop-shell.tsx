@@ -25,7 +25,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { key: 'catalog', href: '/gallery/shop', label: 'Catalog' },
+  { key: 'catalog', href: '/gallery/shop/catalog', label: 'Catalog' },
   { key: 'cart', href: '/gallery/shop/cart', label: 'Cart' },
   { key: 'checkout', href: '/gallery/shop/checkout', label: 'Checkout' },
 ]

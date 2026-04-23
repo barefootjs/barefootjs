@@ -90,14 +90,18 @@ import { LineChartRefPage } from './pages/charts/line-chart'
 import { StudioPage } from './pages/studio'
 
 // Gallery pages (Phase 9)
+import { GalleryIndexPage } from './pages/gallery/index'
+import { GalleryAdminLandingPage } from './pages/gallery/admin/landing'
 import { AdminOverviewPage } from './pages/gallery/admin/index'
 import { AdminAnalyticsPage } from './pages/gallery/admin/analytics'
 import { AdminOrdersPage } from './pages/gallery/admin/orders'
 import { AdminNotificationsPage } from './pages/gallery/admin/notifications'
 import { AdminSettingsPage } from './pages/gallery/admin/settings'
+import { GalleryShopLandingPage } from './pages/gallery/shop/landing'
 import { ShopCatalogPage } from './pages/gallery/shop/index'
 import { ShopCartPage } from './pages/gallery/shop/cart'
 import { ShopCheckoutPage } from './pages/gallery/shop/checkout'
+import { GalleryProductivityLandingPage } from './pages/gallery/productivity/landing'
 import { ProductivityMailPage } from './pages/gallery/productivity/mail'
 import { ProductivityFilesPage } from './pages/gallery/productivity/files'
 import { ProductivityBoardPage } from './pages/gallery/productivity/board'
@@ -107,6 +111,7 @@ import { SaasPricingPage } from './pages/gallery/saas/pricing'
 import { SaasLoginPage } from './pages/gallery/saas/login'
 import { SaasBlogPage } from './pages/gallery/saas/blog'
 import { SaasBlogPostPage } from './pages/gallery/saas/blog-post'
+import { GallerySocialLandingPage } from './pages/gallery/social/landing'
 import { SocialFeedPage } from './pages/gallery/social/index'
 import { SocialProfilePage } from './pages/gallery/social/profile'
 import { SocialThreadPage } from './pages/gallery/social/thread'
@@ -499,8 +504,17 @@ export function createApp() {
     return c.render(<StateMachinePlaygroundRefPage />)
   })
 
+  // Gallery — index (Phase 9 Phase 4)
+  app.get('/gallery', (c) => {
+    return c.render(<GalleryIndexPage />)
+  })
+
   // Gallery — Admin app (Phase 9 pilot)
   app.get('/gallery/admin', (c) => {
+    return c.render(<GalleryAdminLandingPage />)
+  })
+
+  app.get('/gallery/admin/overview', (c) => {
     return c.render(<AdminOverviewPage />)
   })
 
@@ -522,6 +536,10 @@ export function createApp() {
 
   // Gallery — Shop app (Phase 9)
   app.get('/gallery/shop', (c) => {
+    return c.render(<GalleryShopLandingPage />)
+  })
+
+  app.get('/gallery/shop/catalog', (c) => {
     return c.render(<ShopCatalogPage />)
   })
 
@@ -535,7 +553,7 @@ export function createApp() {
 
   // Gallery — Productivity app (Phase 9)
   app.get('/gallery/productivity', (c) => {
-    return c.render(<ProductivityMailPage />)
+    return c.render(<GalleryProductivityLandingPage />)
   })
 
   app.get('/gallery/productivity/mail', (c) => {
@@ -577,6 +595,10 @@ export function createApp() {
   })
 
   app.get('/gallery/social', (c) => {
+    return c.render(<GallerySocialLandingPage />)
+  })
+
+  app.get('/gallery/social/feed', (c) => {
     return c.render(<SocialFeedPage />)
   })
 

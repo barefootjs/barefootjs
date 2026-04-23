@@ -28,7 +28,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { key: 'overview', href: '/gallery/admin', label: 'Overview', icon: 'home' },
+  { key: 'overview', href: '/gallery/admin/overview', label: 'Overview', icon: 'home' },
   { key: 'analytics', href: '/gallery/admin/analytics', label: 'Analytics', icon: 'chart' },
   { key: 'orders', href: '/gallery/admin/orders', label: 'Orders', icon: 'list' },
   { key: 'notifications', href: '/gallery/admin/notifications', label: 'Notifications', icon: 'bell' },
