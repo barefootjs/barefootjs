@@ -60,8 +60,6 @@ import { DrawerRefPage } from './pages/components/drawer'
 import { SheetRefPage } from './pages/components/sheet'
 import { FileUploadRefPage } from './pages/components/file-upload'
 import { MusicPlayerRefPage } from './pages/components/music-player'
-import { MultiStepFormRefPage } from './pages/components/multi-step-form'
-import { InventoryManagerRefPage } from './pages/components/inventory-manager'
 import { SpreadsheetRefPage } from './pages/components/spreadsheet'
 import { PermissionMatrixRefPage } from './pages/components/permission-matrix'
 import { FormBuilderRefPage } from './pages/components/form-builder'
@@ -454,19 +452,9 @@ export function createApp() {
     return c.render(<MusicPlayerRefPage />)
   })
 
-  // Multi-Step Form block page
-  app.get('/components/multi-step-form', (c) => {
-    return c.render(<MultiStepFormRefPage />)
-  })
-
   // File Upload block page
   app.get('/components/file-upload', (c) => {
     return c.render(<FileUploadRefPage />)
-  })
-
-  // Inventory Manager block page
-  app.get('/components/inventory-manager', (c) => {
-    return c.render(<InventoryManagerRefPage />)
   })
 
   // Spreadsheet block page
