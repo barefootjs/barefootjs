@@ -234,6 +234,55 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
     expect(bindEventsMatch![1]).not.toContain('$(__branchScope')
   })
 
+  test('external signal × loop → per-item JSX structure swap', () => {
+    // When a .map() callback contains a ternary whose condition reads an external
+    // signal (editingId() === row.id), insert() must be generated for the conditional
+    // and editingId() must appear as a reactive dependency inside the insert condition —
+    // not baked into the static template. This ensures that changing editingId flips
+    // only the matching row's branch without re-running the entire loop.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      type Row = { id: number; name: string }
+
+      export function InlineEditTable() {
+        const [rows, setRows] = createSignal<Row[]>([])
+        const [editingId, setEditingId] = createSignal<number | null>(null)
+        const [editName, setEditName] = createSignal('')
+        return (
+          <ul>
+            {rows().map(row => (
+              <li key={row.id}>
+                {editingId() === row.id ? (
+                  <input value={editName()} onInput={(e) => setEditName(e.target.value)} />
+                ) : (
+                  <span>{row.name}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'InlineEditTable.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')
+    expect(clientJs).toBeDefined()
+    const content = clientJs!.content
+
+    // mapArray() must be generated for rows().map(...)
+    expect(content).toContain('mapArray(')
+
+    // insert() must be generated for the per-item conditional branch swap
+    expect(content).toContain('insert(')
+
+    // editingId() must appear in client JS as a reactive dependency,
+    // not elided into a static template bake
+    expect(content).toContain('editingId()')
+  })
+
   test('child component inside nested conditional is only initialized once (#929)', () => {
     // Regression: The file browser pattern has a Checkbox inside a
     // `child.type === 'folder' ? <folder-branch> : <file-branch>` conditional,
