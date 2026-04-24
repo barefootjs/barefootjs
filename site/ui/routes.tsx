@@ -66,6 +66,7 @@ import { FormBuilderRefPage } from './pages/components/form-builder'
 import { PivotTableRefPage } from './pages/components/pivot-table'
 import { DashboardBuilderRefPage } from './pages/components/dashboard-builder'
 import { StateMachinePlaygroundRefPage } from './pages/components/state-machine-playground'
+import { ThemeCustomizerRefPage } from './pages/components/theme-customizer'
 import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
@@ -485,6 +486,11 @@ export function createApp() {
   // State Machine Playground block page
   app.get('/components/state-machine-playground', (c) => {
     return c.render(<StateMachinePlaygroundRefPage />)
+  })
+
+  // Theme Customizer block page
+  app.get('/components/theme-customizer', (c) => {
+    return c.render(<ThemeCustomizerRefPage />)
   })
 
   // Gallery — Admin app (Phase 9 pilot)

@@ -112,6 +112,7 @@ export const blockEntries: BlockEntry[] = [
   { slug: 'pivot-table', title: 'Pivot Table', description: 'Dynamic row/column grouping with multi-level aggregation, drag axis config, and expand/collapse groups' },
   { slug: 'dashboard-builder', title: 'Dashboard Builder', description: 'Dynamic widget composition with per-widget signal isolation, dynamic component switching per item, and layout memo driven by widget count' },
   { slug: 'state-machine-playground', title: 'State Machine Playground', description: 'Interactive state machine explorer with preset workflows, per-state multi-conditional classes flipping together on transition, a reactive transitions loop source, and a history filter/group memo chain' },
+  { slug: 'theme-customizer', title: 'Theme Customizer', description: 'Three signal-driven context providers (palette, spacing, typography) wrapping a 12-level deep consumer tree. Tests Provider value propagation, multi-provider ordering, stale-read safety, and dynamic token add/remove' },
 ]
 
 // Helper: get components filtered by category
