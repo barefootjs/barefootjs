@@ -67,6 +67,7 @@ import { PivotTableRefPage } from './pages/components/pivot-table'
 import { DashboardBuilderRefPage } from './pages/components/dashboard-builder'
 import { StateMachinePlaygroundRefPage } from './pages/components/state-machine-playground'
 import { ThemeCustomizerRefPage } from './pages/components/theme-customizer'
+import { InfiniteScrollRefPage } from './pages/components/infinite-scroll'
 import { HoverCardRefPage } from './pages/components/hover-card'
 import { MenubarRefPage } from './pages/components/menubar'
 import { NavigationMenuRefPage } from './pages/components/navigation-menu'
@@ -491,6 +492,11 @@ export function createApp() {
   // Theme Customizer block page
   app.get('/components/theme-customizer', (c) => {
     return c.render(<ThemeCustomizerRefPage />)
+  })
+
+  // Async Infinite Scroll block page
+  app.get('/components/infinite-scroll', (c) => {
+    return c.render(<InfiniteScrollRefPage />)
   })
 
   // Gallery — Admin app (Phase 9 pilot)

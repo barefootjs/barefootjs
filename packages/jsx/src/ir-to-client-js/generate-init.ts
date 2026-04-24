@@ -5,7 +5,7 @@
 import type { ComponentIR, ConstantInfo, FunctionInfo, IRNode } from '../types'
 import type { ClientJsContext, ConditionalElement } from './types'
 import { varSlotId, bodyReferencesComponentScope, PROPS_PARAM } from './utils'
-import { collectUsedIdentifiers, collectUsedFunctions, collectIdentifiersFromIRTree } from './identifiers'
+import { collectUsedIdentifiers, collectUsedFunctions, collectIdentifiersFromIRTree, extractIdentifiers } from './identifiers'
 import { valueReferencesReactiveData, getControlledPropName, detectPropsWithPropertyAccess } from './prop-handling'
 import { IMPORT_PLACEHOLDER, MODULE_CONSTANTS_PLACEHOLDER, RUNTIME_MODULE, detectUsedImports, collectUserDomImports, collectExternalImports } from './imports'
 import { type Declaration, providedNames, sortDeclarations } from './declaration-sort'
@@ -240,6 +240,45 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
       info: fn,
       sourceIndex: fn.loc.start.line,
     })
+  }
+
+  // Second pass: demote module-level function candidates that transitively
+  // reference init-scope functions. A module-level function hoisted for SSR
+  // template accessibility must not call functions that are inside init —
+  // those names are out of scope at the module level.
+  //
+  // Example: fetchPage (module-level candidate) calls articlesForPage which
+  // references ARTICLES (a component-local constant, hence inside init).
+  // Without this pass, fetchPage is emitted at module scope but articlesForPage
+  // is inside init, causing "articlesForPage is not defined" at runtime.
+  {
+    // Names of functions currently in init-scope declarations
+    const initScopeFnNames = new Set<string>()
+    for (const decl of declarations) {
+      if (decl.kind === 'function') initScopeFnNames.add(decl.info.name)
+    }
+
+    // Propagate: if a module-level candidate calls an init-scope function,
+    // move it to declarations too (repeat until stable).
+    let changed = true
+    while (changed) {
+      changed = false
+      const stillModuleLevel: FunctionInfo[] = []
+      for (const fn of moduleLevelFunctions) {
+        const refs = new Set<string>()
+        extractIdentifiers(fn.body, refs)
+        const refsInitFn = [...refs].some(r => initScopeFnNames.has(r))
+        if (refsInitFn) {
+          declarations.push({ kind: 'function', info: fn, sourceIndex: fn.loc.start.line })
+          initScopeFnNames.add(fn.name)
+          changed = true
+        } else {
+          stillModuleLevel.push(fn)
+        }
+      }
+      moduleLevelFunctions.length = 0
+      moduleLevelFunctions.push(...stillModuleLevel)
+    }
   }
 
   // Collect signals
