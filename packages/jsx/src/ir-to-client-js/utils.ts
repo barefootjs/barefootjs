@@ -160,18 +160,6 @@ export function inferDefaultValue(type: { kind: string; primitive?: string }): s
 }
 
 /**
- * Check if a function body references any identifiers from the given scope.
- * Used to determine if a module-level function can be emitted outside the
- * component init function, or if it must stay inside due to scope dependencies.
- */
-export function bodyReferencesComponentScope(body: string, scopeNames: Set<string>): boolean {
-  for (const name of scopeNames) {
-    if (exprReferencesIdent(body, name)) return true
-  }
-  return false
-}
-
-/**
  * Check if a JS expression string references a given identifier.
  * Uses word-boundary matching with proper regex escaping.
  */
