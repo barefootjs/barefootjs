@@ -25,3 +25,16 @@ export declare namespace JSX {
   type IntrinsicAttributes = BaseJSX.IntrinsicAttributes
   type ElementChildrenAttribute = BaseJSX.ElementChildrenAttribute
 }
+
+/**
+ * BarefootJS compiler built-in: streaming async boundary.
+ *
+ * The compiler intercepts `<Async fallback={...}>` in JSX source and emits it
+ * as a `<Suspense>` node in the Hono adapter output (IRAsync → renderAsync).
+ * This declaration provides TypeScript types for source files; no runtime
+ * implementation is needed because the compiler replaces it before execution.
+ */
+export declare function Async(props: {
+  fallback: JSX.Element
+  children: JSX.Element | JSX.Element[] | null | undefined
+}): JSX.Element
