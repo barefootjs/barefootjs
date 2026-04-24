@@ -164,7 +164,8 @@ function needsClientJs(ctx: ClientJsContext): boolean {
  */
 function generateTemplateOnlyMount(ir: ComponentIR, ctx: ClientJsContext): string {
   const propNamesForStaticCheck = new Set(ctx.propsParams.map((p) => p.name))
-  const { inlinableConstants, unsafeLocalNames } = buildInlinableConstants(ctx)
+  const graph = buildReferencesGraph(ctx, ir.root)
+  const { inlinableConstants, unsafeLocalNames } = buildInlinableConstants(ctx, graph)
 
   // Build rest spread names: these are rest/props spreads handled by applyRestAttrs, not spreadAttrs
   const restSpreadNames = new Set<string>()

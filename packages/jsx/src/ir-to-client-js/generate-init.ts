@@ -248,7 +248,7 @@ export function generateInitFunction(_ir: ComponentIR, ctx: ClientJsContext, sib
   // before loop children (e.g., SelectItem) call useContext().
   emitLoopUpdates(lines, ctx)
   emitStaticArrayChildInits(lines, ctx)
-  const hydrateLine = emitRegistrationAndHydration(lines, ctx, _ir)
+  const hydrateLine = emitRegistrationAndHydration(lines, ctx, _ir, graph)
 
   let generatedCode = lines.join('\n')
 

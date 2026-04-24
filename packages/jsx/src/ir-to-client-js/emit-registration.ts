@@ -4,9 +4,10 @@
  * and the final hydrate() call emission.
  */
 
-import type { ComponentIR, IRFragment } from '../types'
+import type { ComponentIR, IRFragment, ReferencesGraph } from '../types'
 import type { ClientJsContext } from './types'
-import { bodyReferencesComponentScope, PROPS_PARAM, inferDefaultValue, exprReferencesIdent } from './utils'
+import { PROPS_PARAM, inferDefaultValue, exprReferencesIdent } from './utils'
+import { graphFunctionReferences } from './build-references'
 import { canGenerateStaticTemplate, irToComponentTemplate, generateCsrTemplate, createStringProtector } from './html-template'
 
 // JavaScript built-in identifiers that are always available at any scope
@@ -93,11 +94,34 @@ export function resolveChainedRefs(constants: Map<string, string>, freeIdsMap?: 
   }
 }
 
+/** Does any edge from this function point at a name declared inside
+ *  the component? Direct graph replacement for the pre-Stage C.3
+ *  `bodyReferencesComponentScope(fn.body, componentScopeNames)` check.
+ *  Stays regex-semantics-compatible because the graph's function→name
+ *  edges are built via `extractIdentifiers`, i.e. the same
+ *  word-boundary pattern `bodyReferencesComponentScope` used. */
+function functionReferencesDeclaredName(graph: ReferencesGraph, fnName: string): boolean {
+  const refs = graphFunctionReferences(graph, fnName)
+  for (const r of refs) {
+    if (graph.declaredNames.has(r)) return true
+  }
+  return false
+}
+
 /**
  * Build the inlinable constants map and unsafe local names set from a context.
  * Extracted for reuse by both emitRegistrationAndHydration and generateTemplateOnlyMount (#435).
+ *
+ * `graph.declaredNames` is the one source of truth for "what counts as a
+ * component-scope name" — the same set `generate-init.ts` routes scope
+ * decisions off. Pre-Stage C.3 this function rebuilt the set inline and
+ * used a regex helper (`bodyReferencesComponentScope`) to test whether
+ * module-level functions referenced it; both are now graph queries.
  */
-export function buildInlinableConstants(ctx: ClientJsContext): {
+export function buildInlinableConstants(
+  ctx: ClientJsContext,
+  graph: ReferencesGraph,
+): {
   inlinableConstants: Map<string, string>
   unsafeLocalNames: Set<string>
 } {
@@ -108,18 +132,10 @@ export function buildInlinableConstants(ctx: ClientJsContext): {
   const signalSetters = new Set(ctx.signals.filter(s => s.setter).map(s => s.setter!))
   const memoNames = new Set(ctx.memos.map(m => m.name))
 
-  const componentScopeNames = new Set<string>()
-  for (const c of ctx.localConstants) componentScopeNames.add(c.name)
-  for (const s of ctx.signals) { componentScopeNames.add(s.getter); if (s.setter) componentScopeNames.add(s.setter) }
-  for (const m of ctx.memos) componentScopeNames.add(m.name)
-  for (const f of ctx.localFunctions) componentScopeNames.add(f.name)
-  for (const p of ctx.propsParams) componentScopeNames.add(p.name)
-  if (ctx.propsObjectName) componentScopeNames.add(ctx.propsObjectName)
-
   for (const fn of ctx.localFunctions) {
     // Module-level functions that don't reference component internals
     // are emitted at module scope, so they are available in the template.
-    if (fn.isModule && !bodyReferencesComponentScope(fn.body, componentScopeNames)) continue
+    if (fn.isModule && !functionReferencesDeclaredName(graph, fn.name)) continue
     unsafeLocalNames.add(fn.name)
   }
 
@@ -167,7 +183,7 @@ export function buildInlinableConstants(ctx: ClientJsContext): {
       continue
     }
 
-    if (!valueOnlyUsesKnownNames(constant.freeIdentifiers!, componentScopeNames)) {
+    if (!valueOnlyUsesKnownNames(constant.freeIdentifiers!, graph.declaredNames)) {
       unsafeLocalNames.add(constant.name)
       continue
     }
@@ -351,6 +367,7 @@ export function emitRegistrationAndHydration(
   lines: string[],
   ctx: ClientJsContext,
   _ir: ComponentIR,
+  graph: ReferencesGraph,
 ): string {
   const name = ctx.componentName
 
@@ -358,7 +375,7 @@ export function emitRegistrationAndHydration(
   lines.push('')
 
   const propNamesForStaticCheck = new Set(ctx.propsParams.map((p) => p.name))
-  const { inlinableConstants, unsafeLocalNames } = buildInlinableConstants(ctx)
+  const { inlinableConstants, unsafeLocalNames } = buildInlinableConstants(ctx, graph)
 
   // Build rest spread names: these are rest/props spreads handled by applyRestAttrs, not spreadAttrs
   const restSpreadNames = new Set<string>()
