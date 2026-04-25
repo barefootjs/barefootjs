@@ -9,7 +9,7 @@ import { createSignal } from '@barefootjs/client'
 type Product = { name: string; price: number }
 export function SortSimple() {
   const [products, setProducts] = createSignal<Product[]>([])
-  return <ul>{products().sort((a, b) => a.price - b.price).map(p => <li>{p.name}</li>)}</ul>
+  return <ul>{products().sort((a, b) => a.price - b.price).map((p, i) => <li key={i}>{p.name}</li>)}</ul>
 }
 `,
   expectedHtml: `

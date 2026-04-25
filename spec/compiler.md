@@ -440,6 +440,8 @@ For non-JS backends, ensure proper UTF-8 handling:
 | BF011 | Signal used outside component |
 | BF020 | Invalid JSX expression |
 | BF021 | Unsupported JSX pattern (e.g., filter predicate or sort comparator too complex for template compilation) |
+| BF023 | Missing `key` attribute in `.map()` loop — root JSX element has no `key` prop |
+| BF024 | Missing `key` attribute in nested `.map()` loop — inner loop root JSX element has no `key` prop |
 | BF025 | Unsupported destructure shape in `.map()` callback (rest element or computed property key) |
 | BF030 | Type inference failed |
 | BF031 | Props type mismatch |
@@ -521,6 +523,51 @@ error[BF021]: Expression cannot be compiled to marked template: Sort comparator 
 ```
 
 When `@client` is present, the compiler skips template generation for that expression without emitting an error.
+
+### Missing Key in List (BF023 / BF024)
+
+When a `.map()` callback returns JSX without a `key` prop on the root element, the compiler emits **BF023** (outer loop) or **BF024** (inner loop of a nested `.map()`). A missing `key` prevents efficient reconciliation and can cause incorrect event delegation at runtime.
+
+```
+error[BF023]: Missing key attribute in list rendering. Add a key prop for efficient updates
+
+  --> src/components/List.tsx:8:7
+   |
+ 8 |       {items.map(item => (
+ 9 |         <li>{item.name}</li>
+   |         ^^^
+   |
+   = help: Add a key prop, e.g. `<li key={item.id}>...</li>`. Use the second arrow parameter `(item, i) => ... key={i}` as a fallback for static lists.
+```
+
+**Three detection cases:**
+
+| Case | Trigger | Example |
+|------|---------|---------|
+| a-1 | `key` prop absent entirely | `<li>{item.name}</li>` |
+| a-2 | `key` is a `null` or `undefined` literal | `<li key={null}>` |
+| a-3 | `key` expression type includes `null \| undefined` (TypeScript) | `<li key={item.id}>` where `id?: string` |
+
+**Fix patterns:**
+
+```tsx
+// Good: stable ID from data
+{items.map(item => <li key={item.id}>{item.name}</li>)}
+
+// Acceptable: index fallback for static or display-only lists
+{items.map((item, i) => <li key={i}>{item.name}</li>)}
+
+// Nested map (BF024): both loops need keys
+{weeks.map((week, wi) => (
+  <tr key={wi}>
+    {week.days.map((day, di) => <td key={di}>{day.label}</td>)}
+  </tr>
+))}
+```
+
+BF024 fires when the map callback's **direct parent** is already inside another `.map()` callback.
+
+**Fragment root**: A callback returning `<>...</>` (JSX fragment) is exempt — fragments cannot hold a `key` prop in standard JSX syntax.
 
 ### Signal/Memo Getter Not Called (BF044)
 

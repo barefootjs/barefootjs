@@ -36,12 +36,15 @@ const REACTIVE_BRAND_PACKAGES = [
 ]
 
 /**
- * Check if a source file imports from packages that export Reactive<T>-branded types.
- * Only these files need ts.createProgram() for type-based detection — all others
- * can rely on the regex fallback (which handles signals, memos, and props).
+ * Check if a source file needs ts.TypeChecker for static analysis.
+ * Reactive-brand detection requires the checker for library accessor patterns.
+ * Loop-key nullability (BF023 case 3) also requires it for any file that has .map() calls.
  */
 export function needsTypeBasedDetection(source: string): boolean {
-  return REACTIVE_BRAND_PACKAGES.some(pkg => source.includes(pkg))
+  if (REACTIVE_BRAND_PACKAGES.some(pkg => source.includes(pkg))) return true
+  // BF023/BF024 nullable-key check needs getTypeAtLocation() on the key expression.
+  if (/\.map\s*\(/.test(source)) return true
+  return false
 }
 
 /**

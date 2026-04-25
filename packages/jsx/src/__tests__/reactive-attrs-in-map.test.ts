@@ -23,8 +23,8 @@ describe('reactive attributes inside .map() callbacks', () => {
         const [activeTag, setActiveTag] = createSignal('all')
         return (
           <div>
-            {tags.map(tag => (
-              <button className={tag === activeTag() ? 'active' : 'inactive'}>{tag}</button>
+            {tags.map((tag, i) => (
+              <button key={i} className={tag === activeTag() ? 'active' : 'inactive'}>{tag}</button>
             ))}
           </div>
         )
@@ -52,8 +52,8 @@ describe('reactive attributes inside .map() callbacks', () => {
         const [disabled, setDisabled] = createSignal(false)
         return (
           <div>
-            {items.map(item => (
-              <button disabled={disabled()}>{item}</button>
+            {items.map((item, i) => (
+              <button key={i} disabled={disabled()}>{item}</button>
             ))}
           </div>
         )
@@ -79,8 +79,8 @@ describe('reactive attributes inside .map() callbacks', () => {
         const [activeTag, setActiveTag] = createSignal('all')
         return (
           <div>
-            {tags().map(tag => (
-              <button className={tag === activeTag() ? 'active' : 'inactive'}>{tag}</button>
+            {tags().map((tag, i) => (
+              <button key={i} className={tag === activeTag() ? 'active' : 'inactive'}>{tag}</button>
             ))}
           </div>
         )
@@ -107,8 +107,9 @@ describe('reactive attributes inside .map() callbacks', () => {
         const [isDisabled, setIsDisabled] = createSignal(false)
         return (
           <div>
-            {tags.map(tag => (
+            {tags.map((tag, i) => (
               <button
+                key={i}
                 className={tag === activeTag() ? 'active' : 'inactive'}
                 disabled={isDisabled()}
               >{tag}</button>
@@ -147,7 +148,7 @@ describe('reactive attributes inside .map() callbacks', () => {
         return (
           <table>
             {rows().map((row) => (
-              <tr class={\`pivot-row \${row.isActive ? "active" : ""}\`}>
+              <tr key={row.id} class={\`pivot-row \${row.isActive ? "active" : ""}\`}>
                 <td>{row.id}</td>
               </tr>
             ))}
@@ -184,8 +185,8 @@ describe('reactive attributes inside .map() callbacks', () => {
         return (
           <div>
             <span>{count()}</span>
-            {items.map(item => (
-              <button className="static-class">{item}</button>
+            {items.map((item, i) => (
+              <button key={i} className="static-class">{item}</button>
             ))}
           </div>
         )
@@ -218,7 +219,7 @@ describe('reactive attributes inside .map() callbacks', () => {
         return (
           <ul>
             {items.map(item => (
-              <li class={active() === item.id ? 'on' : ''}>{item.name}</li>
+              <li key={item.id} class={active() === item.id ? 'on' : ''}>{item.name}</li>
             ))}
           </ul>
         )

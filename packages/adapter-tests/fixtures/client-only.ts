@@ -12,7 +12,7 @@ export function ClientOnly() {
   return (
     <ul>
       {/* @client */ items().filter(item => item.tags.includes('featured')).map(item => (
-        <li>{item.name}</li>
+        <li key={item.name}>{item.name}</li>
       ))}
     </ul>
   )

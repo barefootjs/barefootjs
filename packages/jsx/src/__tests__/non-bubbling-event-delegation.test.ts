@@ -27,7 +27,7 @@ describe('non-bubbling event delegation (#852)', () => {
         return (
           <ul>
             {items().map(item => (
-              <li onMouseEnter={() => handleEnter(item.id)}>{item.id}</li>
+              <li key={item.id} onMouseEnter={() => handleEnter(item.id)}>{item.id}</li>
             ))}
           </ul>
         )
@@ -57,7 +57,7 @@ describe('non-bubbling event delegation (#852)', () => {
         return (
           <ul>
             {items.map(item => (
-              <li onMouseLeave={() => handleLeave(item.id)}>{item.id}</li>
+              <li key={item.id} onMouseLeave={() => handleLeave(item.id)}>{item.id}</li>
             ))}
           </ul>
         )
@@ -90,7 +90,7 @@ describe('non-bubbling event delegation (#852)', () => {
         return (
           <ul>
             {items().map(item => (
-              <li onPointerEnter={() => handleEnter(item.id)}>{item.id}</li>
+              <li key={item.id} onPointerEnter={() => handleEnter(item.id)}>{item.id}</li>
             ))}
           </ul>
         )
@@ -123,7 +123,7 @@ describe('non-bubbling event delegation (#852)', () => {
         return (
           <ul>
             {items().map(item => (
-              <li onPointerLeave={() => handleLeave(item.id)}>{item.id}</li>
+              <li key={item.id} onPointerLeave={() => handleLeave(item.id)}>{item.id}</li>
             ))}
           </ul>
         )
@@ -156,7 +156,7 @@ describe('non-bubbling event delegation (#852)', () => {
         return (
           <ul>
             {items().map(item => (
-              <li onClick={() => handleClick(item.id)}>{item.id}</li>
+              <li key={item.id} onClick={() => handleClick(item.id)}>{item.id}</li>
             ))}
           </ul>
         )
@@ -190,7 +190,7 @@ describe('non-bubbling event delegation (#852)', () => {
         return (
           <ul>
             {items().map(item => (
-              <li onFocus={() => handleFocus(item.id)}>{item.id}</li>
+              <li key={item.id} onFocus={() => handleFocus(item.id)}>{item.id}</li>
             ))}
           </ul>
         )

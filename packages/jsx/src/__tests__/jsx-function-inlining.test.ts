@@ -218,7 +218,7 @@ describe('JSX function inlining (#569)', () => {
         export function MyComponent() {
           const [items, setItems] = createSignal([{ name: 'a' }, { name: 'b' }])
           function renderList(data: any[]) {
-            return <ul>{data.map(item => <li>{item.name}</li>)}</ul>
+            return <ul>{data.map((item, i) => <li key={i}>{item.name}</li>)}</ul>
           }
           return <div>{renderList(items())}</div>
         }
@@ -254,7 +254,7 @@ describe('JSX function inlining (#569)', () => {
         export function MyComponent() {
           const [items, setItems] = createSignal(["a", "b"])
           function renderList(data: string[]) {
-            return <ul>{data.map(item => <li>{item}</li>)}</ul>
+            return <ul>{data.map((item, i) => <li key={i}>{item}</li>)}</ul>
           }
           return <div>{renderList(items())}</div>
         }
@@ -385,10 +385,10 @@ describe('JSX function inlining (#569)', () => {
             return (
               <table>
                 <tbody>
-                  {weeks.map(week => (
-                    <tr>
-                      {week.days.map(day => (
-                        <td>{day.label}</td>
+                  {weeks.map((week, wi) => (
+                    <tr key={wi}>
+                      {week.days.map((day, di) => (
+                        <td key={di}>{day.label}</td>
                       ))}
                     </tr>
                   ))}

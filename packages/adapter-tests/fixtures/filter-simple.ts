@@ -9,7 +9,7 @@ import { createSignal } from '@barefootjs/client'
 type Todo = { text: string; done: boolean }
 export function FilterSimple() {
   const [todos, setTodos] = createSignal<Todo[]>([])
-  return <ul>{todos().filter(t => t.done).map(t => <li>{t.text}</li>)}</ul>
+  return <ul>{todos().filter(t => t.done).map((t, i) => <li key={i}>{t.text}</li>)}</ul>
 }
 `,
   expectedHtml: `

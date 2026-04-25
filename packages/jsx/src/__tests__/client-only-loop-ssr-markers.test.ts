@@ -124,8 +124,8 @@ export function ClientOnly() {
   const [items, setItems] = createSignal<Item[]>([])
   return (
     <ul>
-      {/* @client */ items().filter(item => item.tags.includes('featured')).map(item => (
-        <li>{item.name}</li>
+      {/* @client */ items().filter(item => item.tags.includes('featured')).map((item, i) => (
+        <li key={i}>{item.name}</li>
       ))}
     </ul>
   )

@@ -32,8 +32,8 @@ describe('.map() with ternary body', () => {
         ])
         return (
           <ul>
-            {entries().map((entry) =>
-              isGroup(entry) ? <li>{entry.groupTitle}</li> : <a href={entry.href}>{entry.linkTitle}</a>
+            {entries().map((entry, i) =>
+              isGroup(entry) ? <li key={i}>{entry.groupTitle}</li> : <a key={i} href={entry.href}>{entry.linkTitle}</a>
             )}
           </ul>
         )
@@ -61,7 +61,7 @@ describe('.map() with ternary body', () => {
         const [items, _setItems] = createSignal([{ name: 'A' }, { name: 'B' }])
         return (
           <ul>
-            {items().map((item) => <li>{item.name}</li>)}
+            {items().map((item, i) => <li key={i}>{item.name}</li>)}
           </ul>
         )
       }

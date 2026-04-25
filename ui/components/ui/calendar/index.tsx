@@ -530,20 +530,20 @@ function Calendar(props: CalendarProps) {
           <thead>
             <tr>
               {weekdays().map((dayName: string) => (
-                <th data-slot="calendar-weekday" className={weekdayClasses}>{dayName}</th>
+                <th key={dayName} data-slot="calendar-weekday" className={weekdayClasses}>{dayName}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {weeks.map((week: CalendarDay[]) => (
-              <tr data-slot="calendar-week">
+            {weeks.map((week: CalendarDay[], wi: number) => (
+              <tr key={wi} data-slot="calendar-week">
                 {week.map((day: CalendarDay) => {
                   const rangePos = isRangeMode() ? getRangePosition(day) : undefined
                   const isSingleSelected = !isRangeMode() && selectedDate() ? isSameDay(selectedDate()!, day.date) : false
                   const isRangeOnlyFrom = isRangeMode() && !day.isOutside && selectedRange()?.from && !selectedRange()?.to && isSameDay(day.date, selectedRange()!.from)
                   const isSelected = isSingleSelected || (isRangeOnlyFrom ?? false)
                   return (
-                    <td data-slot="calendar-day" className={dayCellClasses}>
+                    <td key={toISODateString(day.date)} data-slot="calendar-day" className={dayCellClasses}>
                       <button
                         data-slot="calendar-day-button"
                         className={getDayClasses(day, isSelected, rangePos)}
