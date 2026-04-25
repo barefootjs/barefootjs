@@ -22,6 +22,9 @@ import type {
   BranchLoop,
   ConditionalElement,
   LoopChildConditional,
+  LoopChildReactiveAttr,
+  LoopChildReactiveText,
+  TopLevelLoop,
 } from '../../types'
 
 // ─────────────────────────────────────────────────────────────────────
@@ -125,8 +128,87 @@ export type ScopeRef =
   | { kind: 'var'; name: string }           // emits the literal variable name
 
 // ─────────────────────────────────────────────────────────────────────
+// Loops
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Plan for a top-level dynamic loop with a plain element body (no child
+ * components, no inner loops). Covers `emitPlainElementLoopReconciliation`.
+ *
+ * The "single-line vs multi-line renderItem" split in the legacy emitter is
+ * a stringifier concern, not a Plan concern — the Plan just records
+ * whether reactive effects exist and the stringifier picks the layout.
+ */
+export interface PlainLoopPlan {
+  kind: 'plain-loop'
+  /** The container element variable, e.g. `_s1`. */
+  containerVar: string
+  /** Array expression to drive `mapArray(() => ARR, ...)`. Already chained (filter/sort). */
+  arrayExpr: string
+  /** Key function source — `null` when the loop has no explicit key. */
+  keyFn: string
+  /** renderItem param identifier (after destructure unwrap rename). */
+  paramHead: string
+  /** Index parameter identifier, e.g. `__idx` or user-supplied. */
+  indexParam: string
+  /** Statement to unwrap a destructured param at body entry. Empty when not needed. */
+  paramUnwrap: string
+  /** Pre-render preamble line (already wrapped with loop param accessor). Empty when none. */
+  mapPreambleWrapped: string
+  /** HTML template string for one item. */
+  template: string
+  /**
+   * Carried IR fields for legacy `emitLoopChildReactiveEffects` passthrough.
+   * `null` means there are no reactive effects; the stringifier emits the
+   * single-line renderItem in that case. PR 5+ will replace this with
+   * structured `ReactiveEffectsPlan`.
+   */
+  reactiveEffects: ReactiveEffectsPassthrough | null
+}
+
+/**
+ * Loaned-IR carrier for emitLoopChildReactiveEffects. PR 5+ replaces this
+ * with a structured ReactiveEffectsPlan that addresses O-3 (key dedup) at
+ * the builder level.
+ */
+export interface ReactiveEffectsPassthrough {
+  attrs: LoopChildReactiveAttr[]
+  texts: LoopChildReactiveText[]
+  conditionals: LoopChildConditional[] | undefined
+  loopParam: string
+  loopParamBindings: TopLevelLoop['paramBindings']
+}
+
+/**
+ * Plan for a top-level static array loop. Two parallel `forEach` blocks (one
+ * for reactive attrs, one for reactive texts) plus optional event delegation
+ * — mirrors the legacy `emitStaticArrayUpdates` shape. The forEach
+ * duplication noted in observation O-4 is preserved bug-for-bug here; PR 5+
+ * collapses them into a single forEach.
+ */
+export interface StaticLoopPlan {
+  kind: 'static-loop'
+  containerVar: string
+  /** Source array expression as written in user code (no signal accessor wrap). */
+  arrayExpr: string
+  /** Loop param name. */
+  param: string
+  /** Index parameter identifier. */
+  indexParam: string
+  /** Children-index offset expression — index when no offset, `${idx} + N` otherwise. */
+  childIndexExpr: string
+  /**
+   * Reactive attrs grouped by child slot id (preserves emission order).
+   * Empty list means the attr forEach block is omitted.
+   */
+  attrsBySlot: ReadonlyArray<readonly [string, readonly LoopChildReactiveAttr[]]>
+  /** Reactive texts in declaration order. Empty list means the text forEach block is omitted. */
+  texts: readonly LoopChildReactiveText[]
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Re-export legacy types referenced from Plan-level code paths.
-// PR 2 will drop these once builder coverage is complete.
+// PR 2-b/c will extend this with single-component / composite plans.
 // ─────────────────────────────────────────────────────────────────────
 
 export type { ConditionalElement, LoopChildConditional, BranchLoop }

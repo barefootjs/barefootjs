@@ -11,6 +11,8 @@ import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
 import { emitAttrUpdate } from './emit-reactive'
 import { buildInsertPlan } from './control-flow/plan/build-insert'
 import { stringifyInsert } from './control-flow/stringify/insert'
+import { buildPlainLoopPlan, buildStaticLoopPlan } from './control-flow/plan/build-loop'
+import { stringifyPlainLoop, stringifyStaticLoop } from './control-flow/stringify/loop'
 
 /**
  * Build the `keyFn` argument for mapArray / reconcileElements. `null` when
@@ -18,7 +20,7 @@ import { stringifyInsert } from './control-flow/stringify/insert'
  * off `NestedLoop` (nested loops never thread an explicit index parameter)
  * and lets the compiler verify we handled every flavour exhaustively.
  */
-function loopKeyFn(loop: CollectedLoop): string {
+export function loopKeyFn(loop: CollectedLoop): string {
   if (loop.key === null) return 'null'
   const params = loop.kind === 'nested'
     ? loop.param
@@ -71,7 +73,7 @@ function exprRefsLoopBinding(expr: string, loop: { param: string; paramBindings?
  * (rest element, computed property key — see `BF025`), we fall back to
  * the original unwrap so the captured-semantics path still compiles.
  */
-function destructureLoopParam(
+export function destructureLoopParam(
   param: string,
   paramBindings?: readonly LoopParamBinding[],
 ): { head: string; unwrap: string } {
@@ -451,7 +453,7 @@ function emitNestedLoopChildConditionals(
   }
 }
 
-function emitLoopChildReactiveEffects(
+export function emitLoopChildReactiveEffects(
   lines: string[],
   indent: string,
   elVar: string,
@@ -554,70 +556,12 @@ function emitLoopChildReactiveEffects(
 function emitStaticArrayUpdates(lines: string[], elem: TopLevelLoop): void {
   // Static array initChild calls are deferred to emitStaticArrayChildInits()
   // so that parent context providers (provideContext) run first.
-
-  // Reactive attribute effects for plain elements in static arrays.
-  if (!elem.childComponent && elem.childReactiveAttrs.length > 0) {
-    const v = varSlotId(elem.slotId)
-    lines.push(`  // Reactive attributes in static array children`)
-    lines.push(`  if (_${v}) {`)
-    const indexParam = elem.index || '__idx'
-    const offsetExpr = elem.siblingOffset ? `${indexParam} + ${elem.siblingOffset}` : indexParam
-    lines.push(`    ${elem.array}.forEach((${elem.param}, ${indexParam}) => {`)
-    lines.push(`      const __iterEl = _${v}.children[${offsetExpr}]`)
-    lines.push(`      if (__iterEl) {`)
-    // Group attrs by childSlotId to avoid duplicate const declarations
-    const attrsBySlot = new Map<string, typeof elem.childReactiveAttrs>()
-    for (const attr of elem.childReactiveAttrs) {
-      if (!attrsBySlot.has(attr.childSlotId)) {
-        attrsBySlot.set(attr.childSlotId, [])
-      }
-      attrsBySlot.get(attr.childSlotId)!.push(attr)
-    }
-    for (const [slotId, attrs] of attrsBySlot) {
-      const varName = `__t_${varSlotId(slotId)}`
-      lines.push(`        const ${varName} = qsa(__iterEl, '[bf="${slotId}"]')`)
-      lines.push(`        if (${varName}) {`)
-      for (const attr of attrs) {
-        lines.push(`          createEffect(() => {`)
-        for (const stmt of emitAttrUpdate(varName, attr.attrName, attr.expression, attr)) {
-          lines.push(`            ${stmt}`)
-        }
-        lines.push(`          })`)
-      }
-      lines.push(`        }`)
-    }
-    lines.push(`      }`)
-    lines.push(`    })`)
-    lines.push(`  }`)
-    lines.push('')
-  }
-
-  // Reactive text effects for static array children (both plain and component loops).
-  // Text expressions that read signals (e.g., {isAnnual() ? x : y}) need
-  // createEffect to update when the signal changes.
-  if (elem.childReactiveTexts.length > 0) {
-    const v = varSlotId(elem.slotId)
-    lines.push(`  // Reactive texts in static array children`)
-    lines.push(`  if (_${v}) {`)
-    const indexParam = elem.index || '__idx'
-    const offsetExpr2 = elem.siblingOffset ? `${indexParam} + ${elem.siblingOffset}` : indexParam
-    lines.push(`    ${elem.array}.forEach((${elem.param}, ${indexParam}) => {`)
-    lines.push(`      const __iterEl = _${v}.children[${offsetExpr2}]`)
-    lines.push(`      if (__iterEl) {`)
-    for (const text of elem.childReactiveTexts) {
-      const vn = `__rt_${varSlotId(text.slotId)}`
-      lines.push(`        { const [${vn}] = $t(__iterEl, '${text.slotId}')`)
-      lines.push(`        if (${vn}) createEffect(() => { ${vn}.textContent = String(${text.expression}) }) }`)
-    }
-    lines.push(`      }`)
-    lines.push(`    })`)
-    lines.push(`  }`)
-    lines.push('')
-  }
+  stringifyStaticLoop(lines, buildStaticLoopPlan(elem))
 
   // Event delegation for plain elements in static arrays (#537).
   // Static arrays have no data-key/bf-i markers, so walk up from target to
   // the container's direct child and use indexOf for index lookup.
+  // Event delegation stays on the legacy emitter — moves to Plan in PR 3.
   if (!elem.childComponent && elem.childEvents.length > 0) {
     const v = varSlotId(elem.slotId)
     emitLoopEventDelegation(lines, `_${v}`, elem.childEvents, (ls, ev, handlerCall, cVar) => {
@@ -794,38 +738,11 @@ function emitHydrationTagging(
 }
 
 /** Emit mapArray for a plain element loop with unified CSR/SSR. */
-function emitPlainElementLoopReconciliation(lines: string[], elem: TopLevelLoop, keyFn: string): void {
-  const vLoop = varSlotId(elem.slotId)
-  const chainedExpr = buildChainedArrayExpr(elem)
-  const indexParam = elem.index || '__idx'
-  const wrap = (expr: string) => wrapLoopParamAsAccessor(expr, elem.param, elem.paramBindings)
-
-  const hasReactiveEffects = elem.childReactiveAttrs.length > 0
-    || elem.childReactiveTexts.length > 0
-    || (elem.childConditionals?.length ?? 0) > 0
-  const { head: pHead, unwrap: pUnwrap } = destructureLoopParam(elem.param, elem.paramBindings)
-  const unwrapInline = pUnwrap ? `${pUnwrap} ` : ''
-
-  if (!hasReactiveEffects) {
-    // Simple case: no reactive effects
-    // Template is already wrapped at generation time (irToPlaceholderTemplate with loopParams)
-    const preamble = elem.mapPreamble ? `${wrap(elem.mapPreamble)}; ` : ''
-    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => { ${unwrapInline}${preamble}if (__existing) return __existing; const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })`)
-  } else {
-    // Multi-line renderItem with fine-grained effects (shared for CSR and SSR)
-    lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => {`)
-    if (pUnwrap) {
-      lines.push(`    ${pUnwrap}`)
-    }
-    if (elem.mapPreamble) {
-      lines.push(`    ${wrap(elem.mapPreamble)}`)
-    }
-    // Template is already wrapped at generation time (irToPlaceholderTemplate with loopParams)
-    lines.push(`    const __el = __existing ?? (() => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${elem.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })()`)
-    emitLoopChildReactiveEffects(lines, '    ', '__el', elem.childReactiveAttrs, elem.childReactiveTexts, elem.childConditionals, elem.param, elem.paramBindings)
-    lines.push(`    return __el`)
-    lines.push(`  })`)
-  }
+function emitPlainElementLoopReconciliation(lines: string[], elem: TopLevelLoop, _keyFn: string): void {
+  // _keyFn ignored — buildPlainLoopPlan recomputes via loopKeyFn(elem) so
+  // the plan is self-contained. Kept in the signature so the dispatcher
+  // (emitDynamicLoopUpdates) doesn't need to learn the new shape yet.
+  stringifyPlainLoop(lines, buildPlainLoopPlan(elem))
 }
 
 /** Emit event delegation for dynamic (non-static) loop child events. */
