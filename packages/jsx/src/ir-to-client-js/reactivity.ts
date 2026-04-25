@@ -461,6 +461,12 @@ export function collectLoopChildReactiveAttrs(
     if (el.slotId) {
       for (const attr of el.attrs) {
         if (attr.name === '...' || !attr.dynamic || !attr.value) continue
+        // `key` is a reconciliation-only prop: the html-template path renames
+        // it to `data-key` for SSR + mapArray uses it via keyFn. Wiring it
+        // again as a reactive DOM attr would (a) emit a non-standard `key=`
+        // attribute on the live DOM, and (b) burn a no-op createEffect on
+        // every loop item. See observation O-3 in tmp/emit-survey.
+        if (attr.name === 'key') continue
         const valueStr = attrValueToString(attr.value)
         if (!valueStr) continue
         const expanded = expandConstantForReactivity(valueStr, ctx)
