@@ -136,4 +136,56 @@ describe('plain nested loops without conditional wrapper', () => {
     const mapArrayCount = (js.match(/\bmapArray\(/g) || []).length
     expect(mapArrayCount).toBeGreaterThanOrEqual(2)
   })
+
+  test('regression: 3-level nested loop wires mapArray at the deepest level (not forEach)', () => {
+    // Before the fix, `emitInnerLoopSetup` decided "is this loop reactive?"
+    // by checking the IR's `inner.refsOuterParam` — a flag set at collect
+    // time against the *outermost* loop's param only. At depth 2+, the array
+    // expression typically references the *immediate* parent (e.g.
+    // `g.items` inside `t.groups.map(g => ...)` body), so the check failed
+    // and the loop fell through to the static `forEach` branch. Result:
+    // additions / removals at the deepest level silently never reached
+    // the DOM.
+    //
+    // Fix: re-check dynamically at each level against the parent param
+    // passed in, and narrow the parent param when recursing into child
+    // levels.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function T() {
+        const [tree, setTree] = createSignal([
+          { id: 1, groups: [{ id: 11, items: [{ id: 111, n: 'a' }] }] },
+        ])
+        return (
+          <ul onClick={() => setTree(prev => [...prev])}>
+            {tree().map(t => (
+              <li key={t.id}>
+                <ul>
+                  {t.groups.map(g => (
+                    <li key={g.id}>
+                      <ul>{g.items.map(it => <li key={it.id}>{it.n}</li>)}</ul>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'T.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+    const js = result.files.find(f => f.type === 'clientJs')!.content
+
+    // The deepest array (`g.items`) must appear inside a mapArray, with
+    // its parent (`g`) wrapped as an accessor. If it ever falls back to
+    // a `forEach`, this guard fires.
+    expect(js).toMatch(/mapArray\(\(\)\s*=>\s*g\(\)\.items/)
+    expect(js).not.toMatch(/\bg\.items\.forEach\b/)
+    // All three levels must be reactive; expect at least 3 mapArray sites
+    // (outer + two inner).
+    const mapArrayCount = (js.match(/\bmapArray\(/g) || []).length
+    expect(mapArrayCount).toBeGreaterThanOrEqual(3)
+  })
 })
