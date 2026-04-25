@@ -201,4 +201,40 @@ describe('reactive attributes inside .map() callbacks', () => {
     expect(clientJs!.content).not.toContain('__t_')
     expect(clientJs!.content).not.toContain('.className =')
   })
+
+  test('keyed loop: `key` prop is not emitted as a reactive DOM attribute', () => {
+    // Regression guard for the "key duplicate emission" bug:
+    // `<li key={item.id}>` used to be both rendered as `data-key=` in the
+    // template (correct, used by mapArray reconciliation) AND wired as a
+    // reactive `setAttribute('key', ...)` effect on every item (incorrect —
+    // `key` is a virtual prop, not a DOM attribute). This left a non-standard
+    // `key=` attribute on the live DOM and burned a no-op createEffect per
+    // item per signal change.
+    //
+    // Fix: skip `attr.name === 'key'` in collectLoopChildReactiveAttrs.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function L() {
+        const [items, setItems] = createSignal([{ id: 1, name: 'a' }])
+        return (
+          <ul>
+            {items().map(item => (
+              <li key={item.id} onClick={() => setItems(p => p)}>{item.name}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'L.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')
+    expect(clientJs).toBeDefined()
+    // The template still uses `data-key=` for SSR + reconciliation.
+    expect(clientJs!.content).toContain('data-key=')
+    // But there must be NO createEffect that calls setAttribute('key', ...).
+    expect(clientJs!.content).not.toContain("setAttribute('key'")
+  })
 })
