@@ -13,6 +13,8 @@ import { buildInsertPlan } from './control-flow/plan/build-insert'
 import { stringifyInsert } from './control-flow/stringify/insert'
 import { buildPlainLoopPlan, buildStaticLoopPlan } from './control-flow/plan/build-loop'
 import { stringifyPlainLoop, stringifyStaticLoop } from './control-flow/stringify/loop'
+import { buildComponentLoopPlan } from './control-flow/plan/build-component-loop'
+import { stringifyComponentLoop } from './control-flow/stringify/component-loop'
 
 /**
  * Build the `keyFn` argument for mapArray / reconcileElements. `null` when
@@ -608,7 +610,7 @@ function emitDynamicLoopUpdates(lines: string[], elem: TopLevelLoop): void {
  * Build a props object expression string from component prop definitions.
  * Shared by emitComponentLoopReconciliation and emitCompositeElementReconciliation.
  */
-function buildComponentPropsExpr(
+export function buildComponentPropsExpr(
   comp: { props: Array<{ name: string; value: string; isEventHandler: boolean; isLiteral: boolean }>, children?: import('../types').IRNode[] },
   loopParam?: string,
   loopParamBindings?: readonly LoopParamBinding[],
@@ -634,75 +636,11 @@ function buildComponentPropsExpr(
 }
 
 /** Emit mapArray for a loop whose body is a single child component. */
-function emitComponentLoopReconciliation(lines: string[], elem: TopLevelLoop, keyFn: string): void {
-  const { name } = elem.childComponent!
-  const vLoop = varSlotId(elem.slotId)
-  const propsExpr = buildComponentPropsExpr(elem.childComponent!, elem.param)
-  const keyExpr = wrapLoopParamAsAccessor(elem.key || '__idx', elem.param, elem.paramBindings)
-  const indexParam = elem.index || '__idx'
-  const chainedExpr = buildChainedArrayExpr(elem)
-  // Only init components at loopDepth 0 — inner-loop components are handled by their own loop
-  const nestedComps = (elem.nestedComponents ?? []).filter(c => !c.loopDepth)
-  const { head: pHead, unwrap: pUnwrap } = destructureLoopParam(elem.param, elem.paramBindings)
-
-  lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => {`)
-  if (pUnwrap) {
-    lines.push(`    ${pUnwrap}`)
-  }
-  if (nestedComps.length > 0) {
-    // Unified renderItem: SSR hydrates nested components, CSR creates from scratch
-    lines.push(`    if (__existing) {`)
-    lines.push(`      initChild('${name}', __existing, ${propsExpr})`)
-    // Initialize nested child components within the SSR-rendered element
-    for (const comp of nestedComps) {
-      const selector = buildCompSelector(comp)
-      const nestedPropsExpr = buildComponentPropsExpr(comp, elem.param)
-      // Check if children are text-only and reference the loop param.
-      // Only text-only children can safely use textContent update;
-      // children containing elements/components would be destroyed.
-      const isTextOnly = comp.children?.length
-        ? comp.children.every(c => c.type === 'expression' || c.type === 'text' || isTextOnlyConditional(c))
-        : false
-      const rawChildrenExpr = isTextOnly ? irChildrenToJsExpr(comp.children!) : null
-      const childrenRefsLoop = rawChildrenExpr != null && exprReferencesIdent(rawChildrenExpr, elem.param)
-      if (childrenRefsLoop) {
-        const wrappedChildren = wrapLoopParamAsAccessor(rawChildrenExpr, elem.param, elem.paramBindings)
-        lines.push(`      { const __c = qsa(__existing, '${selector}'); if (__c) { initChild('${comp.name}', __c, ${nestedPropsExpr}); createEffect(() => { const __v = ${wrappedChildren}; __c.textContent = Array.isArray(__v) ? __v.join('') : String(__v ?? '') }) } }`)
-      } else {
-        lines.push(`      { const __c = qsa(__existing, '${selector}'); if (__c) initChild('${comp.name}', __c, ${nestedPropsExpr}) }`)
-      }
-    }
-    // Emit reactive effects for conditionals/texts inside component children
-    if (elem.childConditionals && elem.childConditionals.length > 0) {
-      emitLoopChildReactiveEffects(lines, '      ', '__existing', [], [], elem.childConditionals, elem.param, elem.paramBindings)
-    }
-    lines.push(`      return __existing`)
-    lines.push(`    }`)
-    lines.push(`    const __csrEl = createComponent('${name}', ${propsExpr}, ${keyExpr})`)
-    for (const comp of nestedComps) {
-      const selector = buildCompSelector(comp)
-      const nestedPropsExpr = buildComponentPropsExpr(comp, elem.param)
-      const isTextOnly = comp.children?.length
-        ? comp.children.every(c => c.type === 'expression' || c.type === 'text' || isTextOnlyConditional(c))
-        : false
-      const rawChildrenExpr = isTextOnly ? irChildrenToJsExpr(comp.children!) : null
-      const childrenRefsLoop = rawChildrenExpr != null && exprReferencesIdent(rawChildrenExpr, elem.param)
-      if (childrenRefsLoop) {
-        const wrappedChildren = wrapLoopParamAsAccessor(rawChildrenExpr, elem.param, elem.paramBindings)
-        lines.push(`    { const __c = qsa(__csrEl, '${selector}'); if (__c) { initChild('${comp.name}', __c, ${nestedPropsExpr}); createEffect(() => { const __v = ${wrappedChildren}; __c.textContent = Array.isArray(__v) ? __v.join('') : String(__v ?? '') }) } }`)
-      } else {
-        lines.push(`    { const __c = qsa(__csrEl, '${selector}'); if (__c) initChild('${comp.name}', __c, ${nestedPropsExpr}) }`)
-      }
-    }
-    if (elem.childConditionals && elem.childConditionals.length > 0) {
-      emitLoopChildReactiveEffects(lines, '    ', '__csrEl', [], [], elem.childConditionals, elem.param, elem.paramBindings)
-    }
-    lines.push(`    return __csrEl`)
-  } else {
-    lines.push(`    if (__existing) { initChild('${name}', __existing, ${propsExpr}); return __existing }`)
-    lines.push(`    return createComponent('${name}', ${propsExpr}, ${keyExpr})`)
-  }
-  lines.push(`  })`)
+function emitComponentLoopReconciliation(lines: string[], elem: TopLevelLoop, _keyFn: string): void {
+  // _keyFn ignored — buildComponentLoopPlan recomputes via loopKeyFn(elem)
+  // so the plan is self-contained. Kept in the signature so the dispatcher
+  // doesn't need to learn the new shape yet.
+  stringifyComponentLoop(lines, buildComponentLoopPlan(elem))
 }
 
 /**
@@ -988,7 +926,7 @@ function emitEventSetup(ls: string[], indent: string, elVar: string, ev: LoopChi
 }
 
 /** Build the component-finder CSS selector for SSR hydration initChild. */
-function buildCompSelector(comp: { slotId?: string | null; name: string }): string {
+export function buildCompSelector(comp: { slotId?: string | null; name: string }): string {
   // When slotId is available, use suffix-only selector. It is unique within
   // the parent scope and avoids matching siblings of the same component type
   // (e.g. two Buttons with different slotIds).
@@ -1005,7 +943,7 @@ function buildCompSelector(comp: { slotId?: string | null; name: string }): stri
  * For SSR elements (hydration): finds scope elements and calls initChild.
  */
 /** Check if an IR node is a conditional whose branches are text/expression only. */
-function isTextOnlyConditional(node: { type: string; [k: string]: any }): boolean {
+export function isTextOnlyConditional(node: { type: string; [k: string]: any }): boolean {
   if (node.type !== 'conditional') return false
   const checkNode = (n: { type: string; [k: string]: any }): boolean =>
     n.type === 'text' || n.type === 'expression' || (n.type === 'conditional' && isTextOnlyConditional(n))

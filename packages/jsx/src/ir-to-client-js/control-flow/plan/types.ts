@@ -180,6 +180,56 @@ export interface ReactiveEffectsPassthrough {
 }
 
 /**
+ * Plan for a top-level dynamic loop whose body is a single child component
+ * (with or without nested child components inside it). Covers
+ * `emitComponentLoopReconciliation`.
+ *
+ * `nestedComps.length === 0`  → emit the simple two-line renderItem
+ *                               (initChild on existing, createComponent on new).
+ * `nestedComps.length > 0`    → emit the SSR/CSR split that initialises both
+ *                               the outer component and each nested child.
+ *
+ * Reactive-effects construction inside `childConditionals` is delegated to
+ * the legacy `emitLoopChildReactiveEffects` via `ReactiveEffectsPassthrough`,
+ * mirroring the PlainLoopPlan strategy.
+ */
+export interface ComponentLoopPlan {
+  kind: 'component-loop'
+  containerVar: string
+  arrayExpr: string
+  keyFn: string
+  paramHead: string
+  paramUnwrap: string
+  indexParam: string
+  /** The outer (loop body) component's name, e.g. `'Card'`. */
+  componentName: string
+  /** Pre-built props object expression for the outer component. */
+  componentPropsExpr: string
+  /** Wrapped key argument passed to `createComponent(name, props, KEY)`. */
+  keyExpr: string
+  /** Nested child component initialisers; empty for the simple case. */
+  nestedComps: NestedComponentInit[]
+  /** Carried IR for legacy reactive-effects passthrough; null when there's nothing to emit. */
+  childConditionalEffects: ReactiveEffectsPassthrough | null
+}
+
+/**
+ * One nested child component to initialise inside a renderItem body.
+ * `childrenTextEffect` is non-null when the component's children are
+ * text-equivalent AND reference the outer loop param — in that case the
+ * stringifier emits a `createEffect` that updates the child's `textContent`.
+ */
+export interface NestedComponentInit {
+  componentName: string
+  /** CSS selector used by `qsa(...)` to find the SSR-rendered placeholder. */
+  selector: string
+  /** Pre-built props object expression for the nested component. */
+  propsExpr: string
+  /** When non-null, emit a reactive textContent effect alongside `initChild`. */
+  childrenTextEffect: { wrappedChildren: string } | null
+}
+
+/**
  * Plan for a top-level static array loop. Two parallel `forEach` blocks (one
  * for reactive attrs, one for reactive texts) plus optional event delegation
  * — mirrors the legacy `emitStaticArrayUpdates` shape. The forEach
