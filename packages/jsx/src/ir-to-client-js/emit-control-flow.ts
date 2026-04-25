@@ -6,7 +6,7 @@
 
 import type { ClientJsContext, BranchLoop, LoopChildEvent, LoopChildConditional, TopLevelLoop, NestedLoop, CollectedLoop } from './types'
 import type { IRLoopChildComponent, LoopParamBinding } from '../types'
-import { toDomEventName, wrapHandlerInBlock, varSlotId, buildChainedArrayExpr, quotePropName, DATA_KEY, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent, substituteLoopBindings } from './utils'
+import { toDomEventName, wrapHandlerInBlock, varSlotId, quotePropName, DATA_KEY, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent, substituteLoopBindings } from './utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from './html-template'
 import { emitAttrUpdate } from './emit-reactive'
 import { buildInsertPlan } from './control-flow/plan/build-insert'
@@ -15,6 +15,8 @@ import { buildPlainLoopPlan, buildStaticLoopPlan } from './control-flow/plan/bui
 import { stringifyPlainLoop, stringifyStaticLoop } from './control-flow/stringify/loop'
 import { buildComponentLoopPlan } from './control-flow/plan/build-component-loop'
 import { stringifyComponentLoop } from './control-flow/stringify/component-loop'
+import { buildTopLevelCompositePlan, buildBranchCompositePlan } from './control-flow/plan/build-composite-loop'
+import { stringifyCompositeLoop } from './control-flow/stringify/composite-loop'
 
 /**
  * Build the `keyFn` argument for mapArray / reconcileElements. `null` when
@@ -169,47 +171,7 @@ function emitCompositeBranchLoop(
   loop: BranchLoop,
   cv: string,
 ): void {
-  const nestedComps = loop.nestedComponents!
-  const innerLoops = loop.innerLoops ?? []
-  const childEvents = loop.childEvents
-  const indexParam = loop.index || '__idx'
-
-  const depthLevels = buildDepthLevels(innerLoops, nestedComps, childEvents)
-
-  const outerComps = nestedComps.filter(c => !c.loopDepth || c.loopDepth === 0)
-  const outerEvents = childEvents.filter(ev => ev.nestedLoops.length === 0)
-
-  // Build a partial TopLevelLoop-compatible object for CompositeLoopContext
-  const pseudoElem = {
-    param: loop.param,
-    template: loop.template,
-    mapPreamble: loop.mapPreamble ?? undefined,
-    childReactiveTexts: loop.childReactiveTexts ?? [],
-    childReactiveAttrs: loop.childReactiveAttrs ?? [],
-    childConditionals: loop.childConditionals ?? [],
-  } as unknown as TopLevelLoop
-
-  const ctx: CompositeLoopContext = {
-    elem: pseudoElem,
-    outerComps,
-    outerEvents,
-    depthLevels,
-  }
-
-  const keyFn = loopKeyFn(loop)
-
-  const { head: pHead, unwrap: pUnwrap } = destructureLoopParam(loop.param, loop.paramBindings)
-
-  // Wrap everything in a disposable effect for branch cleanup
-  // Clear template-generated children so mapArray creates fresh elements
-  // with properly initialized components via createComponent in renderItem.
-  lines.push(`      if (__loop_${cv}) getLoopChildren(__loop_${cv}).forEach(__el => __el.remove())`)
-  lines.push(`      if (__loop_${cv}) mapArray(() => ${loop.array}, __loop_${cv}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => {`)
-  if (pUnwrap) {
-    lines.push(`        ${pUnwrap}`)
-  }
-  emitCompositeRenderItemBody(lines, '        ', ctx)
-  lines.push(`      })`)
+  stringifyCompositeLoop(lines, buildBranchCompositePlan(loop, cv))
 }
 
 /** Emit insert() calls for server-rendered reactive conditionals with branch configs. */
@@ -873,7 +835,7 @@ function emitBranchLoopEventDelegation(lines: string[], loop: BranchLoop, cv: st
 }
 
 /** Per-inner-loop data for composite loop emission. */
-interface DepthLevel {
+export interface DepthLevel {
   comps: (TopLevelLoop['nestedComponents'] & {})[number][]
   events: LoopChildEvent[]
   loopInfo: NestedLoop | null
@@ -884,7 +846,7 @@ interface DepthLevel {
  * One DepthLevel entry per inner loop (not per depth), so sibling loops at the
  * same depth (e.g., reactions.map + replies.map) each get their own forEach block.
  */
-function buildDepthLevels(
+export function buildDepthLevels(
   innerLoops: NestedLoop[],
   nestedComps: IRLoopChildComponent[],
   childEvents: LoopChildEvent[],
@@ -906,16 +868,6 @@ function buildDepthLevels(
     }),
     loopInfo: loop,
   }))
-}
-
-/** Nesting-level-separated data for composite loop emission. */
-interface CompositeLoopContext {
-  elem: TopLevelLoop
-  /** Components and events at the outer level (depth 0) */
-  outerComps: TopLevelLoop['nestedComponents'] & {}
-  outerEvents: LoopChildEvent[]
-  /** Components, events, and loop info grouped by depth (depth 1, 2, ...) */
-  depthLevels: DepthLevel[]
 }
 
 /** Emit a single addEventListener call for a child event on a given element. */
@@ -950,11 +902,11 @@ export function isTextOnlyConditional(node: { type: string; [k: string]: any }):
   return checkNode(node.whenTrue) && checkNode(node.whenFalse)
 }
 
-function emitComponentAndEventSetup(
+export function emitComponentAndEventSetup(
   ls: string[],
   indent: string,
   elVar: string,
-  comps: CompositeLoopContext['outerComps'],
+  comps: TopLevelLoop['nestedComponents'] & {},
   events: LoopChildEvent[],
   mode: 'csr' | 'ssr',
   loopParam?: string,
@@ -1006,57 +958,10 @@ function emitComponentAndEventSetup(
  * Handles both CSR (create from template) and SSR (initialize existing element).
  * Inner loops, events, and reactive effects are shared between both paths.
  */
-function emitCompositeRenderItemBody(ls: string[], indent: string, ctx: CompositeLoopContext): void {
-  const param = ctx.elem.param
-  const paramBindings = ctx.elem.paramBindings
-  const wrap = (expr: string) => wrapLoopParamAsAccessor(expr, param, paramBindings)
-
-  // Exclude components inside reactive conditionals — managed by insert()
-  const condCompSlotIds = new Set<string>()
-  for (const cond of ctx.elem.childConditionals ?? []) {
-    for (const comp of [...cond.whenTrue.childComponents, ...cond.whenFalse.childComponents]) {
-      if (comp.slotId) condCompSlotIds.add(comp.slotId)
-    }
-  }
-  const filteredComps = condCompSlotIds.size > 0
-    ? ctx.outerComps.filter(c => !c.slotId || !condCompSlotIds.has(c.slotId))
-    : ctx.outerComps
-
-  // Hoist mapPreamble before the SSR/CSR split so variables it declares
-  // (e.g. `const f = arr.find(...)`) are accessible in both branches and in
-  // any reactive attribute getters emitted after the if/else block.
-  if (ctx.elem.mapPreamble) {
-    ls.push(`${indent}${wrap(ctx.elem.mapPreamble)}`)
-  }
-
-  // Branch: SSR (existing element) vs CSR (create from template)
-  ls.push(`${indent}let __el`)
-  ls.push(`${indent}if (__existing) {`)
-  ls.push(`${indent}  __el = __existing`)
-  // SSR: initialize nested components via initChild
-  emitComponentAndEventSetup(ls, `${indent}  `, '__el', filteredComps, ctx.outerEvents, 'ssr', param, paramBindings)
-  // SSR: inner loop initialization
-  emitInnerLoopSetup(ls, `${indent}  `, '__el', ctx.depthLevels, 'ssr', param, paramBindings)
-  ls.push(`${indent}} else {`)
-  // CSR: create element from template, replace placeholders with createComponent
-  ls.push(`${indent}  const __tpl = document.createElement('template')`)
-  // Template is already wrapped at generation time (irToPlaceholderTemplate with loopParams)
-  ls.push(`${indent}  __tpl.innerHTML = \`${ctx.elem.template}\``)
-  ls.push(`${indent}  __el = __tpl.content.firstElementChild.cloneNode(true)`)
-  emitComponentAndEventSetup(ls, `${indent}  `, '__el', filteredComps, ctx.outerEvents, 'csr', param, paramBindings)
-  // CSR: inner loop initialization
-  emitInnerLoopSetup(ls, `${indent}  `, '__el', ctx.depthLevels, 'csr', param, paramBindings)
-  ls.push(`${indent}}`)
-
-  const reactiveAttrs = ctx.elem.childReactiveAttrs ?? []
-  const reactiveTexts = ctx.elem.childReactiveTexts ?? []
-  const reactiveConditionals = ctx.elem.childConditionals ?? []
-  if (reactiveAttrs.length > 0 || reactiveTexts.length > 0 || reactiveConditionals.length > 0) {
-    emitLoopChildReactiveEffects(ls, indent, '__el', reactiveAttrs, reactiveTexts, reactiveConditionals, param, paramBindings)
-  }
-
-  ls.push(`${indent}return __el`)
-}
+// emitCompositeRenderItemBody — replaced by stringifyCompositeLoop.
+// The conditional-slot filter (excluding components inside reactive
+// conditional branches) is now applied in the Plan builder
+// (`build-composite-loop.ts::filterCondCompsOut`).
 
 /**
  * Emit inner loop forEach + component/event setup for CSR and SSR.
@@ -1064,7 +969,7 @@ function emitCompositeRenderItemBody(ls: string[], indent: string, ctx: Composit
  * nested loops at increasing depth (emitted inside their parent's forEach).
  * Levels are ordered by DFS walk, so child levels immediately follow their parent.
  */
-function emitInnerLoopSetup(
+export function emitInnerLoopSetup(
   ls: string[],
   indent: string,
   parentElVar: string,
@@ -1211,31 +1116,10 @@ function emitInnerLoopSetup(
 function emitCompositeElementReconciliation(
   lines: string[],
   elem: TopLevelLoop,
-  keyFn: string,
+  _keyFn: string,
 ): void {
-  const vLoop = varSlotId(elem.slotId)
-  const chainedExpr = buildChainedArrayExpr(elem)
-  const indexParam = elem.index || '__idx'
-
-  const nestedComps = elem.nestedComponents!
-  const innerLoops = elem.innerLoops ?? []
-
-  const depthLevels = buildDepthLevels(innerLoops, nestedComps, elem.childEvents)
-
-  const ctx: CompositeLoopContext = {
-    elem,
-    outerComps: nestedComps.filter(c => !c.loopDepth || c.loopDepth === 0),
-    outerEvents: elem.childEvents.filter(ev => ev.nestedLoops.length === 0),
-    depthLevels,
-  }
-
-  const { head: pHead, unwrap: pUnwrap } = destructureLoopParam(elem.param, elem.paramBindings)
-  lines.push(`  mapArray(() => ${chainedExpr}, _${vLoop}, ${keyFn}, (${pHead}, ${indexParam}, __existing) => {`)
-  if (pUnwrap) {
-    lines.push(`    ${pUnwrap}`)
-  }
-  emitCompositeRenderItemBody(lines, '    ', ctx)
-  lines.push(`  })`)
+  // _keyFn ignored — buildTopLevelCompositePlan recomputes via loopKeyFn(elem).
+  stringifyCompositeLoop(lines, buildTopLevelCompositePlan(elem))
 }
 
 /**

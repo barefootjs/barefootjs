@@ -22,10 +22,13 @@ import type {
   BranchLoop,
   ConditionalElement,
   LoopChildConditional,
+  LoopChildEvent,
   LoopChildReactiveAttr,
   LoopChildReactiveText,
   TopLevelLoop,
 } from '../../types'
+import type { IRLoopChildComponent } from '../../../types'
+import type { DepthLevel } from '../../emit-control-flow'
 
 // ─────────────────────────────────────────────────────────────────────
 // Top-level
@@ -227,6 +230,64 @@ export interface NestedComponentInit {
   propsExpr: string
   /** When non-null, emit a reactive textContent effect alongside `initChild`. */
   childrenTextEffect: { wrappedChildren: string } | null
+}
+
+/**
+ * Plan for a composite loop — body is a plain element that contains either
+ * nested child components (`outerComps`) and/or inner loops
+ * (`depthLevels`). Used for both top-level emission
+ * (`emitCompositeElementReconciliation`) and branch-scoped emission
+ * (`emitCompositeBranchLoop`).
+ *
+ * The two contexts differ only in:
+ *   - container variable name (`_sN` vs `__loop_cv`)
+ *   - `arrayExpr` (top: chained filter/sort/map; branch: raw `loop.array`)
+ *   - leading/body indent
+ *   - `branchClearChildren`: when true, prepends a `getLoopChildren(...)
+ *     .forEach(__el => __el.remove())` line so the branch swap starts from
+ *     a clean slate (legacy parity).
+ *
+ * Inner-loop emission and component-and-event setup remain on the legacy
+ * `emitInnerLoopSetup` / `emitComponentAndEventSetup` helpers, invoked from
+ * the stringifier as a passthrough. PR 2-c does not Plan-ify those — the
+ * SSR/CSR duplication noted in observation O-1 and the deep-nested loop
+ * degradation in O-8 stay bug-for-bug for this PR; their fixes land in
+ * dedicated bug-fix PRs after the migration completes.
+ */
+export interface CompositeLoopPlan {
+  kind: 'composite-loop'
+  containerVar: string
+  arrayExpr: string
+  keyFn: string
+  paramHead: string
+  paramUnwrap: string
+  indexParam: string
+  /** Wrapped mapPreamble line, hoisted before the SSR/CSR split. Empty when none. */
+  mapPreambleWrapped: string
+  /** Inner template HTML for the loop body (single item). */
+  template: string
+  /** Outer-level child components (depth 0), with `insideConditional` ones already filtered out. */
+  outerComps: readonly IRLoopChildComponent[]
+  /** Outer-level child events (no nested-loop scope). */
+  outerEvents: readonly LoopChildEvent[]
+  /** Per-inner-loop levels for `emitInnerLoopSetup` passthrough. */
+  depthLevels: readonly DepthLevel[]
+  /** Loop param identifier — needed for legacy passthroughs. */
+  loopParam: string
+  /** Destructured-binding metadata for the loop param. */
+  loopParamBindings: TopLevelLoop['paramBindings']
+  /** Reactive effects rendered after the SSR/CSR split. */
+  reactiveEffects: ReactiveEffectsPassthrough | null
+  /**
+   * When true, the stringifier prepends a `getLoopChildren(...).forEach(__el
+   * => __el.remove())` line — branch composite loops need this so mapArray
+   * starts from a clean container after a branch swap. Top-level loops do not.
+   */
+  branchClearChildren: boolean
+  /** Indent of the `mapArray(` line itself. */
+  topIndent: string
+  /** Indent of the lines inside the renderItem body. */
+  bodyIndent: string
 }
 
 /**
