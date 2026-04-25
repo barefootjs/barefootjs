@@ -820,7 +820,17 @@ export function emitInnerLoopSetup(
     const arrayExpr = wrapOuter(inner.array)
     const containerSelector = inner.containerSlotId ? `'[bf="${inner.containerSlotId}"]'` : 'null'
 
-    if (inner.refsOuterParam && inner.template && outerLoopParam) {
+    // `inner.refsOuterParam` is decided at collect-time against the
+    // outermost loop param only — at depth 2+ the array expression typically
+    // references the *immediate* parent loop's param (e.g. `g.items` inside
+    // the `t.groups.map(g => ...)` body), so we re-check dynamically against
+    // whatever `outerLoopParam` was passed in by our caller. Recursion
+    // narrows `outerLoopParam` to `inner.param` for child levels (see end
+    // of this branch), so each level decides correctly. Without this, deep
+    // nested loops fall through to the static-forEach path and inserts /
+    // removals at the deepest level never reach the DOM (observation O-8).
+    const refsParent = !!outerLoopParam && exprReferencesIdent(inner.array, outerLoopParam)
+    if (refsParent && inner.template) {
       // Reactive inner loop: use mapArray for proper add/remove/update.
       // NestedLoop never carries `index`, so loopKeyFn emits `(param) => ...`
       // — matching the plain-item-value contract that mapArray expects.
@@ -883,9 +893,11 @@ export function emitInnerLoopSetup(
         emitComponentAndEventSetup(ls, `${indent}    `, `__innerEl${uid}`, wrappedComps, wrappedEvents, 'ssr', outerLoopParam, outerLoopParamBindings)
         ls.push(`${indent}  }`)
       }
-      // Recurse for child levels
+      // Recurse for child levels — pass `inner.param` as the outer for the
+      // next level so deeper inner loops see their *immediate* parent and
+      // correctly hit the reactive (mapArray) branch above.
       if (childLevels.length > 0) {
-        emitInnerLoopSetup(ls, `${indent}  `, `__innerEl${uid}`, childLevels, mode, outerLoopParam, outerLoopParamBindings)
+        emitInnerLoopSetup(ls, `${indent}  `, `__innerEl${uid}`, childLevels, mode, inner.param, inner.paramBindings)
       }
       // Reactive text effects for inner loop items
       if (inner.childReactiveTexts && inner.childReactiveTexts.length > 0) {
@@ -916,9 +928,11 @@ export function emitInnerLoopSetup(
         ls.push(`${indent}  __innerEl${uid}.setAttribute('${keyAttrName(inner.depth)}', String(${inner.key}))`)
       }
       emitComponentAndEventSetup(ls, `${indent}  `, `__innerEl${uid}`, level.comps, level.events, mode, outerLoopParam, outerLoopParamBindings)
-      // Recurse for child levels (nested deeper loops)
+      // Recurse for child levels (nested deeper loops) — narrow parent like
+      // the reactive branch above so a static-then-reactive nesting still
+      // hits the reactive path at the next level.
       if (childLevels.length > 0) {
-        emitInnerLoopSetup(ls, `${indent}  `, `__innerEl${uid}`, childLevels, mode, outerLoopParam, outerLoopParamBindings)
+        emitInnerLoopSetup(ls, `${indent}  `, `__innerEl${uid}`, childLevels, mode, inner.param, inner.paramBindings)
       }
       ls.push(`${indent}}) }`)
     }
