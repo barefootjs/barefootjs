@@ -20,6 +20,7 @@ import {
   destructureLoopParam,
   buildDepthLevels,
 } from '../legacy-helpers'
+import { buildReactiveEffectsPlan } from './build-reactive-effects'
 import type { CompositeLoopPlan } from './types'
 
 export function buildTopLevelCompositePlan(elem: TopLevelLoop): CompositeLoopPlan {
@@ -46,13 +47,13 @@ export function buildTopLevelCompositePlan(elem: TopLevelLoop): CompositeLoopPla
     loopParam: elem.param,
     loopParamBindings: elem.paramBindings,
     reactiveEffects: hasReactive(elem)
-      ? {
+      ? buildReactiveEffectsPlan({
           attrs: elem.childReactiveAttrs ?? [],
           texts: elem.childReactiveTexts ?? [],
           conditionals: elem.childConditionals,
           loopParam: elem.param,
           loopParamBindings: elem.paramBindings,
-        }
+        })
       : null,
     branchClearChildren: false,
     topIndent: '  ',
@@ -88,13 +89,13 @@ export function buildBranchCompositePlan(loop: BranchLoop, cv: string): Composit
     loopParam: loop.param,
     loopParamBindings: loop.paramBindings,
     reactiveEffects: hasReactiveBranch(loop)
-      ? {
+      ? buildReactiveEffectsPlan({
           attrs: loop.childReactiveAttrs ?? [],
           texts: loop.childReactiveTexts ?? [],
           conditionals: loop.childConditionals,
           loopParam: loop.param,
           loopParamBindings: loop.paramBindings,
-        }
+        })
       : null,
     branchClearChildren: true,
     topIndent: '      ',

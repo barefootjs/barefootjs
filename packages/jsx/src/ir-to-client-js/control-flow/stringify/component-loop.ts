@@ -17,12 +17,12 @@
  *     <i>  if (__existing) {
  *     <i>    initChild('<C>', __existing, <props>)
  *     <i>    {<each nested initChild + optional createEffect>}
- *     <i>    <emitLoopChildReactiveEffects on __existing if childConditionals>
+ *     <i>    <stringifyReactiveEffects on __existing if childConditionals>
  *     <i>    return __existing
  *     <i>  }
  *     <i>  const __csrEl = createComponent('<C>', <props>, <key>)
  *     <i>  {<each nested initChild + optional createEffect>}
- *     <i>  <emitLoopChildReactiveEffects on __csrEl if childConditionals>
+ *     <i>  <stringifyReactiveEffects on __csrEl if childConditionals>
  *     <i>  return __csrEl
  *     <i>})
  *
@@ -30,7 +30,7 @@
  * SSR-side nested-comp lines use 6 spaces (matches legacy).
  */
 
-import { emitLoopChildReactiveEffects } from '../legacy-helpers'
+import { stringifyReactiveEffects } from './reactive-effects'
 import type { ComponentLoopPlan, NestedComponentInit } from '../plan/types'
 
 export function stringifyComponentLoop(lines: string[], plan: ComponentLoopPlan): void {
@@ -63,14 +63,7 @@ export function stringifyComponentLoop(lines: string[], plan: ComponentLoopPlan)
   lines.push(`      initChild('${componentName}', __existing, ${componentPropsExpr})`)
   for (const nc of nestedComps) emitNestedInit(lines, '      ', '__existing', nc)
   if (childConditionalEffects) {
-    emitLoopChildReactiveEffects(
-      lines, '      ', '__existing',
-      childConditionalEffects.attrs,
-      childConditionalEffects.texts,
-      childConditionalEffects.conditionals,
-      childConditionalEffects.loopParam,
-      childConditionalEffects.loopParamBindings,
-    )
+    stringifyReactiveEffects(lines, childConditionalEffects, { indent: '      ', elVar: '__existing' })
   }
   lines.push(`      return __existing`)
   lines.push(`    }`)
@@ -79,14 +72,7 @@ export function stringifyComponentLoop(lines: string[], plan: ComponentLoopPlan)
   lines.push(`    const __csrEl = createComponent('${componentName}', ${componentPropsExpr}, ${keyExpr})`)
   for (const nc of nestedComps) emitNestedInit(lines, '    ', '__csrEl', nc)
   if (childConditionalEffects) {
-    emitLoopChildReactiveEffects(
-      lines, '    ', '__csrEl',
-      childConditionalEffects.attrs,
-      childConditionalEffects.texts,
-      childConditionalEffects.conditionals,
-      childConditionalEffects.loopParam,
-      childConditionalEffects.loopParamBindings,
-    )
+    stringifyReactiveEffects(lines, childConditionalEffects, { indent: '    ', elVar: '__csrEl' })
   }
   lines.push(`    return __csrEl`)
   lines.push(`  })`)

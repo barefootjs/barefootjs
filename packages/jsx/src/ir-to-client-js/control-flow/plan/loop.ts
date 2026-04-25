@@ -17,7 +17,7 @@ import type {
 } from '../../types'
 import type { IRLoopChildComponent } from '../../../types'
 import type { DepthLevel } from '../legacy-helpers'
-import type { ReactiveEffectsPassthrough } from './common'
+import type { ReactiveEffectsPlan } from './reactive-effects'
 
 /**
  * Plan for a top-level dynamic loop with a plain element body (no child
@@ -46,12 +46,12 @@ export interface PlainLoopPlan {
   /** HTML template string for one item. */
   template: string
   /**
-   * Carried IR fields for legacy `emitLoopChildReactiveEffects` passthrough.
-   * `null` means there are no reactive effects; the stringifier emits the
-   * single-line renderItem in that case. PR 5+ will replace this with
-   * structured `ReactiveEffectsPlan`.
+   * Fully-resolved reactive-effects plan (attrs / texts / conditionals). When
+   * `null`, the stringifier emits the single-line renderItem. The Plan is
+   * built by `buildReactiveEffectsPlan` — every wrap and partition decision
+   * is already made.
    */
-  reactiveEffects: ReactiveEffectsPassthrough | null
+  reactiveEffects: ReactiveEffectsPlan | null
 }
 
 /**
@@ -64,9 +64,8 @@ export interface PlainLoopPlan {
  * `nestedComps.length > 0`    → emit the SSR/CSR split that initialises both
  *                               the outer component and each nested child.
  *
- * Reactive-effects construction inside `childConditionals` is delegated to
- * the legacy `emitLoopChildReactiveEffects` via `ReactiveEffectsPassthrough`,
- * mirroring the PlainLoopPlan strategy.
+ * Reactive-effects construction inside `childConditionals` is now a fully
+ * resolved `ReactiveEffectsPlan` — same shape as `PlainLoopPlan.reactiveEffects`.
  */
 export interface ComponentLoopPlan {
   kind: 'component-loop'
@@ -84,8 +83,12 @@ export interface ComponentLoopPlan {
   keyExpr: string
   /** Nested child component initialisers; empty for the simple case. */
   nestedComps: NestedComponentInit[]
-  /** Carried IR for legacy reactive-effects passthrough; null when there's nothing to emit. */
-  childConditionalEffects: ReactiveEffectsPassthrough | null
+  /**
+   * Reactive-effects plan for `childConditionals` inside the loop body. Only
+   * populated when conditionals exist (attrs / texts in this shape go through
+   * the per-component nested-init effect, not this plan).
+   */
+  childConditionalEffects: ReactiveEffectsPlan | null
 }
 
 /**
@@ -146,7 +149,7 @@ export interface CompositeLoopPlan {
   /** Destructured-binding metadata for the loop param. */
   loopParamBindings: TopLevelLoop['paramBindings']
   /** Reactive effects rendered after the SSR/CSR split. */
-  reactiveEffects: ReactiveEffectsPassthrough | null
+  reactiveEffects: ReactiveEffectsPlan | null
   /**
    * When true, the stringifier prepends a `getLoopChildren(...).forEach(__el
    * => __el.remove())` line — branch composite loops need this so mapArray

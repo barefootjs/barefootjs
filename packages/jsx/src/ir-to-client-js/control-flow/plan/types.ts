@@ -4,7 +4,10 @@
  * The actual type definitions live in dedicated files alongside the
  * builders / stringifiers that produce / consume them:
  *
- *   common.ts            — `ScopeRef`, `ReactiveEffectsPassthrough`
+ *   common.ts            — `ScopeRef`
+ *   reactive-effects.ts  — `ReactiveEffectsPlan`, `ReactiveAttrSlot`,
+ *                          `ReactiveAttrEffect`, `ReactiveTextEffect`,
+ *                          `NestedConditionalPlan`
  *   insert.ts            — `InsertPlan` family (arms, bindings)
  *   loop.ts              — `PlainLoopPlan`, `ComponentLoopPlan`,
  *                          `CompositeLoopPlan`, `StaticLoopPlan`,
@@ -16,7 +19,14 @@
  * a particular Plan type lives in.
  */
 
-export type { ScopeRef, ReactiveEffectsPassthrough } from './common'
+export type { ScopeRef } from './common'
+export type {
+  ReactiveEffectsPlan,
+  ReactiveAttrSlot,
+  ReactiveAttrEffect,
+  ReactiveTextEffect,
+  NestedConditionalPlan,
+} from './reactive-effects'
 export type {
   InsertPlan,
   InsertArm,
