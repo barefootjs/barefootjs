@@ -22,7 +22,7 @@ JSX Source
     ↓
 [Phase 1] Single-pass AST → Pure IR (with full type info)
     ↓
-    ├── *.ir.json (intermediate output, optional)
+    ├── *.ir.json (programmatic API only, via outputIR: true)
     ↓
 [Phase 2a] IR → Marked Template (via adapter)
 [Phase 2b] IR → Client JS

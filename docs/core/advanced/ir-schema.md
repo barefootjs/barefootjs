@@ -47,7 +47,9 @@ Defined in [`packages/jsx/src/types.ts`](../../../packages/jsx/src/types.ts):
 
 ## Debugging
 
-Pass `outputIR: true` to inspect the IR:
+> For component structure testing, use `renderToTest()` (see `spec/testing.md`). The programmatic API below is for low-level tooling only.
+
+Pass `outputIR: true` in the programmatic API to access the IR object:
 
 ```typescript
 import { compileJSXSync } from '@barefootjs/jsx'
@@ -59,7 +61,4 @@ const result = compileJSXSync(source, 'Counter.tsx', {
 
 // result.ir contains the full ComponentIR
 console.log(JSON.stringify(result.ir, null, 2))
-
-// result.additionalFiles includes the *.ir.json file
-// e.g., { path: 'Counter.ir.json', content: '...' }
 ```
