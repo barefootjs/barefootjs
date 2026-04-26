@@ -16,6 +16,8 @@
  * shapes were determined by inline branching on the IR.
  */
 
+import type { PreludeStatements } from '../control-flow/plan/inner-loop'
+
 /** Pre-built `{ name: value, ... }` props object expression. */
 export type PropsExpr = string
 
@@ -42,6 +44,13 @@ export interface SingleCompInitPlan {
   param: string
   /** Index parameter identifier (e.g. `__idx` or user-supplied). */
   indexParam: string
+  /**
+   * Outer `.map()` callback preamble locals (#1064), emitted inside the
+   * `__childScopes.forEach` body after the `const <param> = ...[__idx]`
+   * lookup so the propsExpr getter can resolve them. Empty when no
+   * preamble.
+   */
+  outerPreludeStatements: PreludeStatements
   /** Pre-built props object expression for the child component. */
   propsExpr: PropsExpr
 }
@@ -59,13 +68,12 @@ export interface OuterNestedInitPlan {
   /** `indexParam` or `${indexParam} + ${siblingOffset}` — already substituted. */
   offsetExpr: string
   /**
-   * Body-entry statements emitted at the top of the outer `forEach(...)`
-   * body, before the per-component lookup. Holds the outer `.map()`
-   * callback preamble locals (#1064). Emitted unwrapped — the forEach
-   * param is the literal item, not a signal accessor. Empty when the
-   * source had no preamble.
+   * Outer `.map()` callback preamble locals (#1064), emitted inside the
+   * outer `forEach`'s `if (__iterEl)` block — i.e. only when the SSR
+   * element exists, matching `inner-loop-nested`'s post-guard placement.
+   * Empty when the source had no preamble.
    */
-  preludeStatements: readonly string[]
+  outerPreludeStatements: PreludeStatements
   propsExpr: PropsExpr
 }
 
@@ -84,11 +92,11 @@ export interface InnerLoopNestedInitPlan {
   /** Outer offset — `outerIndexParam` or `${outerIndexParam} + ${siblingOffset}`. */
   outerOffsetExpr: string
   /**
-   * Outer `.map()` callback preamble locals, emitted at the top of the
-   * outer `forEach(...)` body so the inner forEach (and its component
-   * setup) can resolve them (#1064). Empty when no preamble.
+   * Outer `.map()` callback preamble locals, emitted after the
+   * `if (!__outerEl) return` guard so the inner forEach (and its
+   * component setup) can resolve them (#1064). Empty when no preamble.
    */
-  outerPreludeStatements: readonly string[]
+  outerPreludeStatements: PreludeStatements
   /**
    * Inner loop's container slot id. When non-null, the stringifier emits
    * `__outerEl.querySelector('[bf="..."]') || __outerEl`; otherwise
@@ -100,11 +108,11 @@ export interface InnerLoopNestedInitPlan {
   /** Inner offset — `__innerIdx` or `__innerIdx + ${siblingOffset}`. */
   innerOffsetExpr: string
   /**
-   * Inner `.map()` callback preamble locals, emitted at the top of the
-   * inner `forEach(...)` body so the per-component prop getters can
-   * resolve them (#1064). Empty when no preamble.
+   * Inner `.map()` callback preamble locals, emitted after the
+   * `if (!__innerEl) return` guard so the per-component prop getters
+   * can resolve them (#1064). Empty when no preamble.
    */
-  innerPreludeStatements: readonly string[]
+  innerPreludeStatements: PreludeStatements
   /** Depth used in the leading comment line (e.g. `depth 2`). */
   depth: number
   /** Per-component initialisers emitted inside the inner forEach body. */

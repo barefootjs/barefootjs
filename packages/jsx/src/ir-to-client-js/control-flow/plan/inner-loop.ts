@@ -16,6 +16,18 @@ import type {
   LoopParamBinding,
 } from '../../../types'
 
+/**
+ * Body-entry statements emitted in order at the top of a `mapArray`
+ * renderItem or static `forEach` body. Used by every nested-loop emission
+ * point that needs to inject the inner `.map()` callback's preamble locals
+ * (and, for reactive renderItems, the destructured-param unwrap).
+ *
+ * Empty array = no statements. The list shape lets the stringifier walk
+ * deterministically instead of branching on multiple independent
+ * emptiness checks (#1063 / #1064).
+ */
+export type PreludeStatements = readonly string[]
+
 /** A reactive text effect inside a reactive inner loop's renderItem body. */
 export interface InnerLoopText {
   slotId: string
@@ -82,14 +94,12 @@ export interface InnerLoopReactiveEmit {
   /** mapArray renderItem param head — `inner.param` or `__bfItem`. */
   paramHead: string
   /**
-   * Body-entry statements emitted in order at the top of the renderItem
-   * callback, before the `let __innerEl = ...` clone. Holds the optional
-   * destructured-param unwrap and the (signal-accessor wrapped) inner
-   * `.map()` callback preamble locals (#1052). Empty when neither applies.
-   * Modeled as a list so the stringifier walks it deterministically
-   * instead of branching on multiple independent emptiness checks.
+   * Body-entry statements (see `PreludeStatements`) emitted at the top of
+   * the renderItem callback, before the `let __innerEl = ...` clone.
+   * Holds the optional destructured-param unwrap and the (signal-accessor
+   * wrapped) inner `.map()` callback preamble locals (#1052).
    */
-  preludeStatements: readonly string[]
+  preludeStatements: PreludeStatements
   /** Already-wrapped HTML template for one inner-loop item. */
   wrappedTemplate: string
   /** Pre-wrapped key expression for setAttribute, or null when no key. */
@@ -107,14 +117,13 @@ export interface InnerLoopStaticEmit {
   /** Raw key expression (used as-is in setAttribute) — null when no key. */
   rawKey: string | null
   /**
-   * Body-entry statements emitted in order at the top of the static
-   * `forEach(...)` body, after the existence guard. Holds the inner
-   * `.map()` callback preamble locals (#1064). Emitted unwrapped because
-   * the forEach param is the literal item, not a signal accessor — no
-   * accessor rewrite is needed. Empty when the source had no preamble.
-   * Mirrors the reactive emit's `preludeStatements` shape (#1052/#1063).
+   * Body-entry statements (see `PreludeStatements`) emitted at the top of
+   * the static `forEach(...)` body, after the existence guard. Holds the
+   * inner `.map()` callback preamble locals (#1064). Emitted unwrapped
+   * because the forEach param is the literal item, not a signal accessor —
+   * no accessor rewrite is needed.
    */
-  preludeStatements: readonly string[]
+  preludeStatements: PreludeStatements
   /** Raw components (no inner-wrap; the static body has no signal accessor). */
   components: readonly IRLoopChildComponent[]
   /** Raw events (no inner-wrap). */

@@ -85,6 +85,7 @@ function buildSingleCompPlan(
     arrayExpr: elem.array,
     param: elem.param,
     indexParam: elem.index || '__idx',
+    outerPreludeStatements: elem.mapPreamble ? [elem.mapPreamble] : [],
     propsExpr: buildStaticPropsExpr(props),
   }
 }
@@ -103,7 +104,7 @@ function buildOuterNestedPlan(
     param: elem.param,
     indexParam,
     offsetExpr: elem.siblingOffset ? `${indexParam} + ${elem.siblingOffset}` : indexParam,
-    preludeStatements: elem.mapPreamble ? [elem.mapPreamble] : [],
+    outerPreludeStatements: elem.mapPreamble ? [elem.mapPreamble] : [],
     propsExpr: buildStaticPropsExpr(comp.props),
   }
 }

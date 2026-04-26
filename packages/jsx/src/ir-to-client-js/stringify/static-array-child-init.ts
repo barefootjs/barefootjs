@@ -10,6 +10,7 @@
  *     <i>  const __childScopes = <container>.querySelectorAll('<selector>')
  *     <i>  __childScopes.forEach((childScope, <idx>) => {
  *     <i>    const <param> = <array>[<idx>]
+ *     <i>    <outerPreludeStatements*>   // raw outer preamble (#1064)
  *     <i>    initChild('<name>', childScope, <props>)
  *     <i>  })
  *     <i>}
@@ -18,9 +19,9 @@
  *     <i>// Initialize nested <name> in static array
  *     <i>if (<container>) {
  *     <i>  <array>.forEach((<param>, <idx>) => {
- *     <i>    <preludeStatements*>   // raw outer preamble (#1064)
  *     <i>    const __iterEl = <container>.children[<offset>]
  *     <i>    if (__iterEl) {
+ *     <i>      <outerPreludeStatements*>   // raw outer preamble (#1064)
  *     <i>      const __compEl = __iterEl.querySelector('<selector>')
  *     <i>      if (__compEl) initChild('<name>', __compEl, <props>)
  *     <i>    }
@@ -80,12 +81,18 @@ function stringifyOne(lines: string[], plan: StaticArrayChildInitPlan): void {
 }
 
 function emitSingleComp(lines: string[], plan: SingleCompInitPlan): void {
-  const { containerVar, componentName, childSelector, arrayExpr, param, indexParam, propsExpr } = plan
+  const { containerVar, componentName, childSelector, arrayExpr, param, indexParam, outerPreludeStatements, propsExpr } = plan
   lines.push(`  // Initialize static array children (hydrate skips nested instances)`)
   lines.push(`  if (${containerVar}) {`)
   lines.push(`    const __childScopes = ${containerVar}.querySelectorAll('${childSelector}')`)
   lines.push(`    __childScopes.forEach((childScope, ${indexParam}) => {`)
   lines.push(`      const ${param} = ${arrayExpr}[${indexParam}]`)
+  // Outer `.map()` callback preamble locals — emitted unwrapped after
+  // the `param` lookup so they can read it (#1064). Must precede the
+  // `initChild` call because the propsExpr getter resolves them lazily.
+  for (const stmt of outerPreludeStatements) {
+    lines.push(`      ${stmt}`)
+  }
   lines.push(`      initChild('${componentName}', childScope, ${propsExpr})`)
   lines.push(`    })`)
   lines.push(`  }`)
@@ -93,18 +100,19 @@ function emitSingleComp(lines: string[], plan: SingleCompInitPlan): void {
 }
 
 function emitOuterNested(lines: string[], plan: OuterNestedInitPlan): void {
-  const { containerVar, componentName, selector, arrayExpr, param, indexParam, offsetExpr, preludeStatements, propsExpr } = plan
+  const { containerVar, componentName, selector, arrayExpr, param, indexParam, offsetExpr, outerPreludeStatements, propsExpr } = plan
   lines.push(`  // Initialize nested ${componentName} in static array`)
   lines.push(`  if (${containerVar}) {`)
   lines.push(`    ${arrayExpr}.forEach((${param}, ${indexParam}) => {`)
-  // Outer `.map()` callback preamble locals — emitted unwrapped because
-  // the forEach param is the literal item (#1064). Must precede the prop
-  // lookup so the propsExpr getter can resolve them.
-  for (const stmt of preludeStatements) {
-    lines.push(`      ${stmt}`)
-  }
   lines.push(`      const __iterEl = ${containerVar}.children[${offsetExpr}]`)
   lines.push(`      if (__iterEl) {`)
+  // Outer `.map()` callback preamble locals — emitted unwrapped (forEach
+  // param is the literal item, #1064). Placed inside the `if (__iterEl)`
+  // block so the "no SSR element ⇒ skip work" semantics match
+  // `inner-loop-nested`'s post-guard placement.
+  for (const stmt of outerPreludeStatements) {
+    lines.push(`        ${stmt}`)
+  }
   lines.push(`        const __compEl = __iterEl.querySelector('${selector}')`)
   lines.push(`        if (__compEl) initChild('${componentName}', __compEl, ${propsExpr})`)
   lines.push(`      }`)
