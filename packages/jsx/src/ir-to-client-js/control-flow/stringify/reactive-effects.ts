@@ -14,9 +14,9 @@ import { emitAttrUpdate } from '../../emit-reactive'
 import {
   emitBranchChildComponentInits,
   emitBranchInnerLoops,
-  emitLoopCondBranchEventBindings,
   emitNestedLoopChildConditionals,
 } from '../legacy-helpers'
+import { stringifyBranchEventBindings } from './loop-child-arm'
 import type {
   NestedConditionalPlan,
   ReactiveEffectsPlan,
@@ -105,7 +105,7 @@ function emitConditional(
   lines.push(`${indent}insert(${elVar}, '${cond.slotId}', () => ${cond.wrappedCondition}, {`)
   lines.push(`${indent}  template: () => \`${cond.whenTrueTemplateHtml}\`,`)
   lines.push(`${indent}  bindEvents: (__branchScope) => {`)
-  emitLoopCondBranchEventBindings(lines, armIndent, cond.legacyWhenTrue.events, wrap)
+  stringifyBranchEventBindings(lines, cond.whenTrueEvents, armIndent)
   emitBranchChildComponentInits(lines, armIndent, cond.legacyWhenTrue.childComponents, cond.loopParam, undefined, cond.loopParamBindings)
   emitBranchInnerLoops(lines, armIndent, '__branchScope', cond.legacyWhenTrue.innerLoops, cond.loopParam, undefined, cond.loopParamBindings)
   emitNestedLoopChildConditionals(lines, armIndent, '__branchScope', cond.legacyWhenTrue.conditionals, wrap, cond.loopParam, cond.loopParamBindings)
@@ -116,7 +116,7 @@ function emitConditional(
   lines.push(`${indent}}, {`)
   lines.push(`${indent}  template: () => \`${cond.whenFalseTemplateHtml}\`,`)
   lines.push(`${indent}  bindEvents: (__branchScope) => {`)
-  emitLoopCondBranchEventBindings(lines, armIndent, cond.legacyWhenFalse.events, wrap)
+  stringifyBranchEventBindings(lines, cond.whenFalseEvents, armIndent)
   emitBranchChildComponentInits(lines, armIndent, cond.legacyWhenFalse.childComponents, cond.loopParam, undefined, cond.loopParamBindings)
   emitBranchInnerLoops(lines, armIndent, '__branchScope', cond.legacyWhenFalse.innerLoops, cond.loopParam, undefined, cond.loopParamBindings)
   emitNestedLoopChildConditionals(lines, armIndent, '__branchScope', cond.legacyWhenFalse.conditionals, wrap, cond.loopParam, cond.loopParamBindings)

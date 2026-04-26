@@ -27,11 +27,13 @@ import { buildBranchCompositePlan } from './plan/build-composite-loop'
 import { stringifyCompositeLoop } from './stringify/composite-loop'
 import { buildReactiveEffectsPlan } from './plan/build-reactive-effects'
 import { stringifyReactiveEffects } from './stringify/reactive-effects'
+import { buildBranchEventBindingsPlan } from './plan/build-loop-child-arm'
+import { stringifyBranchEventBindings } from './stringify/loop-child-arm'
 import {
   buildBranchLoopDelegationPlan,
 } from './plan/build-event-delegation'
 import { stringifyEventDelegation } from './stringify/event-delegation'
-import { emitListenerLine, emitListenerBlock } from './stringify/event-listener'
+import { emitListenerBlock } from './stringify/event-listener'
 
 /**
  * Build the `keyFn` argument for mapArray / reconcileElements. `null` when
@@ -328,39 +330,6 @@ export function emitBranchInnerLoops(
 }
 
 /**
- * Emit event bindings inside insert() bindEvents for a loop-child conditional branch.
- * Events must be bound after insert() resolves the branch, so the correct DOM element
- * is live (prevents stale-reference bug when insert() replaces SSR elements, #839).
- */
-export function emitLoopCondBranchEventBindings(
-  lines: string[],
-  indent: string,
-  events: import('../types').ConditionalBranchEvent[] | undefined,
-  wrap: (expr: string) => string,
-): void {
-  if (!events || events.length === 0) return
-  const eventsBySlot = new Map<string, import('../types').ConditionalBranchEvent[]>()
-  for (const ev of events) {
-    if (!eventsBySlot.has(ev.slotId)) eventsBySlot.set(ev.slotId, [])
-    eventsBySlot.get(ev.slotId)!.push(ev)
-  }
-  for (const [slotId, slotEvents] of eventsBySlot) {
-    const v = varSlotId(slotId)
-    // Use qsa() instead of $() because __branchScope is a loop item element
-    // (without bf-s attr), and $() uses scope-aware search that would fail
-    // to find descendants when the nearest bf-s is the component root.
-    lines.push(`${indent}{ const _${v} = qsa(__branchScope, '[bf="${slotId}"]')`)
-    for (const ev of slotEvents) {
-      emitListenerLine(lines, `${indent}  `, `_${v}`, ev.eventName, wrap(ev.handler))
-    }
-    // Close the block opened above. (Multi-listener-per-slot share one query;
-    // legacy emitter put the close brace inline with the LAST listener line —
-    // moving it to its own line keeps each emitListenerLine call uniform.)
-    lines.push(`${indent}}`)
-  }
-}
-
-/**
  * Recursively emit insert() calls for nested conditionals inside loop items.
  * Handles Path A (conditional→conditional) and Path B (loop→conditional) by
  * mutual recursion with emitBranchInnerLoops (#830).
@@ -381,7 +350,7 @@ export function emitNestedLoopChildConditionals(
     lines.push(`${indent}insert(${scopeVar}, '${cond.slotId}', () => ${wrap(cond.condition)}, {`)
     lines.push(`${indent}  template: () => \`${whenTrueWithCond}\`,`)
     lines.push(`${indent}  bindEvents: (__branchScope) => {`)
-    emitLoopCondBranchEventBindings(lines, `${indent}    `, cond.whenTrue.events, wrap)
+    stringifyBranchEventBindings(lines, buildBranchEventBindingsPlan({ events: cond.whenTrue.events, wrap }), `${indent}    `)
     emitBranchChildComponentInits(lines, `${indent}    `, cond.whenTrue.childComponents, loopParam, wrap, loopParamBindings)
     emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenTrue.innerLoops, loopParam, wrap, loopParamBindings)
     emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenTrue.conditionals, wrap, loopParam, loopParamBindings)
@@ -389,7 +358,7 @@ export function emitNestedLoopChildConditionals(
     lines.push(`${indent}}, {`)
     lines.push(`${indent}  template: () => \`${whenFalseWithCond}\`,`)
     lines.push(`${indent}  bindEvents: (__branchScope) => {`)
-    emitLoopCondBranchEventBindings(lines, `${indent}    `, cond.whenFalse.events, wrap)
+    stringifyBranchEventBindings(lines, buildBranchEventBindingsPlan({ events: cond.whenFalse.events, wrap }), `${indent}    `)
     emitBranchChildComponentInits(lines, `${indent}    `, cond.whenFalse.childComponents, loopParam, wrap, loopParamBindings)
     emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenFalse.innerLoops, loopParam, wrap, loopParamBindings)
     emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenFalse.conditionals, wrap, loopParam, loopParamBindings)

@@ -28,6 +28,7 @@ import type { LoopParamBinding } from '../../../types'
 import { pickAttrMeta } from '../../../types'
 import { wrapLoopParamAsAccessor } from '../../utils'
 import { addCondAttrToTemplate } from '../../html-template'
+import { buildBranchEventBindingsPlan } from './build-loop-child-arm'
 import type {
   NestedConditionalPlan,
   ReactiveAttrSlot,
@@ -124,6 +125,14 @@ export function buildReactiveEffectsPlan(
         whenFalseTemplateHtml: addCondAttrToTemplate(wrap(cond.whenFalseHtml), cond.slotId),
         whenTrueTexts: trueTexts,
         whenFalseTexts: falseTexts,
+        whenTrueEvents: buildBranchEventBindingsPlan({
+          events: cond.whenTrue.events,
+          wrap,
+        }),
+        whenFalseEvents: buildBranchEventBindingsPlan({
+          events: cond.whenFalse.events,
+          wrap,
+        }),
         legacyWhenTrue: cond.whenTrue,
         legacyWhenFalse: cond.whenFalse,
         loopParam,

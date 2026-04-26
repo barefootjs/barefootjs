@@ -14,6 +14,7 @@
 
 import type { AttrMeta, LoopParamBinding } from '../../../types'
 import type { LoopChildBranchSummary } from '../../types'
+import type { BranchEventBindingsPlan } from './loop-child-arm'
 
 /** A single reactive attribute effect (one createEffect block). */
 export interface ReactiveAttrEffect {
@@ -56,10 +57,13 @@ export interface NestedConditionalPlan {
   whenTrueTexts: readonly ReactiveTextEffect[]
   /** Texts whose slot lives in whenFalse's HTML. */
   whenFalseTexts: readonly ReactiveTextEffect[]
+  /** Pre-built event bindings for each arm (Item 2a). */
+  whenTrueEvents: BranchEventBindingsPlan
+  whenFalseEvents: BranchEventBindingsPlan
   /**
-   * Branch summaries kept verbatim for the legacy bindEvents emitters
-   * (events / child components / inner loops / nested conditionals). Item 2
-   * Plan-ifies these and removes the field.
+   * Branch summaries kept verbatim for the still-legacy bindEvents emitters
+   * (child components / inner loops / nested conditionals). Items 2b–2d
+   * Plan-ify each remaining concern and shrink this field.
    */
   legacyWhenTrue: LoopChildBranchSummary
   legacyWhenFalse: LoopChildBranchSummary
