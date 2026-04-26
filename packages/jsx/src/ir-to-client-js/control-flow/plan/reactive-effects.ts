@@ -14,7 +14,10 @@
 
 import type { AttrMeta, LoopParamBinding } from '../../../types'
 import type { LoopChildBranchSummary } from '../../types'
-import type { BranchEventBindingsPlan } from './loop-child-arm'
+import type {
+  BranchChildComponentInitsPlan,
+  BranchEventBindingsPlan,
+} from './loop-child-arm'
 
 /** A single reactive attribute effect (one createEffect block). */
 export interface ReactiveAttrEffect {
@@ -60,10 +63,13 @@ export interface NestedConditionalPlan {
   /** Pre-built event bindings for each arm (Item 2a). */
   whenTrueEvents: BranchEventBindingsPlan
   whenFalseEvents: BranchEventBindingsPlan
+  /** Pre-built child component initialisers for each arm (Item 2b). */
+  whenTrueChildComponents: BranchChildComponentInitsPlan
+  whenFalseChildComponents: BranchChildComponentInitsPlan
   /**
    * Branch summaries kept verbatim for the still-legacy bindEvents emitters
-   * (child components / inner loops / nested conditionals). Items 2b–2d
-   * Plan-ify each remaining concern and shrink this field.
+   * (inner loops / nested conditionals). Items 2c–2d Plan-ify each
+   * remaining concern and shrink this field.
    */
   legacyWhenTrue: LoopChildBranchSummary
   legacyWhenFalse: LoopChildBranchSummary

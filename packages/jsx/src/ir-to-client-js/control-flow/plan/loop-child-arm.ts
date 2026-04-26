@@ -33,3 +33,26 @@ export interface BranchEventSlot {
  * empty list means the stringifier emits nothing.
  */
 export type BranchEventBindingsPlan = readonly BranchEventSlot[]
+
+/**
+ * One child component initialiser inside an arm body (qsa() + initChild for
+ * SSR, or placeholder replacement + createComponent for CSR). The selector,
+ * placeholder id, and props object expression are all resolved at build time
+ * — the stringifier just emits a single line per entry.
+ */
+export interface BranchChildComponentInit {
+  /** Component tag name, e.g. `"Card"`. */
+  name: string
+  /** CSS selector passed to qsa(): `[bf-s$="_<slotId>"]` or `[bf-s^="~<name>_"]`. */
+  selector: string
+  /** Identifier used by the data-bf-ph attribute on the CSR placeholder. */
+  placeholderId: string
+  /** Pre-built props object expression (e.g. `{ get foo() { return ... } }`). */
+  propsExpr: string
+}
+
+/**
+ * Pre-built child component initialisers for one arm of a loop-scoped
+ * conditional. Empty list ⇒ stringifier emits nothing.
+ */
+export type BranchChildComponentInitsPlan = readonly BranchChildComponentInit[]

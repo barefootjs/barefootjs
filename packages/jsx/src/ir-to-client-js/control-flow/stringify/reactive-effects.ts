@@ -12,11 +12,13 @@
 import { varSlotId, wrapLoopParamAsAccessor } from '../../utils'
 import { emitAttrUpdate } from '../../emit-reactive'
 import {
-  emitBranchChildComponentInits,
   emitBranchInnerLoops,
   emitNestedLoopChildConditionals,
 } from '../legacy-helpers'
-import { stringifyBranchEventBindings } from './loop-child-arm'
+import {
+  stringifyBranchChildComponentInits,
+  stringifyBranchEventBindings,
+} from './loop-child-arm'
 import type {
   NestedConditionalPlan,
   ReactiveEffectsPlan,
@@ -106,7 +108,7 @@ function emitConditional(
   lines.push(`${indent}  template: () => \`${cond.whenTrueTemplateHtml}\`,`)
   lines.push(`${indent}  bindEvents: (__branchScope) => {`)
   stringifyBranchEventBindings(lines, cond.whenTrueEvents, armIndent)
-  emitBranchChildComponentInits(lines, armIndent, cond.legacyWhenTrue.childComponents, cond.loopParam, undefined, cond.loopParamBindings)
+  stringifyBranchChildComponentInits(lines, cond.whenTrueChildComponents, armIndent)
   emitBranchInnerLoops(lines, armIndent, '__branchScope', cond.legacyWhenTrue.innerLoops, cond.loopParam, undefined, cond.loopParamBindings)
   emitNestedLoopChildConditionals(lines, armIndent, '__branchScope', cond.legacyWhenTrue.conditionals, wrap, cond.loopParam, cond.loopParamBindings)
   for (const text of cond.whenTrueTexts) {
@@ -117,7 +119,7 @@ function emitConditional(
   lines.push(`${indent}  template: () => \`${cond.whenFalseTemplateHtml}\`,`)
   lines.push(`${indent}  bindEvents: (__branchScope) => {`)
   stringifyBranchEventBindings(lines, cond.whenFalseEvents, armIndent)
-  emitBranchChildComponentInits(lines, armIndent, cond.legacyWhenFalse.childComponents, cond.loopParam, undefined, cond.loopParamBindings)
+  stringifyBranchChildComponentInits(lines, cond.whenFalseChildComponents, armIndent)
   emitBranchInnerLoops(lines, armIndent, '__branchScope', cond.legacyWhenFalse.innerLoops, cond.loopParam, undefined, cond.loopParamBindings)
   emitNestedLoopChildConditionals(lines, armIndent, '__branchScope', cond.legacyWhenFalse.conditionals, wrap, cond.loopParam, cond.loopParamBindings)
   for (const text of cond.whenFalseTexts) {

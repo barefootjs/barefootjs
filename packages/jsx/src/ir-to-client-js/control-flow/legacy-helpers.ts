@@ -21,14 +21,20 @@
 
 import type { BranchLoop, LoopChildEvent, LoopChildConditional, TopLevelLoop, NestedLoop, CollectedLoop } from '../types'
 import type { IRLoopChildComponent, LoopParamBinding } from '../../types'
-import { varSlotId, quotePropName, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent } from '../utils'
+import { varSlotId, quotePropName, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent } from '../utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from '../html-template'
 import { buildBranchCompositePlan } from './plan/build-composite-loop'
 import { stringifyCompositeLoop } from './stringify/composite-loop'
 import { buildReactiveEffectsPlan } from './plan/build-reactive-effects'
 import { stringifyReactiveEffects } from './stringify/reactive-effects'
-import { buildBranchEventBindingsPlan } from './plan/build-loop-child-arm'
-import { stringifyBranchEventBindings } from './stringify/loop-child-arm'
+import {
+  buildBranchChildComponentInitsPlan,
+  buildBranchEventBindingsPlan,
+} from './plan/build-loop-child-arm'
+import {
+  stringifyBranchChildComponentInits,
+  stringifyBranchEventBindings,
+} from './stringify/loop-child-arm'
 import {
   buildBranchLoopDelegationPlan,
 } from './plan/build-event-delegation'
@@ -186,48 +192,6 @@ export function emitBranchLoopBody(lines: string[], branchLoops: readonly Branch
 
 
 /**
- * Emit fine-grained createEffect calls for reactive attributes inside a loop
- * item's renderItem body. Each reactive attr gets its own effect so it updates
- * independently when the signal it reads changes.
- * Used by both plain element and composite element dynamic loops.
- */
-/** Emit initChild calls for components inside a conditional branch. */
-export function emitBranchChildComponentInits(
-  lines: string[],
-  indent: string,
-  components: Array<{ name: string; slotId: string | null; props: import('../../types').IRProp[]; children?: import('../../types').IRNode[] }>,
-  loopParam?: string,
-  wrapFn?: (expr: string) => string,
-  loopParamBindings?: readonly LoopParamBinding[],
-): void {
-  const wrap = wrapFn ?? (loopParam ? (expr: string) => wrapLoopParamAsAccessor(expr, loopParam, loopParamBindings) : (expr: string) => expr)
-  for (const comp of components) {
-    // Use slotId suffix match only when available to avoid matching
-    // siblings of the same component type (e.g. two Buttons with different slotIds).
-    const selector = comp.slotId
-      ? `[bf-s$="_${comp.slotId}"]`
-      : `[bf-s^="~${comp.name}_"]`
-    const propsEntries = comp.props
-      .filter(p => p.name !== 'key')
-      .map(p => {
-        if (p.name.startsWith('on') && p.name.length > 2) return `${quotePropName(p.name)}: ${wrap(p.value)}`
-        if (p.isLiteral) return `get ${quotePropName(p.name)}() { return ${JSON.stringify(p.value)} }`
-        return `get ${quotePropName(p.name)}() { return ${wrap(p.value)} }`
-      })
-    // Include children for CSR createComponent (SSR initChild doesn't need it — text is in HTML)
-    const childrenExpr = comp.children?.length ? irChildrenToJsExpr(comp.children) : null
-    if (childrenExpr) {
-      propsEntries.push(`get children() { return ${wrap(childrenExpr)} }`)
-    }
-    const propsExpr = propsEntries.length > 0 ? `{ ${propsEntries.join(', ')} }` : '{}'
-    // SSR: element has bf-s attribute → initChild.
-    // CSR: element is a placeholder (data-bf-ph) → createComponent to replace it.
-    const phId = comp.slotId || comp.name
-    lines.push(`${indent}{ let __c = qsa(__branchScope, '${selector}'); if (!__c) { const __ph = __branchScope.querySelector('[${DATA_BF_PH}="${phId}"]'); if (__ph) { __c = createComponent('${comp.name}', ${propsExpr}); __ph.replaceWith(__c) } } if (__c) initChild('${comp.name}', __c, ${propsExpr}) }`)
-  }
-}
-
-/**
  * Emit mapArray calls for inner loops inside a conditional branch's bindEvents.
  * When a loop item has a conditional (e.g., showReplies ? replies : null),
  * the inner loop container only exists when the branch is active.
@@ -351,7 +315,7 @@ export function emitNestedLoopChildConditionals(
     lines.push(`${indent}  template: () => \`${whenTrueWithCond}\`,`)
     lines.push(`${indent}  bindEvents: (__branchScope) => {`)
     stringifyBranchEventBindings(lines, buildBranchEventBindingsPlan({ events: cond.whenTrue.events, wrap }), `${indent}    `)
-    emitBranchChildComponentInits(lines, `${indent}    `, cond.whenTrue.childComponents, loopParam, wrap, loopParamBindings)
+    stringifyBranchChildComponentInits(lines, buildBranchChildComponentInitsPlan({ components: cond.whenTrue.childComponents, wrap }), `${indent}    `)
     emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenTrue.innerLoops, loopParam, wrap, loopParamBindings)
     emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenTrue.conditionals, wrap, loopParam, loopParamBindings)
     lines.push(`${indent}  }`)
@@ -359,7 +323,7 @@ export function emitNestedLoopChildConditionals(
     lines.push(`${indent}  template: () => \`${whenFalseWithCond}\`,`)
     lines.push(`${indent}  bindEvents: (__branchScope) => {`)
     stringifyBranchEventBindings(lines, buildBranchEventBindingsPlan({ events: cond.whenFalse.events, wrap }), `${indent}    `)
-    emitBranchChildComponentInits(lines, `${indent}    `, cond.whenFalse.childComponents, loopParam, wrap, loopParamBindings)
+    stringifyBranchChildComponentInits(lines, buildBranchChildComponentInitsPlan({ components: cond.whenFalse.childComponents, wrap }), `${indent}    `)
     emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenFalse.innerLoops, loopParam, wrap, loopParamBindings)
     emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenFalse.conditionals, wrap, loopParam, loopParamBindings)
     lines.push(`${indent}  }`)
