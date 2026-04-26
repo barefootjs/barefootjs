@@ -31,6 +31,7 @@ import { addCondAttrToTemplate } from '../../html-template'
 import {
   buildBranchChildComponentInitsPlan,
   buildBranchEventBindingsPlan,
+  buildBranchInnerLoopsPlan,
 } from './build-loop-child-arm'
 import type {
   NestedConditionalPlan,
@@ -143,6 +144,20 @@ export function buildReactiveEffectsPlan(
         whenFalseChildComponents: buildBranchChildComponentInitsPlan({
           components: cond.whenFalse.childComponents,
           wrap,
+        }),
+        whenTrueInnerLoops: buildBranchInnerLoopsPlan({
+          innerLoops: cond.whenTrue.innerLoops,
+          scopeVar: '__branchScope',
+          outerLoopParam: loopParam,
+          outerLoopParamBindings: loopParamBindings,
+          wrapOuter: wrap,
+        }),
+        whenFalseInnerLoops: buildBranchInnerLoopsPlan({
+          innerLoops: cond.whenFalse.innerLoops,
+          scopeVar: '__branchScope',
+          outerLoopParam: loopParam,
+          outerLoopParamBindings: loopParamBindings,
+          wrapOuter: wrap,
         }),
         legacyWhenTrue: cond.whenTrue,
         legacyWhenFalse: cond.whenFalse,

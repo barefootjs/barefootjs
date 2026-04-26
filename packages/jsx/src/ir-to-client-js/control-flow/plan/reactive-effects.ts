@@ -17,6 +17,7 @@ import type { LoopChildBranchSummary } from '../../types'
 import type {
   BranchChildComponentInitsPlan,
   BranchEventBindingsPlan,
+  BranchInnerLoopsPlan,
 } from './loop-child-arm'
 
 /** A single reactive attribute effect (one createEffect block). */
@@ -66,10 +67,12 @@ export interface NestedConditionalPlan {
   /** Pre-built child component initialisers for each arm (Item 2b). */
   whenTrueChildComponents: BranchChildComponentInitsPlan
   whenFalseChildComponents: BranchChildComponentInitsPlan
+  /** Pre-built inner-loop mapArrays for each arm (Item 2c). */
+  whenTrueInnerLoops: BranchInnerLoopsPlan
+  whenFalseInnerLoops: BranchInnerLoopsPlan
   /**
    * Branch summaries kept verbatim for the still-legacy bindEvents emitters
-   * (inner loops / nested conditionals). Items 2c–2d Plan-ify each
-   * remaining concern and shrink this field.
+   * (nested conditionals). Item 2d Plan-ifies it and shrinks this field.
    */
   legacyWhenTrue: LoopChildBranchSummary
   legacyWhenFalse: LoopChildBranchSummary

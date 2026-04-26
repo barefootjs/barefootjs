@@ -11,11 +11,16 @@
  * every nesting depth.
  */
 
-import { varSlotId, DATA_BF_PH } from '../../utils'
+import { varSlotId, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor } from '../../utils'
+import {
+  emitComponentAndEventSetup,
+  emitNestedLoopChildConditionals,
+} from '../legacy-helpers'
 import { emitListenerLine } from './event-listener'
 import type {
   BranchChildComponentInitsPlan,
   BranchEventBindingsPlan,
+  BranchInnerLoopsPlan,
 } from '../plan/loop-child-arm'
 
 /**
@@ -60,5 +65,69 @@ export function stringifyBranchChildComponentInits(
 ): void {
   for (const init of plan) {
     lines.push(`${indent}{ let __c = qsa(__branchScope, '${init.selector}'); if (!__c) { const __ph = __branchScope.querySelector('[${DATA_BF_PH}="${init.placeholderId}"]'); if (__ph) { __c = createComponent('${init.name}', ${init.propsExpr}); __ph.replaceWith(__c) } } if (__c) initChild('${init.name}', __c, ${init.propsExpr}) }`)
+  }
+}
+
+/**
+ * Emit `mapArray(...)` for each inner loop inside a conditional branch's
+ * `bindEvents`. The renderItem body components / events / nested
+ * conditionals are still routed through the legacy helpers
+ * (`emitComponentAndEventSetup` / `emitNestedLoopChildConditionals`) until
+ * Items 2d / 2e migrate them.
+ */
+export function stringifyBranchInnerLoops(
+  lines: string[],
+  plan: BranchInnerLoopsPlan,
+  indent: string,
+): void {
+  for (const inner of plan) {
+    const uid = inner.uidSuffix
+    lines.push(`${indent}{ const __bic${uid} = ${inner.containerExpr}`)
+    lines.push(`${indent}if (__bic${uid}) mapArray(() => ${inner.arrayExpr} || [], __bic${uid}, ${inner.keyFn}, (${inner.paramHead}, __bidx${uid}, __existing) => {`)
+    if (inner.paramUnwrap) {
+      lines.push(`${indent}  ${inner.paramUnwrap}`)
+    }
+    lines.push(`${indent}  let __bel${uid} = __existing ?? (() => { const __t = document.createElement('template'); __t.innerHTML = \`${inner.wrappedTemplate}\`; return __t.content.firstElementChild.cloneNode(true) })()`)
+    if (inner.wrappedKey) {
+      lines.push(`${indent}  __bel${uid}.setAttribute('${keyAttrName(inner.keyDepth)}', String(${inner.wrappedKey}))`)
+    }
+    if (inner.legacyComponents.length > 0 || inner.legacyEvents.length > 0) {
+      // upsertChild resolves SSR vs CSR at runtime — no `if (!__existing)` split needed.
+      emitComponentAndEventSetup(
+        lines,
+        `${indent}  `,
+        `__bel${uid}`,
+        [...inner.legacyComponents],
+        [...inner.legacyEvents],
+        inner.outerLoopParam,
+        inner.outerLoopParamBindings,
+      )
+    }
+    for (const text of inner.reactiveTexts) {
+      if (text.insideConditional) {
+        // Re-query $t inside the effect: insert() may swap the text node so a
+        // captured reference would silently stop updating.
+        lines.push(`${indent}  createEffect(() => { const [__rt] = $t(__bel${uid}, '${text.slotId}'); if (__rt) __rt.textContent = String(${text.wrappedExpression}) })`)
+      } else {
+        lines.push(`${indent}  { const [__rt] = $t(__bel${uid}, '${text.slotId}')`)
+        lines.push(`${indent}  if (__rt) createEffect(() => { __rt.textContent = String(${text.wrappedExpression}) }) }`)
+      }
+    }
+    if (inner.legacyNestedConditionals && inner.legacyNestedConditionals.length > 0) {
+      // wrapBoth is rebuilt here (Plans store data, not closures).
+      const wrapOuter = (expr: string) => wrapLoopParamAsAccessor(expr, inner.outerLoopParam, inner.outerLoopParamBindings)
+      const wrapBoth = (expr: string) => wrapLoopParamAsAccessor(wrapOuter(expr), inner.innerLoopParam, inner.innerLoopParamBindings)
+      emitNestedLoopChildConditionals(
+        lines,
+        `${indent}  `,
+        `__bel${uid}`,
+        [...inner.legacyNestedConditionals],
+        wrapBoth,
+        inner.innerLoopParam,
+        inner.innerLoopParamBindings,
+      )
+    }
+    lines.push(`${indent}  return __bel${uid}`)
+    lines.push(`${indent}}) }`)
   }
 }

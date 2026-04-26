@@ -6,16 +6,29 @@
  * stringifier never touches `wrapLoopParamAsAccessor`.
  */
 
-import type { ConditionalBranchEvent } from '../../types'
-import type { IRNode, IRProp } from '../../../types'
-import { quotePropName } from '../../utils'
+import type {
+  ConditionalBranchEvent,
+  LoopChildEvent,
+  NestedLoop,
+} from '../../types'
+import type {
+  IRLoopChildComponent,
+  IRNode,
+  IRProp,
+  LoopParamBinding,
+} from '../../../types'
+import { quotePropName, wrapLoopParamAsAccessor } from '../../utils'
 import { irChildrenToJsExpr } from '../../html-template'
+import { destructureLoopParam, loopKeyFn } from '../legacy-helpers'
 import type {
   BranchChildComponentInit,
   BranchChildComponentInitsPlan,
   BranchEventBindingsPlan,
   BranchEventListener,
   BranchEventSlot,
+  BranchInnerLoop,
+  BranchInnerLoopText,
+  BranchInnerLoopsPlan,
 } from './loop-child-arm'
 
 export interface BuildBranchEventBindingsArgs {
@@ -116,4 +129,117 @@ export function buildBranchChildComponentInitsPlan(
     })
   }
   return inits
+}
+
+export interface BuildBranchInnerLoopsArgs {
+  innerLoops: readonly NestedLoop[] | undefined
+  /** The variable expression naming the parent scope element (e.g. `__branchScope`). */
+  scopeVar: string
+  /** Outer loop param identifier (the conditional's enclosing loop). */
+  outerLoopParam: string
+  /** Outer loop param destructuring metadata. */
+  outerLoopParamBindings?: readonly LoopParamBinding[]
+  /**
+   * Outer-wrap closure — defaults to wrapping with `outerLoopParam`. Overridden
+   * by `emitNestedLoopChildConditionals` recursion (which threads its own wrap).
+   */
+  wrapOuter: (expr: string) => string
+}
+
+/**
+ * Resolve the per-inner-loop data needed to emit a `mapArray` inside a
+ * conditional branch. Inner-wraps every reactive expression at build time;
+ * the renderItem body components / events / nested conditionals are kept as
+ * inner-wrapped IR for the legacy `emitComponentAndEventSetup` /
+ * `emitNestedLoopChildConditionals` until Items 2d / 2e replace them.
+ */
+export function buildBranchInnerLoopsPlan(
+  args: BuildBranchInnerLoopsArgs,
+): BranchInnerLoopsPlan {
+  const {
+    innerLoops,
+    scopeVar,
+    outerLoopParam,
+    outerLoopParamBindings,
+    wrapOuter,
+  } = args
+  if (!innerLoops || innerLoops.length === 0) return []
+
+  const plan: BranchInnerLoop[] = []
+  for (let i = 0; i < innerLoops.length; i++) {
+    const inner = innerLoops[i]
+    if (!inner.refsOuterParam || !inner.template) continue
+
+    const wrapInner = (expr: string) => wrapLoopParamAsAccessor(expr, inner.param, inner.paramBindings)
+    const wrapBoth = (expr: string) => wrapLoopParamAsAccessor(wrapOuter(expr), inner.param, inner.paramBindings)
+
+    const csl = inner.containerSlotId
+    const containerExpr = csl
+      ? `(${scopeVar}.querySelector('[bf="${csl}"]') ?? ${scopeVar}.querySelector('[bf-s$="_${csl}"]') ?? ${scopeVar})`
+      : scopeVar
+
+    const { head: paramHead, unwrap: paramUnwrap } = destructureLoopParam(inner.param, inner.paramBindings)
+    const wrappedKey = inner.key
+      ? wrapLoopParamAsAccessor(inner.key, inner.param, inner.paramBindings)
+      : null
+
+    // Inner-wrap children IR recursively so nested component props (e.g.
+    // `<Select><SelectContent>{items.map(item => ...)}` deep) all see the
+    // inner accessor form.
+    const wrapIRNode = (node: IRNode): IRNode => {
+      if (node.type === 'component') {
+        return {
+          ...node,
+          props: node.props.map(p => p.isLiteral ? p : ({ ...p, value: wrapInner(p.value) })),
+          children: node.children?.map(wrapIRNode),
+        }
+      }
+      if (node.type === 'expression' && node.expr) {
+        return { ...node, expr: wrapInner(node.expr) }
+      }
+      if ('children' in node && Array.isArray((node as { children?: IRNode[] }).children)) {
+        return {
+          ...node,
+          children: (node as { children: IRNode[] }).children.map(wrapIRNode),
+        } as IRNode
+      }
+      return node
+    }
+    const legacyComponents: IRLoopChildComponent[] = (inner.childComponents ?? []).map(comp => ({
+      ...comp,
+      props: comp.props.map(p => p.isLiteral ? p : ({ ...p, value: wrapInner(p.value) })),
+      children: comp.children?.map(wrapIRNode),
+    }))
+    const legacyEvents: LoopChildEvent[] = (inner.childEvents ?? []).map(ev => ({
+      ...ev,
+      handler: wrapInner(ev.handler),
+    }))
+
+    const reactiveTexts: BranchInnerLoopText[] = (inner.childReactiveTexts ?? []).map(text => ({
+      slotId: text.slotId,
+      wrappedExpression: wrapBoth(text.expression),
+      insideConditional: !!text.insideConditional,
+    }))
+
+    plan.push({
+      uidSuffix: `br_${i}`,
+      containerExpr,
+      arrayExpr: wrapOuter(inner.array),
+      keyFn: loopKeyFn(inner),
+      paramHead,
+      paramUnwrap,
+      wrappedTemplate: inner.template!,
+      wrappedKey,
+      keyDepth: 1,
+      legacyComponents,
+      legacyEvents,
+      reactiveTexts,
+      legacyNestedConditionals: inner.childConditionals,
+      innerLoopParam: inner.param,
+      innerLoopParamBindings: inner.paramBindings,
+      outerLoopParam,
+      outerLoopParamBindings,
+    })
+  }
+  return plan
 }

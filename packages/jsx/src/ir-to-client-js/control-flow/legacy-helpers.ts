@@ -30,10 +30,12 @@ import { stringifyReactiveEffects } from './stringify/reactive-effects'
 import {
   buildBranchChildComponentInitsPlan,
   buildBranchEventBindingsPlan,
+  buildBranchInnerLoopsPlan,
 } from './plan/build-loop-child-arm'
 import {
   stringifyBranchChildComponentInits,
   stringifyBranchEventBindings,
+  stringifyBranchInnerLoops,
 } from './stringify/loop-child-arm'
 import {
   buildBranchLoopDelegationPlan,
@@ -192,111 +194,9 @@ export function emitBranchLoopBody(lines: string[], branchLoops: readonly Branch
 
 
 /**
- * Emit mapArray calls for inner loops inside a conditional branch's bindEvents.
- * When a loop item has a conditional (e.g., showReplies ? replies : null),
- * the inner loop container only exists when the branch is active.
- * This sets up mapArray each time the branch activates.
- */
-export function emitBranchInnerLoops(
-  lines: string[],
-  indent: string,
-  scopeVar: string,
-  innerLoops: import('../types').NestedLoop[] | undefined,
-  outerLoopParam?: string,
-  outerWrapFn?: (expr: string) => string,
-  outerLoopParamBindings?: readonly LoopParamBinding[],
-): void {
-  if (!innerLoops || !outerLoopParam) return
-  const wrapOuter = outerWrapFn ?? ((expr: string) => wrapLoopParamAsAccessor(expr, outerLoopParam, outerLoopParamBindings))
-
-  for (let i = 0; i < innerLoops.length; i++) {
-    const inner = innerLoops[i]
-    if (!inner.refsOuterParam || !inner.template) continue
-
-    const uid = `br_${i}`
-    const arrayExpr = wrapOuter(inner.array)
-    const keyFn = loopKeyFn(inner)
-    const wrapBoth = (expr: string) => wrapLoopParamAsAccessor(wrapOuter(expr), inner.param, inner.paramBindings)
-    // Template is already wrapped at generation time (irToPlaceholderTemplate with loopParams)
-    const wrappedTemplate = inner.template
-    // Find the container for the inner loop. Try bf= attribute (plain elements) first,
-    // then bf-s$ suffix match (component scope elements like SelectContent).
-    const csl = inner.containerSlotId
-    const containerExpr = csl
-      ? `(${scopeVar}.querySelector('[bf="${csl}"]') ?? ${scopeVar}.querySelector('[bf-s$="_${csl}"]') ?? ${scopeVar})`
-      : scopeVar
-
-    const { head: innerHead, unwrap: innerUnwrap } = destructureLoopParam(inner.param, inner.paramBindings)
-
-    lines.push(`${indent}{ const __bic${uid} = ${containerExpr}`)
-    lines.push(`${indent}if (__bic${uid}) mapArray(() => ${arrayExpr} || [], __bic${uid}, ${keyFn}, (${innerHead}, __bidx${uid}, __existing) => {`)
-    if (innerUnwrap) {
-      lines.push(`${indent}  ${innerUnwrap}`)
-    }
-    lines.push(`${indent}  let __bel${uid} = __existing ?? (() => { const __t = document.createElement('template'); __t.innerHTML = \`${wrappedTemplate}\`; return __t.content.firstElementChild.cloneNode(true) })()`)
-    if (inner.key) {
-      const wrappedKey = wrapLoopParamAsAccessor(inner.key, inner.param, inner.paramBindings)
-      lines.push(`${indent}  __bel${uid}.setAttribute('${keyAttrName(1)}', String(${wrappedKey}))`)
-    }
-    // Components and events inside inner loop items
-    const wrapInner = (expr: string) => wrapLoopParamAsAccessor(expr, inner.param, inner.paramBindings)
-    // Recursively wrap IR nodes for inner loop param accessor conversion
-    const wrapIRNodeBranch = (node: any): any => {
-      if (node.type === 'component') {
-        return { ...node, props: node.props.map((p: any) => p.isLiteral ? p : ({ ...p, value: wrapInner(p.value) })), children: node.children?.map(wrapIRNodeBranch) }
-      }
-      if (node.type === 'expression' && node.expr) return { ...node, expr: wrapInner(node.expr) }
-      if (node.children) return { ...node, children: node.children.map(wrapIRNodeBranch) }
-      return node
-    }
-    const comps = (inner.childComponents ?? []).map(comp => ({
-      ...comp,
-      props: comp.props.map(p => p.isLiteral ? p : ({ ...p, value: wrapInner(p.value) })),
-      children: comp.children?.map(wrapIRNodeBranch),
-    }))
-    const events = (inner.childEvents ?? []).map(ev => ({
-      ...ev,
-      handler: wrapInner(ev.handler),
-    }))
-    if (comps.length > 0 || events.length > 0) {
-      // upsertChild resolves SSR vs CSR at runtime, so a single call site
-      // works regardless of whether `__bel${uid}` was hydrated or freshly
-      // created — no `if (!__existing)` split needed.
-      emitComponentAndEventSetup(lines, `${indent}  `, `__bel${uid}`, comps, events, outerLoopParam, outerLoopParamBindings)
-    }
-    // Reactive text effects for inner loop items
-    if (inner.childReactiveTexts && inner.childReactiveTexts.length > 0) {
-      for (const text of inner.childReactiveTexts) {
-        const wrappedExpr = wrapBoth(text.expression)
-        if (text.insideConditional) {
-          // Text is inside a conditional branch: insert() may replace the DOM element,
-          // making a captured text node stale. Re-query $t inside the effect so each
-          // update always finds the current live text node.
-          lines.push(`${indent}  createEffect(() => { const [__rt] = $t(__bel${uid}, '${text.slotId}'); if (__rt) __rt.textContent = String(${wrappedExpr}) })`)
-        } else {
-          lines.push(`${indent}  { const [__rt] = $t(__bel${uid}, '${text.slotId}')`)
-          lines.push(`${indent}  if (__rt) createEffect(() => { __rt.textContent = String(${wrappedExpr}) }) }`)
-        }
-      }
-    }
-    // Nested conditionals inside inner loop items (#830 Path B)
-    if (inner.childConditionals && inner.childConditionals.length > 0) {
-      emitNestedLoopChildConditionals(
-        lines, `${indent}  `, `__bel${uid}`,
-        inner.childConditionals,
-        wrapBoth,
-        inner.param,
-      )
-    }
-    lines.push(`${indent}  return __bel${uid}`)
-    lines.push(`${indent}}) }`)
-  }
-}
-
-/**
  * Recursively emit insert() calls for nested conditionals inside loop items.
  * Handles Path A (conditional→conditional) and Path B (loop→conditional) by
- * mutual recursion with emitBranchInnerLoops (#830).
+ * mutual recursion with stringifyBranchInnerLoops (#830).
  */
 export function emitNestedLoopChildConditionals(
   lines: string[],
@@ -316,7 +216,7 @@ export function emitNestedLoopChildConditionals(
     lines.push(`${indent}  bindEvents: (__branchScope) => {`)
     stringifyBranchEventBindings(lines, buildBranchEventBindingsPlan({ events: cond.whenTrue.events, wrap }), `${indent}    `)
     stringifyBranchChildComponentInits(lines, buildBranchChildComponentInitsPlan({ components: cond.whenTrue.childComponents, wrap }), `${indent}    `)
-    emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenTrue.innerLoops, loopParam, wrap, loopParamBindings)
+    stringifyBranchInnerLoops(lines, buildBranchInnerLoopsPlan({ innerLoops: cond.whenTrue.innerLoops, scopeVar: '__branchScope', outerLoopParam: loopParam ?? '', outerLoopParamBindings: loopParamBindings, wrapOuter: wrap }), `${indent}    `)
     emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenTrue.conditionals, wrap, loopParam, loopParamBindings)
     lines.push(`${indent}  }`)
     lines.push(`${indent}}, {`)
@@ -324,7 +224,7 @@ export function emitNestedLoopChildConditionals(
     lines.push(`${indent}  bindEvents: (__branchScope) => {`)
     stringifyBranchEventBindings(lines, buildBranchEventBindingsPlan({ events: cond.whenFalse.events, wrap }), `${indent}    `)
     stringifyBranchChildComponentInits(lines, buildBranchChildComponentInitsPlan({ components: cond.whenFalse.childComponents, wrap }), `${indent}    `)
-    emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenFalse.innerLoops, loopParam, wrap, loopParamBindings)
+    stringifyBranchInnerLoops(lines, buildBranchInnerLoopsPlan({ innerLoops: cond.whenFalse.innerLoops, scopeVar: '__branchScope', outerLoopParam: loopParam ?? '', outerLoopParamBindings: loopParamBindings, wrapOuter: wrap }), `${indent}    `)
     emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenFalse.conditionals, wrap, loopParam, loopParamBindings)
     lines.push(`${indent}  }`)
     lines.push(`${indent}})`)
@@ -515,7 +415,7 @@ export function emitInnerLoopSetup(
     const level = levels[i]
     const inner = level.loopInfo
     if (!inner) { i++; continue }
-    // Skip loops inside conditionals — they are handled by emitBranchInnerLoops
+    // Skip loops inside conditionals — they are handled by stringifyBranchInnerLoops
     // inside insert() bindEvents to avoid duplicate mapArray initialization
     if (inner.insideConditional) { i++; continue }
 

@@ -56,3 +56,72 @@ export interface BranchChildComponentInit {
  * conditional. Empty list ⇒ stringifier emits nothing.
  */
 export type BranchChildComponentInitsPlan = readonly BranchChildComponentInit[]
+
+/** A reactive text effect inside a branch inner loop's renderItem body. */
+export interface BranchInnerLoopText {
+  slotId: string
+  /** Already wrapped via inner+outer loop param accessor (`wrapBoth`). */
+  wrappedExpression: string
+  /**
+   * When true, the text's slot lives inside a conditional branch — the
+   * stringifier emits a `createEffect` that re-queries `$t` on every run
+   * (insert() may swap the text node and stale references would silently
+   * stop updating).
+   */
+  insideConditional: boolean
+}
+
+/**
+ * One inner loop emitted inside a conditional branch's `bindEvents`. The
+ * outer-mapArray plumbing (container query, array expr, key fn, template
+ * clone, key attr) is fully resolved here; the renderItem body components,
+ * events, texts, and nested conditionals are still consumed by the legacy
+ * helpers (`emitComponentAndEventSetup`, `emitNestedLoopChildConditionals`).
+ *
+ * Items 2d / 2e fold those last two helpers into Plans, after which this
+ * type can drop the `legacy*` carriers.
+ */
+export interface BranchInnerLoop {
+  /** Unique suffix used in `__bel`/`__bic`/`__bidx` variable names. */
+  uidSuffix: string
+  /** Container resolution expression — already includes scope and selectors. */
+  containerExpr: string
+  /** Wrapped array expression (`wrapOuter(inner.array)`). */
+  arrayExpr: string
+  /** keyFn source — output of `loopKeyFn(inner)`. */
+  keyFn: string
+  /** mapArray renderItem param head — `inner.param` or `__bfItem`. */
+  paramHead: string
+  /** Body-entry unwrap statement (empty when no destructured param). */
+  paramUnwrap: string
+  /** Already-wrapped HTML template for one inner-loop item. */
+  wrappedTemplate: string
+  /** Pre-wrapped key expression for setAttribute, or null when no key. */
+  wrappedKey: string | null
+  /** Depth used by `keyAttrName(...)` — branch inner loops are always 1. */
+  keyDepth: number
+  /**
+   * Inner-wrapped component IR for `emitComponentAndEventSetup`. Inner-wrap
+   * runs at build time; the helper still applies `outerWrap` at emit time.
+   */
+  legacyComponents: readonly import('../../../types').IRLoopChildComponent[]
+  /** Inner-wrapped event IR for `emitComponentAndEventSetup`. */
+  legacyEvents: readonly import('../../types').LoopChildEvent[]
+  /** Pre-wrapped reactive text effects for the inner-item body. */
+  reactiveTexts: readonly BranchInnerLoopText[]
+  /**
+   * Raw inner-loop child conditionals — still routed through the legacy
+   * `emitNestedLoopChildConditionals` recursion. Item 2d Plan-ifies these.
+   */
+  legacyNestedConditionals: readonly import('../../types').LoopChildConditional[] | undefined
+  /** Inner loop param identifier — needed for the legacy recursion. */
+  innerLoopParam: string
+  /** Inner loop param destructuring metadata. */
+  innerLoopParamBindings?: readonly import('../../../types').LoopParamBinding[]
+  /** Outer loop param identifier — threaded into emitComponentAndEventSetup. */
+  outerLoopParam: string
+  /** Outer loop param destructuring metadata. */
+  outerLoopParamBindings?: readonly import('../../../types').LoopParamBinding[]
+}
+
+export type BranchInnerLoopsPlan = readonly BranchInnerLoop[]
