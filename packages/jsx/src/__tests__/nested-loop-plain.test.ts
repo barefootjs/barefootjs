@@ -284,4 +284,204 @@ describe('plain nested loops without conditional wrapper', () => {
     expect(innerSection.length).toBeGreaterThan(0)
     expect(innerSection).not.toMatch(/\bcell\.flag\b/)
   })
+
+  test('regression #1064: static inner forEach also re-declares inner .map() block-body locals', () => {
+    // Sibling of #1052 in the **static** inner-loop emission path. When the
+    // outer array is a plain literal (not a signal) and the inner `.map()`
+    // callback's block-body declares locals referenced by a child component
+    // prop or event handler, the static `forEach` body did not declare those
+    // locals — `initChild`'s prop getter would throw `ReferenceError` when
+    // the child component first mounted.
+    //
+    // Fix: thread `inner.mapPreamble` through `InnerLoopStaticEmit` and emit
+    // it (raw — `forEach`'s param is the literal item, not a signal accessor)
+    // at the top of the forEach body so the component setup can resolve the
+    // locals.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      type Item = { id: number; n: number }
+
+      function MyChild(props: { label: string }) {
+        return <span>{props.label}</span>
+      }
+
+      export function StaticGrid() {
+        const items: Item[][] = [[{ id: 1, n: 5 }]]
+        const [, setX] = createSignal(0)
+        return (
+          <div onClick={() => setX(1)}>
+            {items.map((row, i) => (
+              <div key={i}>
+                {row.map((it) => {
+                  const lbl = \`item-\${it.n}\`
+                  return <MyChild key={it.id} label={lbl} />
+                })}
+              </div>
+            ))}
+          </div>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'StaticGrid.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+    const js = result.files.find(f => f.type === 'clientJs')!.content
+
+    // The static `forEach((it, ...) => { ... })` body must declare `lbl`
+    // before `initChild('MyChild', ...)` runs. `it` is the raw item here
+    // (forEach, not mapArray) so the preamble is emitted unwrapped.
+    expect(js).toMatch(
+      /\.forEach\(\(it, __innerIdx\) => \{[\s\S]*?const\s+lbl\s*=\s*`item-\$\{it\.n\}`[\s\S]*?initChild\('MyChild'/
+    )
+    // No `ReferenceError` shape: the `initChild('MyChild', ...)` getter must
+    // reach a declared `lbl` — the static body cannot rely on the outer
+    // `.map()` callback's scope (that scope only existed at SSR time).
+    const staticSection = js.slice(
+      js.indexOf('items.forEach('),
+      js.indexOf('hydrate(\'StaticGrid\''),
+    )
+    expect(staticSection).toMatch(/const\s+lbl\s*=/)
+    expect(staticSection).toMatch(/initChild\('MyChild'/)
+    expect(staticSection.indexOf('const lbl')).toBeLessThan(staticSection.indexOf('initChild'))
+  })
+
+  test('regression #1064: single-comp static array with preamble (loop body is one component)', () => {
+    // The `single-comp` static-init shape fires when the `.map()` body
+    // returns a single component instance. Its `__childScopes.forEach`
+    // body resolves the loop param via index lookup — but did not
+    // declare outer `.map()` locals, so the propsExpr getter saw
+    // `ReferenceError` at first render.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      type Item = { id: number; n: number }
+
+      function MyChild(props: { label: string }) {
+        return <span>{props.label}</span>
+      }
+
+      export function FlatList() {
+        const items: Item[] = [{ id: 1, n: 5 }]
+        const [, setX] = createSignal(0)
+        return (
+          <ul onClick={() => setX(1)}>
+            {items.map((it) => {
+              const lbl = \`item-\${it.n}\`
+              return <MyChild key={it.id} label={lbl} />
+            })}
+          </ul>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'FlatList.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+    const js = result.files.find(f => f.type === 'clientJs')!.content
+
+    // The single-comp emit declares the loop param via `[<idx>]` lookup;
+    // the preamble must appear after that lookup and before initChild
+    // so propsExpr getters can read it.
+    const section = js.slice(
+      js.indexOf('__childScopes.forEach'),
+      js.indexOf('hydrate(\'FlatList\''),
+    )
+    expect(section).toMatch(/const\s+it\s*=\s*items\[__idx\][\s\S]*?const\s+lbl\s*=\s*`item-\$\{it\.n\}`[\s\S]*?initChild\('MyChild'/)
+    expect(section.indexOf('const lbl')).toBeLessThan(section.indexOf('initChild'))
+  })
+
+  test('regression #1064: inner-loop-nested static array with OUTER preamble', () => {
+    // The `inner-loop-nested` shape carries two preamble slots
+    // (`outerPreludeStatements` + `innerPreludeStatements`). The previous
+    // test exercised the inner one; this one exercises the outer slot —
+    // the outer preamble must land after `if (!__outerEl) return` and
+    // before the inner forEach so the inner forEach's component setup
+    // can read it.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      type Cell = { id: number; n: number }
+      type Row = { id: number; cells: Cell[]; label: string }
+
+      function MyChild(props: { tag: string }) {
+        return <span>{props.tag}</span>
+      }
+
+      export function OuterPreambleGrid() {
+        const rows: Row[] = [{ id: 1, label: 'top', cells: [{ id: 11, n: 5 }] }]
+        const [, setX] = createSignal(0)
+        return (
+          <div onClick={() => setX(1)}>
+            {rows.map((row) => {
+              const rowTag = \`row-\${row.label}\`
+              return (
+                <div key={row.id}>
+                  {row.cells.map((cell) => (
+                    <MyChild key={cell.id} tag={rowTag + '-' + cell.n} />
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'OuterPreambleGrid.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+    const js = result.files.find(f => f.type === 'clientJs')!.content
+
+    // The outer preamble (`const rowTag = ...`) must appear in the
+    // outer forEach body, after `if (!__outerEl) return` and before the
+    // inner forEach — and the inner forEach's `initChild` getter reads it.
+    const section = js.slice(
+      js.indexOf('rows.forEach('),
+      js.indexOf('hydrate(\'OuterPreambleGrid\''),
+    )
+    expect(section).toMatch(/if \(!__outerEl\) return[\s\S]*?const\s+rowTag\s*=\s*`row-\$\{row\.label\}`[\s\S]*?\.cells\.forEach/)
+    expect(section.indexOf('const rowTag')).toBeLessThan(section.indexOf('initChild'))
+  })
+
+  test('regression #1064: control-flow static inner forEach (signal outer + literal-array inner) emits inner preamble', () => {
+    // The `control-flow/inner-loop.ts::emitStatic` path fires when a
+    // reactive composite renderItem hosts a static inner loop — the
+    // outer array is a signal, but the inner array is referenced via
+    // a non-reactive lookup so its rendering stays setup-only.
+    // Use a `__innerIdx<uid>` suffix in the regex to specifically
+    // target this path (vs. the unsuffixed `static-array-child-init`).
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      type Cell = { id: number; n: number }
+      const SHARED: Cell[] = [{ id: 1, n: 7 }]
+
+      function MyChild(props: { tag: string }) {
+        return <span>{props.tag}</span>
+      }
+
+      export function MixedGrid() {
+        const [rows, setRows] = createSignal([{ id: 1, key: 'a' }])
+        return (
+          <div onClick={() => setRows(prev => [...prev])}>
+            {rows().map((row) => (
+              <div key={row.id}>
+                {SHARED.map((cell) => {
+                  const tag = \`\${row.key}-\${cell.n}\`
+                  return <MyChild key={cell.id} tag={tag} />
+                })}
+              </div>
+            ))}
+          </div>
+        )
+      }
+    `
+    const result = compileJSXSync(source, 'MixedGrid.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+    const js = result.files.find(f => f.type === 'clientJs')!.content
+
+    // The static forEach uses a `__innerIdx<uid>` suffix in this path —
+    // assert preamble appears in that body and precedes any prop read.
+    expect(js).toMatch(/SHARED\.forEach\(\(cell, __innerIdx\d+_\d+\) => \{[\s\S]*?const\s+tag\s*=/)
+  })
 })
