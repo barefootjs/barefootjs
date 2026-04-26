@@ -232,7 +232,12 @@ async function buildDiagramHtml(): Promise<string> {
             : rect(clientCard).left;
           var buildW = build.offsetWidth;
           var buildH = build.offsetHeight;
-          var midX = (srcR.right + adapterLeft) / 2;
+          // Bias the build node toward the source side as the gap widens
+          // (wide viewports leave a large source.right → adapter.left gap;
+          // a strict midpoint pushes it too far right).
+          var gap = adapterLeft - srcR.right;
+          var bias = gap > 700 ? 0.34 : gap > 500 ? 0.4 : 0.5;
+          var midX = srcR.right + gap * bias;
           build.style.left = (midX - buildW / 2) + 'px';
           build.style.top = (srcR.cy - buildH / 2) + 'px';
           var buildR = rect(build);
