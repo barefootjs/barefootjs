@@ -71,8 +71,8 @@ describe('event delegation depth ordering (#774)', () => {
 
         return (
           <ul>
-            {items.map(item => (
-              <li onClick={() => handleItemClick(item.id)}>
+            {items.map((item, i) => (
+              <li key={i} onClick={() => handleItemClick(item.id)}>
                 <span>{item.label}</span>
                 <button onClick={() => handleAction(item.id)}>Action</button>
               </li>

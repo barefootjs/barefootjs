@@ -43,8 +43,8 @@ describe('hydrate() template generation for signal-bearing components', () => {
           <div>
             <span>{count()}</span>
             <ul>
-              {props.items.map((item) => (
-                <li>{item}</li>
+              {props.items.map((item, i) => (
+                <li key={i}>{item}</li>
               ))}
             </ul>
           </div>
@@ -113,7 +113,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
         return (
           <div>
             {items().map(item => (
-              <StatusBadge active={item.active} />
+              <StatusBadge key={item.id} active={item.active} />
             ))}
           </div>
         )
@@ -141,8 +141,8 @@ describe('hydrate() template generation for signal-bearing components', () => {
         const [items, setItems] = createSignal([{id: 1, done: false}])
         return (
           <ul>
-            {/* @client */ items().filter(t => !t.done).map(t => (
-              <li>{t.id}</li>
+            {/* @client */ items().filter(t => !t.done).map((t, i) => (
+              <li key={i}>{t.id}</li>
             ))}
           </ul>
         )

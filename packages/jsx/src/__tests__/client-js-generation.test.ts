@@ -986,7 +986,7 @@ describe('Client JS generation', () => {
               <div onClick={handleClick}>
                 <span>{activeCount()}</span>
                 {items().filter(t => t.active).map(item => (
-                  <button data-id={item.id}>{item.label}</button>
+                  <button key={item.id} data-id={item.id}>{item.label}</button>
                 ))}
               </div>
             </Ctx.Provider>
@@ -1666,9 +1666,9 @@ describe('Client JS generation', () => {
           const [items, setItems] = createSignal([{ name: 'a' }, { name: 'b' }])
           return (
             <ul>
-              {items().map(item => {
+              {items().map((item, i) => {
                 const label = item.name.toUpperCase()
-                return <li>{label}</li>
+                return <li key={i}>{label}</li>
               })}
             </ul>
           )
@@ -1697,10 +1697,10 @@ describe('Client JS generation', () => {
           const [items, setItems] = createSignal([{ first: 'a', last: 'b' }])
           return (
             <ul>
-              {items().map(item => {
+              {items().map((item, i) => {
                 const first = item.first.toUpperCase()
                 const last = item.last.toUpperCase()
-                return <li>{first} {last}</li>
+                return <li key={i}>{first} {last}</li>
               })}
             </ul>
           )
@@ -1727,8 +1727,8 @@ describe('Client JS generation', () => {
           const [items, setItems] = createSignal(['a', 'b'])
           return (
             <ul>
-              {items().map(item => (
-                <li>{item}</li>
+              {items().map((item, i) => (
+                <li key={i}>{item}</li>
               ))}
             </ul>
           )
@@ -1768,9 +1768,9 @@ describe('Client JS generation', () => {
           const [items, setItems] = createSignal([{ name: 'a' }])
           return (
             <ul>
-              {items().map(item => {
+              {items().map((item, i) => {
                 const label = item.name.toUpperCase()
-                return <li>{label}</li>
+                return <li key={i}>{label}</li>
               })}
             </ul>
           )
@@ -1812,9 +1812,9 @@ describe('Client JS generation', () => {
           const handleClick = (label: string) => console.log(label)
           return (
             <ul>
-              {items().map(item => {
+              {items().map((item, i) => {
                 const label = item.name.toUpperCase()
-                return <li><button onClick={() => handleClick(label)}>{label}</button></li>
+                return <li key={i}><button onClick={() => handleClick(label)}>{label}</button></li>
               })}
             </ul>
           )
@@ -1845,9 +1845,9 @@ describe('Client JS generation', () => {
           const [items, setItems] = createSignal([{ name: 'a' }])
           return (
             <ul>
-              {items().map(item => {
+              {items().map((item, i) => {
                 const label = item.name.toUpperCase()
-                return <li>{label}</li>
+                return <li key={i}>{label}</li>
               })}
             </ul>
           )

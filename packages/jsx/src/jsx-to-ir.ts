@@ -1618,11 +1618,151 @@ function extractLoopParamBindings(
   return null
 }
 
+// =============================================================================
+// Loop key helpers (BF023 / BF024)
+// =============================================================================
+
+/** Find the `key` JsxAttribute on an opening element, or undefined if absent. */
+function findKeyJsxAttribute(
+  opening: ts.JsxOpeningElement | ts.JsxSelfClosingElement,
+): ts.JsxAttribute | undefined {
+  for (const prop of opening.attributes.properties) {
+    if (ts.isJsxAttribute(prop) && prop.name.getText() === 'key') {
+      return prop
+    }
+  }
+  return undefined
+}
+
+type KeyProblem = 'missing' | 'literal-undefined' | 'literal-null' | 'nullable-type'
+
+/**
+ * Classify a key expression as problematic or fine.
+ * Returns a KeyProblem string when the key is missing or has an illegal value/type,
+ * or null when the key looks valid.
+ */
+function classifyKeyProblem(
+  keyAttr: ts.JsxAttribute | undefined,
+  checker: ts.TypeChecker | null,
+): KeyProblem | null {
+  if (!keyAttr) return 'missing'
+
+  // `key` without an initializer is a JSX boolean shorthand → effectively undefined
+  if (!keyAttr.initializer) return 'literal-undefined'
+
+  // `key={}` — empty expression (syntax oddity, treat as missing)
+  if (ts.isJsxExpression(keyAttr.initializer) && !keyAttr.initializer.expression) {
+    return 'literal-undefined'
+  }
+
+  let expr: ts.Expression | undefined
+  if (ts.isStringLiteral(keyAttr.initializer)) {
+    // `key="..."` — always safe
+    return null
+  } else if (ts.isJsxExpression(keyAttr.initializer)) {
+    expr = keyAttr.initializer.expression
+  }
+
+  if (!expr) return null
+
+  // Literal null / undefined identifiers
+  if (expr.kind === ts.SyntaxKind.NullKeyword) return 'literal-null'
+  if (ts.isIdentifier(expr) && expr.text === 'undefined') return 'literal-undefined'
+
+  // Type-based nullable check (available when checker is wired in)
+  if (checker) {
+    const type = checker.getTypeAtLocation(expr)
+    const isNullable = type.isUnion()
+      ? type.types.some(
+          (t) =>
+            (t.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined | ts.TypeFlags.Void)) !== 0,
+        )
+      : (type.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined | ts.TypeFlags.Void)) !== 0
+    if (isNullable) return 'nullable-type'
+  }
+
+  return null
+}
+
+/** Build the suggestion message for a BF023/BF024 key error. */
+function keyErrorSuggestion(problem: KeyProblem): string {
+  if (problem === 'nullable-type') {
+    return "The key prop's type may be null or undefined. Narrow it with a non-null assertion (e.g. `item.id!`) or change the source type to be required."
+  }
+  if (problem === 'literal-null' || problem === 'literal-undefined') {
+    return 'Replace the literal with a stable identifier, e.g. `key={item.id}`. Use the second arrow parameter `(item, i) => ... key={i}` as a fallback for static lists.'
+  }
+  return 'Add a key prop, e.g. `<li key={item.id}>...</li>`. Use the second arrow parameter `(item, i) => ... key={i}` as a fallback for static lists.'
+}
+
+/**
+ * Emit BF023 / BF024 if the root JSX element of a .map() callback is missing
+ * a valid key attribute. Handles direct and ternary callback bodies.
+ */
+function checkLoopKey(
+  callback: ts.ArrowFunction,
+  ctx: TransformContext,
+  isNested: boolean,
+): void {
+  const errorCode = isNested ? ErrorCodes.MISSING_KEY_IN_NESTED_LIST : ErrorCodes.MISSING_KEY_IN_LIST
+  const checker = ctx.analyzer.checker
+
+  // Walk a single JSX body shape and emit if needed. Returns true if inspectable.
+  function checkOpening(
+    opening: ts.JsxOpeningElement | ts.JsxSelfClosingElement | null,
+  ): void {
+    if (!opening) return
+    const keyAttr = findKeyJsxAttribute(opening)
+    const problem = classifyKeyProblem(keyAttr, checker)
+    if (!problem) return
+    const locNode = keyAttr ?? opening
+    ctx.analyzer.errors.push(
+      createError(
+        errorCode,
+        getSourceLocation(locNode, ctx.sourceFile, ctx.filePath),
+        { suggestion: { message: keyErrorSuggestion(problem) } },
+      ),
+    )
+  }
+
+  let body: ts.Node = callback.body
+  if (ts.isBlock(body)) {
+    const ret = body.statements.find(
+      (s): s is ts.ReturnStatement => ts.isReturnStatement(s) && s.expression != null,
+    )
+    if (!ret?.expression) return
+    body = ret.expression
+  }
+  while (ts.isParenthesizedExpression(body)) body = body.expression
+
+  if (ts.isConditionalExpression(body)) {
+    // Check both branches independently
+    const whenTrue = body.whenTrue
+    const whenFalse = body.whenFalse
+    let wt: ts.Node = whenTrue
+    let wf: ts.Node = whenFalse
+    while (ts.isParenthesizedExpression(wt)) wt = wt.expression
+    while (ts.isParenthesizedExpression(wf)) wf = wf.expression
+    if (ts.isJsxElement(wt)) checkOpening(wt.openingElement)
+    else if (ts.isJsxSelfClosingElement(wt)) checkOpening(wt)
+    if (ts.isJsxElement(wf)) checkOpening(wf.openingElement)
+    else if (ts.isJsxSelfClosingElement(wf)) checkOpening(wf)
+    return
+  }
+
+  if (ts.isJsxElement(body)) { checkOpening(body.openingElement); return }
+  if (ts.isJsxSelfClosingElement(body)) { checkOpening(body); return }
+}
+
 function transformMapCall(
   node: ts.CallExpression,
   ctx: TransformContext,
   isClientOnly = false
 ): IRLoop | null {
+  // Capture nesting depth before we register this map's own params.
+  // ctx.loopParams is populated by the *outer* map; if non-empty we are inside one.
+  const isNested = ctx.loopParams.size > 0
+
   const propAccess = node.expression as ts.PropertyAccessExpression
   const mapSource = propAccess.expression
 
@@ -1908,6 +2048,12 @@ function transformMapCall(
   // fall back to treating the entire .map() expression as an IRExpression.
   if (children.length === 0) {
     return null
+  }
+
+  // Emit BF023 / BF024 if the loop root element lacks a valid key attribute.
+  // Call whenever children were produced (the callback returned JSX).
+  if (ts.isArrowFunction(node.arguments[0]) && children.length > 0) {
+    checkLoopKey(node.arguments[0], ctx, isNested)
   }
 
   // Look for key prop in first child (element or component)

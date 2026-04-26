@@ -18,8 +18,8 @@ describe('child components inside .map() (#344)', () => {
         const items = [{ value: 'a' }, { value: 'b' }]
         return (
           <div>
-            {items.map(item => (
-              <div><RadioGroupItem value={item.value} /></div>
+            {items.map((item, i) => (
+              <div key={i}><RadioGroupItem value={item.value} /></div>
             ))}
           </div>
         )
@@ -41,8 +41,8 @@ describe('child components inside .map() (#344)', () => {
         const items = [{ value: 'a' }, { value: 'b' }]
         return (
           <div>
-            {items.map(item => (
-              <RadioGroupItem value={item.value} />
+            {items.map((item, i) => (
+              <RadioGroupItem key={i} value={item.value} />
             ))}
           </div>
         )
@@ -67,8 +67,8 @@ describe('child components inside .map() (#344)', () => {
         const items = [{ name: 'a' }, { name: 'b' }]
         return (
           <div>
-            {items.map(item => (
-              <ListItem label={item.name} className="pl-2 basis-1/3" />
+            {items.map((item, i) => (
+              <ListItem key={i} label={item.name} className="pl-2 basis-1/3" />
             ))}
           </div>
         )
@@ -92,8 +92,8 @@ describe('child components inside .map() (#344)', () => {
         const handleClick = (id: string) => console.log(id)
         return (
           <div>
-            {items.map(item => (
-              <ListItem onClick={() => handleClick(item.id)} />
+            {items.map((item, i) => (
+              <ListItem key={i} onClick={() => handleClick(item.id)} />
             ))}
           </div>
         )
@@ -116,7 +116,7 @@ describe('child components inside .map() (#344)', () => {
         return (
           <div>
             {items.map((item, index) => (
-              <ListItem index={index} value={item.id} />
+              <ListItem key={item.id} index={index} value={item.id} />
             ))}
           </div>
         )
@@ -141,7 +141,7 @@ describe('child components inside .map() (#344)', () => {
         return (
           <div>
             {items.map((item, idx) => (
-              <div><Nested position={idx} value={item.id} /></div>
+              <div key={item.id}><Nested position={idx} value={item.id} /></div>
             ))}
           </div>
         )
@@ -175,7 +175,7 @@ describe('child components inside .map() (#344)', () => {
           <table>
             <tbody>
               {items.map((item, index) => (
-                <tr>
+                <tr key={item.id}>
                   <td>
                     <Checkbox
                       checked={selected()[index]}
@@ -212,8 +212,8 @@ describe('child components inside .map() (#344)', () => {
         const [items, setItems] = createSignal([{ value: 'a' }, { value: 'b' }])
         return (
           <div>
-            {items().map(item => (
-              <RadioGroupItem value={item.value} />
+            {items().map((item, i) => (
+              <RadioGroupItem key={i} value={item.value} />
             ))}
           </div>
         )
@@ -237,8 +237,8 @@ describe('child components inside .map() (#344)', () => {
         const items = [{ title: 'a' }, { title: 'b' }]
         return (
           <div>
-            {items.map(item => (
-              <Card title={item.title} className="p-4" />
+            {items.map((item, i) => (
+              <Card key={i} title={item.title} className="p-4" />
             ))}
           </div>
         )
@@ -263,8 +263,8 @@ describe('child components inside .map() (#344)', () => {
         const items = [{ label: 'x' }, { label: 'y' }]
         return (
           <ul>
-            {items.map(item => (
-              <ListItem label={item.label} className="text-sm" />
+            {items.map((item, i) => (
+              <ListItem key={i} label={item.label} className="text-sm" />
             ))}
           </ul>
         )
@@ -292,7 +292,7 @@ describe('child components inside .map() (#344)', () => {
         const [items, setItems] = createSignal([{ name: 'a' }, { name: 'b' }])
         return (
           <Wrapper>
-            {items().map(item => <span>{item.name}</span>)}
+            {items().map((item, i) => <span key={i}>{item.name}</span>)}
           </Wrapper>
         )
       }
@@ -331,7 +331,7 @@ describe('child components inside .map() (#344)', () => {
         return (
           <div>
             {payments().map(payment => (
-              <TableRow>
+              <TableRow key={payment.id}>
                 <TableCell>{payment.id}</TableCell>
                 <TableCell>{payment.amount}</TableCell>
               </TableRow>
@@ -367,8 +367,8 @@ describe('child components inside .map() (#344)', () => {
         const [items, setItems] = createSignal([{ name: 'a' }, { name: 'b' }])
         return (
           <div>
-            {items().map(item => (
-              <Card>
+            {items().map((item, i) => (
+              <Card key={i}>
                 <CardHeader>{item.name}</CardHeader>
               </Card>
             ))}
@@ -398,8 +398,8 @@ describe('child components inside .map() (#344)', () => {
         const [items, setItems] = createSignal([{ value: 'a' }, { value: 'b' }])
         return (
           <div>
-            {items().map(item => (
-              <RadioGroupItem value={item.value} />
+            {items().map((item, i) => (
+              <RadioGroupItem key={i} value={item.value} />
             ))}
           </div>
         )
@@ -427,7 +427,7 @@ describe('child components inside .map() (#344)', () => {
         return (
           <div>
             {rows().map(row => (
-              <TableRow>
+              <TableRow key={row.id}>
                 <TableCell>
                   <Badge>{row.value}</Badge>
                 </TableCell>
@@ -466,7 +466,7 @@ describe('child components inside .map() (#344)', () => {
         return (
           <ul>
             {items.map(item => (
-              <li><button onClick={() => handleClick(item.id)}>{item.label}</button></li>
+              <li key={item.id}><button onClick={() => handleClick(item.id)}>{item.label}</button></li>
             ))}
           </ul>
         )
@@ -495,8 +495,8 @@ describe('child components inside .map() (#344)', () => {
         const setValue = (v: string) => console.log(v)
         return (
           <div>
-            {items.map(item => (
-              <div className="card">
+            {items.map((item, i) => (
+              <div key={i} className="card">
                 <span>{item.value}</span>
                 <button onClick={() => setValue(item.value)}>Select</button>
               </div>
@@ -629,7 +629,7 @@ describe('child components inside .map() (#344)', () => {
         return (
           <ul>
             {items().map(item => (
-              <li><button onClick={() => handleClick(item.id)}>{item.id}</button></li>
+              <li key={item.id}><button onClick={() => handleClick(item.id)}>{item.id}</button></li>
             ))}
           </ul>
         )
@@ -658,7 +658,7 @@ describe('child components inside .map() (#344)', () => {
           <tr>
             <th>Name</th>
             {roles.map(role => (
-              <th>{role.label}</th>
+              <th key={role.id}>{role.label}</th>
             ))}
           </tr>
         )
@@ -686,7 +686,7 @@ describe('child components inside .map() (#344)', () => {
           <tr>
             <th>Name</th>
             {roles.map(role => (
-              <th><button onClick={() => select(role.id)}>{role.label}</button></th>
+              <th key={role.id}><button onClick={() => select(role.id)}>{role.label}</button></th>
             ))}
           </tr>
         )
@@ -712,7 +712,7 @@ describe('child components inside .map() (#344)', () => {
         return (
           <ul>
             {items.map(item => (
-              <li>{item.label}</li>
+              <li key={item.id}>{item.label}</li>
             ))}
           </ul>
         )
