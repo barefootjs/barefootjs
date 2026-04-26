@@ -489,20 +489,35 @@ img.flow-adapter-logo {
     height: 56px;
   }
 
-  /* On mobile the wide code tooltip is positioned (and sized) at runtime
-     by the inline FLOW_DIAGRAM_SCRIPT — it pins position: fixed below
-     .flow-adapters so the tooltip lives just under the row regardless
-     of which card was tapped, without overflowing the viewport.
-     Reset the Tailwind translate/scale/rotate (CSS individual transform
-     properties — not bundled into `transform`) that `top-1/2 -translate-y-1/2`
-     relies on; otherwise the fixed-positioned tooltip is shifted -50% of
-     its own height upward and lands above the row. */
+  /* On mobile the wide code tooltip lives in normal document flow as
+     position: absolute relative to .flow-adapters (the row), pinned
+     just below it. This means the tooltip scrolls *with* the row —
+     no JS scroll-sync, no jitter.
+
+     - The Tooltip wrapper is forced position: static so the
+       tooltip-content's offsetParent is .flow-adapters (which is
+       position: relative), letting `left: 0; right: 0` span the row's
+       full width.
+     - The Tailwind individual transform properties (translate / scale
+       / rotate — separate from `transform`) must all be reset;
+       otherwise `top-1/2 -translate-y-1/2` from placement="top" leaves
+       the tooltip 50% of its own height above the row. */
+  .flow-adapters > [data-slot="tooltip"] {
+    position: static !important;
+  }
   .flow-adapters [data-slot="tooltip-content"] {
+    position: absolute !important;
+    top: calc(100% + 0.5rem) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
     transform: none !important;
     translate: none !important;
     scale: 1 !important;
     rotate: none !important;
     margin: 0 !important;
+    max-width: 100% !important;
+    width: auto !important;
     max-height: 50vh;
   }
 

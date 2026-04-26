@@ -248,60 +248,21 @@ const FLOW_DIAGRAM_SCRIPT = `(function () {
     closeOpenTooltipsExcept(null);
   });
 
-  // Mobile tooltip positioning: when a tooltip-content opens, pin it
-  // (position: fixed) just below the .flow-adapters row, full width
-  // minus margin. Avoids per-card centering that overflows the viewport
-  // and avoids relying on offsetParent quirks that produced wrong
-  // absolute coordinates with the wrapper-static layout hack.
-  var adaptersRow = diagram.querySelector('.flow-adapters');
-  function positionMobileTooltips() {
-    if (!isMobile() || !adaptersRow) return;
-    var rowRect = adaptersRow.getBoundingClientRect();
-    var top = rowRect.bottom + 8;
-    var contents = diagram.querySelectorAll('[data-slot="tooltip-content"]');
-    contents.forEach(function (el) {
-      el.style.position = 'fixed';
-      el.style.top = top + 'px';
-      el.style.left = '4vw';
-      el.style.right = '4vw';
-      el.style.bottom = 'auto';
-      el.style.width = 'auto';
-      el.style.maxWidth = 'none';
-    });
-  }
-  function clearMobileTooltipStyles() {
-    var contents = diagram.querySelectorAll('[data-slot="tooltip-content"]');
-    contents.forEach(function (el) {
-      el.style.position = '';
-      el.style.top = '';
-      el.style.left = '';
-      el.style.right = '';
-      el.style.bottom = '';
-      el.style.width = '';
-      el.style.maxWidth = '';
-    });
-  }
-  function syncMobileTooltips() {
-    if (isMobile()) positionMobileTooltips();
-    else clearMobileTooltipStyles();
-  }
-  // Watch state changes so we re-pin when an open transition runs.
-  var mo = new MutationObserver(syncMobileTooltips);
-  diagram.querySelectorAll('[data-slot="tooltip-content"]').forEach(function (el) {
-    mo.observe(el, { attributes: true, attributeFilter: ['data-state'] });
-  });
-  function refresh() { update(); syncMobileTooltips(); }
-  refresh();
-  window.addEventListener('resize', refresh);
-  window.addEventListener('scroll', syncMobileTooltips, { passive: true });
+  // Mobile tooltip positioning is handled entirely by CSS now
+  // (position: absolute relative to .flow-adapters). The previous
+  // version ran on every scroll event to recompute the inline top
+  // against the row's viewport rect, which produced visible jitter.
+
+  update();
+  window.addEventListener('resize', update);
   if (typeof ResizeObserver !== 'undefined') {
-    var ro = new ResizeObserver(refresh);
+    var ro = new ResizeObserver(update);
     ro.observe(diagram);
   }
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(refresh);
+    document.fonts.ready.then(update);
   }
-  window.addEventListener('load', refresh);
+  window.addEventListener('load', update);
 })();`
 
 export async function Hero() {
