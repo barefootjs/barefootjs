@@ -23,11 +23,13 @@ export async function createLandingApp() {
 
   // Landing page
   app.get('/', (c) => {
+    const hostname = new URL(c.req.url).hostname
+    const uiHref = hostname === 'localhost' ? 'http://localhost:3002/' : 'https://ui.barefootjs.dev'
     return c.render(
       <>
         <Hero />
         <FeaturesSection />
-        <UIComponentsSection />
+        <UIComponentsSection uiHref={uiHref} />
       </>,
       {
         title: 'Barefoot.js - Reactive TSX for any backend',
