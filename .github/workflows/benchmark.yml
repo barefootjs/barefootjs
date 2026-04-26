@@ -2,6 +2,7 @@ name: Benchmark
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - 'packages/client/**'
       - 'benchmarks/**'
