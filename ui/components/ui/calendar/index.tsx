@@ -506,6 +506,18 @@ function Calendar(props: CalendarProps) {
     return undefined
   }
 
+  // Per-day helpers: defined here so the inner map() callback has no local
+  // variable declarations. Without this, the compiler generates a nested
+  // mapArray callback that references `isSelected`/`rangePos` from an outer
+  // scope that doesn't exist inside the inner renderItem function, causing
+  // ReferenceError when the month changes and new day elements are created.
+  const dayRangePos = (day: CalendarDay) => isRangeMode() ? getRangePosition(day) : undefined
+  const dayIsSingleSelected = (day: CalendarDay) =>
+    !isRangeMode() && !!selectedDate() && isSameDay(selectedDate()!, day.date)
+  const dayIsSelected = (day: CalendarDay) =>
+    dayIsSingleSelected(day) ||
+    !!(isRangeMode() && !day.isOutside && selectedRange()?.from && !selectedRange()?.to && isSameDay(day.date, selectedRange()!.from))
+
   function renderMonthGrid(weeks: CalendarDay[][], label: string, showPrev: boolean, showNext: boolean) {
     return (
       <div data-slot="calendar-month">
@@ -537,33 +549,27 @@ function Calendar(props: CalendarProps) {
           <tbody>
             {weeks.map((week: CalendarDay[], wi: number) => (
               <tr key={wi} data-slot="calendar-week">
-                {week.map((day: CalendarDay) => {
-                  const rangePos = isRangeMode() ? getRangePosition(day) : undefined
-                  const isSingleSelected = !isRangeMode() && selectedDate() ? isSameDay(selectedDate()!, day.date) : false
-                  const isRangeOnlyFrom = isRangeMode() && !day.isOutside && selectedRange()?.from && !selectedRange()?.to && isSameDay(day.date, selectedRange()!.from)
-                  const isSelected = isSingleSelected || (isRangeOnlyFrom ?? false)
-                  return (
-                    <td key={toISODateString(day.date)} data-slot="calendar-day" className={dayCellClasses}>
-                      <button
-                        data-slot="calendar-day-button"
-                        className={getDayClasses(day, isSelected, rangePos)}
-                        data-date={toISODateString(day.date)}
-                        data-today={day.isToday || undefined}
-                        data-outside={day.isOutside || undefined}
-                        data-disabled={day.isDisabled || undefined}
-                        data-current-month={!day.isOutside || undefined}
-                        data-selected-single={isSingleSelected || undefined}
-                        data-selected-range-start={rangePos === 'start' || undefined}
-                        data-selected-range-end={rangePos === 'end' || undefined}
-                        data-selected-range-middle={rangePos === 'middle' || undefined}
-                        aria-selected={isSelected || rangePos !== undefined || undefined}
-                        disabled={day.isDisabled}
-                      >
-                        {day.date.getDate()}
-                      </button>
-                    </td>
-                  )
-                })}
+                {week.map((day: CalendarDay) => (
+                  <td key={toISODateString(day.date)} data-slot="calendar-day" className={dayCellClasses}>
+                    <button
+                      data-slot="calendar-day-button"
+                      className={getDayClasses(day, dayIsSelected(day), dayRangePos(day))}
+                      data-date={toISODateString(day.date)}
+                      data-today={day.isToday || undefined}
+                      data-outside={day.isOutside || undefined}
+                      data-disabled={day.isDisabled || undefined}
+                      data-current-month={!day.isOutside || undefined}
+                      data-selected-single={dayIsSingleSelected(day) || undefined}
+                      data-selected-range-start={dayRangePos(day) === 'start' || undefined}
+                      data-selected-range-end={dayRangePos(day) === 'end' || undefined}
+                      data-selected-range-middle={dayRangePos(day) === 'middle' || undefined}
+                      aria-selected={dayIsSelected(day) || dayRangePos(day) !== undefined || undefined}
+                      disabled={day.isDisabled}
+                    >
+                      {day.date.getDate()}
+                    </button>
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
