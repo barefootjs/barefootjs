@@ -23,9 +23,10 @@ import type { BranchLoop, LoopChildEvent, LoopChildConditional, TopLevelLoop, Ne
 import type { IRLoopChildComponent, LoopParamBinding } from '../../types'
 import { varSlotId, quotePropName, DATA_BF_PH, keyAttrName, wrapLoopParamAsAccessor, exprReferencesIdent } from '../utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from '../html-template'
-import { emitAttrUpdate } from '../emit-reactive'
 import { buildBranchCompositePlan } from './plan/build-composite-loop'
 import { stringifyCompositeLoop } from './stringify/composite-loop'
+import { buildReactiveEffectsPlan } from './plan/build-reactive-effects'
+import { stringifyReactiveEffects } from './stringify/reactive-effects'
 import {
   buildBranchLoopDelegationPlan,
 } from './plan/build-event-delegation'
@@ -164,16 +165,14 @@ export function emitBranchLoopBody(lines: string[], branchLoops: readonly Branch
           lines.push(`          ${loop.mapPreamble}`)
         }
         lines.push(`          const __el = __existing ?? (() => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${loop.template}\`; return __tpl.content.firstElementChild.cloneNode(true) })()`)
-        emitLoopChildReactiveEffects(
-          lines,
-          '          ',
-          '__el',
-          loop.childReactiveAttrs ?? [],
-          loop.childReactiveTexts ?? [],
-          loop.childConditionals,
-          loop.param,
-          loop.paramBindings,
-        )
+        const branchReactivePlan = buildReactiveEffectsPlan({
+          attrs: loop.childReactiveAttrs ?? [],
+          texts: loop.childReactiveTexts ?? [],
+          conditionals: loop.childConditionals,
+          loopParam: loop.param,
+          loopParamBindings: loop.paramBindings,
+        })
+        stringifyReactiveEffects(lines, branchReactivePlan, { indent: '          ', elVar: '__el' })
         lines.push(`          return __el`)
         lines.push(`        })`)
       }
@@ -191,7 +190,7 @@ export function emitBranchLoopBody(lines: string[], branchLoops: readonly Branch
  * Used by both plain element and composite element dynamic loops.
  */
 /** Emit initChild calls for components inside a conditional branch. */
-function emitBranchChildComponentInits(
+export function emitBranchChildComponentInits(
   lines: string[],
   indent: string,
   components: Array<{ name: string; slotId: string | null; props: import('../../types').IRProp[]; children?: import('../../types').IRNode[] }>,
@@ -232,7 +231,7 @@ function emitBranchChildComponentInits(
  * the inner loop container only exists when the branch is active.
  * This sets up mapArray each time the branch activates.
  */
-function emitBranchInnerLoops(
+export function emitBranchInnerLoops(
   lines: string[],
   indent: string,
   scopeVar: string,
@@ -333,7 +332,7 @@ function emitBranchInnerLoops(
  * Events must be bound after insert() resolves the branch, so the correct DOM element
  * is live (prevents stale-reference bug when insert() replaces SSR elements, #839).
  */
-function emitLoopCondBranchEventBindings(
+export function emitLoopCondBranchEventBindings(
   lines: string[],
   indent: string,
   events: import('../types').ConditionalBranchEvent[] | undefined,
@@ -366,7 +365,7 @@ function emitLoopCondBranchEventBindings(
  * Handles Path A (conditional→conditional) and Path B (loop→conditional) by
  * mutual recursion with emitBranchInnerLoops (#830).
  */
-function emitNestedLoopChildConditionals(
+export function emitNestedLoopChildConditionals(
   lines: string[],
   indent: string,
   scopeVar: string,
@@ -396,101 +395,6 @@ function emitNestedLoopChildConditionals(
     emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenFalse.conditionals, wrap, loopParam, loopParamBindings)
     lines.push(`${indent}  }`)
     lines.push(`${indent}})`)
-  }
-}
-
-export function emitLoopChildReactiveEffects(
-  lines: string[],
-  indent: string,
-  elVar: string,
-  attrs: TopLevelLoop['childReactiveAttrs'],
-  texts: TopLevelLoop['childReactiveTexts'],
-  conditionals?: TopLevelLoop['childConditionals'],
-  loopParam?: string,
-  loopParamBindings?: readonly LoopParamBinding[],
-): void {
-  const wrap = loopParam ? (expr: string) => wrapLoopParamAsAccessor(expr, loopParam, loopParamBindings) : (expr: string) => expr
-  // Reactive attribute effects
-  const attrsBySlot = new Map<string, typeof attrs>()
-  for (const attr of attrs) {
-    if (!attrsBySlot.has(attr.childSlotId)) {
-      attrsBySlot.set(attr.childSlotId, [])
-    }
-    attrsBySlot.get(attr.childSlotId)!.push(attr)
-  }
-  for (const [slotId, slotAttrs] of attrsBySlot) {
-    const varName = `__ra_${varSlotId(slotId)}`
-    lines.push(`${indent}{ const ${varName} = qsa(${elVar}, '[bf="${slotId}"]')`)
-    lines.push(`${indent}if (${varName}) {`)
-    for (const attr of slotAttrs) {
-      lines.push(`${indent}  createEffect(() => {`)
-      for (const stmt of emitAttrUpdate(varName, attr.attrName, wrap(attr.expression), attr)) {
-        lines.push(`${indent}    ${stmt}`)
-      }
-      lines.push(`${indent}  })`)
-    }
-    lines.push(`${indent}} }`)
-  }
-
-  // Collect text slot IDs that are inside conditionals — these must be
-  // emitted inside bindEvents, not outside, because insert() branch swaps
-  // replace the DOM nodes that text effects reference.
-  const textSlotsInConditionals = new Set<string>()
-  if (conditionals) {
-    for (const cond of conditionals) {
-      for (const text of texts) {
-        if (cond.whenTrueHtml.includes(`bf:${text.slotId}`) || cond.whenFalseHtml.includes(`bf:${text.slotId}`)) {
-          textSlotsInConditionals.add(text.slotId)
-        }
-      }
-    }
-  }
-
-  // Reactive text content effects (only for slots NOT inside conditionals)
-  for (const text of texts) {
-    if (textSlotsInConditionals.has(text.slotId)) continue
-    const varName = `__rt_${varSlotId(text.slotId)}`
-    lines.push(`${indent}{ const [${varName}] = $t(${elVar}, '${text.slotId}')`)
-    lines.push(`${indent}if (${varName}) createEffect(() => { ${varName}.textContent = String(${wrap(text.expression)}) }) }`)
-  }
-
-  // Reactive conditional effects
-  if (conditionals) {
-    // Text effects scoped to each branch
-    const textsForBranch = (html: string) =>
-      texts.filter(t => textSlotsInConditionals.has(t.slotId) && html.includes(`bf:${t.slotId}`))
-
-    for (const cond of conditionals) {
-      const whenTrueWithCond = addCondAttrToTemplate(wrap(cond.whenTrueHtml), cond.slotId)
-      const whenFalseWithCond = addCondAttrToTemplate(wrap(cond.whenFalseHtml), cond.slotId)
-      lines.push(`${indent}insert(${elVar}, '${cond.slotId}', () => ${wrap(cond.condition)}, {`)
-      lines.push(`${indent}  template: () => \`${whenTrueWithCond}\`,`)
-      lines.push(`${indent}  bindEvents: (__branchScope) => {`)
-      emitLoopCondBranchEventBindings(lines, `${indent}    `, cond.whenTrue.events, wrap)
-      emitBranchChildComponentInits(lines, `${indent}    `, cond.whenTrue.childComponents, loopParam, undefined, loopParamBindings)
-      emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenTrue.innerLoops, loopParam, undefined, loopParamBindings)
-      emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenTrue.conditionals, wrap, loopParam, loopParamBindings)
-      for (const text of textsForBranch(cond.whenTrueHtml)) {
-        const varName = `__rt_${varSlotId(text.slotId)}`
-        lines.push(`${indent}    { const [${varName}] = $t(__branchScope, '${text.slotId}')`)
-        lines.push(`${indent}    if (${varName}) createEffect(() => { ${varName}.textContent = String(${wrap(text.expression)}) }) }`)
-      }
-      lines.push(`${indent}  }`)
-      lines.push(`${indent}}, {`)
-      lines.push(`${indent}  template: () => \`${whenFalseWithCond}\`,`)
-      lines.push(`${indent}  bindEvents: (__branchScope) => {`)
-      emitLoopCondBranchEventBindings(lines, `${indent}    `, cond.whenFalse.events, wrap)
-      emitBranchChildComponentInits(lines, `${indent}    `, cond.whenFalse.childComponents, loopParam, undefined, loopParamBindings)
-      emitBranchInnerLoops(lines, `${indent}    `, '__branchScope', cond.whenFalse.innerLoops, loopParam, undefined, loopParamBindings)
-      emitNestedLoopChildConditionals(lines, `${indent}    `, '__branchScope', cond.whenFalse.conditionals, wrap, loopParam, loopParamBindings)
-      for (const text of textsForBranch(cond.whenFalseHtml)) {
-        const varName = `__rt_${varSlotId(text.slotId)}`
-        lines.push(`${indent}    { const [${varName}] = $t(__branchScope, '${text.slotId}')`)
-        lines.push(`${indent}    if (${varName}) createEffect(() => { ${varName}.textContent = String(${wrap(text.expression)}) }) }`)
-      }
-      lines.push(`${indent}  }`)
-      lines.push(`${indent}})`)
-    }
   }
 }
 

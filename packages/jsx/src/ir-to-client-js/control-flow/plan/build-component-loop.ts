@@ -8,10 +8,7 @@
  *   - whether each nested component's children should reactive-update via
  *     `createEffect` based on text-only-and-references-loop-param detection
  *   - the wrapped key argument for `createComponent(name, props, KEY)`
- *
- * Reactive effects on `childConditionals` are still routed through
- * `emitLoopChildReactiveEffects` via `ReactiveEffectsPassthrough`, matching
- * PR 2-a's strategy.
+ *   - a fully resolved `ReactiveEffectsPlan` for `childConditionals`
  */
 
 import type { TopLevelLoop } from '../../types'
@@ -29,6 +26,7 @@ import {
   isTextOnlyConditional,
 } from '../legacy-helpers'
 import { irChildrenToJsExpr } from '../../html-template'
+import { buildReactiveEffectsPlan } from './build-reactive-effects'
 import type { ComponentLoopPlan, NestedComponentInit } from './types'
 
 export function buildComponentLoopPlan(elem: TopLevelLoop): ComponentLoopPlan {
@@ -70,13 +68,13 @@ export function buildComponentLoopPlan(elem: TopLevelLoop): ComponentLoopPlan {
     keyExpr,
     nestedComps,
     childConditionalEffects: hasChildConds
-      ? {
+      ? buildReactiveEffectsPlan({
           attrs: [],
           texts: [],
           conditionals: elem.childConditionals,
           loopParam: elem.param,
           loopParamBindings: elem.paramBindings,
-        }
+        })
       : null,
   }
 }

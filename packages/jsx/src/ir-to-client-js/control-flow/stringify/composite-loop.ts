@@ -20,7 +20,7 @@
  *   <bodyIndent>  <emitComponentAndEventSetup csr>
  *   <bodyIndent>  <emitInnerLoopSetup csr>
  *   <bodyIndent>}
- *   <bodyIndent><emitLoopChildReactiveEffects?>
+ *   <bodyIndent><stringifyReactiveEffects?>
  *   <bodyIndent>return __el
  *   <topIndent>})
  *
@@ -33,8 +33,8 @@
 import {
   emitComponentAndEventSetup,
   emitInnerLoopSetup,
-  emitLoopChildReactiveEffects,
 } from '../legacy-helpers'
+import { stringifyReactiveEffects } from './reactive-effects'
 import type { CompositeLoopPlan } from '../plan/types'
 
 export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan): void {
@@ -104,14 +104,7 @@ export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan)
   }
 
   if (reactiveEffects) {
-    emitLoopChildReactiveEffects(
-      lines, bodyIndent, '__el',
-      reactiveEffects.attrs,
-      reactiveEffects.texts,
-      reactiveEffects.conditionals,
-      reactiveEffects.loopParam,
-      reactiveEffects.loopParamBindings,
-    )
+    stringifyReactiveEffects(lines, reactiveEffects, { indent: bodyIndent, elVar: '__el' })
   }
 
   lines.push(`${bodyIndent}return __el`)

@@ -21,6 +21,7 @@ import {
   loopKeyFn,
   destructureLoopParam,
 } from '../legacy-helpers'
+import { buildLoopReactiveEffectsPlan } from './build-reactive-effects'
 import type { PlainLoopPlan, StaticLoopPlan } from './types'
 
 export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
@@ -40,15 +41,7 @@ export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
     indexParam: elem.index || '__idx',
     mapPreambleWrapped: elem.mapPreamble ? wrap(elem.mapPreamble) : '',
     template: elem.template,
-    reactiveEffects: hasReactive
-      ? {
-          attrs: elem.childReactiveAttrs,
-          texts: elem.childReactiveTexts,
-          conditionals: elem.childConditionals,
-          loopParam: elem.param,
-          loopParamBindings: elem.paramBindings,
-        }
-      : null,
+    reactiveEffects: hasReactive ? buildLoopReactiveEffectsPlan(elem) : null,
   }
 }
 

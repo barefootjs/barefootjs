@@ -12,7 +12,7 @@
  *     <indent>  <unwrap?>
  *     <indent>  <preamble?>
  *     <indent>  const __el = __existing ?? (() => { ... })()
- *     <indent>  <reactive effects via emitLoopChildReactiveEffects>
+ *     <indent>  <reactive effects via stringifyReactiveEffects>
  *     <indent>  return __el
  *     <indent>})
  *
@@ -25,8 +25,8 @@
  */
 
 import { varSlotId } from '../../utils'
-import { emitLoopChildReactiveEffects } from '../legacy-helpers'
 import { emitAttrUpdate } from '../../emit-reactive'
+import { stringifyReactiveEffects } from './reactive-effects'
 import type { PlainLoopPlan, StaticLoopPlan } from '../plan/types'
 
 export function stringifyPlainLoop(
@@ -62,16 +62,7 @@ export function stringifyPlainLoop(
   if (paramUnwrap) lines.push(`${bodyIndent}${paramUnwrap}`)
   if (mapPreambleWrapped) lines.push(`${bodyIndent}${mapPreambleWrapped}`)
   lines.push(`${bodyIndent}const __el = __existing ?? (() => { const __tpl = document.createElement('template'); __tpl.innerHTML = \`${template}\`; return __tpl.content.firstElementChild.cloneNode(true) })()`)
-  emitLoopChildReactiveEffects(
-    lines,
-    bodyIndent,
-    '__el',
-    reactiveEffects.attrs,
-    reactiveEffects.texts,
-    reactiveEffects.conditionals,
-    reactiveEffects.loopParam,
-    reactiveEffects.loopParamBindings,
-  )
+  stringifyReactiveEffects(lines, reactiveEffects, { indent: bodyIndent, elVar: '__el' })
   lines.push(`${bodyIndent}return __el`)
   lines.push(`${topIndent}})`)
 }
