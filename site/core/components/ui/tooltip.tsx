@@ -1,14 +1,17 @@
 "use client"
 
 /**
- * Tooltip Component
+ * Tooltip Component (site/core local — click-to-toggle variant)
  *
- * Local copy of `ui/components/ui/tooltip` so the site/core build
- * (which only discovers components under site/core/components and
- * site/core/landing/components) can compile and ship its client JS.
+ * A click-only popup that displays contextual content near the trigger
+ * element. Unlike the upstream `ui/components/ui/tooltip` (hover/focus
+ * triggered), this variant is wired to onClick so it works uniformly
+ * across desktop and touch — matching how the Hero uses it to surface
+ * compiled-template snippets.
  *
- * Behaviour matches shadcn/ui v4: a hover/focus-triggered popup that
- * shows contextual text near the trigger element.
+ * Lives under site/core because the build only discovers components
+ * under `site/core/components` and `site/core/landing/components` and
+ * the click-only behaviour shouldn't affect upstream consumers.
  */
 
 import { createSignal } from '@barefootjs/client'
@@ -51,8 +54,6 @@ interface TooltipProps extends HTMLBaseAttributes {
   content: string
   children?: Child
   placement?: TooltipPlacement
-  delayDuration?: number
-  closeDelay?: number
 }
 
 function Tooltip(props: TooltipProps) {
