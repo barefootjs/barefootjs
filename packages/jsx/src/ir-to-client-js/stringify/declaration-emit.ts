@@ -2,7 +2,7 @@
  * Stringify a `DeclarationEmitPlan` to source lines.
  *
  * Output shapes (preserved byte-identical from the legacy
- * `emit-init-sections.ts::emitDeclaration` + `emitControlledSignalEffect`):
+ * the legacy `emitDeclaration` + `emitControlledSignalEffect`):
  *
  *   constant (with value):  <kw> <name> = <valueExpr>
  *   constant (bare):        <kw> <name>

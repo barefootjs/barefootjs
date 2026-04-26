@@ -17,7 +17,7 @@
  */
 
 import type { ClientJsContext } from './types'
-import { collectConditionalSlotIds } from './emit-init-sections'
+import { collectConditionalSlotIds } from './phases/conditional-slot-ids'
 import { varSlotId } from './utils'
 
 /**
