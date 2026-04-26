@@ -12,7 +12,6 @@ on:
       - 'integrations/echo/**'
       - '.github/workflows/ci-go-template.yml'
   pull_request:
-    branches: [main]
     paths:
       - 'packages/client/**'
       - 'packages/jsx/**'

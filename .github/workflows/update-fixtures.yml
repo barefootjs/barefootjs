@@ -2,7 +2,6 @@ name: Update Fixtures
 
 on:
   pull_request:
-    branches: [main]
     paths:
       - 'packages/jsx/**'
       - 'packages/hono/**'

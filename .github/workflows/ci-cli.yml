@@ -10,7 +10,6 @@ on:
       - 'ui/**'
       - '.github/workflows/ci-cli.yml'
   pull_request:
-    branches: [main]
     paths:
       - 'packages/cli/**'
       - 'packages/client/**'

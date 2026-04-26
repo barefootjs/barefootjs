@@ -12,7 +12,6 @@ on:
       - 'integrations/hono/**'
       - '.github/workflows/ci-hono.yml'
   pull_request:
-    branches: [main]
     paths:
       - 'packages/client/**'
       - 'packages/jsx/**'
