@@ -56,6 +56,10 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  /* Don't stretch the Tooltip wrapper spans across the full column width —
+     keep them at their card's natural width so the tooltip's left:50% /
+     -translate-x-1/2 centers on the icon, not the column. */
+  align-items: center;
   gap: 0;
   position: relative;
   z-index: 2;
@@ -273,13 +277,15 @@
   max-width: 220px;
 }
 
-/* Output card / adapter tab — single row: [icon] [name + lang] */
+/* Output card / adapter tab — icon-only square; descriptive text lives
+   in a <Tooltip> wrapper that surfaces on hover/focus. */
 .flow-output {
   display: flex;
   align-items: center;
-  gap: 0.875rem;
-  height: 70px;
-  padding: 0 1rem;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  padding: 0;
   border-radius: 0.5rem;
   border: 1px solid var(--border);
   background: var(--card);
@@ -292,9 +298,12 @@
   /* Selected/active accent: same green as the active flow line so the
      box reads as part of the live path, not a passive card. */
   border-color: #22c55e;
-  /* Push client.js down so it sits next to the hero body copy — the
-     horizontal build → client.js line then crosses the description text
-     area, reinforcing the "client runtime hydrates this hero" feel. */
+}
+
+/* Push the entire client.js tooltip wrapper down (not just the card
+   inside it), so the Tooltip's bottom-full placement sits flush above
+   the icon instead of above the wrapper's untouched top edge. */
+.hero-b-grid > .flow-adapters > [data-slot="tooltip"]:has(.flow-output-client) {
   margin-top: 120px;
 }
 
@@ -311,26 +320,6 @@
 .flow-adapter-tab.is-active {
   opacity: 1;
   border-color: #22c55e;
-}
-
-.flow-output-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  min-width: 0;
-}
-
-.flow-output-name {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--foreground);
-  white-space: nowrap;
-}
-
-.flow-output-lang {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: var(--muted-foreground);
 }
 
 /* Adapter brand logo (left of the tab) */
@@ -436,30 +425,14 @@ img.flow-adapter-logo {
   }
 
   /* Override desktop offset that pushes client.js next to the body copy. */
-  .flow-output-client {
+  .hero-b-grid > .flow-adapters > [data-slot="tooltip"]:has(.flow-output-client) {
     margin-top: 0;
   }
 
-  /* Icon-only state: square card, name+lang hidden until expanded. */
+  /* Slightly tighter cards on mobile (still icon-only). */
   .flow-output {
     width: 56px;
     height: 56px;
-    padding: 0;
-    gap: 0;
-    justify-content: center;
-    overflow: hidden;
-    transition: width 0.2s ease, padding 0.2s ease;
-  }
-  .flow-output .flow-output-info {
-    display: none;
-  }
-  .flow-output.is-expanded {
-    width: auto;
-    padding: 0 0.875rem;
-    gap: 0.625rem;
-  }
-  .flow-output.is-expanded .flow-output-info {
-    display: flex;
   }
 
   /* On mobile, every adapter is "selectable" (no faded inactive state). */
