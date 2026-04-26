@@ -207,6 +207,18 @@ async function buildDiagramHtml(): Promise<string> {
                  ' L ' + x2 + ' ' + y2;
         }
 
+        function elbowPathV(x1, y1, x2, y2, viaY) {
+          // Vertical-first elbow: (x1,y1) → (x1,viaY) → (x2,viaY) → (x2,y2)
+          return 'M ' + x1 + ' ' + y1 +
+                 ' L ' + x1 + ' ' + viaY +
+                 ' L ' + x2 + ' ' + viaY +
+                 ' L ' + x2 + ' ' + y2;
+        }
+
+        function isMobile() {
+          return window.matchMedia('(max-width: 820px)').matches;
+        }
+
         function adapterPath(buildR, adapterCy, adapterLeft, _active) {
           // Single shared elbow x for all adapter lines, so the vertical
           // segments of active and inactive paths stack exactly on top of
@@ -224,46 +236,87 @@ async function buildDiagramHtml(): Promise<string> {
           var grid = diagram.getBoundingClientRect();
           svg.setAttribute('viewBox', '0 0 ' + grid.width + ' ' + grid.height);
           var srcR = rect(source);
-          // Position build node at the horizontal midpoint between source.right
-          // and the adapter column's left edge, vertically centered on the source.
-          var firstAdapter = adapterCards[0];
-          var adapterLeft = firstAdapter
-            ? rect(firstAdapter).left
-            : rect(clientCard).left;
-          var buildW = build.offsetWidth;
-          var buildH = build.offsetHeight;
-          // Bias the build node toward the source side as the gap widens
-          // (wide viewports leave a large source.right → adapter.left gap;
-          // a strict midpoint pushes it too far right).
-          var gap = adapterLeft - srcR.right;
-          var bias = gap > 700 ? 0.34 : gap > 500 ? 0.4 : 0.5;
-          var midX = srcR.right + gap * bias;
-          build.style.left = (midX - buildW / 2) + 'px';
-          build.style.top = (srcR.cy - buildH / 2) + 'px';
+          var mobile = isMobile();
+
+          if (!mobile) {
+            // Desktop: position build absolutely at the visual midpoint between
+            // source.right and adapter.left, biased toward source on wide viewports.
+            var firstAdapter = adapterCards[0];
+            var adapterLeft = firstAdapter
+              ? rect(firstAdapter).left
+              : rect(clientCard).left;
+            var buildW = build.offsetWidth;
+            var buildH = build.offsetHeight;
+            var gap = adapterLeft - srcR.right;
+            var bias = gap > 700 ? 0.34 : gap > 500 ? 0.4 : 0.5;
+            var midX = srcR.right + gap * bias;
+            build.style.left = (midX - buildW / 2) + 'px';
+            build.style.top = (srcR.cy - buildH / 2) + 'px';
+          } else {
+            // Mobile: build is in normal flow (CSS sets position:static). Clear
+            // any inline positioning left over from a desktop → mobile resize.
+            build.style.left = '';
+            build.style.top = '';
+          }
+
           var buildR = rect(build);
           var clientR = rect(clientCard);
 
-          // source → build elbow (gutter mid)
-          var leftGutterMid = (srcR.right + buildR.left) / 2;
-          sourceBuildPath.setAttribute('d',
-            elbowPath(srcR.right, srcR.cy, buildR.left, buildR.cy, leftGutterMid));
+          if (mobile) {
+            // Vertical stack: source ↓ build ↓ adapter row.
+            // source → build: drop straight down from source.bottom-center
+            // to build.top-center (with elbow if cx differs).
+            var sbViaY = (srcR.bottom + buildR.top) / 2;
+            sourceBuildPath.setAttribute('d',
+              elbowPathV(srcR.cx, srcR.bottom, buildR.cx, buildR.top, sbViaY));
 
-          // build → client.js (vertical out the top of build, then horizontal)
-          buildClientPath.setAttribute('d',
-            'M ' + buildR.cx + ' ' + buildR.top +
-            ' L ' + buildR.cx + ' ' + clientR.cy +
-            ' L ' + clientR.left + ' ' + clientR.cy);
-          clientDot.setAttribute('cx', clientR.left);
-          clientDot.setAttribute('cy', clientR.cy);
+            // client.js exits the LEFT side of the build node, then drops
+            // straight down into client.cx — a single L-shape distinct from
+            // the bottom-fanning adapter bus.
+            buildClientPath.setAttribute('d',
+              'M ' + buildR.left + ' ' + buildR.cy +
+              ' L ' + clientR.cx + ' ' + buildR.cy +
+              ' L ' + clientR.cx + ' ' + clientR.top);
+            clientDot.setAttribute('cx', clientR.cx);
+            clientDot.setAttribute('cy', clientR.top);
 
-          // build → adapter cards
-          adapterCards.forEach(function (card, i) {
-            var aR = rect(card);
-            adapterLines[i].setAttribute('d',
-              adapterPath(buildR, aR.cy, aR.left, i === activeIdx));
-            adapterDots[i].setAttribute('cx', aR.left);
-            adapterDots[i].setAttribute('cy', aR.cy);
-          });
+            // Adapter row gets its own shared bus computed from the adapter
+            // tops only (client.js is no longer pulling the bus upward).
+            var minAdapterTop = Infinity;
+            adapterCards.forEach(function (c) {
+              var t = rect(c).top;
+              if (t < minAdapterTop) minAdapterTop = t;
+            });
+            var busY = (buildR.bottom + minAdapterTop) / 2;
+
+            adapterCards.forEach(function (card, i) {
+              var aR = rect(card);
+              adapterLines[i].setAttribute('d',
+                elbowPathV(buildR.cx, buildR.bottom, aR.cx, aR.top, busY));
+              adapterDots[i].setAttribute('cx', aR.cx);
+              adapterDots[i].setAttribute('cy', aR.top);
+            });
+          } else {
+            // Desktop horizontal flow.
+            var leftGutterMid = (srcR.right + buildR.left) / 2;
+            sourceBuildPath.setAttribute('d',
+              elbowPath(srcR.right, srcR.cy, buildR.left, buildR.cy, leftGutterMid));
+
+            buildClientPath.setAttribute('d',
+              'M ' + buildR.cx + ' ' + buildR.top +
+              ' L ' + buildR.cx + ' ' + clientR.cy +
+              ' L ' + clientR.left + ' ' + clientR.cy);
+            clientDot.setAttribute('cx', clientR.left);
+            clientDot.setAttribute('cy', clientR.cy);
+
+            adapterCards.forEach(function (card, i) {
+              var aR = rect(card);
+              adapterLines[i].setAttribute('d',
+                adapterPath(buildR, aR.cy, aR.left, i === activeIdx));
+              adapterDots[i].setAttribute('cx', aR.left);
+              adapterDots[i].setAttribute('cy', aR.cy);
+            });
+          }
         }
 
         function setActive(idx) {
@@ -286,9 +339,21 @@ async function buildDiagramHtml(): Promise<string> {
 
         adapterCards.forEach(function (tab) {
           tab.addEventListener('click', function () {
+            // Mobile: tap toggles the icon-only card open to reveal name+lang.
+            // Desktop: the .is-expanded class has no visual effect (info is
+            // already visible), so this is a no-op there.
+            tab.classList.toggle('is-expanded');
             setActive(parseInt(tab.getAttribute('data-index') || '0', 10));
           });
         });
+
+        // client.js card: same icon → tap-to-expand affordance on mobile.
+        if (clientCard) {
+          clientCard.style.cursor = 'pointer';
+          clientCard.addEventListener('click', function () {
+            clientCard.classList.toggle('is-expanded');
+          });
+        }
 
         update();
         window.addEventListener('resize', update);
