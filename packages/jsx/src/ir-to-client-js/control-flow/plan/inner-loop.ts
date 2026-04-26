@@ -81,16 +81,15 @@ export interface InnerLoopReactiveEmit {
   keyFn: string
   /** mapArray renderItem param head — `inner.param` or `__bfItem`. */
   paramHead: string
-  /** Body-entry unwrap statement (empty when no destructured param). */
-  paramUnwrap: string
   /**
-   * Inner `.map()` callback's `mapPreamble` (block-body local declarations),
-   * with both inner and outer loop param references rewritten to signal
-   * accessor form. Empty when the source had no preamble. Emitted at the
-   * top of the renderItem callback so the cloned-template IIFE and any
-   * subsequent reads can resolve the locals (#1052).
+   * Body-entry statements emitted in order at the top of the renderItem
+   * callback, before the `let __innerEl = ...` clone. Holds the optional
+   * destructured-param unwrap and the (signal-accessor wrapped) inner
+   * `.map()` callback preamble locals (#1052). Empty when neither applies.
+   * Modeled as a list so the stringifier walks it deterministically
+   * instead of branching on multiple independent emptiness checks.
    */
-  preambleWrapped: string
+  preludeStatements: readonly string[]
   /** Already-wrapped HTML template for one inner-loop item. */
   wrappedTemplate: string
   /** Pre-wrapped key expression for setAttribute, or null when no key. */
