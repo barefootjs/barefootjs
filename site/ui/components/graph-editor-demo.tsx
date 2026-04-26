@@ -271,9 +271,12 @@ export function GraphEditorDemo() {
   function onSvgPointerUp(ev: PointerEvent) {
     const d = drag()
     if (d.mode === 'connect') {
-      // Drop on a node body that isn't the source.
-      const target = ev.target as Element | null
-      const targetGroup = target?.closest?.('[data-node-id]') as Element | null
+      // Resolve drop target by hit-testing the cursor position. The handle
+      // grabbed `setPointerCapture` on pointerdown, so `ev.target` is the
+      // source handle for every subsequent event — we need the element
+      // actually under the cursor, which is what `elementFromPoint` gives.
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY) as Element | null
+      const targetGroup = hit?.closest?.('[data-node-id]') as Element | null
       const targetId = targetGroup?.getAttribute('data-node-id') ?? null
       if (targetId && targetId !== d.sourceId) {
         const exists = edges().some((e: GraphEdge) => e.source === d.sourceId && e.target === targetId)

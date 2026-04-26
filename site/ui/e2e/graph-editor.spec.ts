@@ -223,6 +223,77 @@ test.describe('Graph Editor Block', () => {
     })
   })
 
+  // --- Edge creation by drag-to-connect ---
+
+  test.describe('Edge connect', () => {
+    test('dragging from a node handle to another node creates a new edge', async ({ page }) => {
+      const s = section(page)
+      await expect(s.locator('[data-edge-id]')).toHaveCount(5)
+
+      // n1's handle (right side of the source node) → n5 (the sink node).
+      // No edge from n1 to n5 exists initially.
+      const handle = s.locator('[data-node-handle-id="n1"]').first()
+      const target = s.locator('[data-node-id="n5"]').first()
+
+      const hb = await handle.boundingBox()
+      const tb = await target.boundingBox()
+      if (!hb || !tb) throw new Error('bounding box missing')
+
+      const sx = hb.x + hb.width / 2
+      const sy = hb.y + hb.height / 2
+      const ex = tb.x + tb.width / 2
+      const ey = tb.y + tb.height / 2
+
+      await page.mouse.move(sx, sy)
+      await page.mouse.down()
+      // Step through so the connect-preview path renders along the way.
+      await page.mouse.move((sx + ex) / 2, (sy + ey) / 2, { steps: 5 })
+      await expect(s.locator('[data-connect-preview]')).toHaveCount(1)
+      await page.mouse.move(ex, ey, { steps: 5 })
+      await page.mouse.up()
+
+      await expect(s.locator('[data-edge-id]')).toHaveCount(6)
+      await expect(s.locator('.edge-count')).toHaveText('6 edges')
+      // The connect preview is removed once drag ends.
+      await expect(s.locator('[data-connect-preview]')).toHaveCount(0)
+    })
+
+    test('drag-to-connect onto the source node itself does not create a self-edge', async ({ page }) => {
+      const s = section(page)
+      const handle = s.locator('[data-node-handle-id="n1"]').first()
+      const sourceBody = s.locator('[data-node-id="n1"] .graph-node-body').first()
+
+      const hb = await handle.boundingBox()
+      const sb = await sourceBody.boundingBox()
+      if (!hb || !sb) throw new Error('bounding box missing')
+
+      await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2, { steps: 5 })
+      await page.mouse.up()
+
+      await expect(s.locator('[data-edge-id]')).toHaveCount(5)
+    })
+
+    test('drag-to-connect onto an existing target does not create a duplicate edge', async ({ page }) => {
+      const s = section(page)
+      // n1 → n2 already exists (e1).
+      const handle = s.locator('[data-node-handle-id="n1"]').first()
+      const target = s.locator('[data-node-id="n2"]').first()
+
+      const hb = await handle.boundingBox()
+      const tb = await target.boundingBox()
+      if (!hb || !tb) throw new Error('bounding box missing')
+
+      await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2, { steps: 5 })
+      await page.mouse.up()
+
+      await expect(s.locator('[data-edge-id]')).toHaveCount(5)
+    })
+  })
+
   // --- Reset ---
 
   test.describe('Reset', () => {
