@@ -341,7 +341,7 @@ await mkdir(DIST_LOGOS_DIR, { recursive: true })
 await mkdir(DIST_STATIC_LOGOS_DIR, { recursive: true })
 const logoFiles = await readdir(LOGOS_SRC).catch(() => [] as string[])
 for (const file of logoFiles) {
-  if (file.endsWith('.svg')) {
+  if (file.endsWith('.svg') || file.endsWith('.png')) {
     await Bun.write(resolve(DIST_LOGOS_DIR, file), Bun.file(resolve(LOGOS_SRC, file)))
     await Bun.write(resolve(DIST_STATIC_LOGOS_DIR, file), Bun.file(resolve(LOGOS_SRC, file)))
   }
