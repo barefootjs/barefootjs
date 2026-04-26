@@ -7,7 +7,7 @@ on:
       - 'packages/client/**'
       - 'packages/shared/**'
       - 'packages/jsx/**'
-      - 'packages/mojolicious/**'
+      - 'packages/adapter-mojolicious/**'
       - 'packages/adapter-tests/**'
       - '.github/workflows/ci-mojolicious.yml'
   pull_request:
@@ -15,7 +15,7 @@ on:
       - 'packages/client/**'
       - 'packages/shared/**'
       - 'packages/jsx/**'
-      - 'packages/mojolicious/**'
+      - 'packages/adapter-mojolicious/**'
       - 'packages/adapter-tests/**'
       - '.github/workflows/ci-mojolicious.yml'
 
@@ -46,7 +46,7 @@ jobs:
         run: |
           bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
-          bun run --filter '@barefootjs/mojolicious' build
+          bun run --filter '@barefootjs/adapter-mojolicious' build
 
       - name: Run unit tests
-        run: bun test packages/mojolicious
+        run: bun test packages/adapter-mojolicious

@@ -6,8 +6,8 @@
  */
 
 import { compileJSX, combineParentChildClientJs } from '@barefootjs/jsx'
-import { HonoAdapter } from '@barefootjs/hono/adapter'
-import { addScriptCollection } from '@barefootjs/hono/build'
+import { HonoAdapter } from '@barefootjs/adapter-hono/adapter'
+import { addScriptCollection } from '@barefootjs/adapter-hono/build'
 import { mkdir, readdir, symlink, lstat } from 'node:fs/promises'
 import { dirname, resolve, join, relative, basename } from 'node:path'
 import {
@@ -188,7 +188,7 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   await resolveRelativeImports({ distDir: DIST_DIR, manifest })
 
   // 6. Rewrite imports and add JSX pragma in compiled .tsx files
-  const HONO_UTILS_PATH = resolve(ROOT_DIR, 'packages/hono/src/utils')
+  const HONO_UTILS_PATH = resolve(ROOT_DIR, 'packages/adapter-hono/src/utils')
   async function rewriteImports(dir: string) {
     const entries = await readdir(dir, { withFileTypes: true })
     for (const entry of entries) {
@@ -205,8 +205,8 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
           changed = true
         }
 
-        // Rewrite @barefootjs/hono/utils → relative path to source
-        if (content.includes("@barefootjs/hono/utils")) {
+        // Rewrite @barefootjs/adapter-hono/utils → relative path to source
+        if (content.includes("@barefootjs/adapter-hono/utils")) {
           const relPath = relative(dirname(fullPath), HONO_UTILS_PATH).replace(/\\/g, '/')
           content = content.replace(/@barefootjs\/hono\/utils/g, relPath)
           changed = true
@@ -244,8 +244,8 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
       rewritten = '/** @jsxImportSource hono/jsx */\n' + rewritten
     }
 
-    // Rewrite @barefootjs/hono/utils → relative path
-    if (rewritten.includes('@barefootjs/hono/utils')) {
+    // Rewrite @barefootjs/adapter-hono/utils → relative path
+    if (rewritten.includes('@barefootjs/adapter-hono/utils')) {
       const relPath = relative(dirname(destPath), HONO_UTILS_PATH).replace(/\\/g, '/')
       rewritten = rewritten.replace(/@barefootjs\/hono\/utils/g, relPath)
     }

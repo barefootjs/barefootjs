@@ -8,7 +8,7 @@ description: Generate Go html/template files and type definitions from the compi
 Generates Go `html/template` files (`.tmpl`) and type definitions (`_types.go`) from the compiler's IR.
 
 ```
-npm install @barefootjs/go-template
+npm install @barefootjs/adapter-go-template
 ```
 
 
@@ -16,7 +16,7 @@ npm install @barefootjs/go-template
 
 ```typescript
 import { compile } from '@barefootjs/jsx'
-import { GoTemplateAdapter } from '@barefootjs/go-template'
+import { GoTemplateAdapter } from '@barefootjs/adapter-go-template'
 
 const adapter = new GoTemplateAdapter()
 const result = compile(source, { adapter })

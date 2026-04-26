@@ -2,7 +2,7 @@
  * Preview development server
  *
  * Lightweight Hono server that renders previews with full hydration support.
- * Uses BfScripts/BfPortals from @barefootjs/hono.
+ * Uses BfScripts/BfPortals from @barefootjs/adapter-hono.
  * Compiled components' hono imports are rewritten to the same hono instance
  * in compile.ts to ensure consistent request context sharing.
  */
@@ -12,8 +12,8 @@
 import { Hono } from 'hono'
 import { jsxRenderer, useRequestContext } from 'hono/jsx-renderer'
 import { serveStatic } from 'hono/bun'
-import { BfScripts } from '@barefootjs/hono/scripts'
-import { BfPortals } from '@barefootjs/hono/portals'
+import { BfScripts } from '@barefootjs/adapter-hono/scripts'
+import { BfPortals } from '@barefootjs/adapter-hono/portals'
 
 declare module 'hono' {
   interface ContextRenderer {

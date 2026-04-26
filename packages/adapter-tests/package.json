@@ -9,8 +9,8 @@
     "@barefootjs/jsx": "workspace:*"
   },
   "devDependencies": {
-    "@barefootjs/go-template": "workspace:*",
-    "@barefootjs/hono": "workspace:*",
+    "@barefootjs/adapter-go-template": "workspace:*",
+    "@barefootjs/adapter-hono": "workspace:*",
     "typescript": "^5.0.0"
   }
 }

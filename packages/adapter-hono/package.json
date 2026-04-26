@@ -1,0 +1,108 @@
+{
+  "name": "@barefootjs/adapter-hono",
+  "version": "0.0.1",
+  "description": "Hono integration for BarefootJS",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./adapter": {
+      "types": "./src/adapter/index.ts",
+      "import": "./src/adapter/index.ts"
+    },
+    "./scripts": {
+      "types": "./src/scripts.tsx",
+      "import": "./src/scripts.tsx"
+    },
+    "./portals": {
+      "types": "./src/portals.tsx",
+      "import": "./src/portals.tsx"
+    },
+    "./portal": {
+      "types": "./src/portal-ssr.tsx",
+      "import": "./src/portal-ssr.tsx"
+    },
+    "./dialog-context": {
+      "types": "./src/dialog-context.tsx",
+      "import": "./src/dialog-context.tsx"
+    },
+    "./preload": {
+      "types": "./src/preload.tsx",
+      "import": "./src/preload.tsx"
+    },
+    "./dev": {
+      "types": "./src/dev.tsx",
+      "import": "./src/dev.tsx"
+    },
+    "./dev-reload": {
+      "types": "./src/dev-reload.tsx",
+      "import": "./src/dev-reload.tsx"
+    },
+    "./dev-worker": {
+      "types": "./src/dev-worker.ts",
+      "import": "./src/dev-worker.ts"
+    },
+    "./jsx/jsx-runtime": {
+      "types": "./src/jsx/jsx-runtime/index.d.ts",
+      "import": "./src/jsx/jsx-runtime/index.ts"
+    },
+    "./jsx/jsx-dev-runtime": {
+      "types": "./src/jsx/jsx-dev-runtime/index.d.ts",
+      "import": "./src/jsx/jsx-dev-runtime/index.ts"
+    },
+    "./async": {
+      "types": "./src/async.tsx",
+      "import": "./src/async.tsx"
+    },
+    "./utils": {
+      "types": "./src/utils.ts",
+      "import": "./src/utils.ts"
+    },
+    "./test-render": {
+      "bun": "./src/test-render.ts"
+    },
+    "./build": {
+      "types": "./src/build.ts",
+      "import": "./src/build.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "bun run build:js && bun run build:types",
+    "build:js": "bun build ./src/index.ts --outdir ./dist --format esm",
+    "build:types": "tsgo --emitDeclarationOnly --outDir ./dist",
+    "test": "bun test",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "hono",
+    "jsx",
+    "barefoot",
+    "ssr"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/barefootjs/barefootjs",
+    "directory": "packages/adapter-hono"
+  },
+  "peerDependencies": {
+    "@barefootjs/jsx": "workspace:*",
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@barefootjs/adapter-tests": "workspace:*",
+    "@types/jsdom": "^27.0.0",
+    "hono": "^4.6.0",
+    "jsdom": "^27.3.0",
+    "typescript": "^5.0.0"
+  }
+}

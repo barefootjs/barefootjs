@@ -17,7 +17,7 @@ Add an `externals` map to `barefoot.config.ts`. The CLI copies each package's br
 ```ts
 // barefoot.config.ts
 import { defineConfig } from 'barefootjs/config'
-import { HonoAdapter } from '@barefootjs/hono/adapter'
+import { HonoAdapter } from '@barefootjs/adapter-hono/adapter'
 
 export default defineConfig({
   adapter: HonoAdapter(),

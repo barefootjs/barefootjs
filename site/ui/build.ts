@@ -15,7 +15,7 @@
  */
 
 import { compileJSX, combineParentChildClientJs, createProgramForCorpus } from '@barefootjs/jsx'
-import { HonoAdapter } from '@barefootjs/hono/adapter'
+import { HonoAdapter } from '@barefootjs/adapter-hono/adapter'
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, resolve, join, relative } from 'node:path'
 import {
@@ -26,7 +26,7 @@ import {
 } from '../../packages/cli/src/lib/build'
 import { loadIndex } from '../../packages/cli/src/lib/meta-loader'
 import { generateUiLlmsTxt } from '../../packages/cli/src/lib/llms-txt-generator'
-import { addScriptCollection } from '../../packages/hono/src/build'
+import { addScriptCollection } from '../../packages/adapter-hono/src/build'
 
 const ROOT_DIR = dirname(import.meta.path)
 

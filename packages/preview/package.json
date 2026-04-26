@@ -8,7 +8,7 @@
     ".": { "bun": "./src/index.tsx" }
   },
   "dependencies": {
-    "@barefootjs/hono": "workspace:*",
+    "@barefootjs/adapter-hono": "workspace:*",
     "@barefootjs/jsx": "workspace:*",
     "hono": "^4.6.0"
   },

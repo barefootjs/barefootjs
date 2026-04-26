@@ -1,0 +1,53 @@
+{
+  "name": "@barefootjs/adapter-go-template",
+  "version": "0.0.1",
+  "description": "Go html/template adapter for BarefootJS - generates Go template files from IR",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./test-render": {
+      "bun": "./src/test-render.ts"
+    },
+    "./build": {
+      "types": "./src/build.ts",
+      "import": "./src/build.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "bun run build:js && bun run build:types",
+    "build:js": "bun build ./src/index.ts --outdir ./dist --format esm",
+    "build:types": "tsgo --emitDeclarationOnly --outDir ./dist",
+    "test": "bun test",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "go",
+    "template",
+    "barefoot",
+    "ssr"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/barefootjs/barefootjs",
+    "directory": "packages/adapter-go-template"
+  },
+  "peerDependencies": {
+    "@barefootjs/jsx": "workspace:*"
+  },
+  "devDependencies": {
+    "@barefootjs/adapter-tests": "workspace:*",
+    "@barefootjs/jsx": "workspace:*",
+    "typescript": "^5.0.0"
+  }
+}

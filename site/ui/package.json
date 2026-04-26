@@ -14,7 +14,7 @@
     "@barefootjs/chart": "workspace:*",
     "@barefootjs/client": "workspace:*",
     "@barefootjs/form": "workspace:*",
-    "@barefootjs/hono": "workspace:*",
+    "@barefootjs/adapter-hono": "workspace:*",
     "@barefootjs/site-shared": "workspace:*",
     "@shikijs/langs": "^3.21.0",
     "@shikijs/themes": "^3.21.0",

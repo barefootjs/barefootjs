@@ -16,7 +16,7 @@
  */
 
 import { compileJSX, combineParentChildClientJs } from '@barefootjs/jsx'
-import { HonoAdapter } from '@barefootjs/hono/adapter'
+import { HonoAdapter } from '@barefootjs/adapter-hono/adapter'
 import { mkdir, readdir } from 'node:fs/promises'
 import { dirname, resolve, join, relative } from 'node:path'
 import { loadContentFromDisk } from './lib/content-loader'
@@ -26,7 +26,7 @@ import {
   generateHash,
   resolveRelativeImports,
 } from '../../packages/cli/src/lib/build'
-import { addScriptCollection } from '../../packages/hono/src/build'
+import { addScriptCollection } from '../../packages/adapter-hono/src/build'
 
 const ROOT_DIR = dirname(import.meta.path)
 const CONTENT_DIR = resolve(ROOT_DIR, '../../docs/core')
@@ -393,7 +393,7 @@ for (const output of playgroundPage.outputs) {
 console.log('Generated: dist/playground/page.js (+ static copy)')
 
 // Type bundle for Monaco — gives the editor real autocomplete + accurate
-// error reporting against @barefootjs/hono/jsx (used as the JSX source) and
+// error reporting against @barefootjs/adapter-hono/jsx (used as the JSX source) and
 // @barefootjs/client (signals API).
 const PKG_DIR = resolve(ROOT_DIR, '../../packages')
 
@@ -414,7 +414,7 @@ if (!(await Bun.file(clientDtsFile).exists())) {
 }
 
 // Minimal shims for the \`hono/jsx\` + \`hono/jsx/jsx-runtime\` modules the
-// @barefootjs/hono declarations reference. Without these Monaco would emit
+// @barefootjs/adapter-hono declarations reference. Without these Monaco would emit
 // "Cannot find module 'hono/jsx…'" diagnostics once semantic validation is
 // on. We only need the shapes used by the JSX namespace surface.
 const HONO_JSX_SHIM = `declare module 'hono/jsx' {
@@ -438,8 +438,8 @@ const HONO_JSX_RUNTIME_SHIM = `declare module 'hono/jsx/jsx-runtime' {
 `
 
 const typeBundle: Record<string, string> = {
-  'file:///node_modules/@barefootjs/hono/jsx/jsx-runtime/index.d.ts':
-    await Bun.file(resolve(PKG_DIR, 'hono/src/jsx/jsx-runtime/index.d.ts')).text(),
+  'file:///node_modules/@barefootjs/adapter-hono/jsx/jsx-runtime/index.d.ts':
+    await Bun.file(resolve(PKG_DIR, 'adapter-hono/src/jsx/jsx-runtime/index.d.ts')).text(),
   'file:///node_modules/@barefootjs/jsx/jsx-runtime/index.d.ts':
     await Bun.file(resolve(PKG_DIR, 'jsx/src/jsx-runtime/index.d.ts')).text(),
   'file:///node_modules/@barefootjs/jsx/html-types.d.ts':

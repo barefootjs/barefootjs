@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'packages/jsx/**'
-      - 'packages/hono/**'
+      - 'packages/adapter-hono/**'
       - 'packages/client/**'
       - 'packages/adapter-tests/src/**'
       - 'packages/adapter-tests/scripts/**'
@@ -40,7 +40,7 @@ jobs:
         run: |
           bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
-          bun run --filter '@barefootjs/hono' build
+          bun run --filter '@barefootjs/adapter-hono' build
 
       - name: Generate expectedHtml
         run: bun run packages/adapter-tests/scripts/generate-expected-html.ts

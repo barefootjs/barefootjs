@@ -11,7 +11,7 @@
 
 import { describe, test, expect } from 'bun:test'
 import { compileJSXSync } from '@barefootjs/jsx'
-import { HonoAdapter } from '@barefootjs/hono/adapter'
+import { HonoAdapter } from '@barefootjs/adapter-hono/adapter'
 import { jsxFixtures } from '../../fixtures'
 
 const adapter = new HonoAdapter()

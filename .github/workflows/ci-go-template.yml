@@ -6,7 +6,7 @@ on:
     paths:
       - 'packages/client/**'
       - 'packages/jsx/**'
-      - 'packages/go-template/**'
+      - 'packages/adapter-go-template/**'
       - 'packages/preview/**'
       - 'packages/adapter-tests/**'
       - 'integrations/echo/**'
@@ -15,7 +15,7 @@ on:
     paths:
       - 'packages/client/**'
       - 'packages/jsx/**'
-      - 'packages/go-template/**'
+      - 'packages/adapter-go-template/**'
       - 'packages/preview/**'
       - 'packages/adapter-tests/**'
       - 'integrations/echo/**'
@@ -45,13 +45,13 @@ jobs:
         run: |
           bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
-          bun run --filter '@barefootjs/go-template' build
+          bun run --filter '@barefootjs/adapter-go-template' build
 
       - name: Pre-warm Go build cache
-        run: cd packages/go-template/runtime && GOTOOLCHAIN=local go build ./...
+        run: cd packages/adapter-go-template/runtime && GOTOOLCHAIN=local go build ./...
 
       - name: Run unit tests
-        run: bun test packages/go-template
+        run: bun test packages/adapter-go-template
 
   e2e-echo:
     runs-on: ubuntu-latest
@@ -77,7 +77,7 @@ jobs:
         run: |
           bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
-          bun run --filter '@barefootjs/go-template' build
+          bun run --filter '@barefootjs/adapter-go-template' build
 
       - name: Build integrations/echo
         run: cd integrations/echo && bun run build

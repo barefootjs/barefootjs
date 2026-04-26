@@ -21,7 +21,7 @@ Set `clientOnly: true` in `barefoot.config.ts`. This skips marked template outpu
 
 ```typescript
 // barefoot.config.ts
-import { createConfig } from '@barefootjs/hono/build'
+import { createConfig } from '@barefootjs/adapter-hono/build'
 
 export default createConfig({
   components: ['./components'],

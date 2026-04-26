@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "@barefootjs/hono/jsx",
+    "jsxImportSource": "@barefootjs/adapter-hono/jsx",
     "skipLibCheck": true
   },
   "include": ["components/**/*"],

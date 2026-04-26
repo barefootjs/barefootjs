@@ -8,7 +8,7 @@ description: Generate Hono JSX templates from the compiler's IR for Hono-based s
 Generates Hono JSX (`.tsx`) files from the compiler's IR. Works with Hono and any JSX-compatible TypeScript backend.
 
 ```
-npm install @barefootjs/hono
+npm install @barefootjs/adapter-hono
 ```
 
 
@@ -16,7 +16,7 @@ npm install @barefootjs/hono
 
 ```typescript
 import { compile } from '@barefootjs/jsx'
-import { HonoAdapter } from '@barefootjs/hono'
+import { HonoAdapter } from '@barefootjs/adapter-hono'
 
 const adapter = new HonoAdapter()
 const result = compile(source, { adapter })
@@ -60,7 +60,7 @@ export function Greeting(props: { name: string }) {
 **Output (.tsx):**
 
 ```tsx
-import { bfText, bfTextEnd } from '@barefootjs/hono/utils'
+import { bfText, bfTextEnd } from '@barefootjs/adapter-hono/utils'
 
 export function Greeting(__allProps: { name: string } & { __instanceId?: string; ... }) {
   const { __instanceId, ..., ...props } = __allProps
@@ -97,7 +97,7 @@ export function Counter(props: { initial?: number }) {
 **Output (.tsx):**
 
 ```tsx
-import { bfText, bfTextEnd } from '@barefootjs/hono/utils'
+import { bfText, bfTextEnd } from '@barefootjs/adapter-hono/utils'
 
 export function Counter(__allProps: { initial?: number } & { __instanceId?: string; ... }) {
   const { __instanceId, ..., ...props } = __allProps
@@ -126,7 +126,7 @@ export function Counter(__allProps: { initial?: number } & { __instanceId?: stri
 A build-time post-processing step injects `useRequestContext()` calls into generated templates. `BfScripts` renders the collected `<script>` tags:
 
 ```tsx
-import { BfScripts } from '@barefootjs/hono'
+import { BfScripts } from '@barefootjs/adapter-hono'
 
 export function Layout({ children }) {
   return (

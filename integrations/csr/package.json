@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "@barefootjs/client": "workspace:*",
-    "@barefootjs/hono": "workspace:*"
+    "@barefootjs/adapter-hono": "workspace:*"
   },
   "devDependencies": {
-    "@barefootjs/hono": "workspace:*",
+    "@barefootjs/adapter-hono": "workspace:*",
     "bun-types": "^1.1.0"
   }
 }

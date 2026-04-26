@@ -206,7 +206,7 @@ async function main() {
     module: monaco.languages.typescript.ModuleKind.ESNext,
     moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
     jsx: monaco.languages.typescript.JsxEmit.ReactJSX,
-    jsxImportSource: '@barefootjs/hono/jsx',
+    jsxImportSource: '@barefootjs/adapter-hono/jsx',
     allowNonTsExtensions: true,
     allowJs: true,
     noEmit: true,

@@ -1,4 +1,4 @@
-import { createConfig } from '@barefootjs/go-template/build'
+import { createConfig } from '@barefootjs/adapter-go-template/build'
 
 const basePath = process.env.BASE_PATH ?? '/integrations/echo'
 const staticBase = `${basePath}/static/client/`

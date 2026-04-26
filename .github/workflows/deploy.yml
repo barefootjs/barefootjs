@@ -83,7 +83,7 @@ jobs:
         run: |
           bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
-          bun run --filter '@barefootjs/hono' build
+          bun run --filter '@barefootjs/adapter-hono' build
           bun run --filter '@barefootjs/form' build
           bun run --filter '@barefootjs/chart' build
 
@@ -121,7 +121,7 @@ jobs:
         run: |
           bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
-          bun run --filter '@barefootjs/hono' build
+          bun run --filter '@barefootjs/adapter-hono' build
 
       - name: Build integration
         run: cd integrations/hono && bun run build
@@ -152,7 +152,7 @@ jobs:
         run: |
           bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
-          bun run --filter '@barefootjs/go-template' build
+          bun run --filter '@barefootjs/adapter-go-template' build
 
       - name: Build integration
         run: cd integrations/echo && bun run build
@@ -186,7 +186,7 @@ jobs:
         run: |
           bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
-          bun run --filter '@barefootjs/mojolicious' build
+          bun run --filter '@barefootjs/adapter-mojolicious' build
 
       - name: Build integration
         run: cd integrations/mojolicious && bun run build
