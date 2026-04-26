@@ -4,7 +4,7 @@
  * a `signal` declaration.
  *
  * Replaces the inline 4-branch `if/else` cascade that used to live in
- * `emit-init-sections.ts::emitDeclaration::signal` (selecting the
+ * the legacy `emitDeclaration::signal` (selecting the
  * `initialValue` expression based on whether the signal is controlled,
  * whether the user wrote `??`, and whether `propsObjectName` is set).
  *

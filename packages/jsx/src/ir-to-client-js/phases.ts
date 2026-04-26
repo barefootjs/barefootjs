@@ -18,18 +18,16 @@
 import type { ComponentIR, PropUsage, ReferencesGraph } from '../types'
 import type { ClientJsContext } from './types'
 import type { LocalClassification } from './init-declarations'
-import {
-  collectConditionalSlotIds,
-  emitEffectsAndOnMounts,
-  emitEventHandlers,
-  emitInitStatements,
-  emitProviderAndChildInits,
-  emitPropsEventHandlers,
-  emitPropsExtraction,
-  emitRefCallbacks,
-  emitRestAttrApplications,
-  emitStaticArrayChildInits,
-} from './emit-init-sections'
+import { collectConditionalSlotIds } from './phases/conditional-slot-ids'
+import { emitEffectsAndOnMounts } from './phases/effects-and-on-mounts'
+import { emitEventHandlers } from './phases/event-handlers'
+import { emitInitStatements } from './phases/init-statements'
+import { emitProviderAndChildInits } from './phases/provider-and-child-inits'
+import { emitPropsEventHandlers } from './phases/props-event-handlers'
+import { emitPropsExtraction } from './phases/props-extraction'
+import { emitRefCallbacks } from './phases/ref-callbacks'
+import { emitRestAttrApplications } from './phases/rest-attr-applications'
+import { emitStaticArrayChildInits } from './phases/static-array-child-inits'
 import { emitClientOnlyConditionals, emitConditionalUpdates, emitLoopUpdates } from './control-flow'
 import {
   emitClientOnlyExpressions,
@@ -140,12 +138,9 @@ export const PHASES: readonly EmitPhase[] = [
   {
     id: 'init-statements',
     dependsOn: ['sorted-declarations'],
-    run: (lines, p) => {
-      emitInitStatements(lines, p.ctx)
-      // Trailing blank line (only when statements were emitted) — folded in
-      // here so the orchestrator stays a flat phase list.
-      if (p.ctx.initStatements.length > 0) lines.push('')
-    },
+    // The trailing blank line (only when statements were emitted) is owned
+    // by `emitInitStatements` itself — see `phases/init-statements.ts`.
+    run: (lines, p) => emitInitStatements(lines, p.ctx),
   },
   {
     id: 'props-event-handlers',

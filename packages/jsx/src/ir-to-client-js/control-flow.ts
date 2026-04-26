@@ -69,7 +69,7 @@ export function emitLoopUpdates(lines: string[], ctx: ClientJsContext): void {
  * Emit reactive attribute effects and event delegation for static arrays.
  * Static arrays are server-rendered once; only signal-dependent attributes
  * and event handlers need client-side setup. (initChild calls are deferred to
- * emit-init-sections so parent context providers run first.)
+ * the `static-array-child-inits` phase so parent context providers run first.)
  */
 function emitStaticArrayUpdates(lines: string[], elem: TopLevelLoop): void {
   stringifyStaticLoop(lines, buildStaticLoopPlan(elem))
