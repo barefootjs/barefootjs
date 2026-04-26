@@ -6,7 +6,7 @@
  *
  * Usage:
  * ```tsx
- * import { DialogContext, useDialogContext } from '@barefootjs/adapter-hono'
+ * import { DialogContext, useDialogContext } from '@barefootjs/hono'
  *
  * // In DialogRoot
  * <DialogContext.Provider value={{ scopeId }}>

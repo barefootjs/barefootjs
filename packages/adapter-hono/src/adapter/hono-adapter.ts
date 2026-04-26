@@ -115,7 +115,7 @@ export class HonoAdapter extends JsxAdapter {
       }
     }
     if (utilImports.length > 0) {
-      lines.push(`import { ${utilImports.join(', ')} } from '@barefootjs/adapter-hono/utils'`)
+      lines.push(`import { ${utilImports.join(', ')} } from '@barefootjs/hono/utils'`)
     }
 
     // Import Suspense when async boundaries are used

@@ -46,7 +46,7 @@ jobs:
         run: |
           bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
-          bun run --filter '@barefootjs/adapter-mojolicious' build
+          bun run --filter '@barefootjs/mojolicious' build
 
       - name: Run unit tests
         run: bun test packages/adapter-mojolicious

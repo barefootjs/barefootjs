@@ -6,7 +6,7 @@
 
 import { HonoAdapter } from '../src/adapter'
 import { runJSXConformanceTests } from '@barefootjs/adapter-tests'
-import { renderHonoComponent } from '@barefootjs/adapter-hono/test-render'
+import { renderHonoComponent } from '@barefootjs/hono/test-render'
 
 // =============================================================================
 // JSX-Based Conformance Tests

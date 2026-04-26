@@ -13,7 +13,7 @@ export interface MojoBuildOptions extends BuildOptions {
  * Create a BarefootBuildConfig for Mojolicious EP template projects.
  *
  * Uses structural typing — does not import BarefootBuildConfig to avoid a
- * circular dependency between @barefootjs/adapter-mojolicious and @barefootjs/cli.
+ * circular dependency between @barefootjs/mojolicious and @barefootjs/cli.
  */
 export function createConfig(options: MojoBuildOptions = {}) {
   return {

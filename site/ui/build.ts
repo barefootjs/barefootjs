@@ -15,7 +15,7 @@
  */
 
 import { compileJSX, combineParentChildClientJs, createProgramForCorpus } from '@barefootjs/jsx'
-import { HonoAdapter } from '@barefootjs/adapter-hono/adapter'
+import { HonoAdapter } from '@barefootjs/hono/adapter'
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { dirname, resolve, join, relative } from 'node:path'
 import {

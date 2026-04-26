@@ -5,7 +5,7 @@
 # every save.
 #
 # Build context is the repo root so workspace deps (`@barefootjs/*`,
-# `@barefootjs/adapter-hono`) resolve through node_modules at /workspace/node_modules.
+# `@barefootjs/hono`) resolve through node_modules at /workspace/node_modules.
 
 FROM oven/bun:1.3-alpine
 

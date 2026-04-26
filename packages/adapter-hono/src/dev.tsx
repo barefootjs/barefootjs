@@ -12,11 +12,11 @@
  * Usage:
  * ```tsx
  * // server.tsx
- * import { createDevReloader } from '@barefootjs/adapter-hono/dev'
+ * import { createDevReloader } from '@barefootjs/hono/dev'
  * app.get('/_bf/reload', createDevReloader({ distDir: './dist' }))
  *
  * // renderer.tsx
- * import { BfDevReload } from '@barefootjs/adapter-hono/dev'
+ * import { BfDevReload } from '@barefootjs/hono/dev'
  * <body>{children}<BfScripts /><BfDevReload /></body>
  * ```
  *
@@ -29,9 +29,9 @@ import { mkdir, readFile, watch } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 // Re-export BfDevReload from its dependency-free home so `import { BfDevReload }
-// from '@barefootjs/adapter-hono/dev'` keeps working for existing callers. Runtimes that
+// from '@barefootjs/hono/dev'` keeps working for existing callers. Runtimes that
 // can't load node:fs (Workers, edge) should import it directly from
-// '@barefootjs/adapter-hono/dev-reload' to avoid pulling this file's fs imports.
+// '@barefootjs/hono/dev-reload' to avoid pulling this file's fs imports.
 export { BfDevReload, type BfDevReloadProps } from './dev-reload'
 
 export interface CreateDevReloaderOptions {

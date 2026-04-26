@@ -8,7 +8,7 @@
  *
  * Usage:
  * ```tsx
- * import { BfAsync } from '@barefootjs/adapter-hono/async'
+ * import { BfAsync } from '@barefootjs/hono/async'
  *
  * app.get('/products/:id', (c) => {
  *   return c.render(

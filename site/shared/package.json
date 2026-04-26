@@ -13,7 +13,7 @@
     "./tokens": "./tokens/index.ts"
   },
   "dependencies": {
-    "@barefootjs/adapter-hono": "workspace:*",
+    "@barefootjs/hono": "workspace:*",
     "@barefootjs/client": "workspace:*",
     "hono": "^4"
   }

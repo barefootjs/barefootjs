@@ -6,7 +6,7 @@
  *
  * Usage:
  * ```tsx
- * import { Portal } from '@barefootjs/adapter-hono'
+ * import { Portal } from '@barefootjs/hono'
  *
  * function MyDialog({ scopeId }: { scopeId: string }) {
  *   return (

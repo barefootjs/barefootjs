@@ -7,7 +7,7 @@
  * - JSX.Element type from hono/jsx (for Suspense/streaming support)
  *
  * Usage in tsconfig.json:
- *   "jsxImportSource": "@barefootjs/adapter-hono/jsx"
+ *   "jsxImportSource": "@barefootjs/hono/jsx"
  */
 
 // Re-export runtime functions from hono/jsx

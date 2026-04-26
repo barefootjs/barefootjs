@@ -5,7 +5,7 @@
     "moduleResolution": "bundler",
     "target": "ESNext",
     "jsx": "react-jsx",
-    "jsxImportSource": "@barefootjs/adapter-hono/jsx",
+    "jsxImportSource": "@barefootjs/hono/jsx",
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

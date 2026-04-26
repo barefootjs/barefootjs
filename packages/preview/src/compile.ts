@@ -6,8 +6,8 @@
  */
 
 import { compileJSX, combineParentChildClientJs } from '@barefootjs/jsx'
-import { HonoAdapter } from '@barefootjs/adapter-hono/adapter'
-import { addScriptCollection } from '@barefootjs/adapter-hono/build'
+import { HonoAdapter } from '@barefootjs/hono/adapter'
+import { addScriptCollection } from '@barefootjs/hono/build'
 import { mkdir, readdir, symlink, lstat } from 'node:fs/promises'
 import { dirname, resolve, join, relative, basename } from 'node:path'
 import {
@@ -205,8 +205,8 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
           changed = true
         }
 
-        // Rewrite @barefootjs/adapter-hono/utils → relative path to source
-        if (content.includes("@barefootjs/adapter-hono/utils")) {
+        // Rewrite @barefootjs/hono/utils → relative path to source
+        if (content.includes("@barefootjs/hono/utils")) {
           const relPath = relative(dirname(fullPath), HONO_UTILS_PATH).replace(/\\/g, '/')
           content = content.replace(/@barefootjs\/hono\/utils/g, relPath)
           changed = true
@@ -244,8 +244,8 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
       rewritten = '/** @jsxImportSource hono/jsx */\n' + rewritten
     }
 
-    // Rewrite @barefootjs/adapter-hono/utils → relative path
-    if (rewritten.includes('@barefootjs/adapter-hono/utils')) {
+    // Rewrite @barefootjs/hono/utils → relative path
+    if (rewritten.includes('@barefootjs/hono/utils')) {
       const relPath = relative(dirname(destPath), HONO_UTILS_PATH).replace(/\\/g, '/')
       rewritten = rewritten.replace(/@barefootjs\/hono\/utils/g, relPath)
     }

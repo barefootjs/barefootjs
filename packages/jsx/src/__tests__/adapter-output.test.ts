@@ -547,7 +547,7 @@ describe('Adapter output', () => {
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
-      expect(template.content).not.toContain("from '@barefootjs/adapter-hono/utils'")
+      expect(template.content).not.toContain("from '@barefootjs/hono/utils'")
     })
 
     test('interactive component only imports used hono utilities', () => {
@@ -566,7 +566,7 @@ describe('Adapter output', () => {
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
       // Should have bfComment (for hydration markers) but only the ones actually used
-      const importLine = template.content.split('\n').find(l => l.includes("from '@barefootjs/adapter-hono/utils'"))
+      const importLine = template.content.split('\n').find(l => l.includes("from '@barefootjs/hono/utils'"))
       if (importLine) {
         // Each imported name should actually appear in the component body
         const importedNames = importLine.match(/\b(bfComment|bfText|bfTextEnd)\b/g) ?? []

@@ -17,7 +17,7 @@ export interface HonoBuildOptions extends BuildOptions {
  * Create a BarefootBuildConfig for Hono projects.
  *
  * Uses structural typing — does not import BarefootBuildConfig to avoid
- * circular dependency between @barefootjs/adapter-hono and @barefootjs/cli.
+ * circular dependency between @barefootjs/hono and @barefootjs/cli.
  */
 export function createConfig(options: HonoBuildOptions = {}) {
   const useScriptCollection = options.scriptCollection ?? true

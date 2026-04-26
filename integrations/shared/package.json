@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "@barefootjs/client": "workspace:*",
-    "@barefootjs/adapter-hono": "workspace:*",
+    "@barefootjs/hono": "workspace:*",
     "bun-types": "^1.1.0"
   }
 }

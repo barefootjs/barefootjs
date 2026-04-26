@@ -20,8 +20,8 @@ JSX Source
 
 | Adapter | Output | Backend | Package |
 |---------|--------|---------|---------|
-| [`HonoAdapter`](./adapters/hono-adapter.md) | `.tsx` | Hono / JSX-based servers | `@barefootjs/adapter-hono` |
-| [`GoTemplateAdapter`](./adapters/go-template-adapter.md) | `.tmpl` + `_types.go` | Go `html/template` | `@barefootjs/adapter-go-template` |
+| [`HonoAdapter`](./adapters/hono-adapter.md) | `.tsx` | Hono / JSX-based servers | `@barefootjs/hono` |
+| [`GoTemplateAdapter`](./adapters/go-template-adapter.md) | `.tmpl` + `_types.go` | Go `html/template` | `@barefootjs/go-template` |
 | [CSR](./adapters/csr.md) | — (client-rendered) | None (browser-only) | `@barefootjs/client` |
 
 > CSR is not an IR→template adapter. It renders components directly in the browser using client-side template functions — use it when the server can't (or shouldn't) emit the initial HTML.

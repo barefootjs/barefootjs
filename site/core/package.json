@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@barefootjs/client": "workspace:*",
-    "@barefootjs/adapter-hono": "workspace:*",
+    "@barefootjs/hono": "workspace:*",
     "@barefootjs/site-shared": "workspace:*",
     "hono": "^4",
     "@shikijs/langs": "^3.21.0",

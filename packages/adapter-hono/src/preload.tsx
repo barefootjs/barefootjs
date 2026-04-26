@@ -7,7 +7,7 @@
  *
  * Usage:
  * ```tsx
- * import { BfPreload } from '@barefootjs/adapter-hono/preload'
+ * import { BfPreload } from '@barefootjs/hono/preload'
  * import manifest from './dist/components/manifest.json'
  *
  * <html>

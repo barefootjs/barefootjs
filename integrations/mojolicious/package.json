@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "@barefootjs/jsx": "workspace:*",
-    "@barefootjs/adapter-mojolicious": "workspace:*",
+    "@barefootjs/mojolicious": "workspace:*",
     "@cloudflare/containers": "^0.3.2",
     "@cloudflare/workers-types": "^4",
     "@playwright/test": "^1.41.0",

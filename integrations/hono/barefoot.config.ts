@@ -1,4 +1,4 @@
-import { createConfig } from '@barefootjs/adapter-hono/build'
+import { createConfig } from '@barefootjs/hono/build'
 
 const basePath = process.env.BASE_PATH ?? '/integrations/hono'
 const staticBase = `${basePath}/static/components/`

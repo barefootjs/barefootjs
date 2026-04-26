@@ -195,7 +195,7 @@ export function combineGoTypes(options: {
  * Create a BarefootBuildConfig for Go html/template projects.
  *
  * Uses structural typing — does not import BarefootBuildConfig to avoid
- * circular dependency between @barefootjs/adapter-go-template and @barefootjs/cli.
+ * circular dependency between @barefootjs/go-template and @barefootjs/cli.
  */
 export function createConfig(options: GoTemplateBuildOptions = {}) {
   const packageName = options.adapterOptions?.packageName ?? 'main'

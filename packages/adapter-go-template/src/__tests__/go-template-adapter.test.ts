@@ -7,7 +7,7 @@
 import { describe, test, expect } from 'bun:test'
 import { GoTemplateAdapter } from '../adapter/go-template-adapter'
 import { runJSXConformanceTests } from '@barefootjs/adapter-tests'
-import { renderGoTemplateComponent, GoNotAvailableError } from '@barefootjs/adapter-go-template/test-render'
+import { renderGoTemplateComponent, GoNotAvailableError } from '@barefootjs/go-template/test-render'
 import { compileJSXSync, type ComponentIR } from '@barefootjs/jsx'
 
 // =============================================================================

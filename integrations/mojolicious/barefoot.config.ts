@@ -1,4 +1,4 @@
-import { createConfig } from '@barefootjs/adapter-mojolicious/build'
+import { createConfig } from '@barefootjs/mojolicious/build'
 
 const basePath = process.env.BASE_PATH ?? '/integrations/mojolicious'
 const clientBase = `${basePath}/client/`

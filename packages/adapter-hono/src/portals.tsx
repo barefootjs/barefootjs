@@ -7,7 +7,7 @@
  *
  * Usage:
  * ```tsx
- * import { BfPortals } from '@barefootjs/adapter-hono'
+ * import { BfPortals } from '@barefootjs/hono'
  *
  * <html>
  *   <body>

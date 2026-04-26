@@ -364,9 +364,9 @@ The **hydration contract** between template and client JS is maintained through 
 
 ### Available Adapters
 
-- **HonoAdapter** (`@barefootjs/adapter-hono`) - Generates hono/jsx compatible TSX
-- **GoTemplateAdapter** (`@barefootjs/adapter-go-template`) - Generates Go html/template files
-- **MojoAdapter** (`@barefootjs/adapter-mojolicious`) - Generates Mojolicious EP template files (.html.ep)
+- **HonoAdapter** (`@barefootjs/hono`) - Generates hono/jsx compatible TSX
+- **GoTemplateAdapter** (`@barefootjs/go-template`) - Generates Go html/template files
+- **MojoAdapter** (`@barefootjs/mojolicious`) - Generates Mojolicious EP template files (.html.ep)
 
 ### Implementing a New Adapter
 

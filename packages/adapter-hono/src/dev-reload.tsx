@@ -7,8 +7,8 @@
  * server watcher from `./dev`.
  *
  * Pair with one of:
- *   - `createDevReloader` from `@barefootjs/adapter-hono/dev`        (Bun + local fs)
- *   - `createDevReloader` from `@barefootjs/adapter-hono/dev-worker` (Cloudflare Workers)
+ *   - `createDevReloader` from `@barefootjs/hono/dev`        (Bun + local fs)
+ *   - `createDevReloader` from `@barefootjs/hono/dev-worker` (Cloudflare Workers)
  */
 
 /** @jsxImportSource hono/jsx */

@@ -2,7 +2,7 @@
  * HTML layout renderer for the documentation site.
  * Provides the shell: <html>, <head> with meta tags, sidebar navigation, and content area.
  *
- * Modernized: uses @barefootjs/adapter-hono/jsx, BfScripts, import map, UnoCSS,
+ * Modernized: uses @barefootjs/hono/jsx, BfScripts, import map, UnoCSS,
  * compiled ThemeSwitcher and Logo components.
  */
 

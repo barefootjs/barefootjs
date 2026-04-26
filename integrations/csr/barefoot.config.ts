@@ -1,4 +1,4 @@
-import { createConfig } from '@barefootjs/adapter-hono/build'
+import { createConfig } from '@barefootjs/hono/build'
 
 export default createConfig({
   components: ['../shared/components'],

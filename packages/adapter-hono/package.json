@@ -1,5 +1,5 @@
 {
-  "name": "@barefootjs/adapter-hono",
+  "name": "@barefootjs/hono",
   "version": "0.0.1",
   "description": "Hono integration for BarefootJS",
   "type": "module",

@@ -3,7 +3,7 @@
  *
  * This module provides JSX type definitions for type checking.
  * No runtime implementation is provided - use with a backend-specific
- * jsx-runtime (e.g., @barefootjs/adapter-hono/jsx) for actual rendering.
+ * jsx-runtime (e.g., @barefootjs/hono/jsx) for actual rendering.
  *
  * Usage in tsconfig.json:
  *   "jsxImportSource": "@barefootjs/jsx"

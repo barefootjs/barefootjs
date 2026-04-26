@@ -1,5 +1,5 @@
 {
-  "name": "@barefootjs/adapter-go-template",
+  "name": "@barefootjs/go-template",
   "version": "0.0.1",
   "description": "Go html/template adapter for BarefootJS - generates Go template files from IR",
   "type": "module",

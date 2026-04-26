@@ -10,7 +10,7 @@
  *      `Last-Event-ID: <old BOOT_ID>`.
  *   3. Server sees mismatch → send `event: reload`, client refreshes.
  *
- * Pair with `BfDevReload` from `@barefootjs/adapter-hono/dev-reload`.
+ * Pair with `BfDevReload` from `@barefootjs/hono/dev-reload`.
  */
 
 import type { Context } from 'hono'

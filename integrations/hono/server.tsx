@@ -8,7 +8,7 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { getCookie, setCookie } from 'hono/cookie'
-import { createDevReloader } from '@barefootjs/adapter-hono/dev-worker'
+import { createDevReloader } from '@barefootjs/hono/dev-worker'
 import { renderer } from './renderer'
 import Counter from '@/components/Counter'
 import Toggle from '@/components/Toggle'

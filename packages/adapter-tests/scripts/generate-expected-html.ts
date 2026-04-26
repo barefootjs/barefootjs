@@ -7,8 +7,8 @@
  * formats with indentation, and writes the expectedHtml back into the fixture files.
  */
 
-import { HonoAdapter } from '@barefootjs/adapter-hono/adapter'
-import { renderHonoComponent } from '@barefootjs/adapter-hono/test-render'
+import { HonoAdapter } from '@barefootjs/hono/adapter'
+import { renderHonoComponent } from '@barefootjs/hono/test-render'
 import { normalizeHTML } from '../src/jsx-runner'
 import { indentHTML } from '../src/indent-html'
 import { jsxFixtures } from '../fixtures'
