@@ -8,7 +8,6 @@ on:
       - 'packages/client/**'
       - '.github/workflows/ci-form.yml'
   pull_request:
-    branches: [main]
     paths:
       - 'packages/form/**'
       - 'packages/client/**'

@@ -18,7 +18,6 @@ on:
       - 'site/ui/**'
       - '.github/workflows/ci.yml'
   pull_request:
-    branches: [main]
     paths:
       - 'packages/client/**'
       - 'packages/jsx/**'
