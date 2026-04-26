@@ -40,7 +40,7 @@ export const BROWSER_OUTPUT = `<!-- Rendered & hydrated in the browser -->
   Count: <span bf="slot_0">0</span>
 </button>`
 
-export const CLIENT_CODE = `// Counter.client.js
+export const CLIENT_CODE = `// Hydrate your template
 import { createSignal, createEffect, find, hydrate } from '@barefootjs/client'
 
 export function initCounter(__scope, props = {}) {
