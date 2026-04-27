@@ -21,33 +21,17 @@ import { SVG_NS } from './constants'
 import { attachReconnectionHandler } from './connection'
 
 /**
- * Reactively renders all edges as SVG paths.
+ * Renders all edges as SVG paths via per-edge `createRoot` scopes — the
+ * Solid-style pattern that compiler-emitted JSX produces for
+ * `edges().map(e => <path d={...} />)`. The outer effect maintains the
+ * mounted set; each per-edge root owns the rendering effect for that
+ * edge alone.
  *
- * Architecture (post-Phase-9 refactor):
- *
- * - The outer effect tracks `edges()` and maintains the **set** of edge IDs:
- *   when an edge appears, a per-edge `createRoot` is mounted; when it
- *   disappears, the root is disposed. This replaces the old hand-rolled
- *   `Map<id, SVGPathElement>` diff bookkeeping.
- *
- * - Each per-edge root owns one inner `createEffect` that re-runs only when
- *   `positionEpoch` / `nodeLookup` / the per-edge data changes. Moving a
- *   single node only re-runs the effects of edges whose endpoints touch
- *   that node, instead of looping over every edge in one big effect.
- *
- * This is the Solid-style pattern that compiler-emitted JSX produces for
- * `edges().map(e => <path d={...} />)`. Implemented with `createElementNS`
- * here because the xyflow package is not currently part of the JSX
- * compilation pipeline (see rollout plan in PR description).
- *
- * Escape hatches kept imperative for now:
- * - Custom edge types (`edgeTypes[type]` is a function): user functions
- *   write into a managed `<g>` via `innerHTML = ''` + DOM API. JSX-ifying
- *   this is out of scope because the user supplies the rendering function.
- * - Reconnection handles: `attachReconnectionHandler` queries the SVG by
- *   `[data-id]` / `[data-hit-id]` selectors at drag-start time. The
- *   per-edge root keeps the same selectors, so the handler is wire-
- *   compatible.
+ * Custom edge types (`edgeTypes[type]` user function) and reconnection
+ * handles stay imperative — the former because the user supplies the
+ * render function, the latter because `attachReconnectionHandler`
+ * queries by `[data-id]` / `[data-hit-id]` selectors that the per-edge
+ * mount preserves.
  */
 export function createEdgeRenderer<
   NodeType extends NodeBase = NodeBase,
@@ -86,9 +70,8 @@ export function createEdgeRenderer<
     reconnectGroup.setAttribute('transform', `translate(${vp.x}, ${vp.y}) scale(${vp.zoom})`)
   })
 
-  // Expose label positions so the edge label renderer can read them.
-  // The label renderer reads this map inside its own createEffect, so
-  // updates here are observed via the per-edge effect's positionEpoch read.
+  // The label renderer reads this map from its own effect, observed via
+  // each per-edge effect's positionEpoch read.
   const labelPositions = new Map<string, { x: number; y: number }>()
   ;(store as any)._edgeLabelPositions = labelPositions
 
@@ -98,9 +81,9 @@ export function createEdgeRenderer<
   }
   const edgeScopes = new Map<string, EdgeScope>()
 
-  // Outer effect: structural diff (add/remove edges) only.
-  // Per-edge rendering lives in mountEdgeScope's inner effect, which
-  // re-runs independently when its node positions change.
+  // Outer effect: structural diff. Per-edge updates (selected/animated/
+  // endpoint position) flow through each scope's own effect, which looks
+  // the edge up by id from `edgeLookup`.
   createEffect(() => {
     const edges = store.edges()
     const seen = new Set<string>()
@@ -108,23 +91,11 @@ export function createEdgeRenderer<
     for (const edge of edges) {
       if (edge.hidden) continue
       seen.add(edge.id)
-
       if (!edgeScopes.has(edge.id)) {
         edgeScopes.set(edge.id, mountEdgeScope(edge, store, edgeGroup, reconnectGroup, svgContainer, labelPositions))
-      } else {
-        // Edge object identity may have changed (selection toggled, etc).
-        // The inner effect re-reads `edges()` lazily — but since `edge`
-        // here is the new reference, hand it through by re-mounting only
-        // when structural identity is gone. For per-edge updates (label,
-        // selected, animated), we rely on the inner effect already
-        // tracking edges() and doing a lookup-by-id.
-        // For simplicity in this PoC, the inner effect tracks edges() so
-        // any change to the edge array re-runs all per-edge effects;
-        // they each pull their own edge from edgeLookup by id.
       }
     }
 
-    // Tear down edges that disappeared
     for (const [id, scope] of edgeScopes) {
       if (!seen.has(id)) {
         scope.dispose()
@@ -143,21 +114,7 @@ export function createEdgeRenderer<
   })
 }
 
-/**
- * Mount one edge in its own reactive root.
- *
- * The root contains a single `createEffect` that:
- * - Looks up the current edge object by id from `edgeLookup` (this gives
- *   us reactivity over `edges()` array updates without per-edge identity
- *   coupling).
- * - Computes endpoint positions from `nodeLookup` + `positionEpoch`.
- * - Updates the visible path `d`, hit-area path `d`, and class list.
- * - Updates reconnect handle positions if applicable.
- *
- * For custom edge types (function-form edgeTypes), falls back to the
- * imperative `<g>` + `innerHTML = ''` pattern — these are user-supplied
- * render functions and JSX-ifying them is out of scope.
- */
+/** Mount one edge in its own reactive root, dispatching to simple- or custom-edge mount. */
 function mountEdgeScope<
   NodeType extends NodeBase,
   EdgeType extends EdgeBase,
@@ -190,16 +147,12 @@ function mountEdgeScope<
 }
 
 /**
- * Simple-edge mount path. JSX-equivalent of:
- *   <g>
- *     <path data-hit-id={id} stroke="transparent" stroke-width="20" d={path} onMouseDown={selectEdge} />
- *     <path class="bf-flow__edge" data-id={id} d={path} class:selected={selected} class:animated={animated} />
- *   </g>
+ * Simple-edge mount. JSX-equivalent of:
+ *   <path data-hit-id={id} stroke="transparent" stroke-width="20" d={path} onMouseDown={selectEdge} />
+ *   <path class="bf-flow__edge" data-id={id} d={path} class:selected={selected} class:animated={animated} />
  *
- * The two `<path>` elements live directly in `edgeGroup` (no per-edge
- * wrapper `<g>`) to match the legacy DOM shape that `attachReconnection
- * Handler` queries via selectors. The hit-area is the wider invisible
- * stroke that captures click selection.
+ * Both paths sit directly in `edgeGroup` (no per-edge wrapper `<g>`) to
+ * keep the selectors `attachReconnectionHandler` queries against intact.
  */
 function mountSimpleEdge<
   NodeType extends NodeBase,
@@ -239,26 +192,19 @@ function mountSimpleEdge<
   pathEl.dataset.id = edgeId
   edgeGroup.appendChild(pathEl)
 
-  // Reconnect handles (lazily mounted on first reactive run when the
-  // edge is reconnectable). Kept imperative — see file header.
+  // Reconnect handles, lazily mounted in the effect below.
   let srcHandle: SVGCircleElement | null = null
   let tgtHandle: SVGCircleElement | null = null
 
-  // Per-edge reactive effect: re-runs when this edge's endpoints move
-  // or its data (selected/animated) changes.
   createEffect(() => {
-    // Look up current edge by id so changes to the edges() array
-    // (e.g. select toggle) re-run this effect.
     const edge = store.edgeLookup().get(edgeId)
     if (!edge) return
 
-    // Tracks position changes during drag (positionEpoch bumped by rAF
-    // in node-wrapper) AND structural commits via store.nodes() (mouseup
-    // commits the dragged position via setNodes — adoptUserNodes then
-    // rebuilds internals.positionAbsolute, but signals don't fire because
-    // the in-place mutated nodeLookup map keeps identity. We must read
-    // store.nodes() so the commit flows through to the path d attribute
-    // even if the rAF was cancelled by mouseup before firing.)
+    // BOTH reads are required. positionEpoch fires for in-flight drag
+    // updates (rAF-batched in node-wrapper); nodes() fires for the
+    // post-drag commit, where setNodes mutates nodeLookup in place
+    // (identity preserved → no positionEpoch bump). Reading nodes()
+    // catches that commit even when rAF was cancelled by mouseup.
     store.positionEpoch()
     store.nodes()
     const nodeLookup = store.nodeLookup()
@@ -299,22 +245,15 @@ function mountSimpleEdge<
     }
   })
 
-  // Cleanup: remove DOM nodes when this edge is disposed.
   onCleanup(() => {
     hitPath.remove()
     pathEl.remove()
-    if (srcHandle) srcHandle.remove()
-    if (tgtHandle) tgtHandle.remove()
+    srcHandle?.remove()
+    tgtHandle?.remove()
   })
 }
 
-/**
- * Custom-edge mount path (escape hatch).
- *
- * The user-supplied function writes into a managed `<g>` via DOM API.
- * We can't JSX-ify this without forcing every consumer to migrate.
- * Kept imperative; rebuilds the group's contents on every reactive run.
- */
+/** Custom-edge mount: rebuilds a managed `<g>`'s contents via the user-supplied render fn. */
 function mountCustomEdge<
   NodeType extends NodeBase,
   EdgeType extends EdgeBase,
