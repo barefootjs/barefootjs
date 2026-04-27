@@ -526,6 +526,23 @@ export interface ImportInfo {
   loc: SourceLocation
 }
 
+/** Module-level `export { A, B as C } [from './path']` specifier block. */
+export interface NamedExportInfo {
+  /** When non-null, this is `export { ... } from 'source'`. */
+  source: string | null
+  specifiers: NamedExportSpecifier[]
+  isTypeOnly: boolean
+}
+
+export interface NamedExportSpecifier {
+  /** Local binding being exported (or imported binding for `export ... from`). */
+  name: string
+  /** External alias if `export { name as alias }`, else null. */
+  alias: string | null
+  /** True for `export { type X }` per-specifier type-only. */
+  isTypeOnly: boolean
+}
+
 /**
  * Reactive factory helper metadata (#931). Collected when a same-file
  * function matches the factory shape: exactly one top-level `return` whose
@@ -648,6 +665,8 @@ export interface IRMetadata {
   /** Imports filtered for template use (client-side packages stripped).
    *  Computed by the compiler — adapters should use this instead of `imports`. */
   templateImports: ImportInfo[]
+  /** Module-level `export { ... } [from '...']` specifier blocks. */
+  namedExports: NamedExportInfo[]
   localFunctions: FunctionInfo[]
   localConstants: ConstantInfo[]
   /** Pre-computed client JS analysis for adapter use */

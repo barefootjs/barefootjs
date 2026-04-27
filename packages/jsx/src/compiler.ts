@@ -16,7 +16,7 @@ import type { TemplateAdapter } from './adapters/interface'
 import { analyzeComponent, listComponentFunctions, createProgramForFile, needsTypeBasedDetection } from './analyzer'
 import { jsxToIR } from './jsx-to-ir'
 import { generateClientJs, generateClientJsWithSourceMap, analyzeClientNeeds } from './ir-to-client-js'
-import { generateModuleExports } from './module-exports'
+import { generateModuleExports, collectInlineExportedNames } from './module-exports'
 import { applyCssLayerPrefix } from './css-layer-prefixer'
 
 /**
@@ -219,10 +219,20 @@ function compileMultipleComponentsSync(
   // Find the default export name for scriptBaseName (multi-component files share one .client.js)
   const defaultExportName = entries.find(e => e.componentIR.metadata.hasDefaultExport)?.componentIR.metadata.componentName
 
+  // Union of sibling-component inline exports — passed to each per-component
+  // emit so the trailing `export { ... }` block is identical across siblings
+  // and the line-dedup pass collapses them.
+  const fileWideInlineExported = new Set<string>()
+  for (const { componentIR } of entries) {
+    for (const name of collectInlineExportedNames(componentIR)) {
+      fileWideInlineExported.add(name)
+    }
+  }
+
   for (const { componentIR } of entries) {
     const scriptBaseName = !componentIR.metadata.hasDefaultExport && defaultExportName ? defaultExportName : undefined
     const adapterOutput = adapter.generate(componentIR, { scriptBaseName })
-    const moduleExports = generateModuleExports(componentIR)
+    const moduleExports = generateModuleExports(componentIR, fileWideInlineExported)
 
     let imports: string
     let types: string
@@ -496,6 +506,7 @@ export function buildMetadata(
     initStatements: ctx.initStatements,
     imports: ctx.imports,
     templateImports: filterTemplateImports(ctx.imports),
+    namedExports: ctx.namedExports,
     localFunctions: ctx.localFunctions,
     localConstants: ctx.localConstants,
   }

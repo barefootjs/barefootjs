@@ -381,19 +381,39 @@ function visit(
     return // Body is captured as string; don't walk internals
   }
 
-  // Named exports: export { X, Y } — mark already-collected items as exported
+  // Named exports: collect for re-emit (so `export { ImportedSym }` survives)
+  // AND mark matching locals as exported (so the inline rewrite picks them up).
   if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
-    for (const specifier of node.exportClause.elements) {
-      const name = specifier.name.text
-      // Mark the component itself if re-exported via export { Name }
-      if (ctx.componentName === name) {
-        ctx.isExported = true
-      }
-      for (const c of ctx.localConstants) {
-        if (c.name === name) c.isExported = true
-      }
-      for (const f of ctx.localFunctions) {
-        if (f.name === name) f.isExported = true
+    const isFromReexport = !!node.moduleSpecifier
+    const sourceSpec =
+      node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)
+        ? node.moduleSpecifier.text
+        : null
+
+    const exportSpecifiers = node.exportClause.elements.map((spec) => ({
+      name: (spec.propertyName ?? spec.name).text,
+      alias: spec.propertyName ? spec.name.text : null,
+      isTypeOnly: spec.isTypeOnly,
+    }))
+
+    ctx.namedExports.push({
+      source: sourceSpec,
+      specifiers: exportSpecifiers,
+      isTypeOnly: node.isTypeOnly,
+    })
+
+    if (!isFromReexport) {
+      for (const specifier of node.exportClause.elements) {
+        const local = (specifier.propertyName ?? specifier.name).text
+        if (ctx.componentName === local) {
+          ctx.isExported = true
+        }
+        for (const c of ctx.localConstants) {
+          if (c.name === local) c.isExported = true
+        }
+        for (const f of ctx.localFunctions) {
+          if (f.name === local) f.isExported = true
+        }
       }
     }
   }

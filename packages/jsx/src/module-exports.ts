@@ -8,10 +8,15 @@
 import type { ComponentIR, ParamInfo } from './types'
 
 /**
- * Generate module-level export statements for constants and functions.
- * Skips client-only constructs (createContext, new WeakMap).
+ * Emit module-level exports for local declarations and `export { ... } [from '...']`
+ * specifier blocks. Specifiers whose local name appears in `extraInlineExported`
+ * (already emitted inline) are filtered, except for `from`-form re-exports and
+ * aliased forms that introduce a new external name.
  */
-export function generateModuleExports(ir: ComponentIR): string | null {
+export function generateModuleExports(
+  ir: ComponentIR,
+  extraInlineExported: ReadonlySet<string> = new Set()
+): string | null {
   const lines: string[] = []
 
   for (const constant of ir.metadata.localConstants) {
@@ -34,7 +39,51 @@ export function generateModuleExports(ir: ComponentIR): string | null {
     lines.push(`export function ${func.name}(${params}) ${func.body}`)
   }
 
+  const inlineExported = collectInlineExportedNames(ir)
+  for (const name of extraInlineExported) inlineExported.add(name)
+
+  for (const block of ir.metadata.namedExports) {
+    const isReexportFrom = block.source !== null
+
+    const survivingSpecs = block.specifiers.filter((spec) => {
+      if (isReexportFrom) return true
+      // `export { X as Y }` with inline `export const X` is not a duplicate
+      // (Y is a new external name), so only drop when alias is absent.
+      return !(inlineExported.has(spec.name) && spec.alias == null)
+    })
+
+    if (survivingSpecs.length === 0) continue
+
+    const specText = survivingSpecs
+      .map((s) => {
+        const prefix = s.isTypeOnly ? 'type ' : ''
+        return s.alias ? `${prefix}${s.name} as ${s.alias}` : `${prefix}${s.name}`
+      })
+      .join(', ')
+    const typeKw = block.isTypeOnly ? 'type ' : ''
+    if (isReexportFrom) {
+      lines.push(`export ${typeKw}{ ${specText} } from '${block.source}'`)
+    } else {
+      lines.push(`export ${typeKw}{ ${specText} }`)
+    }
+  }
+
   return lines.length > 0 ? lines.join('\n') : null
+}
+
+export function collectInlineExportedNames(ir: ComponentIR): Set<string> {
+  const names = new Set<string>()
+  for (const c of ir.metadata.localConstants) {
+    if (c.isExported) names.add(c.name)
+  }
+  for (const f of ir.metadata.localFunctions) {
+    if (f.isExported) names.add(f.name)
+  }
+  // Component itself is inline-exported by applyExportKeyword.
+  if (ir.metadata.isExported && ir.metadata.componentName) {
+    names.add(ir.metadata.componentName)
+  }
+  return names
 }
 
 /**
