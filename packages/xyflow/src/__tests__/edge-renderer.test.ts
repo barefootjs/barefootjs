@@ -1,9 +1,8 @@
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, afterEach } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
-// Register happy-dom globals BEFORE importing modules that use the DOM.
-// Without this, document.createElementNS is undefined when edge-renderer
-// loads and the per-edge mount path fails on import.
+// The renderer tests below call `document.createElement*` directly, so a
+// DOM must be registered before they run.
 beforeAll(() => {
   if (typeof window === 'undefined') {
     GlobalRegistrator.register()
@@ -83,41 +82,49 @@ describe('Edge processing in store', () => {
 })
 
 /**
- * Per-edge scope tests — exercise the post-PoC architecture where
- * each edge is mounted in its own createRoot with an inner createEffect.
- *
- * These tests assert the public DOM contract that the legacy
- * implementation also held (`.bf-flow__edge[data-id]` visible path,
- * `path[data-hit-id]` invisible hit area, classes for selected/animated).
- * The reconnection handler in `connection.ts` queries that contract by
- * selector, so keeping it stable is what enables the refactor without
- * changing call sites.
+ * Per-edge scope tests — assert the public DOM contract preserved by the
+ * Phase-9 refactor (`.bf-flow__edge[data-id]` visible path,
+ * `path[data-hit-id]` invisible hit area, classes for selected/animated)
+ * and the per-edge isolation of the class effect.
  */
-function makeFlowDom() {
-  // initFlow normally creates this wrapper structure. For the renderer
-  // unit test, we mimic the relevant parts: a viewport <div> with an
-  // <svg> child for edges.
-  const viewport = document.createElement('div')
-  document.body.appendChild(viewport)
-  const svg = document.createElementNS(SVG_NS, 'svg') as SVGSVGElement
-  viewport.appendChild(svg)
-  return { viewport, svg }
-}
+const TWO_NODES = [
+  { id: 'a', position: { x: 0, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
+  { id: 'b', position: { x: 200, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
+]
 
 describe('createEdgeRenderer (per-edge scope)', () => {
+  let dispose: (() => void) | null = null
+  let viewport: HTMLElement | null = null
+
+  function setup(): { svg: SVGSVGElement; run: <T>(fn: () => T) => T } {
+    viewport = document.createElement('div')
+    document.body.appendChild(viewport)
+    const svg = document.createElementNS(SVG_NS, 'svg') as SVGSVGElement
+    viewport.appendChild(svg)
+    let captured!: <T>(fn: () => T) => T
+    createRoot((d) => {
+      dispose = d
+      captured = (fn) => fn()
+    })
+    return { svg, run: captured }
+  }
+
+  afterEach(() => {
+    dispose?.()
+    dispose = null
+    viewport?.remove()
+    viewport = null
+  })
+
   test('mounts a visible path and a hit-area path per edge', () => {
-    createRoot(() => {
-      const { svg } = makeFlowDom()
+    const { svg, run } = setup()
+    run(() => {
       const store = createFlowStore({
-        nodes: [
-          { id: 'a', position: { x: 0, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-          { id: 'b', position: { x: 200, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-        ],
+        nodes: TWO_NODES,
         edges: [{ id: 'e1', source: 'a', target: 'b' }],
       })
-      // Force lookups to populate (initFlow normally does this via measure)
+      // initFlow normally populates lookups via measure; mimic that here.
       store.nodesInitialized()
-
       createEdgeRenderer(store, svg)
 
       const visible = svg.querySelector('.bf-flow__edge[data-id="e1"]') as SVGPathElement | null
@@ -125,50 +132,35 @@ describe('createEdgeRenderer (per-edge scope)', () => {
 
       expect(visible).not.toBeNull()
       expect(hit).not.toBeNull()
-      // Visible path has a `d` attribute populated by the inner effect
       expect(visible!.getAttribute('d')).toBeTruthy()
-      // Hit area mirrors visible path's `d` so click detection follows
-      // the same shape
       expect(hit!.getAttribute('d')).toBe(visible!.getAttribute('d'))
     })
   })
 
   test('applies bf-flow__edge--selected class when edge is selected', () => {
-    createRoot(() => {
-      const { svg } = makeFlowDom()
-      // Annotate edges as EdgeBase[] so subsequent setEdges() calls accept
-      // the full EdgeBase shape (e.g. `selected`). Without this, TypeScript
-      // narrows EdgeType to the literal `{ id, source, target }` shape of
-      // the initial array, rejecting any extra optional fields below.
+    const { svg, run } = setup()
+    run(() => {
+      // Annotate as EdgeBase[] so subsequent setEdges() accepts the full
+      // shape; without this, EdgeType is narrowed to the literal initial
+      // shape and rejects optional fields like `selected`.
       const initialEdges: EdgeBase[] = [{ id: 'e1', source: 'a', target: 'b' }]
-      const store = createFlowStore({
-        nodes: [
-          { id: 'a', position: { x: 0, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-          { id: 'b', position: { x: 200, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-        ],
-        edges: initialEdges,
-      })
+      const store = createFlowStore({ nodes: TWO_NODES, edges: initialEdges })
       store.nodesInitialized()
       createEdgeRenderer(store, svg)
 
       const visible = svg.querySelector('.bf-flow__edge[data-id="e1"]') as SVGPathElement
       expect(visible.classList.contains('bf-flow__edge--selected')).toBe(false)
 
-      // Toggle selection — only this edge's per-edge effect should re-run
       store.setEdges([{ id: 'e1', source: 'a', target: 'b', selected: true }])
-
       expect(visible.classList.contains('bf-flow__edge--selected')).toBe(true)
     })
   })
 
   test('removes per-edge DOM when edge is removed from the array', () => {
-    createRoot(() => {
-      const { svg } = makeFlowDom()
+    const { svg, run } = setup()
+    run(() => {
       const store = createFlowStore({
-        nodes: [
-          { id: 'a', position: { x: 0, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-          { id: 'b', position: { x: 200, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-        ],
+        nodes: TWO_NODES,
         edges: [
           { id: 'e1', source: 'a', target: 'b' },
           { id: 'e2', source: 'b', target: 'a' },
@@ -178,47 +170,43 @@ describe('createEdgeRenderer (per-edge scope)', () => {
       createEdgeRenderer(store, svg)
 
       expect(svg.querySelectorAll('.bf-flow__edge').length).toBe(2)
-
       store.setEdges([{ id: 'e1', source: 'a', target: 'b' }])
 
-      // Disposing the per-edge root should also remove its DOM nodes
       expect(svg.querySelectorAll('.bf-flow__edge').length).toBe(1)
       expect(svg.querySelector('.bf-flow__edge[data-id="e1"]')).not.toBeNull()
       expect(svg.querySelector('.bf-flow__edge[data-id="e2"]')).toBeNull()
-      // Hit areas should also be cleaned up
       expect(svg.querySelector('path[data-hit-id="e2"]')).toBeNull()
     })
   })
 
-  test('hidden edges are not mounted', () => {
-    createRoot(() => {
-      const { svg } = makeFlowDom()
-      const store = createFlowStore({
-        nodes: [
-          { id: 'a', position: { x: 0, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-          { id: 'b', position: { x: 200, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-        ],
-        edges: [
-          { id: 'e1', source: 'a', target: 'b', hidden: true },
-          { id: 'e2', source: 'b', target: 'a' },
-        ],
-      })
+  test('hidden edges are not mounted, and become mounted when toggled visible', () => {
+    const { svg, run } = setup()
+    run(() => {
+      const initialEdges: EdgeBase[] = [
+        { id: 'e1', source: 'a', target: 'b', hidden: true },
+        { id: 'e2', source: 'b', target: 'a' },
+      ]
+      const store = createFlowStore({ nodes: TWO_NODES, edges: initialEdges })
       store.nodesInitialized()
       createEdgeRenderer(store, svg)
 
       expect(svg.querySelector('.bf-flow__edge[data-id="e1"]')).toBeNull()
       expect(svg.querySelector('.bf-flow__edge[data-id="e2"]')).not.toBeNull()
+
+      // Flip hidden → visible. Outer effect should pick this up and mount e1.
+      store.setEdges([
+        { id: 'e1', source: 'a', target: 'b' },
+        { id: 'e2', source: 'b', target: 'a' },
+      ])
+      expect(svg.querySelector('.bf-flow__edge[data-id="e1"]')).not.toBeNull()
     })
   })
 
   test('animated edges get bf-flow__edge--animated class', () => {
-    createRoot(() => {
-      const { svg } = makeFlowDom()
+    const { svg, run } = setup()
+    run(() => {
       const store = createFlowStore({
-        nodes: [
-          { id: 'a', position: { x: 0, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-          { id: 'b', position: { x: 200, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-        ],
+        nodes: TWO_NODES,
         edges: [{ id: 'e1', source: 'a', target: 'b', animated: true }],
       })
       store.nodesInitialized()
@@ -230,13 +218,10 @@ describe('createEdgeRenderer (per-edge scope)', () => {
   })
 
   test('positionEpoch bump re-runs the per-edge effect', () => {
-    createRoot(() => {
-      const { svg } = makeFlowDom()
+    const { svg, run } = setup()
+    run(() => {
       const store = createFlowStore({
-        nodes: [
-          { id: 'a', position: { x: 0, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-          { id: 'b', position: { x: 200, y: 0 }, data: {}, measured: { width: 150, height: 40 } },
-        ],
+        nodes: TWO_NODES,
         edges: [{ id: 'e1', source: 'a', target: 'b' }],
       })
       store.nodesInitialized()
@@ -245,15 +230,76 @@ describe('createEdgeRenderer (per-edge scope)', () => {
       const visible = svg.querySelector('.bf-flow__edge[data-id="e1"]') as SVGPathElement
       const dBefore = visible.getAttribute('d')!
 
-      // Mutate the source node's positionAbsolute in place (mirrors what
-      // updateNodePositions does during a drag) and bump positionEpoch.
+      // Mutate position in place (matches updateNodePositions during drag)
+      // and bump positionEpoch.
       const lookup = store.nodeLookup()
       const a = lookup.get('a')!
       a.internals.positionAbsolute = { x: 0, y: 100 }
       store.triggerPositionUpdate()
 
-      const dAfter = visible.getAttribute('d')!
-      expect(dAfter).not.toBe(dBefore)
+      expect(visible.getAttribute('d')!).not.toBe(dBefore)
+    })
+  })
+
+  test('toggling selection on edge A does not invalidate edge B class effect', () => {
+    // Per-edge isolation contract: per-field memos (selected/animated)
+    // dedupe on Object.is, so the class effect for an unrelated edge does
+    // not re-run when only another edge's selected flips. Instrument by
+    // replacing classList.toggle on each path with a counter.
+    const { svg, run } = setup()
+    run(() => {
+      const initialEdges: EdgeBase[] = [
+        { id: 'e1', source: 'a', target: 'b' },
+        { id: 'e2', source: 'b', target: 'a' },
+      ]
+      const store = createFlowStore({ nodes: TWO_NODES, edges: initialEdges })
+      store.nodesInitialized()
+      createEdgeRenderer(store, svg)
+
+      const e2Path = svg.querySelector('.bf-flow__edge[data-id="e2"]') as SVGPathElement
+      let e2ClassToggleCount = 0
+      const originalToggle = e2Path.classList.toggle.bind(e2Path.classList)
+      e2Path.classList.toggle = ((token: string, force?: boolean) => {
+        e2ClassToggleCount += 1
+        return originalToggle(token, force as boolean)
+      }) as DOMTokenList['toggle']
+
+      // Toggle selection on e1 only — e2's class effect must not fire.
+      store.setEdges([
+        { id: 'e1', source: 'a', target: 'b', selected: true },
+        { id: 'e2', source: 'b', target: 'a' },
+      ])
+
+      expect(e2ClassToggleCount).toBe(0)
+    })
+  })
+
+  test('reconnect handles unmount when edge becomes non-reconnectable', () => {
+    // Asserts the lifecycle fix: flipping `reconnectable: false` removes
+    // the previously-mounted handle circles instead of leaking them.
+    const { svg, run } = setup()
+    run(() => {
+      const initialEdges: EdgeBase[] = [{ id: 'e1', source: 'a', target: 'b' }]
+      const store = createFlowStore({
+        nodes: TWO_NODES,
+        edges: initialEdges,
+        edgesReconnectable: true,
+      })
+      store.nodesInitialized()
+      createEdgeRenderer(store, svg)
+
+      // Handles are mounted in the reconnect overlay, which is a sibling
+      // of the edge SVG inside the viewport wrapper.
+      const reconnectOverlay = viewport!.querySelector('.bf-flow__reconnect-overlay')!
+      expect(reconnectOverlay.querySelectorAll('.bf-flow__edge-reconnect').length).toBe(2)
+
+      // Flip per-edge reconnectable to false.
+      store.setEdges([{ id: 'e1', source: 'a', target: 'b', reconnectable: false } as EdgeBase])
+      expect(reconnectOverlay.querySelectorAll('.bf-flow__edge-reconnect').length).toBe(0)
+
+      // Flip back — handles should re-mount.
+      store.setEdges([{ id: 'e1', source: 'a', target: 'b' }])
+      expect(reconnectOverlay.querySelectorAll('.bf-flow__edge-reconnect').length).toBe(2)
     })
   })
 })

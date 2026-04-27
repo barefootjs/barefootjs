@@ -1,7 +1,9 @@
 import {
   createEffect,
+  createMemo,
   createRoot,
   onCleanup,
+  untrack,
 } from '@barefootjs/client'
 import {
   getBezierPath,
@@ -15,6 +17,7 @@ import type {
   NodeBase,
   EdgeBase,
   EdgePosition,
+  InternalNodeBase,
 } from '@xyflow/system'
 import type { FlowStore, EdgeComponentProps } from './types'
 import { SVG_NS } from './constants'
@@ -27,11 +30,10 @@ import { attachReconnectionHandler } from './connection'
  * mounted set; each per-edge root owns the rendering effect for that
  * edge alone.
  *
- * Custom edge types (`edgeTypes[type]` user function) and reconnection
- * handles stay imperative — the former because the user supplies the
- * render function, the latter because `attachReconnectionHandler`
- * queries by `[data-id]` / `[data-hit-id]` selectors that the per-edge
- * mount preserves.
+ * Custom edge types stay imperative because the user supplies the
+ * render function. Reconnect handle hover/grab logic in
+ * `attachReconnectionHandler` is pointer-paced and gets no leverage
+ * from signal binding — kept imperative for the same reason.
  */
 export function createEdgeRenderer<
   NodeType extends NodeBase = NodeBase,
@@ -192,10 +194,33 @@ function mountSimpleEdge<
   pathEl.dataset.id = edgeId
   edgeGroup.appendChild(pathEl)
 
-  // Reconnect handles, lazily mounted in the effect below.
   let srcHandle: SVGCircleElement | null = null
   let tgtHandle: SVGCircleElement | null = null
 
+  // Per-edge field memos. createSignal/createMemo dedupe on Object.is, so
+  // a memo over a primitive (boolean) only fires when its value actually
+  // changes. This isolates per-edge property updates: toggling another
+  // edge's `selected` no longer re-runs this edge's class effect.
+  const selected = createMemo(() => !!store.edgeLookup().get(edgeId)?.selected)
+  const animated = createMemo(() => !!store.edgeLookup().get(edgeId)?.animated)
+  const reconnectable = createMemo(
+    () =>
+      store.edgesReconnectable &&
+      (store.edgeLookup().get(edgeId) as { reconnectable?: boolean } | undefined)
+        ?.reconnectable !== false &&
+      !!store.edgeLookup().get(edgeId),
+  )
+
+  // Class effect: tracks only selected/animated (per-edge isolated).
+  createEffect(() => {
+    pathEl.classList.toggle('bf-flow__edge--selected', selected())
+    pathEl.classList.toggle('bf-flow__edge--animated', animated())
+  })
+
+  // Position effect: tracks position signals + edgeLookup (for source/
+  // target/handle ids). Re-runs on any edges array change, but the
+  // setAttribute calls are DOM-level no-ops when the resulting `d` string
+  // is identical, so unrelated edge updates don't dirty the path.
   createEffect(() => {
     const edge = store.edgeLookup().get(edgeId)
     if (!edge) return
@@ -225,23 +250,33 @@ function mountSimpleEdge<
     pathEl.setAttribute('d', path)
     hitPath.setAttribute('d', path)
 
-    pathEl.classList.toggle('bf-flow__edge--selected', !!edge.selected)
-    pathEl.classList.toggle('bf-flow__edge--animated', !!edge.animated)
-
-    // Reconnect handles — created lazily on first eligible run.
-    const isReconnectable = store.edgesReconnectable && (edge as any).reconnectable !== false
-    if (isReconnectable) {
-      if (!srcHandle) {
-        srcHandle = createReconnectHandle('source', edgeId, edgeGroup, reconnectGroup, edge, store, svgContainer)
-      }
-      if (!tgtHandle) {
-        tgtHandle = createReconnectHandle('target', edgeId, edgeGroup, reconnectGroup, edge, store, svgContainer)
-      }
+    if (srcHandle && tgtHandle) {
       const r = 10
       srcHandle.setAttribute('cx', String(edgePos.sourceX))
       srcHandle.setAttribute('cy', String(edgePos.sourceY + r))
       tgtHandle.setAttribute('cx', String(edgePos.targetX))
       tgtHandle.setAttribute('cy', String(edgePos.targetY - r))
+    }
+  })
+
+  // Reconnect lifecycle: tracks the reconnectable memo only. `untrack`
+  // the edge fetch so this effect doesn't re-run for unrelated edges-array
+  // changes.
+  createEffect(() => {
+    if (!reconnectable()) {
+      srcHandle?.remove()
+      srcHandle = null
+      tgtHandle?.remove()
+      tgtHandle = null
+      return
+    }
+    const edge = untrack(() => store.edgeLookup().get(edgeId))
+    if (!edge) return
+    if (!srcHandle) {
+      srcHandle = createReconnectHandle('source', edgeId, edgeGroup, reconnectGroup, edge, store, svgContainer)
+    }
+    if (!tgtHandle) {
+      tgtHandle = createReconnectHandle('target', edgeId, edgeGroup, reconnectGroup, edge, store, svgContainer)
     }
   })
 
@@ -333,14 +368,13 @@ function mountCustomEdge<
 }
 
 /**
- * Compute endpoint positions for an edge using @xyflow/system's
- * getEdgePosition, falling back to node-center positioning if no
- * handle bounds are available.
+ * Compute endpoint positions for an edge, falling back to node-center
+ * positioning when no handle bounds are available.
  */
-function computeEdgePosition<NodeType extends NodeBase>(
+function computeEdgePosition(
   edge: EdgeBase,
-  sourceNode: NodeType extends NodeBase ? Parameters<typeof getEdgePosition>[0]['sourceNode'] : never,
-  targetNode: NodeType extends NodeBase ? Parameters<typeof getEdgePosition>[0]['targetNode'] : never,
+  sourceNode: InternalNodeBase,
+  targetNode: InternalNodeBase,
 ): EdgePosition | null {
   const hasHandleIds = !!(edge.sourceHandle || edge.targetHandle)
   const edgePos = getEdgePosition({
@@ -354,12 +388,11 @@ function computeEdgePosition<NodeType extends NodeBase>(
 
   if (edgePos) return edgePos
 
-  // Fallback: use node center positions when no handle bounds resolved
-  const sw = (sourceNode as any).measured.width ?? 150
-  const sh = (sourceNode as any).measured.height ?? 40
-  const tw = (targetNode as any).measured.width ?? 150
-  const sourcePos = (sourceNode as any).internals.positionAbsolute
-  const targetPos = (targetNode as any).internals.positionAbsolute
+  const sw = sourceNode.measured.width ?? 150
+  const sh = sourceNode.measured.height ?? 40
+  const tw = targetNode.measured.width ?? 150
+  const sourcePos = sourceNode.internals.positionAbsolute
+  const targetPos = targetNode.internals.positionAbsolute
 
   return {
     sourceX: sourcePos.x + sw / 2,
