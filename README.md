@@ -7,9 +7,13 @@
 </p>
 
 <p align="center">
-  <strong>Reactive JSX for any backend</strong><br>
-  Generates Marked Templates + Client JS from Signal-based JSX
+  <strong>TSX in. Your template language out.</strong><br>
+  Barefoot compiles signal-based TSX into Hono, Echo, or your favorite template language.<br>
+  No virtual DOM. No SPA required.
 </p>
+
+> [!WARNING]
+> **Alpha Software** — BarefootJS is in early alpha. APIs may change without notice. Not recommended for production use.
 
 ---
 
