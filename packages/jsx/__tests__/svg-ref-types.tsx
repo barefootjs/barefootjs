@@ -2,33 +2,36 @@
  * Type-only verification that SVG element `ref` callbacks are typed with
  * the corresponding `SVG*Element` subtype, not the generic `HTMLElement`.
  *
- * The body of each callback accesses a property that is only available on
- * the narrower SVG type, so widening `ref` (e.g. via plain intersection
- * `HTMLBaseAttributes & { ref?: ... }`) would cause this file to fail
- * type-checking. There are no runtime assertions — `tsc --noEmit` (or the
- * project's typecheck) is the test runner.
+ * Each ref body accesses an API specific to its narrow SVG type — widening
+ * `ref` (e.g. via plain intersection `HTMLBaseAttributes & { ref?: ... }`)
+ * causes TS2322 here. There are no runtime assertions; the runner is
+ * `tsc --noEmit -p packages/jsx/__tests__/tsconfig.json`.
  *
- * Compiled with `tsconfig.test.json` in this directory, which sets
- * `jsxImportSource: "@barefootjs/jsx"` and `strictFunctionTypes: true`.
+ * Bodies wrap the property access in `void` so the callback returns
+ * `void`, matching the `(element: SVG*Element) => void` signature whether
+ * the surrounding tooling picks up `tsconfig.json` or falls back to a
+ * different JSX namespace (e.g. React's `Ref<T>`).
+ *
+ * The trailing `export {}` is load-bearing: without it the file is treated
+ * as a script, the `@barefootjs/jsx` JSX namespace augmentation isn't
+ * picked up, and every JSX element fails with "no interface
+ * 'JSX.IntrinsicElements' exists" before the ref check runs.
  */
 
-// Each ref callback uses an API specific to its narrow SVG type. If the
-// type were widened to `HTMLElement`, these property accesses would fail.
-
-// SVGSVGElement.viewBox is an SVGAnimatedRect, unique to <svg>.
+// SVGSVGElement.viewBox — SVGAnimatedRect, unique to <svg>.
 const _svg = <svg ref={(el: SVGSVGElement) => { void el.viewBox }} />
-
-// SVGGElement.transform is an SVGAnimatedTransformList.
+// SVGGElement.transform — SVGAnimatedTransformList.
 const _g = <g ref={(el: SVGGElement) => { void el.transform }} />
-
-// SVGPathElement.getTotalLength is path-specific.
+// SVGPathElement.getTotalLength — path-specific.
 const _path = <path ref={(el: SVGPathElement) => { void el.getTotalLength() }} />
-
-// SVGCircleElement.r is an SVGAnimatedLength.
+// SVGCircleElement.r — SVGAnimatedLength.
 const _circle = <circle ref={(el: SVGCircleElement) => { void el.r.baseVal.value }} />
-
-// SVGRectElement.x is an SVGAnimatedLength.
+// SVGRectElement.x — SVGAnimatedLength.
 const _rect = <rect ref={(el: SVGRectElement) => { void el.x.baseVal.value }} />
+// SVGTSpanElement — note the unusual `TSpan` capitalisation; guards against
+// future typos like `SVGTspanElement`.
+const _tspan = <tspan ref={(el: SVGTSpanElement) => { void el.getNumberOfChars() }} />
+// SVGForeignObjectElement — likewise guards `Foreign`/`Object` casing.
+const _fo = <foreignObject ref={(el: SVGForeignObjectElement) => { void el.x.baseVal.value }} />
 
-// Suppress unused-binding warnings without enabling them in tsconfig.
-export { _svg, _g, _path, _circle, _rect }
+export { _svg, _g, _path, _circle, _rect, _tspan, _fo }

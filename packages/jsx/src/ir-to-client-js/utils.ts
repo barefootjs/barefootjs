@@ -137,6 +137,9 @@ const SVG_CAMEL_TO_KEBAB: Record<string, string> = {
   // fill
   fillOpacity: 'fill-opacity',
   fillRule: 'fill-rule',
+  // gradient stops
+  stopColor: 'stop-color',
+  stopOpacity: 'stop-opacity',
   // text presentation
   textAnchor: 'text-anchor',
   dominantBaseline: 'dominant-baseline',

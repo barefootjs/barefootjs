@@ -184,43 +184,145 @@ export declare namespace JSX {
     map: HTMLBaseAttributes & { name?: string }
     area: HTMLBaseAttributes & { alt?: string; coords?: string; download?: string; href?: string; media?: string; ping?: string; rel?: string; shape?: string; target?: string }
 
-    // SVG (basic support)
-    // SVG presentation attributes accept both kebab-case (SVG-native) and
-    // camelCase (React-compatible). The hono/jsx runtime converts camelCase
-    // to kebab-case at render time.
-    //
-    // Each entry uses `SVGBaseAttributes` (= `Omit<HTMLBaseAttributes, 'ref'>`)
-    // so that `ref` can be narrowed to the corresponding `SVG*Element`
-    // subtype. Overriding `ref` via plain intersection does NOT work in
-    // TypeScript: the resulting `ref` becomes the intersection of both
-    // function signatures, requiring the supplied callback to satisfy BOTH
-    // `(element: HTMLElement) => void` and the SVG-typed variant
-    // simultaneously, which `strictFunctionTypes` rejects. Omitting the
-    // inherited `ref` first and then declaring the narrower one is the
-    // pattern already used by `ButtonHTMLAttributes`, `InputHTMLAttributes`,
-    // etc. in `html-types.ts`.
-    svg: SVGBaseAttributes & SVGPresentationAttributes & { viewBox?: string; xmlns?: string; width?: number | string; height?: number | string; ref?: (element: SVGSVGElement) => void }
-    path: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { d?: string; pathLength?: number | string; ref?: (element: SVGPathElement) => void }
-    circle: SVGBaseAttributes & SVGPresentationAttributes & { cx?: number | string; cy?: number | string; r?: number | string; ref?: (element: SVGCircleElement) => void }
-    rect: SVGBaseAttributes & SVGPresentationAttributes & { x?: number | string; y?: number | string; width?: number | string; height?: number | string; rx?: number | string; ry?: number | string; ref?: (element: SVGRectElement) => void }
-    line: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { x1?: number | string; y1?: number | string; x2?: number | string; y2?: number | string; ref?: (element: SVGLineElement) => void }
-    polyline: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { points?: string; ref?: (element: SVGPolylineElement) => void }
-    polygon: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { points?: string; ref?: (element: SVGPolygonElement) => void }
-    text: SVGBaseAttributes & SVGPresentationAttributes & { x?: number | string; y?: number | string; dx?: number | string; dy?: number | string; ref?: (element: SVGTextElement) => void }
-    tspan: SVGBaseAttributes & SVGPresentationAttributes & { ref?: (element: SVGTSpanElement) => void }
-    g: SVGBaseAttributes & SVGPresentationAttributes & { transform?: string; ref?: (element: SVGGElement) => void }
-    defs: SVGBaseAttributes & { ref?: (element: SVGDefsElement) => void }
-    use: SVGBaseAttributes & SVGPresentationAttributes & { href?: string; x?: number | string; y?: number | string; width?: number | string; height?: number | string; ref?: (element: SVGUseElement) => void }
-    symbol: SVGBaseAttributes & { viewBox?: string; ref?: (element: SVGSymbolElement) => void }
-    clipPath: SVGBaseAttributes & { ref?: (element: SVGClipPathElement) => void }
-    marker: SVGBaseAttributes & { viewBox?: string; refX?: number | string; refY?: number | string; markerWidth?: number | string; markerHeight?: number | string; markerUnits?: string; orient?: string | number; ref?: (element: SVGMarkerElement) => void }
-    mask: SVGBaseAttributes & { ref?: (element: SVGMaskElement) => void }
-    linearGradient: SVGBaseAttributes & { x1?: number | string; y1?: number | string; x2?: number | string; y2?: number | string; ref?: (element: SVGLinearGradientElement) => void }
-    radialGradient: SVGBaseAttributes & { cx?: number | string; cy?: number | string; r?: number | string; fx?: number | string; fy?: number | string; ref?: (element: SVGRadialGradientElement) => void }
-    stop: SVGBaseAttributes & { offset?: number | string; 'stop-color'?: string; 'stop-opacity'?: number | string; ref?: (element: SVGStopElement) => void }
-    pattern: SVGBaseAttributes & { x?: number | string; y?: number | string; width?: number | string; height?: number | string; patternUnits?: string; ref?: (element: SVGPatternElement) => void }
-    image: SVGBaseAttributes & { href?: string; x?: number | string; y?: number | string; width?: number | string; height?: number | string; ref?: (element: SVGImageElement) => void }
-    foreignObject: SVGBaseAttributes & { x?: number | string; y?: number | string; width?: number | string; height?: number | string; ref?: (element: SVGForeignObjectElement) => void }
+    // SVG (basic support).
+    // Each entry uses `SVGBaseAttributes` so `ref` can be narrowed per-tag.
+    // See `SVGBaseAttributes` JSDoc for why plain intersection doesn't work.
+    svg: SVGBaseAttributes & SVGPresentationAttributes & {
+      viewBox?: string
+      xmlns?: string
+      width?: number | string
+      height?: number | string
+      ref?: (element: SVGSVGElement) => void
+    }
+    path: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & {
+      d?: string
+      pathLength?: number | string
+      ref?: (element: SVGPathElement) => void
+    }
+    circle: SVGBaseAttributes & SVGPresentationAttributes & {
+      cx?: number | string
+      cy?: number | string
+      r?: number | string
+      ref?: (element: SVGCircleElement) => void
+    }
+    rect: SVGBaseAttributes & SVGPresentationAttributes & {
+      x?: number | string
+      y?: number | string
+      width?: number | string
+      height?: number | string
+      rx?: number | string
+      ry?: number | string
+      ref?: (element: SVGRectElement) => void
+    }
+    line: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & {
+      x1?: number | string
+      y1?: number | string
+      x2?: number | string
+      y2?: number | string
+      ref?: (element: SVGLineElement) => void
+    }
+    polyline: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & {
+      points?: string
+      ref?: (element: SVGPolylineElement) => void
+    }
+    polygon: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & {
+      points?: string
+      ref?: (element: SVGPolygonElement) => void
+    }
+    text: SVGBaseAttributes & SVGPresentationAttributes & {
+      x?: number | string
+      y?: number | string
+      dx?: number | string
+      dy?: number | string
+      ref?: (element: SVGTextElement) => void
+    }
+    tspan: SVGBaseAttributes & SVGPresentationAttributes & {
+      ref?: (element: SVGTSpanElement) => void
+    }
+    g: SVGBaseAttributes & SVGPresentationAttributes & {
+      transform?: string
+      ref?: (element: SVGGElement) => void
+    }
+    defs: SVGBaseAttributes & {
+      ref?: (element: SVGDefsElement) => void
+    }
+    use: SVGBaseAttributes & SVGPresentationAttributes & {
+      href?: string
+      x?: number | string
+      y?: number | string
+      width?: number | string
+      height?: number | string
+      ref?: (element: SVGUseElement) => void
+    }
+    symbol: SVGBaseAttributes & {
+      viewBox?: string
+      ref?: (element: SVGSymbolElement) => void
+    }
+    clipPath: SVGBaseAttributes & {
+      ref?: (element: SVGClipPathElement) => void
+    }
+    marker: SVGBaseAttributes & {
+      viewBox?: string
+      refX?: number | string
+      refY?: number | string
+      markerWidth?: number | string
+      markerHeight?: number | string
+      markerUnits?: string
+      orient?: string | number
+      ref?: (element: SVGMarkerElement) => void
+    }
+    mask: SVGBaseAttributes & {
+      ref?: (element: SVGMaskElement) => void
+    }
+    linearGradient: SVGBaseAttributes & {
+      x1?: number | string
+      y1?: number | string
+      x2?: number | string
+      y2?: number | string
+      ref?: (element: SVGLinearGradientElement) => void
+    }
+    radialGradient: SVGBaseAttributes & {
+      cx?: number | string
+      cy?: number | string
+      r?: number | string
+      fx?: number | string
+      fy?: number | string
+      ref?: (element: SVGRadialGradientElement) => void
+    }
+    // `<stop>` accepts both kebab-case (SVG-native) and camelCase
+    // (React-compatible) forms. Compiler converts camelCase to kebab-case
+    // via `SVG_CAMEL_TO_KEBAB` (packages/jsx/src/ir-to-client-js/utils.ts).
+    stop: SVGBaseAttributes & {
+      offset?: number | string
+      stopColor?: string
+      'stop-color'?: string
+      stopOpacity?: number | string
+      'stop-opacity'?: number | string
+      ref?: (element: SVGStopElement) => void
+    }
+    pattern: SVGBaseAttributes & {
+      x?: number | string
+      y?: number | string
+      width?: number | string
+      height?: number | string
+      patternUnits?: string
+      ref?: (element: SVGPatternElement) => void
+    }
+    image: SVGBaseAttributes & {
+      href?: string
+      x?: number | string
+      y?: number | string
+      width?: number | string
+      height?: number | string
+      ref?: (element: SVGImageElement) => void
+    }
+    foreignObject: SVGBaseAttributes & {
+      x?: number | string
+      y?: number | string
+      width?: number | string
+      height?: number | string
+      ref?: (element: SVGForeignObjectElement) => void
+    }
 
     // Allow any other elements
     [tagName: string]: HTMLBaseAttributes
