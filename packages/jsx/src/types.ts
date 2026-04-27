@@ -527,6 +527,32 @@ export interface ImportInfo {
 }
 
 /**
+ * Module-level `export { A, B as C } [from './path']` declaration.
+ *
+ * Preserved verbatim into the marked-template output so re-exports of
+ * imported symbols (and `export ... from`) reach downstream consumers.
+ * Without this representation the IR-to-template emitter would only
+ * surface inline `export function Foo` / `export const x` declarations,
+ * silently dropping pure-specifier export blocks. See PR #1077.
+ */
+export interface NamedExportInfo {
+  /** When non-null, this is `export { ... } from 'source'`. */
+  source: string | null
+  specifiers: NamedExportSpecifier[]
+  isTypeOnly: boolean
+  loc: SourceLocation
+}
+
+export interface NamedExportSpecifier {
+  /** Local binding being exported (or imported binding for `export ... from`). */
+  name: string
+  /** External alias if `export { name as alias }`, else null. */
+  alias: string | null
+  /** True for `export { type X }` per-specifier type-only. */
+  isTypeOnly: boolean
+}
+
+/**
  * Reactive factory helper metadata (#931). Collected when a same-file
  * function matches the factory shape: exactly one top-level `return` whose
  * argument is an array literal of identifiers, and at least one reactive
@@ -648,6 +674,16 @@ export interface IRMetadata {
   /** Imports filtered for template use (client-side packages stripped).
    *  Computed by the compiler — adapters should use this instead of `imports`. */
   templateImports: ImportInfo[]
+  /**
+   * Module-level `export { ... }` and `export { ... } from '...'`
+   * specifier-list declarations preserved from the source. Inline
+   * `export function/const` declarations are NOT in this list — they
+   * surface via `localFunctions[].isExported` / `localConstants[].isExported`.
+   * Emitted alongside `localConstants`/`localFunctions` so re-exports of
+   * imported symbols (the chart Bar/Line/Area barrel pattern) survive
+   * into the marked template.
+   */
+  namedExports: NamedExportInfo[]
   localFunctions: FunctionInfo[]
   localConstants: ConstantInfo[]
   /** Pre-computed client JS analysis for adapter use */

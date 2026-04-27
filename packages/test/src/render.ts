@@ -92,6 +92,7 @@ function buildMetadata(
     onMounts: ctx.onMounts,
     imports: ctx.imports,
     templateImports: ctx.imports.filter((imp) => !['@barefootjs/client', '@barefootjs/client'].includes(imp.source)),
+    namedExports: ctx.namedExports,
     localFunctions: ctx.localFunctions,
     localConstants: ctx.localConstants,
     initStatements: ctx.initStatements,

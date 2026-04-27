@@ -381,19 +381,54 @@ function visit(
     return // Body is captured as string; don't walk internals
   }
 
-  // Named exports: export { X, Y } — mark already-collected items as exported
+  // Named exports: export { X, Y } [from './src']
+  //
+  // Two roles:
+  //  1. Mark already-collected local items (component/function/constant) as
+  //     exported so the inline `export <kw>` rewrite picks them up.
+  //  2. Capture the full specifier list as `NamedExportInfo` so the
+  //     marked-template emitter can re-emit specifiers that don't bind to
+  //     a local declaration (re-exports of imported symbols, or
+  //     `export ... from`). Inline-exported locals are filtered out at
+  //     emit time to avoid double-export.
   if (ts.isExportDeclaration(node) && node.exportClause && ts.isNamedExports(node.exportClause)) {
-    for (const specifier of node.exportClause.elements) {
-      const name = specifier.name.text
-      // Mark the component itself if re-exported via export { Name }
-      if (ctx.componentName === name) {
-        ctx.isExported = true
+    const isFromReexport = !!node.moduleSpecifier
+    const sourceSpec =
+      node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)
+        ? node.moduleSpecifier.text
+        : null
+
+    const exportSpecifiers = node.exportClause.elements.map((spec) => {
+      const local = (spec.propertyName ?? spec.name).text
+      const external = spec.name.text
+      return {
+        name: local,
+        alias: spec.propertyName ? external : null,
+        isTypeOnly: spec.isTypeOnly,
       }
-      for (const c of ctx.localConstants) {
-        if (c.name === name) c.isExported = true
-      }
-      for (const f of ctx.localFunctions) {
-        if (f.name === name) f.isExported = true
+    })
+
+    ctx.namedExports.push({
+      source: sourceSpec,
+      specifiers: exportSpecifiers,
+      isTypeOnly: node.isTypeOnly,
+      loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+    })
+
+    // Local-binding marking only applies when there is no `from 'src'`.
+    if (!isFromReexport) {
+      for (const specifier of node.exportClause.elements) {
+        // Use the local name (`propertyName` if `X as Y`, else `name`).
+        const local = (specifier.propertyName ?? specifier.name).text
+        if (ctx.componentName === local) {
+          ctx.isExported = true
+        }
+        for (const c of ctx.localConstants) {
+          if (c.name === local) c.isExported = true
+        }
+        for (const f of ctx.localFunctions) {
+          if (f.name === local) f.isExported = true
+        }
       }
     }
   }

@@ -12,6 +12,7 @@ import type {
   OnMountInfo,
   InitStatementInfo,
   ImportInfo,
+  NamedExportInfo,
   FunctionInfo,
   ConstantInfo,
   TypeDefinition,
@@ -83,6 +84,8 @@ export interface AnalyzerContext {
   /** Bare imperative statements at the top of the component body (#930). */
   initStatements: InitStatementInfo[]
   imports: ImportInfo[]
+  /** Module-level `export { ... } [from './path']` declarations (#1077). */
+  namedExports: NamedExportInfo[]
   localFunctions: FunctionInfo[]
   localConstants: ConstantInfo[]
   typeDefinitions: TypeDefinition[]
@@ -177,6 +180,7 @@ export function createAnalyzerContext(
     onMounts: [],
     initStatements: [],
     imports: [],
+    namedExports: [],
     localFunctions: [],
     localConstants: [],
     typeDefinitions: [],
