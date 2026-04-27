@@ -21,6 +21,7 @@ import type {
   ImgHTMLAttributes,
   LabelHTMLAttributes,
   OptionHTMLAttributes,
+  SVGBaseAttributes,
   SVGPresentationAttributes,
   SVGMarkerReferenceAttributes,
 } from '../html-types'
@@ -187,28 +188,39 @@ export declare namespace JSX {
     // SVG presentation attributes accept both kebab-case (SVG-native) and
     // camelCase (React-compatible). The hono/jsx runtime converts camelCase
     // to kebab-case at render time.
-    svg: HTMLBaseAttributes & SVGPresentationAttributes & { viewBox?: string; xmlns?: string; width?: number | string; height?: number | string }
-    path: HTMLBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { d?: string; pathLength?: number | string }
-    circle: HTMLBaseAttributes & SVGPresentationAttributes & { cx?: number | string; cy?: number | string; r?: number | string }
-    rect: HTMLBaseAttributes & SVGPresentationAttributes & { x?: number | string; y?: number | string; width?: number | string; height?: number | string; rx?: number | string; ry?: number | string }
-    line: HTMLBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { x1?: number | string; y1?: number | string; x2?: number | string; y2?: number | string }
-    polyline: HTMLBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { points?: string }
-    polygon: HTMLBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { points?: string }
-    text: HTMLBaseAttributes & SVGPresentationAttributes & { x?: number | string; y?: number | string; dx?: number | string; dy?: number | string }
-    tspan: HTMLBaseAttributes & SVGPresentationAttributes
-    g: HTMLBaseAttributes & SVGPresentationAttributes & { transform?: string }
-    defs: HTMLBaseAttributes
-    use: HTMLBaseAttributes & SVGPresentationAttributes & { href?: string; x?: number | string; y?: number | string; width?: number | string; height?: number | string }
-    symbol: HTMLBaseAttributes & { viewBox?: string }
-    clipPath: HTMLBaseAttributes
-    marker: HTMLBaseAttributes & { viewBox?: string; refX?: number | string; refY?: number | string; markerWidth?: number | string; markerHeight?: number | string; markerUnits?: string; orient?: string | number }
-    mask: HTMLBaseAttributes
-    linearGradient: HTMLBaseAttributes & { x1?: number | string; y1?: number | string; x2?: number | string; y2?: number | string }
-    radialGradient: HTMLBaseAttributes & { cx?: number | string; cy?: number | string; r?: number | string; fx?: number | string; fy?: number | string }
-    stop: HTMLBaseAttributes & { offset?: number | string; 'stop-color'?: string; 'stop-opacity'?: number | string }
-    pattern: HTMLBaseAttributes & { x?: number | string; y?: number | string; width?: number | string; height?: number | string; patternUnits?: string }
-    image: HTMLBaseAttributes & { href?: string; x?: number | string; y?: number | string; width?: number | string; height?: number | string }
-    foreignObject: HTMLBaseAttributes & { x?: number | string; y?: number | string; width?: number | string; height?: number | string }
+    //
+    // Each entry uses `SVGBaseAttributes` (= `Omit<HTMLBaseAttributes, 'ref'>`)
+    // so that `ref` can be narrowed to the corresponding `SVG*Element`
+    // subtype. Overriding `ref` via plain intersection does NOT work in
+    // TypeScript: the resulting `ref` becomes the intersection of both
+    // function signatures, requiring the supplied callback to satisfy BOTH
+    // `(element: HTMLElement) => void` and the SVG-typed variant
+    // simultaneously, which `strictFunctionTypes` rejects. Omitting the
+    // inherited `ref` first and then declaring the narrower one is the
+    // pattern already used by `ButtonHTMLAttributes`, `InputHTMLAttributes`,
+    // etc. in `html-types.ts`.
+    svg: SVGBaseAttributes & SVGPresentationAttributes & { viewBox?: string; xmlns?: string; width?: number | string; height?: number | string; ref?: (element: SVGSVGElement) => void }
+    path: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { d?: string; pathLength?: number | string; ref?: (element: SVGPathElement) => void }
+    circle: SVGBaseAttributes & SVGPresentationAttributes & { cx?: number | string; cy?: number | string; r?: number | string; ref?: (element: SVGCircleElement) => void }
+    rect: SVGBaseAttributes & SVGPresentationAttributes & { x?: number | string; y?: number | string; width?: number | string; height?: number | string; rx?: number | string; ry?: number | string; ref?: (element: SVGRectElement) => void }
+    line: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { x1?: number | string; y1?: number | string; x2?: number | string; y2?: number | string; ref?: (element: SVGLineElement) => void }
+    polyline: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { points?: string; ref?: (element: SVGPolylineElement) => void }
+    polygon: SVGBaseAttributes & SVGPresentationAttributes & SVGMarkerReferenceAttributes & { points?: string; ref?: (element: SVGPolygonElement) => void }
+    text: SVGBaseAttributes & SVGPresentationAttributes & { x?: number | string; y?: number | string; dx?: number | string; dy?: number | string; ref?: (element: SVGTextElement) => void }
+    tspan: SVGBaseAttributes & SVGPresentationAttributes & { ref?: (element: SVGTSpanElement) => void }
+    g: SVGBaseAttributes & SVGPresentationAttributes & { transform?: string; ref?: (element: SVGGElement) => void }
+    defs: SVGBaseAttributes & { ref?: (element: SVGDefsElement) => void }
+    use: SVGBaseAttributes & SVGPresentationAttributes & { href?: string; x?: number | string; y?: number | string; width?: number | string; height?: number | string; ref?: (element: SVGUseElement) => void }
+    symbol: SVGBaseAttributes & { viewBox?: string; ref?: (element: SVGSymbolElement) => void }
+    clipPath: SVGBaseAttributes & { ref?: (element: SVGClipPathElement) => void }
+    marker: SVGBaseAttributes & { viewBox?: string; refX?: number | string; refY?: number | string; markerWidth?: number | string; markerHeight?: number | string; markerUnits?: string; orient?: string | number; ref?: (element: SVGMarkerElement) => void }
+    mask: SVGBaseAttributes & { ref?: (element: SVGMaskElement) => void }
+    linearGradient: SVGBaseAttributes & { x1?: number | string; y1?: number | string; x2?: number | string; y2?: number | string; ref?: (element: SVGLinearGradientElement) => void }
+    radialGradient: SVGBaseAttributes & { cx?: number | string; cy?: number | string; r?: number | string; fx?: number | string; fy?: number | string; ref?: (element: SVGRadialGradientElement) => void }
+    stop: SVGBaseAttributes & { offset?: number | string; 'stop-color'?: string; 'stop-opacity'?: number | string; ref?: (element: SVGStopElement) => void }
+    pattern: SVGBaseAttributes & { x?: number | string; y?: number | string; width?: number | string; height?: number | string; patternUnits?: string; ref?: (element: SVGPatternElement) => void }
+    image: SVGBaseAttributes & { href?: string; x?: number | string; y?: number | string; width?: number | string; height?: number | string; ref?: (element: SVGImageElement) => void }
+    foreignObject: SVGBaseAttributes & { x?: number | string; y?: number | string; width?: number | string; height?: number | string; ref?: (element: SVGForeignObjectElement) => void }
 
     // Allow any other elements
     [tagName: string]: HTMLBaseAttributes

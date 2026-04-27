@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "strictFunctionTypes": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@barefootjs/jsx",
+    "types": [],
+    "paths": {
+      "@barefootjs/jsx/jsx-runtime": ["../src/jsx-runtime/index.d.ts"],
+      "@barefootjs/jsx/jsx-dev-runtime": ["../src/jsx-dev-runtime/index.d.ts"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.tsx"]
+}

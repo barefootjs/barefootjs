@@ -142,6 +142,24 @@ export interface HTMLBaseAttributes extends BaseEventAttributes {
 }
 
 // ============================================================================
+// SVG Base Attributes
+// ============================================================================
+
+/**
+ * Base attributes shared by all SVG elements.
+ *
+ * This is `HTMLBaseAttributes` with the `ref` property omitted so that each
+ * SVG element entry can declare its own `ref?: (element: SVG*Element) => void`
+ * narrowed to the concrete subtype. Mirrors the pattern used by
+ * `ButtonHTMLAttributes`, `InputHTMLAttributes`, etc. — overriding `ref` via
+ * intersection (`HTMLBaseAttributes & { ref?: ... }`) does NOT work because
+ * TypeScript intersects the two function signatures, requiring the supplied
+ * callback to satisfy BOTH `(element: HTMLElement) => void` and the SVG-typed
+ * variant simultaneously, which `strictFunctionTypes` rejects.
+ */
+export type SVGBaseAttributes = Omit<HTMLBaseAttributes, 'ref'>
+
+// ============================================================================
 // SVG Presentation Attributes
 // ============================================================================
 
