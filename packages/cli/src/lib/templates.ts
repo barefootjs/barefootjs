@@ -59,12 +59,13 @@ export function Counter(props: CounterProps) {
 export default Counter
 `
 
-// Starter Button at components/ui/button.tsx. Kept intentionally
-// minimal (vanilla CSS classes, no Tailwind / theme tokens) so the
-// component is readable as-is and visually matches public/styles.css.
-// To replace with the full registry Button, run:
-//   barefoot add button --force
-const SHARED_BUTTON_TSX = `import type { ButtonHTMLAttributes } from '@barefootjs/jsx'
+// Starter Button at components/Button.tsx. Marked 'use client' so the
+// build emits a hydration shim — that's what wires the parent Counter's
+// onClick prop to a real DOM event listener at runtime. Without it,
+// clicks on <Button> fire no handlers and the counter never updates.
+const SHARED_BUTTON_TSX = `'use client'
+
+import type { ButtonHTMLAttributes } from '@barefootjs/jsx'
 
 type Variant = 'primary' | 'secondary' | 'ghost'
 

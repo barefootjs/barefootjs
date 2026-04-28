@@ -17,9 +17,26 @@ export interface ResolveRelativeImportsOptions {
   sourceDirs?: string[]
 }
 
+/**
+ * Marker for "leave the import alone" — the file exists at runtime as a
+ * separately-served artifact (e.g. `./barefoot.js` is the runtime bundle
+ * that lives next to each component's client JS). Inlining would duplicate
+ * code; stripping the import would break runtime references.
+ */
+const LEAVE_AS_EXTERNAL = '__bf_leave_as_external__'
+
 async function resolveSourceFile(importPath: string, searchDirs: string[]): Promise<string> {
   for (const dir of searchDirs) {
     const basePath = resolve(dir, importPath)
+    // If the import path already points to an existing runtime artifact
+    // (e.g. `./barefoot.js`), keep the import as-is instead of trying to
+    // inline a `.ts` source that doesn't exist. Without this, watch's
+    // cached re-builds would silently strip the runtime import line from
+    // every component's client JS, and the browser would then fail with
+    // `ReferenceError: hydrate is not defined`.
+    if (/\.(?:js|mjs|cjs)$/.test(importPath) && await fileExists(basePath)) {
+      return LEAVE_AS_EXTERNAL
+    }
     for (const ext of ['.ts', '.tsx', '.js']) {
       if (await fileExists(basePath + ext)) return basePath + ext
     }
@@ -47,6 +64,11 @@ async function inlineRelativeImports(
     const importPath = match[1]
     const fullMatch = match[0]
     const sourceFile = await resolveSourceFile(importPath, searchDirs)
+
+    if (sourceFile === LEAVE_AS_EXTERNAL) {
+      // Existing runtime artifact (e.g. ./barefoot.js); keep import as-is.
+      continue
+    }
 
     if (!sourceFile || inlinedPaths.has(sourceFile)) {
       content = content.replace(new RegExp(escapeRegExp(fullMatch) + '\\n?'), '')
