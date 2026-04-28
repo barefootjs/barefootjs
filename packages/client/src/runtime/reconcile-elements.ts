@@ -6,17 +6,42 @@
  */
 
 import { hydratedScopes } from './hydration-state'
-import { BF_SCOPE, BF_SLOT, BF_COND, BF_KEY, BF_LOOP_START, BF_LOOP_END } from '@barefootjs/shared'
+import { BF_SCOPE, BF_SLOT, BF_COND, BF_KEY, BF_LOOP_START, BF_LOOP_END, loopStartMarker, loopEndMarker } from '@barefootjs/shared'
 
-/** Find loop boundary comment markers in a container. */
-function findLoopMarkers(container: HTMLElement): { startMarker: Comment | null; endMarker: Comment | null } {
+/**
+ * Find loop boundary comment markers in a container.
+ *
+ * `markerId` scopes the lookup to `<!--bf-loop:<id>-->` / `<!--bf-/loop:<id>-->`
+ * so sibling loops under the same parent disambiguate (#1087). Without an id,
+ * accepts the legacy unscoped form too — used by tests that build containers
+ * without compiler-emitted markers.
+ */
+function findLoopMarkers(
+  container: HTMLElement,
+  markerId?: string,
+): { startMarker: Comment | null; endMarker: Comment | null } {
   let startMarker: Comment | null = null
   let endMarker: Comment | null = null
-  for (const node of Array.from(container.childNodes)) {
-    if (node.nodeType === Node.COMMENT_NODE) {
+  if (markerId) {
+    const startVal = loopStartMarker(markerId)
+    const endVal = loopEndMarker(markerId)
+    for (const node of Array.from(container.childNodes)) {
+      if (node.nodeType !== Node.COMMENT_NODE) continue
       const value = (node as Comment).nodeValue
-      if (value === BF_LOOP_START) startMarker = node as Comment
-      else if (value === BF_LOOP_END) endMarker = node as Comment
+      if (value === startVal) startMarker = node as Comment
+      else if (value === endVal) endMarker = node as Comment
+    }
+  } else {
+    const startPrefix = `${BF_LOOP_START}:`
+    const endPrefix = `${BF_LOOP_END}:`
+    for (const node of Array.from(container.childNodes)) {
+      if (node.nodeType !== Node.COMMENT_NODE) continue
+      const value = (node as Comment).nodeValue ?? ''
+      if (!startMarker && (value === BF_LOOP_START || value.startsWith(startPrefix))) {
+        startMarker = node as Comment
+      } else if (!endMarker && (value === BF_LOOP_END || value.startsWith(endPrefix))) {
+        endMarker = node as Comment
+      }
     }
   }
   if (startMarker && endMarker) return { startMarker, endMarker }
@@ -52,8 +77,8 @@ function removeElementsBetweenMarkers(start: Comment, end: Comment): void {
  * When absent, returns all children (backward compatible).
  * Exported for use by compiler-generated hydration code.
  */
-export function getLoopChildren(container: HTMLElement): HTMLElement[] {
-  const { startMarker, endMarker } = findLoopMarkers(container)
+export function getLoopChildren(container: HTMLElement, markerId?: string): HTMLElement[] {
+  const { startMarker, endMarker } = findLoopMarkers(container, markerId)
   if (startMarker && endMarker) {
     return getElementsBetweenMarkers(startMarker, endMarker) as HTMLElement[]
   }
@@ -65,9 +90,9 @@ export function getLoopChildren(container: HTMLElement): HTMLElement[] {
  * SSR HTML doesn't include markers, so we insert them during hydration.
  * Uses itemCount to identify the last N children as loop items (rest are siblings).
  */
-export function ensureLoopMarkers(container: HTMLElement, itemCount: number): void {
+export function ensureLoopMarkers(container: HTMLElement, itemCount: number, markerId?: string): void {
   // Already has markers
-  const { startMarker } = findLoopMarkers(container)
+  const { startMarker } = findLoopMarkers(container, markerId)
   if (startMarker) return
 
   const children = Array.from(container.children)
@@ -77,8 +102,8 @@ export function ensureLoopMarkers(container: HTMLElement, itemCount: number): vo
   const loopStartIdx = Math.max(0, children.length - itemCount)
   const firstLoopChild = children[loopStartIdx]
 
-  const start = document.createComment(BF_LOOP_START)
-  const end = document.createComment(BF_LOOP_END)
+  const start = document.createComment(markerId ? loopStartMarker(markerId) : BF_LOOP_START)
+  const end = document.createComment(markerId ? loopEndMarker(markerId) : BF_LOOP_END)
   container.insertBefore(start, firstLoopChild)
   container.appendChild(end)
 }
@@ -98,14 +123,15 @@ export function reconcileElements<T>(
   items: T[],
   getKey: ((item: T, index: number) => string) | null,
   renderItem: (item: T, index: number) => HTMLElement,
-  firstElement?: HTMLElement
+  firstElement?: HTMLElement,
+  markerId?: string,
 ): void {
   if (!container || !items) return
 
   // Find loop boundary markers if present.
   // When markers exist, only elements between <!--bf-loop--> and <!--/bf-loop-->
   // participate in reconciliation — siblings outside the range are preserved.
-  const { startMarker, endMarker } = findLoopMarkers(container)
+  const { startMarker, endMarker } = findLoopMarkers(container, markerId)
 
   // Collect existing keyed elements (only within loop range if markers exist)
   const existingByKey = new Map<string, HTMLElement>()

@@ -94,7 +94,7 @@ function emitReactive(lines: string[], inner: InnerLoopPlan, indent: string): vo
     }
   }
   lines.push(`${indent}  return __innerEl${uid}`)
-  lines.push(`${indent}}) }`)
+  lines.push(`${indent}}, '${inner.markerId}') }`)
 }
 
 function emitStatic(lines: string[], inner: InnerLoopPlan, indent: string): void {

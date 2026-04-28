@@ -56,11 +56,21 @@ export const BF_PARENT_OWNED_PREFIX = '^'
 /** Comment-based scope marker prefix: `<!--bf-scope:ComponentName_abc123-->` */
 export const BF_SCOPE_COMMENT_PREFIX = 'bf-scope:'
 
-/** Loop boundary start: `<!--bf-loop-->` */
+/** Loop boundary start prefix: comments are `<!--bf-loop:<markerId>-->`. */
 export const BF_LOOP_START = 'bf-loop'
 
-/** Loop boundary end: `<!--bf-/loop-->` */
+/** Loop boundary end prefix: comments are `<!--bf-/loop:<markerId>-->`. */
 export const BF_LOOP_END = 'bf-/loop'
+
+/** Build the start-marker comment value for a loop. */
+export function loopStartMarker(markerId: string): string {
+  return `${BF_LOOP_START}:${markerId}`
+}
+
+/** Build the end-marker comment value for a loop. */
+export function loopEndMarker(markerId: string): string {
+  return `${BF_LOOP_END}:${markerId}`
+}
 
 // ---------------------------------------------------------------------------
 // Data attributes

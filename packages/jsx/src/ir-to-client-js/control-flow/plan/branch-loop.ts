@@ -28,6 +28,8 @@ export interface BranchPlainLoopPlan {
   containerSlotId: string
   /** Container variable identifier — usually `__loop_<containerSlotId>`. */
   containerVar: string
+  /** Loop marker id — passed to mapArray so sibling loops disambiguate (#1087). */
+  markerId: string
   /** Loop array expression as written in source (no wrap). */
   arrayExpr: string
   /** keyFn source. */

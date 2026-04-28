@@ -34,6 +34,7 @@ export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
   return {
     kind: 'plain-loop',
     containerVar: `_${varSlotId(elem.slotId)}`,
+    markerId: elem.markerId,
     arrayExpr: buildChainedArrayExpr(elem),
     keyFn: loopKeyFn(elem),
     paramHead,

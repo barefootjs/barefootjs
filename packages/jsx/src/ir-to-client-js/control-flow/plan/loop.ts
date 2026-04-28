@@ -31,6 +31,8 @@ export interface PlainLoopPlan {
   kind: 'plain-loop'
   /** The container element variable, e.g. `_s1`. */
   containerVar: string
+  /** Loop marker id — passed to mapArray so sibling loops disambiguate (#1087). */
+  markerId: string
   /** Array expression to drive `mapArray(() => ARR, ...)`. Already chained (filter/sort). */
   arrayExpr: string
   /** Key function source — `null` when the loop has no explicit key. */
@@ -70,6 +72,8 @@ export interface PlainLoopPlan {
 export interface ComponentLoopPlan {
   kind: 'component-loop'
   containerVar: string
+  /** Loop marker id — passed to mapArray so sibling loops disambiguate (#1087). */
+  markerId: string
   arrayExpr: string
   keyFn: string
   paramHead: string
@@ -129,6 +133,8 @@ export interface NestedComponentInit {
 export interface CompositeLoopPlan {
   kind: 'composite-loop'
   containerVar: string
+  /** Loop marker id — passed to mapArray so sibling loops disambiguate (#1087). */
+  markerId: string
   arrayExpr: string
   keyFn: string
   paramHead: string

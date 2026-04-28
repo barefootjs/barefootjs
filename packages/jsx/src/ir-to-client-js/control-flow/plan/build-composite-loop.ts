@@ -35,6 +35,7 @@ export function buildTopLevelCompositePlan(elem: TopLevelLoop): CompositeLoopPla
   return {
     kind: 'composite-loop',
     containerVar: `_${varSlotId(elem.slotId)}`,
+    markerId: elem.markerId,
     arrayExpr: buildChainedArrayExpr(elem),
     keyFn: loopKeyFn(elem),
     paramHead,
@@ -80,6 +81,7 @@ export function buildBranchCompositePlan(loop: BranchLoop, cv: string): Composit
   return {
     kind: 'composite-loop',
     containerVar: `__loop_${cv}`,
+    markerId: loop.markerId,
     // Branch-scoped loops use the raw array expression (no filter/sort chaining
     // path — BranchLoop doesn't carry those fields).
     arrayExpr: loop.array,

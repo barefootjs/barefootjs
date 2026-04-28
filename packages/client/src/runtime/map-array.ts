@@ -13,7 +13,7 @@
 
 import { createSignal, createEffect, createRoot } from '@barefootjs/client/reactive'
 import { hydratedScopes } from './hydration-state'
-import { BF_KEY, BF_LOOP_START, BF_LOOP_END } from '@barefootjs/shared'
+import { BF_KEY, BF_LOOP_START, BF_LOOP_END, loopStartMarker, loopEndMarker } from '@barefootjs/shared'
 
 type ItemScope<T> = {
   element: HTMLElement
@@ -21,15 +21,43 @@ type ItemScope<T> = {
   setItem: (v: T) => void
 }
 
-/** Find loop boundary comment markers in a container. */
-function findLoopMarkers(container: HTMLElement): { start: Comment | null; end: Comment | null } {
+/**
+ * Find loop boundary comment markers in a container.
+ *
+ * When `markerId` is given, matches the scoped form `<!--bf-loop:<id>-->` /
+ * `<!--bf-/loop:<id>-->` so sibling `.map()` calls under the same parent
+ * each see only their own range (#1087).
+ *
+ * When omitted (e.g. hand-written tests that drop in unscoped markers),
+ * falls back to the first start / first end found, matching either the
+ * scoped or legacy unscoped form.
+ */
+function findLoopMarkers(
+  container: HTMLElement,
+  markerId?: string,
+): { start: Comment | null; end: Comment | null } {
   let start: Comment | null = null
   let end: Comment | null = null
-  for (const node of Array.from(container.childNodes)) {
-    if (node.nodeType === Node.COMMENT_NODE) {
+  if (markerId) {
+    const startVal = loopStartMarker(markerId)
+    const endVal = loopEndMarker(markerId)
+    for (const node of Array.from(container.childNodes)) {
+      if (node.nodeType !== Node.COMMENT_NODE) continue
       const value = (node as Comment).nodeValue
-      if (value === BF_LOOP_START) start = node as Comment
-      else if (value === BF_LOOP_END) end = node as Comment
+      if (value === startVal) start = node as Comment
+      else if (value === endVal) end = node as Comment
+    }
+  } else {
+    const startPrefix = `${BF_LOOP_START}:`
+    const endPrefix = `${BF_LOOP_END}:`
+    for (const node of Array.from(container.childNodes)) {
+      if (node.nodeType !== Node.COMMENT_NODE) continue
+      const value = (node as Comment).nodeValue ?? ''
+      if (!start && (value === BF_LOOP_START || value.startsWith(startPrefix))) {
+        start = node as Comment
+      } else if (!end && (value === BF_LOOP_END || value.startsWith(endPrefix))) {
+        end = node as Comment
+      }
     }
   }
   if (start && end) return { start, end }
@@ -89,6 +117,7 @@ export function mapArray<T>(
   container: HTMLElement | null,
   getKey: ((item: T, index: number) => string) | null,
   renderItem: (item: () => T, index: number, existing?: HTMLElement) => HTMLElement,
+  markerId?: string,
 ): void {
   if (!container) return
 
@@ -99,7 +128,7 @@ export function mapArray<T>(
     const items = accessor()
     if (!items) return
 
-    const { start: startMarker, end: endMarker } = findLoopMarkers(container)
+    const { start: startMarker, end: endMarker } = findLoopMarkers(container, markerId)
     const anchor = endMarker ?? null
 
     // --- First run: hydrate SSR-rendered children ---

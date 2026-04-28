@@ -50,6 +50,7 @@ function loop(children: IRNode[]): IRNode {
     key: null,
     children,
     slotId: null,
+    markerId: 'l0',
     loc,
     isStaticArray: false,
   }

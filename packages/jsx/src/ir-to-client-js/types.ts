@@ -153,6 +153,13 @@ export interface LoopCore {
    * simple-name callbacks.
    */
   paramBindings?: readonly import('../types').LoopParamBinding[]
+  /**
+   * Unique id for this loop's `<!--bf-loop:<id>--> ... <!--bf-/loop:<id>-->`
+   * marker pair, threaded from `IRLoop.markerId`. Each `mapArray()` /
+   * `reconcileElements()` call passes this id so sibling loops under the
+   * same parent reconcile their own range (#1087).
+   */
+  markerId: string
 }
 
 /** Loop info extracted from a conditional branch for reactive reconciliation. */

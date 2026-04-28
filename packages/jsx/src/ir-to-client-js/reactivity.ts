@@ -349,6 +349,7 @@ export function collectLoopChildEventsWithNesting(
             array: l.array,
             param: l.param,
             key: l.key,
+            markerId: l.markerId,
             containerSlotId: scope.lastElementSlotId,
           },
         ],

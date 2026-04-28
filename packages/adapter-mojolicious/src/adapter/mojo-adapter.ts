@@ -270,7 +270,9 @@ export class MojoAdapter extends BaseAdapter {
     this.inLoop = prevInLoop
 
     const lines: string[] = []
-    lines.push(`<%== bf->comment("loop") %>`)
+    // Scoped per-call-site marker so sibling `.map()`s under the same parent
+    // each get their own reconciliation range (#1087).
+    lines.push(`<%== bf->comment("loop:${loop.markerId}") %>`)
     lines.push(`% for my ${indexVar} (0..$#{${array}}) {`)
     lines.push(`% my $${param} = ${array}->[${indexVar}];`)
 
@@ -305,7 +307,7 @@ export class MojoAdapter extends BaseAdapter {
     }
 
     lines.push(`% }`)
-    lines.push(`<%== bf->comment("/loop") %>`)
+    lines.push(`<%== bf->comment("/loop:${loop.markerId}") %>`)
 
     return lines.join('\n')
   }

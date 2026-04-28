@@ -37,6 +37,7 @@ import { nameForRegistryRef } from '../../component-scope'
 export function stringifyComponentLoop(lines: string[], plan: ComponentLoopPlan): void {
   const {
     containerVar,
+    markerId,
     arrayExpr,
     keyFn,
     paramHead,
@@ -57,7 +58,7 @@ export function stringifyComponentLoop(lines: string[], plan: ComponentLoopPlan)
   if (nestedComps.length === 0) {
     lines.push(`    if (__existing) { initChild('${scopedComp}', __existing, ${componentPropsExpr}); return __existing }`)
     lines.push(`    return createComponent('${scopedComp}', ${componentPropsExpr}, ${keyExpr})`)
-    lines.push(`  })`)
+    lines.push(`  }, '${markerId}')`)
     return
   }
 
@@ -78,7 +79,7 @@ export function stringifyComponentLoop(lines: string[], plan: ComponentLoopPlan)
     stringifyReactiveEffects(lines, childConditionalEffects, { indent: '    ', elVar: '__csrEl' })
   }
   lines.push(`    return __csrEl`)
-  lines.push(`  })`)
+  lines.push(`  }, '${markerId}')`)
 }
 
 function emitNestedInit(lines: string[], indent: string, parentVar: string, nc: NestedComponentInit): void {

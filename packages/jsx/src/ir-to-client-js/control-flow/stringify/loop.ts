@@ -37,6 +37,7 @@ export function stringifyPlainLoop(
 ): void {
   const {
     containerVar,
+    markerId,
     arrayExpr,
     keyFn,
     paramHead,
@@ -53,7 +54,7 @@ export function stringifyPlainLoop(
     const preamble = mapPreambleWrapped ? `${mapPreambleWrapped}; ` : ''
     const cloneExpr = emitTemplateCloneInline(template)
     lines.push(
-      `${topIndent}mapArray(() => ${arrayExpr}, ${containerVar}, ${keyFn}, (${paramHead}, ${indexParam}, __existing) => { ${unwrapInline}${preamble}if (__existing) return __existing; ${cloneExpr} })`,
+      `${topIndent}mapArray(() => ${arrayExpr}, ${containerVar}, ${keyFn}, (${paramHead}, ${indexParam}, __existing) => { ${unwrapInline}${preamble}if (__existing) return __existing; ${cloneExpr} }, '${markerId}')`,
     )
     return
   }
@@ -67,7 +68,7 @@ export function stringifyPlainLoop(
   lines.push(`${bodyIndent}const __el = __existing ?? (() => { ${cloneExpr} })()`)
   stringifyReactiveEffects(lines, reactiveEffects, { indent: bodyIndent, elVar: '__el' })
   lines.push(`${bodyIndent}return __el`)
-  lines.push(`${topIndent}})`)
+  lines.push(`${topIndent}}, '${markerId}')`)
 }
 
 export function stringifyStaticLoop(lines: string[], plan: StaticLoopPlan): void {

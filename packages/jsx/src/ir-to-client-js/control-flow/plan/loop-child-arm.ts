@@ -84,6 +84,8 @@ export interface BranchInnerLoopText {
 export interface BranchInnerLoop {
   /** Unique suffix used in `__bel`/`__bic`/`__bidx` variable names. */
   uidSuffix: string
+  /** Loop marker id — passed to mapArray so sibling loops disambiguate (#1087). */
+  markerId: string
   /** Container resolution expression — already includes scope and selectors. */
   containerExpr: string
   /** Wrapped array expression (`wrapOuter(inner.array)`). */

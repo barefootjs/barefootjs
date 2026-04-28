@@ -115,8 +115,9 @@ export function List() {
 }
 `)
     expect(result.template).toContain('% for my')
-    expect(result.template).toContain('bf->comment("loop")')
-    expect(result.template).toContain('bf->comment("/loop")')
+    // Markers are scoped per-call-site (#1087): `bf->comment("loop:<id>")`.
+    expect(result.template).toMatch(/bf->comment\("loop:[^"]+"\)/)
+    expect(result.template).toMatch(/bf->comment\("\/loop:[^"]+"\)/)
   })
 
   test('generates script registration for client components', () => {

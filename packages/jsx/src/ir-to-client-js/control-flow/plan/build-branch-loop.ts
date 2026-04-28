@@ -46,6 +46,7 @@ export function buildBranchLoopPlan(loop: BranchLoop): BranchLoopPlan {
     kind: 'plain',
     containerSlotId,
     containerVar,
+    markerId: loop.markerId,
     arrayExpr: loop.array,
     keyFn: loopKeyFn(loop),
     paramHead,

@@ -600,12 +600,14 @@ export class HonoAdapter extends JsxAdapter {
 
   renderLoop(loop: IRLoop): string {
     // clientOnly loops must not render items at SSR time, but must still emit
-    // <!--bf-loop--><!--bf-/loop--> boundary markers so that mapArray() on the
-    // client can locate the correct anchor node when inserting items.
+    // <!--bf-loop:<id>--><!--bf-/loop:<id>--> boundary markers so that mapArray()
+    // on the client can locate the correct anchor node when inserting items.
     // Without the markers, mapArray() resolves anchor = null and appends new
     // elements after sibling markers (e.g. <!--bf-cond-start-->). (#872)
+    // The marker id disambiguates sibling `.map()` calls under the same
+    // parent (#1087).
     if (loop.clientOnly) {
-      return `{bfComment('loop')}{bfComment('/loop')}`
+      return `{bfComment('loop:${loop.markerId}')}{bfComment('/loop:${loop.markerId}')}`
     }
 
     // Preserve type annotations for loop params in .tsx output
@@ -633,9 +635,10 @@ export class HonoAdapter extends JsxAdapter {
       mapExpr = `{${loop.array}.map((${loop.param}${paramAnnotation}${indexParam}) => ${safeChildren})}`
     }
     // Wrap with loop boundary markers so reconciliation doesn't affect siblings.
-    // bfComment is a helper that renders an HTML comment in JSX.
-    // bfComment('loop') → <!--bf-loop-->, bfComment('/loop') → <!--bf-/loop-->
-    return `{bfComment('loop')}${mapExpr}{bfComment('/loop')}`
+    // bfComment('loop:<id>') → <!--bf-loop:<id>-->. The marker id is unique
+    // per loop call site so sibling `.map()` calls under the same parent
+    // get their own reconciliation range (#1087).
+    return `{bfComment('loop:${loop.markerId}')}${mapExpr}{bfComment('/loop:${loop.markerId}')}`
   }
 
   private renderChildrenInLoop(children: IRNode[]): string {

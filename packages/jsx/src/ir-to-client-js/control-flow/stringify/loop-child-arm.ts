@@ -123,7 +123,7 @@ export function stringifyBranchInnerLoops(
       stringifyLoopChildConditionals(lines, inner.nestedConditionals, `${indent}  `)
     }
     lines.push(`${indent}  return __bel${uid}`)
-    lines.push(`${indent}}) }`)
+    lines.push(`${indent}}, '${inner.markerId}') }`)
   }
 }
 

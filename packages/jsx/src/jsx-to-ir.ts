@@ -65,6 +65,8 @@ interface TransformContext {
   loopParams: Set<string>
   /** Counter for async boundary IDs (a0, a1, ...) */
   asyncIdCounter: number
+  /** Counter for loop marker IDs (l0, l1, ...) — separate from slot IDs so element bf="sN" numbering stays stable across versions (#1087). */
+  loopMarkerCounter: number
 }
 
 /**
@@ -134,6 +136,7 @@ function createTransformContext(analyzer: AnalyzerContext): TransformContext {
     filePath: analyzer.filePath,
     slotIdCounter: 0,
     asyncIdCounter: 0,
+    loopMarkerCounter: 0,
     isRoot: true,
     insideComponentChildren: false,
     loopParams: new Set(),
@@ -2137,6 +2140,12 @@ function transformMapCall(
     // Loops don't generate their own slotId; they inherit from parent element
     // The parent element will assign its slotId to the loop after transformation
     slotId: null,
+    // Generate a unique marker id per loop call site so sibling `.map()`s
+    // under the same parent each get their own `<!--bf-loop:<id>-->` /
+    // `<!--bf-/loop:<id>-->` pair (#1087). Uses a dedicated counter (`l0`,
+    // `l1`, ...) so element bf="sN" numbering stays stable across versions
+    // and ssr-hydration-contract assertions don't shift when loops are added.
+    markerId: `l${ctx.loopMarkerCounter++}`,
     isStaticArray,
     callsReactiveGetters: callsReactive || undefined,
     hasFunctionCalls: hasCalls || undefined,

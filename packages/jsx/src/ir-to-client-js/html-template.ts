@@ -4,7 +4,7 @@
 
 import type { IRNode } from '../types'
 import { isBooleanAttr } from '../html-constants'
-import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM, DATA_BF_PH, keyAttrName, BF_LOOP_START, BF_LOOP_END, exprReferencesIdent, wrapExprWithLoopParams } from './utils'
+import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM, DATA_BF_PH, keyAttrName, loopStartMarker, loopEndMarker, exprReferencesIdent, wrapExprWithLoopParams } from './utils'
 import type { LoopParamSpec } from './utils'
 import { nameForRegistryRef } from './component-scope'
 
@@ -183,7 +183,7 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
         mapExpr = `\${${wrappedArray}.map((${node.param}${indexParam}) => \`${childTemplate}\`).join('')}`
       }
       // Wrap with loop boundary markers so reconciliation doesn't affect siblings
-      return `<!--${BF_LOOP_START}-->${mapExpr}<!--${BF_LOOP_END}-->`
+      return `<!--${loopStartMarker(node.markerId)}-->${mapExpr}<!--${loopEndMarker(node.markerId)}-->`
     }
 
     case 'if-statement':
@@ -290,7 +290,7 @@ export function irToPlaceholderTemplate(node: IRNode, restSpreadNames?: Set<stri
       } else {
         mapExpr = `\${${wrappedArray}.map((${node.param}${indexParam}) => \`${childTemplate}\`).join('')}`
       }
-      return `<!--${BF_LOOP_START}-->${mapExpr}<!--${BF_LOOP_END}-->`
+      return `<!--${loopStartMarker(node.markerId)}-->${mapExpr}<!--${loopEndMarker(node.markerId)}-->`
     }
 
     case 'if-statement':
@@ -844,7 +844,7 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
       } else {
         mapExpr = `\${${transformExpr(node.array, node.templateArray)}.map((${node.param}${indexParam}) => \`${childTemplate}\`).join('')}`
       }
-      return `<!--${BF_LOOP_START}-->${mapExpr}<!--${BF_LOOP_END}-->`
+      return `<!--${loopStartMarker(node.markerId)}-->${mapExpr}<!--${loopEndMarker(node.markerId)}-->`
     }
 
     case 'if-statement': {

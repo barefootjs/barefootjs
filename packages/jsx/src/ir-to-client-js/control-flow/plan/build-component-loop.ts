@@ -58,6 +58,7 @@ export function buildComponentLoopPlan(elem: TopLevelLoop): ComponentLoopPlan {
   return {
     kind: 'component-loop',
     containerVar: `_${varSlotId(elem.slotId)}`,
+    markerId: elem.markerId,
     arrayExpr: buildChainedArrayExpr(elem),
     keyFn: loopKeyFn(elem),
     paramHead,
