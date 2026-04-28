@@ -21,12 +21,12 @@ export const fixture = createFixture({
 'use client'
 import { createSignal } from '@barefootjs/client'
 export function SiblingMaps() {
-  const [a] = createSignal<number[]>([])
-  const [b] = createSignal<number[]>([])
+  const [a] = createSignal<string[]>([])
+  const [b] = createSignal<string[]>([])
   return (
     <div>
-      {a().map((n) => <span key={\`a-\${n}\`} data-set="a">{String(n)}</span>)}
-      {b().map((n) => <span key={\`b-\${n}\`} data-set="b">{String(n)}</span>)}
+      {a().map((n) => <span key={\`a-\${n}\`} data-set="a">{n}</span>)}
+      {b().map((n) => <span key={\`b-\${n}\`} data-set="b">{n}</span>)}
     </div>
   )
 }
