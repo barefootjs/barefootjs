@@ -260,14 +260,7 @@ export default defineConfig({
 const HONO_SERVER_TSX = `import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
-import { jsxRenderer } from 'hono/jsx-renderer'
-import {
-  barefootComponents,
-  barefootDevReload,
-  BfImportMap,
-  BfScripts,
-  BfDevReload,
-} from '@barefootjs/hono/app'
+import { barefoot } from '@barefootjs/hono/app'
 import { Counter } from '@/components/Counter'
 
 declare module 'hono' {
@@ -276,42 +269,8 @@ declare module 'hono' {
   }
 }
 
-const app = new Hono()
+const app = barefoot(new Hono(), { title: 'BarefootJS app' })
 
-// Hono's own jsxRenderer with a Layout you fully control. Pass props
-// to it via \`c.render(jsx, { title })\`. The BarefootJS pieces
-// (\`<BfImportMap />\`, \`<BfScripts />\`, \`<BfDevReload />\`) compose like
-// any other JSX component.
-app.use(
-  '*',
-  jsxRenderer(({ children, title }) => (
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{title ?? 'BarefootJS app'}</title>
-        <link rel="stylesheet" href="/static/styles.css" />
-        <BfImportMap />
-      </head>
-      <body>
-        {children}
-        <BfScripts />
-        <BfDevReload />
-      </body>
-    </html>
-  )),
-)
-
-// /static/components/* — compiled client JS from \`barefoot build\`.
-// Sets the base on the request context so <BfImportMap /> and
-// <BfScripts /> point at this same prefix automatically.
-app.use('*', barefootComponents())
-
-// /_bf/reload — SSE endpoint paired with <BfDevReload />.
-// No-op when NODE_ENV=production.
-app.use('*', barefootDevReload())
-
-// Anything else under public/ is served at /static/*.
 app.use(
   '/static/*',
   serveStatic({
@@ -326,7 +285,6 @@ app.get('/', (c) =>
       <h1>It works.</h1>
       <Counter />
     </main>,
-    { title: 'BarefootJS app' },
   ),
 )
 
