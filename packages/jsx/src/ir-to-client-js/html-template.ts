@@ -705,17 +705,21 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
     const { protect, restore } = createStringProtector()
     let result = protect(templateExpr ?? expr)
 
-    // Replace signal getter calls with initial values: count() → (props.initial ?? 0)
+    // Replace signal getter calls with initial values: count() → (props.initial ?? 0).
+    // The negative lookbehind `(?<![-.])` skips member accesses such as
+    // `ctx.count()` so a local signal whose name happens to match a
+    // context method does not corrupt the embedded template (#1100).
     if (signalMap && signalMap.size > 0) {
       for (const [getter, initialValue] of signalMap) {
-        result = result.replace(new RegExp(`\\b${getter}\\(\\)`, 'g'), `(${protect(initialValue)})`)
+        result = result.replace(new RegExp(`(?<![-.])\\b${getter}\\(\\)`, 'g'), `(${protect(initialValue)})`)
       }
     }
 
-    // Replace memo getter calls with computation expressions
+    // Replace memo getter calls with computation expressions.
+    // Same lookbehind as above — see signalMap comment.
     if (memoMap && memoMap.size > 0) {
       for (const [name, computation] of memoMap) {
-        result = result.replace(new RegExp(`\\b${name}\\(\\)`, 'g'), `(${protect(computation)})`)
+        result = result.replace(new RegExp(`(?<![-.])\\b${name}\\(\\)`, 'g'), `(${protect(computation)})`)
       }
     }
 
@@ -729,12 +733,12 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
     // Re-run signal/memo replacement after constant inlining.
     if (signalMap && signalMap.size > 0) {
       for (const [getter, initialValue] of signalMap) {
-        result = result.replace(new RegExp(`\\b${getter}\\(\\)`, 'g'), `(${protect(initialValue)})`)
+        result = result.replace(new RegExp(`(?<![-.])\\b${getter}\\(\\)`, 'g'), `(${protect(initialValue)})`)
       }
     }
     if (memoMap && memoMap.size > 0) {
       for (const [name, computation] of memoMap) {
-        result = result.replace(new RegExp(`\\b${name}\\(\\)`, 'g'), `(${protect(computation)})`)
+        result = result.replace(new RegExp(`(?<![-.])\\b${name}\\(\\)`, 'g'), `(${protect(computation)})`)
       }
     }
 

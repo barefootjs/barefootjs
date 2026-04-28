@@ -131,9 +131,11 @@ export function buildSignalAndMemoMaps(ctx: ClientJsContext): {
         expr = body
       }
     }
-    // Replace signal getter calls with initial values
+    // Replace signal getter calls with initial values.
+    // `(?<![-.])` skips member accesses (e.g. `ctx.count()`) so a local
+    // signal whose name matches a context method is preserved (#1100).
     for (const [getter, initial] of signalMap) {
-      expr = expr.replace(new RegExp(`\\b${getter}\\(\\)`, 'g'), `(${initial})`)
+      expr = expr.replace(new RegExp(`(?<![-.])\\b${getter}\\(\\)`, 'g'), `(${initial})`)
     }
     memoMap.set(memo.name, expr)
   }
@@ -150,7 +152,9 @@ export function buildSignalAndMemoMaps(ctx: ClientJsContext): {
       let newExpr = memoExpr
       for (const [otherName, otherExpr] of memoMap) {
         if (otherName === memoName) continue
-        const replaced = newExpr.replace(new RegExp(`\\b${otherName}\\(\\)`, 'g'), `(${otherExpr})`)
+        // `(?<![-.])` keeps the substitution off member accesses such as
+        // `ctx.bars()` when a local memo `bars` exists (#1100).
+        const replaced = newExpr.replace(new RegExp(`(?<![-.])\\b${otherName}\\(\\)`, 'g'), `(${otherExpr})`)
         if (replaced !== newExpr) {
           newExpr = replaced
           changed = true
@@ -181,11 +185,13 @@ export function buildCsrInlinableConstants(
   for (const constant of ctx.localConstants) {
     if (unsafeLocalNames.has(constant.name) && constant.value && !constant.containsArrow) {
       let value = constant.value.trim()
+      // `(?<![-.])` skips member accesses (e.g. `ctx.count()`) so a local
+      // signal/memo whose name matches a context method is preserved (#1100).
       for (const [getter, initial] of signalMap) {
-        value = value.replace(new RegExp(`\\b${getter}\\(\\)`, 'g'), `(${initial})`)
+        value = value.replace(new RegExp(`(?<![-.])\\b${getter}\\(\\)`, 'g'), `(${initial})`)
       }
       for (const [memoName, computation] of memoMap) {
-        value = value.replace(new RegExp(`\\b${memoName}\\(\\)`, 'g'), `(${computation})`)
+        value = value.replace(new RegExp(`(?<![-.])\\b${memoName}\\(\\)`, 'g'), `(${computation})`)
       }
       if (!/\b\w+\(\)/.test(value)) {
         csrInlinableConstants.set(constant.name, value)
