@@ -68,12 +68,23 @@ export function ThemeSwitcher(props: ThemeSwitcherProps) {
   const [theme, setTheme] = createSignal<Theme>('light')
   const [initialized, setInitialized] = createSignal(false)
 
-  // Initialize theme from cookie or system preference (client-side only)
+  // Initialize theme from cookie, falling back to a legacy localStorage
+  // value (migrated to the cookie on the next write effect) or system
+  // preference. Client-side only.
   createEffect(() => {
     if (initialized()) return
     setInitialized(true)
 
-    const stored = readThemeCookie()
+    let stored = readThemeCookie()
+    if (!stored) {
+      try {
+        const legacy = localStorage.getItem('theme')
+        if (legacy === 'light' || legacy === 'dark') {
+          stored = legacy
+          localStorage.removeItem('theme')
+        }
+      } catch (_) {}
+    }
     if (stored) {
       setTheme(stored)
     } else {
