@@ -11,9 +11,11 @@ import {
   BF_PLACEHOLDER as DATA_BF_PH,
   BF_LOOP_START,
   BF_LOOP_END,
+  loopStartMarker,
+  loopEndMarker,
 } from '@barefootjs/shared'
 
-export { DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH, BF_LOOP_START, BF_LOOP_END }
+export { DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH, BF_LOOP_START, BF_LOOP_END, loopStartMarker, loopEndMarker }
 
 /**
  * Parameter name for the props object in generated init/template functions.

@@ -60,6 +60,8 @@ export interface InnerLoopText {
 export interface InnerLoopPlan {
   /** Unique suffix used in `__ic` / `__innerEl` / `__innerIdx` var names. */
   uidSuffix: string
+  /** Loop marker id — passed to mapArray so sibling loops disambiguate (#1087). */
+  markerId: string
   /** Container resolution expression — already includes scope / selectors. */
   containerExpr: string
   /** Array expression as wrapped (reactive) or as written in source (static). */

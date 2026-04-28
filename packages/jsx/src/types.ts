@@ -177,6 +177,14 @@ export interface IRLoop {
   key: string | null
   children: IRNode[]
   slotId: string | null
+  /**
+   * Unique id for this loop's `<!--bf-loop:<id>--> ... <!--bf-/loop:<id>-->`
+   * marker pair (#1087). Lets sibling `.map()` calls under the same parent
+   * disambiguate their reconciliation range — without this, `findLoopMarkers`
+   * returned the last pair to every consumer, so the second loop overwrote
+   * the first into the same DOM range.
+   */
+  markerId: string
   loc: SourceLocation
 
   /**

@@ -227,6 +227,7 @@ export function buildBranchInnerLoopsPlan(
 
     plan.push({
       uidSuffix: `br_${i}`,
+      markerId: inner.markerId,
       containerExpr,
       arrayExpr: wrapOuter(inner.array),
       keyFn: loopKeyFn(inner),

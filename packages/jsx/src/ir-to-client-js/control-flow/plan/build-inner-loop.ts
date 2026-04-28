@@ -101,6 +101,7 @@ export function buildInnerLoopsPlan(args: BuildInnerLoopsArgs): InnerLoopsPlan {
 
     plan.push({
       uidSuffix,
+      markerId: inner.markerId,
       containerExpr,
       arrayExpr,
       arraySrc: inner.array,

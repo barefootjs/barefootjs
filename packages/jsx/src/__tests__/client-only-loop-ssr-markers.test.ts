@@ -46,15 +46,16 @@ export function ChatList() {
 
     // The @client loop must emit both boundary markers so mapArray()
     // can locate the correct anchor node (endMarker) for insertions.
-    expect(content).toContain("bfComment('loop')")
-    expect(content).toContain("bfComment('/loop')")
+    // Markers are scoped per-call-site (#1087): `bfComment('loop:<id>')`.
+    expect(content).toMatch(/bfComment\('loop:[^']+'\)/)
+    expect(content).toMatch(/bfComment\('\/loop:[^']+'\)/)
 
     // Conditional markers must also be present (unrelated signal)
     expect(content).toContain('bfComment("cond-start:')
     expect(content).toContain('bfComment("cond-end:')
 
     // The loop markers must appear BEFORE the conditional markers in the output
-    const loopMarkerPos = content.indexOf("bfComment('loop')")
+    const loopMarkerPos = content.search(/bfComment\('loop:/)
     const condMarkerPos = content.indexOf('bfComment("cond-start:')
     expect(loopMarkerPos).toBeLessThan(condMarkerPos)
   })
@@ -82,9 +83,10 @@ export function ItemList() {
 
     const content = markedTemplate!.content
 
-    // Even with no siblings, loop markers must be emitted for consistent behavior
-    expect(content).toContain("bfComment('loop')")
-    expect(content).toContain("bfComment('/loop')")
+    // Even with no siblings, loop markers must be emitted for consistent behavior.
+    // Markers are scoped per-call-site (#1087): `bfComment('loop:<id>')`.
+    expect(content).toMatch(/bfComment\('loop:[^']+'\)/)
+    expect(content).toMatch(/bfComment\('\/loop:[^']+'\)/)
   })
 
   test('does not render items in SSR output for @client loop (items are rendered client-side only)', () => {
@@ -110,9 +112,9 @@ export function ItemList() {
 
     // SSR must not render actual list items (client-only means no server rendering of items)
     expect(content).not.toContain('<li')
-    // But loop boundary markers must be present
-    expect(content).toContain("bfComment('loop')")
-    expect(content).toContain("bfComment('/loop')")
+    // But loop boundary markers must be present (scoped per-call-site, #1087)
+    expect(content).toMatch(/bfComment\('loop:[^']+'\)/)
+    expect(content).toMatch(/bfComment\('\/loop:[^']+'\)/)
   })
 
   test('@client filter+map loop emits loop markers in SSR output', () => {
@@ -137,7 +139,52 @@ export function ClientOnly() {
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')
     const content = markedTemplate!.content
 
-    expect(content).toContain("bfComment('loop')")
-    expect(content).toContain("bfComment('/loop')")
+    expect(content).toMatch(/bfComment\('loop:[^']+'\)/)
+    expect(content).toMatch(/bfComment\('\/loop:[^']+'\)/)
+  })
+
+  // Regression: #1087. Two `.map()` calls under the same parent must get
+  // distinct marker ids in both SSR and client output so each `mapArray`
+  // call reconciles its own range. Before the fix, both loops shared the
+  // parent slot and `findLoopMarkers()` returned the LAST pair to every
+  // consumer — the second loop overwrote the first.
+  test('sibling .map() calls under the same parent get distinct marker ids', () => {
+    const source = `
+'use client'
+import { createSignal } from '@barefootjs/client'
+export function SiblingMaps() {
+  const [a] = createSignal([1, 2, 3])
+  const [b] = createSignal([4, 5, 6])
+  return (
+    <div>
+      {a().map((n) => <span key={\`a-\${n}\`} data-set="a">{String(n)}</span>)}
+      {b().map((n) => <span key={\`b-\${n}\`} data-set="b">{String(n)}</span>)}
+    </div>
+  )
+}
+`
+    const result = compileJSXSync(source, 'SiblingMaps.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const markedTemplate = result.files.find(f => f.type === 'markedTemplate')
+    const ssrContent = markedTemplate!.content
+
+    const ssrIds = [...ssrContent.matchAll(/bfComment\('loop:([^']+)'\)/g)].map(m => m[1])
+    expect(ssrIds.length).toBe(2)
+    expect(ssrIds[0]).not.toBe(ssrIds[1])
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')
+    expect(clientJs).toBeDefined()
+    const jsContent = clientJs!.content
+
+    // Each mapArray call must carry the matching marker id as its 5th arg
+    // — that's how the runtime disambiguates sibling loops at the same parent.
+    // The marker id appears on the closing line as `}, '<id>')` (multi-line
+    // renderItem) or `},  '<id>')` (single-line — same shape after the body).
+    const mapArrayMarkerIds = [...jsContent.matchAll(/^\s*}\s*,\s*'([^']+)'\)\s*$/gm)].map(m => m[1])
+    expect(mapArrayMarkerIds.length).toBeGreaterThanOrEqual(2)
+    for (const id of ssrIds) {
+      expect(mapArrayMarkerIds).toContain(id)
+    }
   })
 })

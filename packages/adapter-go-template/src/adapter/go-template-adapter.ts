@@ -2350,9 +2350,10 @@ export class GoTemplateAdapter extends BaseAdapter {
   }
 
   renderLoop(loop: IRLoop): string {
-    // clientOnly loops: emit SSR markers so client can insert DOM nodes
+    // clientOnly loops: emit SSR markers so client can insert DOM nodes.
+    // The marker id disambiguates sibling `.map()` calls under the same parent (#1087).
     if (loop.clientOnly) {
-      return `{{bfComment "loop"}}{{bfComment "/loop"}}`
+      return `{{bfComment "loop:${loop.markerId}"}}{{bfComment "/loop:${loop.markerId}"}}`
     }
 
     let goArray = this.convertExpressionToGo(loop.array)
@@ -2399,10 +2400,10 @@ export class GoTemplateAdapter extends BaseAdapter {
         filterCond = 'true'
       }
 
-      return `{{bfComment "loop"}}{{range $${index}, $${param} := ${goArray}}}{{if ${filterCond}}}${children}{{end}}{{end}}{{bfComment "/loop"}}`
+      return `{{bfComment "loop:${loop.markerId}"}}{{range $${index}, $${param} := ${goArray}}}{{if ${filterCond}}}${children}{{end}}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
     }
 
-    return `{{bfComment "loop"}}{{range $${index}, $${param} := ${goArray}}}${children}{{end}}{{bfComment "/loop"}}`
+    return `{{bfComment "loop:${loop.markerId}"}}{{range $${index}, $${param} := ${goArray}}}${children}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
   }
 
   /**

@@ -438,4 +438,77 @@ describe('mapArray', () => {
     expect(container.children[0].getAttribute('bf-test-val')).toBe('C')
     expect(container.children[0].textContent).toBe('C')
   })
+
+  // Regression: #1087. When two sibling `.map()` calls share a parent, each
+  // mapArray() must operate on its OWN <!--bf-loop:id--> ... <!--bf-/loop:id-->
+  // pair. Before the fix, findLoopMarkers() walked all child comments and
+  // returned the LAST start/end pair to every consumer — so the second loop
+  // overwrote the first into the same DOM range.
+  test('sibling mapArray calls under the same parent do not collide (#1087)', () => {
+    // Simulate the SSR shape: two scoped marker pairs, both empty initially.
+    const parent = document.createElement('div')
+    parent.appendChild(document.createComment('bf-loop:s0'))
+    parent.appendChild(document.createComment('bf-/loop:s0'))
+    parent.appendChild(document.createComment('bf-loop:s1'))
+    parent.appendChild(document.createComment('bf-/loop:s1'))
+    document.body.replaceChild(parent, container)
+    container = parent
+
+    const [a, setA] = createSignal([
+      { id: 'a-1', text: 'A1' },
+      { id: 'a-2', text: 'A2' },
+    ])
+    const [b, setB] = createSignal([
+      { id: 'b-1', text: 'B1' },
+      { id: 'b-2', text: 'B2' },
+    ])
+
+    mapArray(
+      a,
+      container,
+      (item) => item.id,
+      (item) => {
+        const span = document.createElement('span')
+        span.setAttribute('data-set', 'a')
+        createEffect(() => { span.textContent = item().text })
+        return span
+      },
+      's0',
+    )
+    mapArray(
+      b,
+      container,
+      (item) => item.id,
+      (item) => {
+        const span = document.createElement('span')
+        span.setAttribute('data-set', 'b')
+        createEffect(() => { span.textContent = item().text })
+        return span
+      },
+      's1',
+    )
+
+    // Both lists must coexist after initial render.
+    const aItems = container.querySelectorAll('span[data-set="a"]')
+    const bItems = container.querySelectorAll('span[data-set="b"]')
+    expect(aItems.length).toBe(2)
+    expect(bItems.length).toBe(2)
+    expect(aItems[0].textContent).toBe('A1')
+    expect(aItems[1].textContent).toBe('A2')
+    expect(bItems[0].textContent).toBe('B1')
+    expect(bItems[1].textContent).toBe('B2')
+
+    // Each loop's mutations must stay scoped to its own marker pair.
+    setA([
+      { id: 'a-1', text: 'A1' },
+      { id: 'a-2', text: 'A2' },
+      { id: 'a-3', text: 'A3' },
+    ])
+    expect(container.querySelectorAll('span[data-set="a"]').length).toBe(3)
+    expect(container.querySelectorAll('span[data-set="b"]').length).toBe(2)
+
+    setB([{ id: 'b-1', text: 'B1' }])
+    expect(container.querySelectorAll('span[data-set="a"]').length).toBe(3)
+    expect(container.querySelectorAll('span[data-set="b"]').length).toBe(1)
+  })
 })

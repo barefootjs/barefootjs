@@ -39,6 +39,7 @@ import type { CompositeLoopPlan } from '../plan/types'
 export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan): void {
   const {
     containerVar,
+    markerId,
     arrayExpr,
     keyFn,
     paramHead,
@@ -66,7 +67,7 @@ export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan)
   if (branchClearChildren) {
     // Clear template-generated children so mapArray creates fresh elements
     // with properly initialized components via createComponent in renderItem.
-    lines.push(`${topIndent}if (${containerVar}) getLoopChildren(${containerVar}).forEach(__el => __el.remove())`)
+    lines.push(`${topIndent}if (${containerVar}) getLoopChildren(${containerVar}, '${markerId}').forEach(__el => __el.remove())`)
     // Wrap the mapArray call in createDisposableEffect so the inner
     // createEffects (mapArray's own + per-item child effects) are released
     // when the surrounding branch swaps away (observation O-2). The branch
@@ -106,9 +107,9 @@ export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan)
   lines.push(`${bodyIndent}return __el`)
   if (branchClearChildren) {
     // Close inner mapArray + createDisposableEffect wrapper.
-    lines.push(`${mapArrayIndent}})`)
+    lines.push(`${mapArrayIndent}}, '${markerId}')`)
     lines.push(`${topIndent}}))`)
   } else {
-    lines.push(`${topIndent}})`)
+    lines.push(`${topIndent}}, '${markerId}')`)
   }
 }
