@@ -121,7 +121,7 @@ import { SubmitPage } from './pages/forms/submit'
 import { FieldArraysPage } from './pages/forms/field-arrays'
 import { CreateFormPage } from './pages/forms/create-form'
 
-import { HomeShowcase } from './components/home-showcase'
+import { HomeShowcase } from '@/components/home-showcase'
 
 
 /**
