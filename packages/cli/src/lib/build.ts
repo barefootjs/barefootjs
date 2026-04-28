@@ -532,12 +532,26 @@ export async function build(
   }
 
   // 6. Combine parent-child client JS
+  //
+  // Watch rebuilds load freshly-compiled files (still importing
+  // `@barefootjs/client/runtime`) alongside cached siblings whose imports
+  // were already rewritten to a relative `./barefoot.js`-shaped path on a
+  // previous build. The combine step keys imports by source string, so
+  // those two forms would emit two separate import lines and the later
+  // resolveRelativeImports / dedup steps either drop one (wrong path
+  // relative to the combined file's location) or leave duplicates that
+  // crash with `SyntaxError`. Normalise everything back to the bare
+  // module specifier here so combine merges them under a single key —
+  // step 6c then rewrites that one import to the correct per-file path.
+  const RUNTIME_REL_PATH = /from\s+(['"])(?:\.{1,2}\/)+barefoot\.js\1/g
   const clientJsFiles = new Map<string, string>()
   for (const [name, entry] of Object.entries(manifest)) {
     if (!entry.clientJs) continue
     const filePath = resolve(config.outDir, entry.clientJs)
     try {
-      clientJsFiles.set(name, await readText(filePath))
+      const raw = await readText(filePath)
+      const canonical = raw.replace(RUNTIME_REL_PATH, `from '@barefootjs/client/runtime'`)
+      clientJsFiles.set(name, canonical)
     } catch {
       // File may not exist (e.g. __barefoot__)
     }
