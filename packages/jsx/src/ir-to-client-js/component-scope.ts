@@ -16,9 +16,14 @@
  * hash of the entry path. Exported components keep their original
  * name so cross-file `<Imported />` JSX still resolves the same way
  * it always has.
+ *
+ * Concurrency note: the active scope below is module-level mutable
+ * state. The compiler is single-threaded today (sync per-file inside
+ * a sequential loop in `compileMultipleComponentsSync`), so this is
+ * safe. If a future build path ever invokes `compileJSX` concurrently
+ * for multiple files in the same process, the scope must be threaded
+ * through the call chain or stashed per-call instead.
  */
-
-import type { ClientJsContext } from './types'
 
 /**
  * Compute a stable 8-char hex hash for a source file path.
@@ -39,19 +44,6 @@ export function computeFileScope(entryPath: string): string {
   h ^= h >>> 13
   h = Math.imul(h, 0x5bd1e995)
   return (h >>> 0).toString(16).padStart(8, '0')
-}
-
-/**
- * Return the registry key for a component reference.
- *
- * - Sibling component that is non-exported → `${name}__${fileScope}`
- * - Anything else (sibling that is exported, imported, or no file scope
- *   supplied) → `name` unchanged.
- */
-export function applyComponentScope(name: string, ctx: ClientJsContext): string {
-  if (!ctx.fileScope) return name
-  if (!ctx.nonExportedSiblings.has(name)) return name
-  return `${name}__${ctx.fileScope}`
 }
 
 /**
