@@ -1,3 +1,17 @@
+// Public API for @barefootjs/xyflow.
+//
+// All re-exports use bare specifiers (no `.ts` extension) and
+// resolve to the imperative entry points under `src/*.ts`. JSX-native
+// counterparts live under `src/components/*.tsx` — they are NOT
+// re-exported here today; the runtime cutover that exposes them as
+// `<Flow>` / `<Background>` / etc. is a follow-up to #1081.
+//
+// Do not place a `.tsx` next to its `.ts` namesake under `src/`. With
+// both files present, `bun build` may resolve a bare specifier to
+// `.tsx`, pull `@barefootjs/jsx/jsx-dev-runtime` (types-only subpath)
+// into the bundler graph, and break the build. See `README.md` for
+// the full rationale.
+
 // Core
 export { initFlow } from './flow'
 export { createFlowStore } from './store'
