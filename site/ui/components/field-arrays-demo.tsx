@@ -19,7 +19,7 @@ import { z } from 'zod'
 const emailSchema = z
   .string()
   .min(1, 'Email is required')
-  .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email format')
+  .email('Invalid email format')
 
 function validateEmail(value: string): string {
   const result = emailSchema.safeParse(value)

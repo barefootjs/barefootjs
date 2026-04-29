@@ -50,7 +50,7 @@ export function EmailValidationDemo() {
       email: z
         .string()
         .min(1, 'Email is required')
-        .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email format'),
+        .email('Invalid email format'),
     }),
     defaultValues: { email: '' },
     validateOn: 'blur',
@@ -158,7 +158,7 @@ export function MultiFieldFormDemo() {
         email: z
           .string()
           .min(1, 'Email is required')
-          .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email format'),
+          .email('Invalid email format'),
         password: z
           .string()
           .min(1, 'Password is required')
