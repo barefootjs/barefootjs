@@ -30,7 +30,6 @@
 import {
   createSignal,
   createMemo,
-  provideContext,
   useContext,
 } from '@barefootjs/client'
 import type { JSX } from '@barefootjs/jsx/jsx-runtime'
@@ -40,11 +39,30 @@ import type { JSX } from '@barefootjs/jsx/jsx-runtime'
 // `@xyflow/system` install).
 import {
   attachConnectionHandler,
+  BF_FLOW,
+  BF_FLOW_CONTROLS,
+  BF_FLOW_CONTROLS_BUTTON,
+  BF_FLOW_EDGE,
+  BF_FLOW_EDGE_ANIMATED,
+  BF_FLOW_EDGE_SELECTED,
+  BF_FLOW_EDGES,
+  BF_FLOW_HANDLE,
+  BF_FLOW_HANDLE_SOURCE,
+  BF_FLOW_HANDLE_TARGET,
+  BF_FLOW_MINIMAP,
+  BF_FLOW_MINIMAP_MASK,
+  BF_FLOW_NODE,
+  BF_FLOW_NODE_CHILD,
+  BF_FLOW_NODE_GROUP,
+  BF_FLOW_NODE_SELECTED,
+  BF_FLOW_NODES,
+  BF_FLOW_VIEWPORT,
   computeEdgePosition,
   createFlowStore,
   FlowContext,
   getEdgePath,
   Position,
+  XYFLOW_VIEWPORT,
 } from '@barefootjs/xyflow'
 import type { FlowStore, FlowProps, HandleType, NodeBase, EdgeBase } from '@barefootjs/xyflow'
 
@@ -89,9 +107,9 @@ export function SimpleEdge(props: SimpleEdgeProps) {
   })
 
   const visibleClass = createMemo(() => {
-    let cls = 'bf-flow__edge'
-    if (selected()) cls += ' bf-flow__edge--selected'
-    if (animated()) cls += ' bf-flow__edge--animated'
+    let cls = BF_FLOW_EDGE
+    if (selected()) cls += ` ${BF_FLOW_EDGE_SELECTED}`
+    if (animated()) cls += ` ${BF_FLOW_EDGE_ANIMATED}`
     return cls
   })
 
@@ -171,14 +189,15 @@ export function NodeWrapper(props: NodeWrapperProps) {
 
   const className = createMemo(() => {
     const n = node()
-    if (!store || !n) return 'bf-flow__node nopan'
+    const base = `${BF_FLOW_NODE} nopan`
+    if (!store || !n) return base
     const isParent = store.parentLookup().has(props.nodeId)
     const isChild = !!n.internals.userNode.parentId
     const selected = !!n.selected
-    let cls = 'bf-flow__node nopan'
-    if (isParent) cls += ' bf-flow__node--group'
-    if (isChild) cls += ' bf-flow__node--child'
-    if (selected) cls += ' bf-flow__node--selected'
+    let cls = base
+    if (isParent) cls += ` ${BF_FLOW_NODE_GROUP}`
+    if (isChild) cls += ` ${BF_FLOW_NODE_CHILD}`
+    if (selected) cls += ` ${BF_FLOW_NODE_SELECTED}`
     return cls
   })
 
@@ -239,7 +258,10 @@ export function Handle(props: HandleProps) {
 
   const className = createMemo(() => {
     const t = handleType()
-    return `bf-flow__handle bf-flow__handle--${t} ${t}`
+    const modifier = t === 'source' ? BF_FLOW_HANDLE_SOURCE : BF_FLOW_HANDLE_TARGET
+    // The bare `source` / `target` class is what @xyflow/system queries
+    // to compute edge endpoints — keep it on the element verbatim.
+    return `${BF_FLOW_HANDLE} ${modifier} ${t}`
   })
 
   const style = createMemo(() => `${HANDLE_BASE_STYLE} ${handlePositionStyle(position())}`)
@@ -455,12 +477,12 @@ export function Controls(props: ControlsProps) {
   }
 
   return (
-    <div className="bf-flow__controls" style={containerStyle()}>
+    <div className={BF_FLOW_CONTROLS} style={containerStyle()}>
       {showZoom() ? (
         <>
           <button
             type="button"
-            className="bf-flow__controls-button nodrag nowheel"
+            className={`${BF_FLOW_CONTROLS_BUTTON} nodrag nowheel`}
             title="Zoom in"
             style={BUTTON_STYLE}
             onClick={zoomIn}
@@ -473,7 +495,7 @@ export function Controls(props: ControlsProps) {
           </button>
           <button
             type="button"
-            className="bf-flow__controls-button nodrag nowheel"
+            className={`${BF_FLOW_CONTROLS_BUTTON} nodrag nowheel`}
             title="Zoom out"
             style={BUTTON_STYLE}
             onClick={zoomOut}
@@ -489,7 +511,7 @@ export function Controls(props: ControlsProps) {
       {showFitView() ? (
         <button
           type="button"
-          className="bf-flow__controls-button nodrag nowheel"
+          className={`${BF_FLOW_CONTROLS_BUTTON} nodrag nowheel`}
           title="Fit view"
           style={BUTTON_STYLE}
           onClick={fitView}
@@ -504,7 +526,7 @@ export function Controls(props: ControlsProps) {
       {showInteractive() ? (
         <button
           type="button"
-          className="bf-flow__controls-button nodrag nowheel"
+          className={`${BF_FLOW_CONTROLS_BUTTON} nodrag nowheel`}
           title="Toggle interactivity"
           style={BUTTON_STYLE}
           onClick={toggleInteractive}
@@ -677,7 +699,7 @@ export function MiniMap(props: MiniMapComponentProps) {
   const svgStyle = createMemo(() => `display: block; cursor: ${pannable() ? 'grab' : 'default'};`)
 
   return (
-    <div className="bf-flow__minimap nopan nowheel nodrag" style={containerStyle()}>
+    <div className={`${BF_FLOW_MINIMAP} nopan nowheel nodrag`} style={containerStyle()}>
       <svg
         width={String(mapWidth())}
         height={String(mapHeight())}
@@ -699,7 +721,7 @@ export function MiniMap(props: MiniMapComponentProps) {
           ))}
         </g>
         <path
-          className="bf-flow__minimap-mask"
+          className={BF_FLOW_MINIMAP_MASK}
           d={maskPathD()}
           fill={maskColor()}
           fill-rule="evenodd"
@@ -722,16 +744,29 @@ export interface FlowComponentProps<
 > extends FlowProps<NodeType, EdgeType> {
   /** Slot for `<Background>` / `<Controls>` / `<MiniMap>` overlays. */
   children?: Child
+  /**
+   * Optional render function for the body of each node. Called inside
+   * the per-node `<NodeWrapper>` produced by the default node loop.
+   * Defaults to `String(node.data?.label ?? node.id)`.
+   *
+   * Use this instead of mounting `<NodeWrapper>` instances yourself —
+   * doing both would double-mount each node.
+   */
+  renderNode?: (node: NodeType) => Child
 }
 
 export function Flow<
   NodeType extends NodeBase = NodeBase,
   EdgeType extends EdgeBase = EdgeBase,
 >(props: FlowComponentProps<NodeType, EdgeType>) {
-  // Store creation happens once. `provideContext` makes it available to
-  // descendant `<NodeWrapper>` / `<SimpleEdge>` / `<Background>` / etc.
+  // Store creation happens once on first render. The store is shared
+  // with descendant `<NodeWrapper>` / `<SimpleEdge>` / `<Background>` /
+  // `<Controls>` / `<MiniMap>` instances via `<FlowContext.Provider>`.
+  // We use the JSX wrapper form (not the imperative `provideContext`
+  // call) so SSR — where children render top-down before any
+  // imperative effect runs — sees the provider in scope. Mirrors the
+  // chart pattern (`<BarChartContext.Provider value={...}>...`).
   const store = createFlowStore<NodeType, EdgeType>(props)
-  provideContext(FlowContext, store as never)
 
   // Pan/zoom transform memo. Re-runs only when viewport changes.
   const viewportTransform = createMemo(() => {
@@ -755,30 +790,40 @@ export function Flow<
   }
 
   return (
-    <div
-      ref={attachPane}
-      className="bf-flow"
-      style="position: relative; overflow: hidden; width: 100%; height: 100%;"
-    >
+    <FlowContext.Provider value={store as never}>
       <div
-        className="bf-flow__viewport xyflow__viewport"
-        style={`position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: 0 0; transform: ${viewportTransform()};`}
+        ref={attachPane}
+        className={BF_FLOW}
+        style="position: relative; overflow: hidden; width: 100%; height: 100%;"
       >
-        <svg
-          className="bf-flow__edges"
-          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none;"
+        <div
+          className={`${BF_FLOW_VIEWPORT} ${XYFLOW_VIEWPORT}`}
+          style={`position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: 0 0; transform: ${viewportTransform()};`}
         >
-          {visibleEdges().map((edge: EdgeType) => (
-            <SimpleEdge key={edge.id} edgeId={edge.id} />
-          ))}
-        </svg>
-        <div className="bf-flow__nodes" style="position: absolute; top: 0; left: 0;">
-          {visibleNodes().map((node: NodeType) => (
-            <NodeWrapper key={node.id} nodeId={node.id} />
-          ))}
+          <svg
+            className={BF_FLOW_EDGES}
+            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none;"
+          >
+            {visibleEdges().map((edge: EdgeType) => (
+              <SimpleEdge key={edge.id} edgeId={edge.id} />
+            ))}
+          </svg>
+          <div className={BF_FLOW_NODES} style="position: absolute; top: 0; left: 0;">
+            {visibleNodes().map((node: NodeType) => (
+              <NodeWrapper key={node.id} nodeId={node.id}>
+                {/* Default node body: render `data.label` (or the node id
+                    as a fallback) so a stock `<Flow nodes={...} />` shows
+                    something visible without forcing every consumer to
+                    build a custom node. Pass `renderNode` to override. */}
+                {props.renderNode
+                  ? props.renderNode(node)
+                  : String((node.data as { label?: unknown })?.label ?? node.id)}
+              </NodeWrapper>
+            ))}
+          </div>
         </div>
+        {props.children}
       </div>
-      {props.children}
-    </div>
+    </FlowContext.Provider>
   )
 }
