@@ -276,10 +276,10 @@ export async function Hero() {
           <div className="hero-b-left">
             <div className="hero-b-text">
               <h1 className="hero-b-heading fade-in">
-                TSX in. <span className="hero-b-accent">Your template language out.</span>
+                TSX in. <span className="hero-b-accent">Your stack out.</span>
               </h1>
               <p className="hero-b-body fade-in-1">
-                Barefoot compiles signal-based TSX into <strong>Hono</strong>, <strong>Echo</strong>, or your favorite template language.
+                Barefoot compiles signal-based TSX into <strong>Hono</strong>, <strong>Echo</strong>, or whatever stack you ship on.
                 <br />
                 No virtual DOM. No SPA required.
               </p>

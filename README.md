@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-  <strong>TSX in. Your template language out.</strong><br>
-  Barefoot compiles signal-based TSX into Hono, Echo, or your favorite template language.<br>
+  <strong>TSX in. Your stack out.</strong><br>
+  Barefoot compiles signal-based TSX into Hono, Echo, or whatever stack you ship on.<br>
   No virtual DOM. No SPA required.
 </p>
 
