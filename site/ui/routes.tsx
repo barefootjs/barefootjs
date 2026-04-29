@@ -118,7 +118,6 @@ import { SocialMessagesPage } from './pages/gallery/social/messages'
 // Form pattern pages
 import { ControlledInputPage } from './pages/forms/controlled-input'
 import { ValidationPage } from './pages/forms/validation'
-import { SubmitPage } from './pages/forms/submit'
 import { FieldArraysPage } from './pages/forms/field-arrays'
 import { CreateFormPage } from './pages/forms/create-form'
 
@@ -653,11 +652,6 @@ export function createApp() {
   // Form Validation pattern documentation
   app.get('/docs/forms/validation', (c) => {
     return c.render(<ValidationPage />)
-  })
-
-  // Form Submit pattern documentation
-  app.get('/docs/forms/submit', (c) => {
-    return c.render(<SubmitPage />)
   })
 
   // Field Arrays pattern documentation

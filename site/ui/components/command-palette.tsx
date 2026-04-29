@@ -41,9 +41,9 @@ const componentItems = [
 
 const formItems = [
   { id: 'controlled-input', title: 'Controlled Input', href: '/docs/forms/controlled-input', category: 'Forms' },
-  { id: 'field-arrays', title: 'Field Arrays', href: '/docs/forms/field-arrays', category: 'Forms' },
-  { id: 'submit', title: 'Submit', href: '/docs/forms/submit', category: 'Forms' },
+  { id: 'create-form', title: 'createForm', href: '/docs/forms/create-form', category: 'Forms' },
   { id: 'validation', title: 'Validation', href: '/docs/forms/validation', category: 'Forms' },
+  { id: 'field-arrays', title: 'Field Arrays', href: '/docs/forms/field-arrays', category: 'Forms' },
 ]
 
 export function CommandPalette() {

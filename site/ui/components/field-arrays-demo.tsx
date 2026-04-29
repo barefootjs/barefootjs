@@ -2,99 +2,76 @@
 /**
  * FieldArraysDemo Components
  *
- * Interactive demos for dynamic form field array patterns.
- * Demonstrates add/remove fields, per-item validation, and cross-field validation.
+ * Dynamic array fields. createForm targets fixed-shape records, so the array
+ * is a raw signal — but the per-item rule reuses the same Zod schema you'd
+ * pass to createForm.
  *
- * Note: Signal-based loops use native HTML elements instead of components
- * to ensure correct client-side rendering. Components cannot be dynamically
- * created from loop templates. See html-template.ts for details.
+ * Note: signal-based loops use native HTML inputs/buttons rather than the
+ * `<Input>` / `<Button>` components — components cannot be created from a
+ * loop template (see html-template.ts).
  */
 
 import { createSignal, createMemo } from '@barefootjs/client'
 import { Button } from '@ui/components/ui/button'
+import { z } from 'zod'
 
-type EmailField = {
-  id: number
-  value: string
-  touched: boolean
-  error: string
+// Shared per-item schema — same shape you'd nest inside createForm
+const emailSchema = z
+  .string()
+  .min(1, 'Email is required')
+  .email('Invalid email format')
+
+function validateEmail(value: string): string {
+  const result = emailSchema.safeParse(value)
+  return result.success ? '' : result.error.issues[0]?.message ?? ''
 }
 
-// Input styles (matching @ui/components/ui/input)
+// Per-item event handlers receive `item.id`, not the loop's `index`. The
+// JSX→IR compiler matches loop items via `data-key` (set from `item.id`) and
+// does not reconstruct the closure's `index` inside handler bodies.
+type Item = { id: number; value: string; touched: boolean }
+
 const inputClasses = 'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive'
 
-// Remove button styles (matching @ui/components/ui/button variant=destructive size=icon)
 const removeButtonClasses = 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive touch-action-manipulation bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60 size-9'
 
 /**
- * Validates an email and returns error message
- */
-function validateEmail(email: string): string {
-  if (email.trim() === '') return 'Email is required'
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Invalid email format'
-  return ''
-}
-
-/**
- * Creates a field with computed error
- */
-function createField(id: number, value: string = '', touched: boolean = false): EmailField {
-  return {
-    id,
-    value,
-    touched,
-    error: touched ? validateEmail(value) : '',
-  }
-}
-
-/**
- * Basic field array demo - add/remove email fields with per-field validation
+ * Basic field array — schema-driven per-item validation.
  */
 export function BasicFieldArrayDemo() {
-  const [fields, setFields] = createSignal<EmailField[]>([
-    { id: 1, value: '', touched: false, error: '' }
-  ])
-  const [nextId, setNextId] = createSignal(2)
-  const [submitted, setSubmitted] = createSignal(false)
+  let nextId = 0
+  const newItem = (): Item => ({ id: ++nextId, value: '', touched: false })
+  const [items, setItems] = createSignal<Item[]>([newItem()])
+  const [submitAttempted, setSubmitAttempted] = createSignal(false)
+  const [submitted, setSubmitted] = createSignal<string[] | null>(null)
 
-  const isFormValid = createMemo(() => {
-    return fields().every(f => validateEmail(f.value) === '')
-  })
+  const itemError = (item: Item): string => {
+    if (!item.touched && !submitAttempted()) return ''
+    return validateEmail(item.value)
+  }
 
   const handleAdd = () => {
-    setFields([...fields(), createField(nextId(), '', false)])
-    setNextId(nextId() + 1)
+    setItems([...items(), newItem()])
   }
 
   const handleRemove = (id: number) => {
-    if (fields().length > 1) {
-      setFields(fields().filter(f => f.id !== id))
+    if (items().length > 1) {
+      setItems(items().filter((it) => it.id !== id))
     }
   }
 
   const handleChange = (id: number, value: string) => {
-    setFields(fields().map(f => {
-      if (f.id !== id) return f
-      const error = f.touched ? validateEmail(value) : ''
-      return { ...f, value, error }
-    }))
+    setItems(items().map((it) => (it.id === id ? { ...it, value } : it)))
   }
 
   const handleBlur = (id: number) => {
-    setFields(fields().map(f => {
-      if (f.id !== id) return f
-      return { ...f, touched: true, error: validateEmail(f.value) }
-    }))
+    setItems(items().map((it) => (it.id === id ? { ...it, touched: true } : it)))
   }
 
   const handleSubmit = () => {
-    setFields(fields().map(f => ({
-      ...f,
-      touched: true,
-      error: validateEmail(f.value),
-    })))
-    if (isFormValid()) {
-      setSubmitted(true)
+    setSubmitAttempted(true)
+    if (items().every((it) => validateEmail(it.value) === '')) {
+      setSubmitted(items().map((it) => it.value))
     }
   }
 
@@ -103,31 +80,31 @@ export function BasicFieldArrayDemo() {
       {submitted() ? (
         <div className="success-message p-4 bg-success/10 border border-success rounded-lg">
           <p className="text-success font-medium">Emails submitted successfully!</p>
-          <p className="text-sm text-muted-foreground mt-2">{fields().map(f => f.value).join(', ')}</p>
+          <p className="text-sm text-muted-foreground mt-2">{submitted()!.join(', ')}</p>
         </div>
       ) : null}
 
       <div className="field-list space-y-3">
-        {fields().map((field, index) => (
-          <div key={field.id} className="field-item flex gap-2 items-start">
+        {items().map((item, index) => (
+          <div key={item.id} className="field-item flex gap-2 items-start">
             <div className="flex-1 space-y-1">
               <input
                 type="email"
                 data-slot="input"
                 className={inputClasses}
-                value={field.value}
+                value={item.value}
                 placeholder={`Email ${index + 1}`}
-                onInput={(e) => handleChange(field.id, e.target.value)}
-                onBlur={() => handleBlur(field.id)}
+                onInput={(e) => handleChange(item.id, (e.target as HTMLInputElement).value)}
+                onBlur={() => handleBlur(item.id)}
               />
-              <p className="field-error text-sm text-destructive min-h-5">{field.error}</p>
+              <p className="field-error text-sm text-destructive min-h-5">{itemError(item)}</p>
             </div>
             <button
               type="button"
               data-slot="button"
               className={removeButtonClasses}
-              disabled={fields().length <= 1}
-              onClick={() => handleRemove(field.id)}
+              disabled={items().length <= 1}
+              onClick={() => handleRemove(item.id)}
             >
               X
             </button>
@@ -140,15 +117,13 @@ export function BasicFieldArrayDemo() {
           <Button variant="outline" onClick={handleAdd}>
             + Add Email
           </Button>
-          <Button onClick={handleSubmit}>
-            Submit
-          </Button>
+          <Button onClick={handleSubmit}>Submit</Button>
         </div>
       ) : null}
 
       {!submitted() ? (
         <p className="field-count text-sm text-muted-foreground">
-          {fields().length} email(s) added
+          {items().length} email(s) added
         </p>
       ) : null}
     </div>
@@ -156,101 +131,68 @@ export function BasicFieldArrayDemo() {
 }
 
 /**
- * Computes error for a field including duplicate check
- */
-function computeFieldError(field: EmailField, allFields: EmailField[]): string {
-  if (!field.touched) return ''
-  const basicError = validateEmail(field.value)
-  if (basicError) return basicError
-  // Check for duplicates
-  if (field.value.trim() !== '') {
-    const isDuplicate = allFields.some(
-      f => f.id !== field.id && f.value.toLowerCase() === field.value.toLowerCase()
-    )
-    if (isDuplicate) return 'Duplicate email'
-  }
-  return ''
-}
-
-/**
- * Updates all field errors (needed when duplicates change)
- */
-function updateAllErrors(fields: EmailField[]): EmailField[] {
-  return fields.map(f => ({
-    ...f,
-    error: computeFieldError(f, fields),
-  }))
-}
-
-/**
- * Duplicate validation demo - cross-field validation for duplicates
+ * Duplicate detection — same per-item rule plus a cross-item check.
  */
 export function DuplicateValidationDemo() {
-  const [fields, setFields] = createSignal<EmailField[]>([
-    { id: 1, value: '', touched: false, error: '' },
-    { id: 2, value: '', touched: false, error: '' }
-  ])
-  const [nextId, setNextId] = createSignal(3)
+  let nextId = 0
+  const newItem = (): Item => ({ id: ++nextId, value: '', touched: false })
+  const [items, setItems] = createSignal<Item[]>([newItem(), newItem()])
 
   const duplicateCount = createMemo(() => {
-    const values = fields().map(f => f.value.toLowerCase().trim()).filter(v => v !== '')
-    const uniqueValues = new Set(values)
-    return values.length - uniqueValues.size
+    const values = items().map((it) => it.value.toLowerCase().trim()).filter((v) => v !== '')
+    return values.length - new Set(values).size
   })
 
+  const itemError = (item: Item): string => {
+    if (!item.touched) return ''
+    const basic = validateEmail(item.value)
+    if (basic) return basic
+    const lower = item.value.toLowerCase()
+    const isDup = items().some((other) => other.id !== item.id && other.value.toLowerCase() === lower)
+    return isDup ? 'Duplicate email' : ''
+  }
+
   const handleAdd = () => {
-    const newFields = [...fields(), createField(nextId(), '', false)]
-    setFields(updateAllErrors(newFields))
-    setNextId(nextId() + 1)
+    setItems([...items(), newItem()])
   }
 
   const handleRemove = (id: number) => {
-    if (fields().length > 1) {
-      const newFields = fields().filter(f => f.id !== id)
-      setFields(updateAllErrors(newFields))
+    if (items().length > 1) {
+      setItems(items().filter((it) => it.id !== id))
     }
   }
 
   const handleChange = (id: number, value: string) => {
-    const newFields = fields().map(f => {
-      if (f.id !== id) return f
-      return { ...f, value }
-    })
-    // Recompute all errors since duplicates may have changed
-    setFields(updateAllErrors(newFields))
+    setItems(items().map((it) => (it.id === id ? { ...it, value } : it)))
   }
 
   const handleBlur = (id: number) => {
-    const newFields = fields().map(f => {
-      if (f.id !== id) return f
-      return { ...f, touched: true }
-    })
-    setFields(updateAllErrors(newFields))
+    setItems(items().map((it) => (it.id === id ? { ...it, touched: true } : it)))
   }
 
   return (
     <div className="space-y-4">
       <div className="field-list space-y-3">
-        {fields().map((field, index) => (
-          <div key={field.id} className="field-item flex gap-2 items-start">
+        {items().map((item, index) => (
+          <div key={item.id} className="field-item flex gap-2 items-start">
             <div className="flex-1 space-y-1">
               <input
                 type="email"
                 data-slot="input"
                 className={inputClasses}
-                value={field.value}
+                value={item.value}
                 placeholder={`Email ${index + 1}`}
-                onInput={(e) => handleChange(field.id, e.target.value)}
-                onBlur={() => handleBlur(field.id)}
+                onInput={(e) => handleChange(item.id, (e.target as HTMLInputElement).value)}
+                onBlur={() => handleBlur(item.id)}
               />
-              <p className="field-error text-sm text-destructive min-h-5">{field.error}</p>
+              <p className="field-error text-sm text-destructive min-h-5">{itemError(item)}</p>
             </div>
             <button
               type="button"
               data-slot="button"
               className={removeButtonClasses}
-              disabled={fields().length <= 1}
-              onClick={() => handleRemove(field.id)}
+              disabled={items().length <= 1}
+              onClick={() => handleRemove(item.id)}
             >
               X
             </button>
@@ -272,71 +214,66 @@ export function DuplicateValidationDemo() {
 }
 
 /**
- * Min/max fields demo - enforce field count constraints
+ * Min/max constraints — derived from `items().length`.
  */
 export function MinMaxFieldsDemo() {
   const MIN_FIELDS = 1
   const MAX_FIELDS = 5
 
-  const [fields, setFields] = createSignal<EmailField[]>([
-    { id: 1, value: '', touched: false, error: '' }
-  ])
-  const [nextId, setNextId] = createSignal(2)
+  let nextId = 0
+  const newItem = (): Item => ({ id: ++nextId, value: '', touched: false })
+  const [items, setItems] = createSignal<Item[]>([newItem()])
+  const canAdd = createMemo(() => items().length < MAX_FIELDS)
+  const canRemove = createMemo(() => items().length > MIN_FIELDS)
 
-  const canAdd = createMemo(() => fields().length < MAX_FIELDS)
-  const canRemove = createMemo(() => fields().length > MIN_FIELDS)
+  const itemError = (item: Item): string => {
+    if (!item.touched) return ''
+    return validateEmail(item.value)
+  }
 
   const handleAdd = () => {
     if (canAdd()) {
-      setFields([...fields(), createField(nextId(), '', false)])
-      setNextId(nextId() + 1)
+      setItems([...items(), newItem()])
     }
   }
 
   const handleRemove = (id: number) => {
     if (canRemove()) {
-      setFields(fields().filter(f => f.id !== id))
+      setItems(items().filter((it) => it.id !== id))
     }
   }
 
   const handleChange = (id: number, value: string) => {
-    setFields(fields().map(f => {
-      if (f.id !== id) return f
-      const error = f.touched ? validateEmail(value) : ''
-      return { ...f, value, error }
-    }))
+    setItems(items().map((it) => (it.id === id ? { ...it, value } : it)))
   }
 
   const handleBlur = (id: number) => {
-    setFields(fields().map(f => {
-      if (f.id !== id) return f
-      return { ...f, touched: true, error: validateEmail(f.value) }
-    }))
+    setItems(items().map((it) => (it.id === id ? { ...it, touched: true } : it)))
   }
 
   return (
     <div className="space-y-4">
       <div className="field-list space-y-3">
-        {fields().map((field, index) => (
-          <div key={field.id} className="field-item flex gap-2 items-start">
+        {items().map((item, index) => (
+          <div key={item.id} className="field-item flex gap-2 items-start">
             <div className="flex-1 space-y-1">
               <input
                 type="email"
                 data-slot="input"
                 className={inputClasses}
-                value={field.value}
+                value={item.value}
                 placeholder={`Email ${index + 1}`}
-                onInput={(e) => handleChange(field.id, e.target.value)}
-                onBlur={() => handleBlur(field.id)}
+                onInput={(e) => handleChange(item.id, (e.target as HTMLInputElement).value)}
+                onBlur={() => handleBlur(item.id)}
               />
-              <p className="field-error text-sm text-destructive min-h-5">{field.error}</p>
+              <p className="field-error text-sm text-destructive min-h-5">{itemError(item)}</p>
             </div>
             <button
               type="button"
               data-slot="button"
               className={removeButtonClasses}
               disabled={!canRemove()}
-              onClick={() => handleRemove(field.id)}
+              onClick={() => handleRemove(item.id)}
             >
               X
             </button>
@@ -349,7 +286,7 @@ export function MinMaxFieldsDemo() {
           + Add Email
         </Button>
         <p className="field-count text-sm text-muted-foreground">
-          {fields().length} / {MAX_FIELDS} emails
+          {items().length} / {MAX_FIELDS} emails
         </p>
       </div>
 

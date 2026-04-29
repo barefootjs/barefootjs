@@ -2,266 +2,250 @@
 /**
  * ValidationDemo Components
  *
- * Interactive demos for form validation patterns.
- * Demonstrates error state management and multi-field validation.
+ * Validation patterns built on createForm + Zod. See `/docs/forms/create-form`
+ * for the underlying API.
  */
 
-import { createSignal, createMemo } from '@barefootjs/client'
+import { createForm } from '@barefootjs/form'
+import { createSignal } from '@barefootjs/client'
 import { Input } from '@ui/components/ui/input'
 import { Button } from '@ui/components/ui/button'
+import { z } from 'zod'
 
 /**
- * Required field validation demo
+ * Required field validation — minimal createForm usage with one field.
  */
 export function RequiredFieldDemo() {
-  const [name, setName] = createSignal('')
-  const [touched, setTouched] = createSignal(false)
-  const error = createMemo(() => {
-    if (!touched()) return ''
-    return name().trim() === '' ? 'Name is required' : ''
+  const form = createForm({
+    schema: z.object({
+      name: z.string().min(1, 'Name is required'),
+    }),
+    defaultValues: { name: '' },
+    validateOn: 'blur',
+    revalidateOn: 'input',
   })
 
+  const name = form.field('name')
+
   return (
-    <div className="space-y-2">
+    <form className="space-y-2">
       <label className="text-sm text-muted-foreground">Name *</label>
       <Input
-        value={name()}
-        onInput={(e) => setName(e.target.value)}
-        onBlur={() => setTouched(true)}
+        value={name.value()}
+        onInput={name.handleInput}
+        onBlur={name.handleBlur}
         placeholder="Enter your name"
       />
-      <p className="error-message text-sm text-destructive min-h-5">{error()}</p>
-    </div>
+      <p className="error-message text-sm text-destructive min-h-5">{name.error()}</p>
+    </form>
   )
 }
 
 /**
- * Email format validation demo
+ * Email format validation — schema rule + valid indicator from `field.error`.
  */
 export function EmailValidationDemo() {
-  const [email, setEmail] = createSignal('')
-  const [touched, setTouched] = createSignal(false)
-  const error = createMemo(() => {
-    if (!touched()) return ''
-    if (email().trim() === '') return 'Email is required'
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email())) return 'Invalid email format'
-    return ''
+  const form = createForm({
+    schema: z.object({
+      email: z
+        .string()
+        .min(1, 'Email is required')
+        .email('Invalid email format'),
+    }),
+    defaultValues: { email: '' },
+    validateOn: 'blur',
+    revalidateOn: 'input',
   })
-  const isValid = createMemo(() => touched() && error() === '')
+
+  const email = form.field('email')
+  const isValid = () => email.touched() && email.error() === ''
 
   return (
-    <div className="space-y-2">
+    <form className="space-y-2">
       <label className="text-sm text-muted-foreground">Email *</label>
       <Input
         type="email"
-        value={email()}
-        onInput={(e) => setEmail(e.target.value)}
-        onBlur={() => setTouched(true)}
+        value={email.value()}
+        onInput={email.handleInput}
+        onBlur={email.handleBlur}
         placeholder="Enter your email"
       />
       <div className="flex justify-between min-h-5">
-        <p className="error-message text-sm text-destructive">{error()}</p>
+        <p className="error-message text-sm text-destructive">{email.error()}</p>
         {isValid() ? <span className="valid-indicator text-sm text-success">Valid</span> : null}
       </div>
-    </div>
+    </form>
   )
 }
 
 /**
- * Password confirmation demo - field dependency validation
+ * Password confirmation — cross-field rule via Zod's `.refine`.
  */
 export function PasswordConfirmationDemo() {
-  const [password, setPassword] = createSignal('')
-  const [confirmPassword, setConfirmPassword] = createSignal('')
-  const [passwordTouched, setPasswordTouched] = createSignal(false)
-  const [confirmTouched, setConfirmTouched] = createSignal(false)
-
-  const passwordError = createMemo(() => {
-    if (!passwordTouched()) return ''
-    if (password().length === 0) return 'Password is required'
-    if (password().length < 8) return 'Password must be at least 8 characters'
-    return ''
+  const form = createForm({
+    schema: z
+      .object({
+        password: z
+          .string()
+          .min(1, 'Password is required')
+          .min(8, 'Password must be at least 8 characters'),
+        confirmPassword: z.string().min(1, 'Please confirm your password'),
+      })
+      .refine((data) => data.password === data.confirmPassword, {
+        message: 'Passwords do not match',
+        path: ['confirmPassword'],
+      }),
+    defaultValues: { password: '', confirmPassword: '' },
+    validateOn: 'blur',
+    revalidateOn: 'input',
   })
 
-  const confirmError = createMemo(() => {
-    if (!confirmTouched()) return ''
-    if (confirmPassword().length === 0) return 'Please confirm your password'
-    if (password() !== confirmPassword()) return 'Passwords do not match'
-    return ''
-  })
-
-  const isValid = createMemo(() =>
-    passwordTouched() && confirmTouched() &&
-    passwordError() === '' && confirmError() === ''
-  )
+  const password = form.field('password')
+  const confirm = form.field('confirmPassword')
+  const matched = () =>
+    password.touched() &&
+    confirm.touched() &&
+    password.error() === '' &&
+    confirm.error() === '' &&
+    confirm.value().length > 0
 
   return (
-    <div className="space-y-4">
+    <form className="space-y-4">
       <div className="space-y-2">
         <label className="text-sm text-muted-foreground">Password *</label>
         <Input
           type="password"
-          value={password()}
-          onInput={(e) => setPassword(e.target.value)}
-          onBlur={() => setPasswordTouched(true)}
+          value={password.value()}
+          onInput={password.handleInput}
+          onBlur={password.handleBlur}
           placeholder="Enter password (min 8 chars)"
         />
-        <p className="password-error text-sm text-destructive min-h-5">{passwordError()}</p>
+        <p className="password-error text-sm text-destructive min-h-5">{password.error()}</p>
       </div>
       <div className="space-y-2">
         <label className="text-sm text-muted-foreground">Confirm Password *</label>
         <Input
           type="password"
-          value={confirmPassword()}
-          onInput={(e) => setConfirmPassword(e.target.value)}
-          onBlur={() => setConfirmTouched(true)}
+          value={confirm.value()}
+          onInput={confirm.handleInput}
+          onBlur={confirm.handleBlur}
           placeholder="Confirm your password"
         />
-        <p className="confirm-error text-sm text-destructive min-h-5">{confirmError()}</p>
+        <p className="confirm-error text-sm text-destructive min-h-5">{confirm.error()}</p>
       </div>
-      {isValid() ? (
+      {matched() ? (
         <p className="match-indicator text-sm text-success">Passwords match!</p>
       ) : null}
-    </div>
+    </form>
   )
 }
 
 /**
- * Multi-field form demo with form-level validation
+ * Multi-field form — full schema, submit handling, dependent confirm field.
  */
 export function MultiFieldFormDemo() {
-  const [name, setName] = createSignal('')
-  const [email, setEmail] = createSignal('')
-  const [password, setPassword] = createSignal('')
-  const [confirmPassword, setConfirmPassword] = createSignal('')
+  const [submitted, setSubmitted] = createSignal<{ name: string; email: string } | null>(null)
 
-  const [nameTouched, setNameTouched] = createSignal(false)
-  const [emailTouched, setEmailTouched] = createSignal(false)
-  const [passwordTouched, setPasswordTouched] = createSignal(false)
-  const [confirmTouched, setConfirmTouched] = createSignal(false)
-
-  const [submitted, setSubmitted] = createSignal(false)
-  const [submitAttempted, setSubmitAttempted] = createSignal(false)
-
-  // Field validations
-  const nameError = createMemo(() => {
-    if (!nameTouched() && !submitAttempted()) return ''
-    if (name().trim() === '') return 'Name is required'
-    if (name().trim().length < 2) return 'Name must be at least 2 characters'
-    return ''
+  const form = createForm({
+    schema: z
+      .object({
+        name: z
+          .string()
+          .min(1, 'Name is required')
+          .min(2, 'Name must be at least 2 characters'),
+        email: z
+          .string()
+          .min(1, 'Email is required')
+          .email('Invalid email format'),
+        password: z
+          .string()
+          .min(1, 'Password is required')
+          .min(8, 'Password must be at least 8 characters'),
+        confirmPassword: z.string().min(1, 'Please confirm your password'),
+      })
+      .refine((data) => data.password === data.confirmPassword, {
+        message: 'Passwords do not match',
+        path: ['confirmPassword'],
+      }),
+    defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
+    validateOn: 'blur',
+    revalidateOn: 'input',
+    onSubmit: async (data) => {
+      setSubmitted({ name: data.name, email: data.email })
+    },
   })
 
-  const emailError = createMemo(() => {
-    if (!emailTouched() && !submitAttempted()) return ''
-    if (email().trim() === '') return 'Email is required'
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email())) return 'Invalid email format'
-    return ''
-  })
-
-  const passwordError = createMemo(() => {
-    if (!passwordTouched() && !submitAttempted()) return ''
-    if (password().length === 0) return 'Password is required'
-    if (password().length < 8) return 'Password must be at least 8 characters'
-    return ''
-  })
-
-  const confirmError = createMemo(() => {
-    if (!confirmTouched() && !submitAttempted()) return ''
-    if (confirmPassword().length === 0) return 'Please confirm your password'
-    if (password() !== confirmPassword()) return 'Passwords do not match'
-    return ''
-  })
-
-  // Form-level validity
-  const isFormValid = createMemo(() => {
-    const nameValid = name().trim().length >= 2
-    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email())
-    const passwordValid = password().length >= 8
-    const confirmValid = password() === confirmPassword() && confirmPassword().length > 0
-    return nameValid && emailValid && passwordValid && confirmValid
-  })
-
-  const handleSubmit = () => {
-    setSubmitAttempted(true)
-    setNameTouched(true)
-    setEmailTouched(true)
-    setPasswordTouched(true)
-    setConfirmTouched(true)
-
-    if (isFormValid()) {
-      setSubmitted(true)
-    }
-  }
+  const name = form.field('name')
+  const email = form.field('email')
+  const password = form.field('password')
+  const confirm = form.field('confirmPassword')
 
   return (
     <div className="space-y-4">
       {submitted() ? (
         <div className="success-message p-4 bg-success/10 border border-success rounded-lg">
           <p className="text-success font-medium">Form submitted successfully!</p>
-          <p className="text-sm text-muted-foreground mt-1">Name: {name()}, Email: {email()}</p>
+          <p className="text-sm text-muted-foreground mt-1">Name: {submitted()!.name}, Email: {submitted()!.email}</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <form onSubmit={form.handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm text-muted-foreground">Name *</label>
             <Input
-              value={name()}
-              onInput={(e) => setName(e.target.value)}
-              onBlur={() => setNameTouched(true)}
+              value={name.value()}
+              onInput={name.handleInput}
+              onBlur={name.handleBlur}
               placeholder="Enter your name (min 2 chars)"
             />
-            <p className="name-error text-sm text-destructive min-h-5">{nameError()}</p>
+            <p className="name-error text-sm text-destructive min-h-5">{name.error()}</p>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm text-muted-foreground">Email *</label>
             <Input
               type="email"
-              value={email()}
-              onInput={(e) => setEmail(e.target.value)}
-              onBlur={() => setEmailTouched(true)}
+              value={email.value()}
+              onInput={email.handleInput}
+              onBlur={email.handleBlur}
               placeholder="Enter your email"
             />
-            <p className="email-error text-sm text-destructive min-h-5">{emailError()}</p>
+            <p className="email-error text-sm text-destructive min-h-5">{email.error()}</p>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm text-muted-foreground">Password *</label>
             <Input
               type="password"
-              value={password()}
-              onInput={(e) => setPassword(e.target.value)}
-              onBlur={() => setPasswordTouched(true)}
+              value={password.value()}
+              onInput={password.handleInput}
+              onBlur={password.handleBlur}
               placeholder="Enter password (min 8 chars)"
             />
-            <p className="password-error text-sm text-destructive min-h-5">{passwordError()}</p>
+            <p className="password-error text-sm text-destructive min-h-5">{password.error()}</p>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm text-muted-foreground">Confirm Password *</label>
             <Input
               type="password"
-              value={confirmPassword()}
-              onInput={(e) => setConfirmPassword(e.target.value)}
-              onBlur={() => setConfirmTouched(true)}
+              value={confirm.value()}
+              onInput={confirm.handleInput}
+              onBlur={confirm.handleBlur}
               placeholder="Confirm your password"
             />
-            <p className="confirm-error text-sm text-destructive min-h-5">{confirmError()}</p>
+            <p className="confirm-error text-sm text-destructive min-h-5">{confirm.error()}</p>
           </div>
 
           <div className="pt-2">
-            <Button
-              onClick={handleSubmit}
-              disabled={submitAttempted() && !isFormValid()}
-            >
-              Submit
+            <Button type="submit" disabled={form.isSubmitting()}>
+              {form.isSubmitting() ? 'Submitting...' : 'Submit'}
             </Button>
           </div>
 
-          {submitAttempted() && !isFormValid() ? (
+          {!form.isValid() && Object.keys(form.errors()).length > 0 ? (
             <p className="form-error text-sm text-destructive">Please fix the errors above</p>
           ) : null}
-        </div>
+        </form>
       )}
     </div>
   )
