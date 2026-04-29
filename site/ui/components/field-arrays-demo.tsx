@@ -26,10 +26,10 @@ function validateEmail(value: string): string {
   return result.success ? '' : result.error.issues[0]?.message ?? ''
 }
 
+// Per-item event handlers receive `item.id`, not the loop's `index`. The
+// JSX→IR compiler matches loop items via `data-key` (set from `item.id`) and
+// does not reconstruct the closure's `index` inside handler bodies.
 type Item = { id: number; value: string; touched: boolean }
-
-let nextItemId = 1
-const newItem = (): Item => ({ id: nextItemId++, value: '', touched: false })
 
 const inputClasses = 'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive'
 
@@ -39,6 +39,8 @@ const removeButtonClasses = 'inline-flex items-center justify-center gap-2 white
  * Basic field array — schema-driven per-item validation.
  */
 export function BasicFieldArrayDemo() {
+  let nextId = 0
+  const newItem = (): Item => ({ id: ++nextId, value: '', touched: false })
   const [items, setItems] = createSignal<Item[]>([newItem()])
   const [submitAttempted, setSubmitAttempted] = createSignal(false)
   const [submitted, setSubmitted] = createSignal<string[] | null>(null)
@@ -132,10 +134,9 @@ export function BasicFieldArrayDemo() {
  * Duplicate detection — same per-item rule plus a cross-item check.
  */
 export function DuplicateValidationDemo() {
-  const [items, setItems] = createSignal<Item[]>([
-    newItem(),
-    newItem(),
-  ])
+  let nextId = 0
+  const newItem = (): Item => ({ id: ++nextId, value: '', touched: false })
+  const [items, setItems] = createSignal<Item[]>([newItem(), newItem()])
 
   const duplicateCount = createMemo(() => {
     const values = items().map((it) => it.value.toLowerCase().trim()).filter((v) => v !== '')
@@ -219,6 +220,8 @@ export function MinMaxFieldsDemo() {
   const MIN_FIELDS = 1
   const MAX_FIELDS = 5
 
+  let nextId = 0
+  const newItem = (): Item => ({ id: ++nextId, value: '', touched: false })
   const [items, setItems] = createSignal<Item[]>([newItem()])
   const canAdd = createMemo(() => items().length < MAX_FIELDS)
   const canRemove = createMemo(() => items().length > MIN_FIELDS)

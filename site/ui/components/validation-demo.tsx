@@ -144,9 +144,7 @@ export function PasswordConfirmationDemo() {
  * Multi-field form — full schema, submit handling, dependent confirm field.
  */
 export function MultiFieldFormDemo() {
-  const [submittedName, setSubmittedName] = createSignal('')
-  const [submittedEmail, setSubmittedEmail] = createSignal('')
-  const [submitted, setSubmitted] = createSignal(false)
+  const [submitted, setSubmitted] = createSignal<{ name: string; email: string } | null>(null)
 
   const form = createForm({
     schema: z
@@ -173,9 +171,7 @@ export function MultiFieldFormDemo() {
     validateOn: 'blur',
     revalidateOn: 'input',
     onSubmit: async (data) => {
-      setSubmittedName(data.name)
-      setSubmittedEmail(data.email)
-      setSubmitted(true)
+      setSubmitted({ name: data.name, email: data.email })
     },
   })
 
@@ -189,7 +185,7 @@ export function MultiFieldFormDemo() {
       {submitted() ? (
         <div className="success-message p-4 bg-success/10 border border-success rounded-lg">
           <p className="text-success font-medium">Form submitted successfully!</p>
-          <p className="text-sm text-muted-foreground mt-1">Name: {submittedName()}, Email: {submittedEmail()}</p>
+          <p className="text-sm text-muted-foreground mt-1">Name: {submitted()!.name}, Email: {submitted()!.email}</p>
         </div>
       ) : (
         <form onSubmit={form.handleSubmit} className="space-y-4">

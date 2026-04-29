@@ -123,7 +123,9 @@ export function FieldArraysPage() {
           <div className="prose prose-invert max-w-none">
             <p className="text-muted-foreground">
               <a href="/docs/forms/create-form" className="text-foreground underline underline-offset-4"><code>createForm</code></a>{' '}
-              targets fixed-shape records, so dynamic arrays don't fit through its field API. Instead, store the array in a{' '}
+              targets fixed-shape records: it validates the array on submit but routes errors to dot-paths
+              (<code className="text-foreground">emails.0</code>, <code className="text-foreground">emails.1</code>, …), not the top-level field, so per-item live feedback isn't reachable through{' '}
+              <code className="text-foreground">field('emails').error()</code>. Instead, store the array in a{' '}
               <code className="text-foreground">createSignal</code> of <code className="text-foreground">{`{ value, touched }`}</code> objects and reuse the same per-item Zod schema you'd otherwise nest in createForm.
             </p>
           </div>
