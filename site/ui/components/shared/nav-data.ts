@@ -65,9 +65,8 @@ export const navSections: NavSection[] = [
         links: [
           { title: 'Controlled Input', href: '/docs/forms/controlled-input' },
           { title: 'createForm', href: '/docs/forms/create-form' },
-          { title: 'Field Arrays', href: '/docs/forms/field-arrays' },
-          { title: 'Submit', href: '/docs/forms/submit' },
           { title: 'Validation', href: '/docs/forms/validation' },
+          { title: 'Field Arrays', href: '/docs/forms/field-arrays' },
         ],
         matchPath: (p) => p.startsWith('/docs/forms'),
       },

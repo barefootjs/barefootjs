@@ -1,7 +1,7 @@
 /**
  * Form Validation Documentation Page
  *
- * Demonstrates error state management and multi-field validation patterns.
+ * Validation patterns expressed through createForm + a Standard Schema validator.
  */
 
 import { Input } from '@/components/ui/input'
@@ -15,119 +15,98 @@ import {
   PageHeader,
   Section,
   Example,
-  CodeBlock,
   type TocItem,
 } from '../../components/shared/docs'
 import { TableOfContents } from '@/components/table-of-contents'
 
-// Table of contents items
 const tocItems: TocItem[] = [
-  { id: 'pattern-overview', title: 'Pattern Overview' },
+  { id: 'overview', title: 'Overview' },
   { id: 'examples', title: 'Examples' },
-  { id: 'key-points', title: 'Key Points' },
+  { id: 'required-field', title: 'Required Field', branch: 'start' },
+  { id: 'email-format', title: 'Email Format', branch: 'child' },
+  { id: 'cross-field', title: 'Cross-Field', branch: 'child' },
+  { id: 'multi-field', title: 'Multi-Field', branch: 'end' },
 ]
 
-// Code examples
-const requiredFieldCode = `import { createSignal, createMemo } from '@barefootjs/client'
-import { Input } from '@/components/ui/input'
+const requiredFieldCode = `import { createForm } from '@barefootjs/form'
+import { z } from 'zod'
 
-const [name, setName] = createSignal('')
-const [touched, setTouched] = createSignal(false)
-const error = createMemo(() => {
-  if (!touched()) return ''
-  return name().trim() === '' ? 'Name is required' : ''
+const form = createForm({
+  schema: z.object({
+    name: z.string().min(1, 'Name is required'),
+  }),
+  defaultValues: { name: '' },
+  validateOn: 'blur',
+  revalidateOn: 'input',
 })
+
+const name = form.field('name')
 
 <Input
-  value={name()}
-  onInput={(e) => setName(e.target.value)}
-  onBlur={() => setTouched(true)}
-  placeholder="Enter your name"
+  value={name.value()}
+  onInput={name.handleInput}
+  onBlur={name.handleBlur}
 />
-<p className="text-red-400">{error()}</p>`
+<p>{name.error()}</p>`
 
-const emailValidationCode = `import { createSignal, createMemo } from '@barefootjs/client'
-
-const [email, setEmail] = createSignal('')
-const [touched, setTouched] = createSignal(false)
-const error = createMemo(() => {
-  if (!touched()) return ''
-  if (email().trim() === '') return 'Email is required'
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email())) return 'Invalid email format'
-  return ''
-})
-const isValid = createMemo(() => touched() && error() === '')
-
-<Input
-  type="email"
-  value={email()}
-  onInput={(e) => setEmail(e.target.value)}
-  onBlur={() => setTouched(true)}
-/>
-<p className="text-red-400">{error()}</p>
-{isValid() ? <span className="text-green-400">Valid</span> : null}`
-
-const passwordConfirmCode = `import { createSignal, createMemo } from '@barefootjs/client'
-
-const [password, setPassword] = createSignal('')
-const [confirmPassword, setConfirmPassword] = createSignal('')
-const [passwordTouched, setPasswordTouched] = createSignal(false)
-const [confirmTouched, setConfirmTouched] = createSignal(false)
-
-const passwordError = createMemo(() => {
-  if (!passwordTouched()) return ''
-  if (password().length === 0) return 'Password is required'
-  if (password().length < 8) return 'Password must be at least 8 characters'
-  return ''
+const emailValidationCode = `const form = createForm({
+  schema: z.object({
+    email: z
+      .string()
+      .min(1, 'Email is required')
+      .regex(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/, 'Invalid email format'),
+  }),
+  defaultValues: { email: '' },
+  validateOn: 'blur',
+  revalidateOn: 'input',
 })
 
-const confirmError = createMemo(() => {
-  if (!confirmTouched()) return ''
-  if (confirmPassword().length === 0) return 'Please confirm your password'
-  if (password() !== confirmPassword()) return 'Passwords do not match'
-  return ''
+const email = form.field('email')
+const isValid = () => email.touched() && email.error() === ''`
+
+const passwordConfirmCode = `// Use Zod's .refine to compare two fields. The error attaches to
+// \`confirmPassword\` via \`path\`, so it shows up on \`confirm.error()\`.
+const form = createForm({
+  schema: z
+    .object({
+      password: z.string().min(8, 'Password must be at least 8 characters'),
+      confirmPassword: z.string().min(1, 'Please confirm your password'),
+    })
+    .refine((d) => d.password === d.confirmPassword, {
+      message: 'Passwords do not match',
+      path: ['confirmPassword'],
+    }),
+  defaultValues: { password: '', confirmPassword: '' },
+  validateOn: 'blur',
+  revalidateOn: 'input',
+})`
+
+const multiFieldFormCode = `const form = createForm({
+  schema: z
+    .object({
+      name: z.string().min(2, 'Name must be at least 2 characters'),
+      email: z.string().regex(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/, 'Invalid email format'),
+      password: z.string().min(8, 'Password must be at least 8 characters'),
+      confirmPassword: z.string().min(1, 'Please confirm your password'),
+    })
+    .refine((d) => d.password === d.confirmPassword, {
+      message: 'Passwords do not match',
+      path: ['confirmPassword'],
+    }),
+  defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
+  validateOn: 'blur',
+  revalidateOn: 'input',
+  onSubmit: async (data) => {
+    await fetch('/api/register', { method: 'POST', body: JSON.stringify(data) })
+  },
 })
 
-const isValid = createMemo(() =>
-  passwordTouched() && confirmTouched() &&
-  passwordError() === '' && confirmError() === ''
-)`
-
-const multiFieldFormCode = `import { createSignal, createMemo } from '@barefootjs/client'
-
-// Field values
-const [name, setName] = createSignal('')
-const [email, setEmail] = createSignal('')
-const [password, setPassword] = createSignal('')
-const [confirmPassword, setConfirmPassword] = createSignal('')
-
-// Touched states
-const [nameTouched, setNameTouched] = createSignal(false)
-// ... other touched states
-
-// Field validations (createMemo for each field)
-const nameError = createMemo(() => {
-  if (!nameTouched()) return ''
-  if (name().trim() === '') return 'Name is required'
-  if (name().trim().length < 2) return 'Name must be at least 2 characters'
-  return ''
-})
-// ... other field validations
-
-// Form-level validity
-const isFormValid = createMemo(() => {
-  const nameValid = name().trim().length >= 2
-  const emailValid = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email())
-  const passwordValid = password().length >= 8
-  const confirmValid = password() === confirmPassword()
-  return nameValid && emailValid && passwordValid && confirmValid
-})
-
-const handleSubmit = () => {
-  if (isFormValid()) {
-    // Submit form
-  }
-}`
+<form onSubmit={form.handleSubmit}>
+  {/* fields ... */}
+  <Button type="submit" disabled={form.isSubmitting()}>
+    {form.isSubmitting() ? 'Submitting...' : 'Submit'}
+  </Button>
+</form>`
 
 export function ValidationPage() {
   return (
@@ -135,10 +114,9 @@ export function ValidationPage() {
       <div className="flex-1 min-w-0 space-y-12">
         <PageHeader
           title="Form Validation"
-          description="Demonstrates error state management and multi-field validation patterns using signals and memos."
+          description="Schema-driven validation built on createForm. Cross-field rules use the validator's own combinators."
         />
 
-        {/* Preview - Static example */}
         <Example title="" code={requiredFieldCode}>
           <div className="max-w-sm">
             <Input placeholder="Enter your name" />
@@ -148,90 +126,52 @@ export function ValidationPage() {
           </div>
         </Example>
 
-        {/* Pattern Overview */}
-        <Section id="pattern-overview" title="Pattern Overview">
+        <Section id="overview" title="Overview">
           <div className="prose prose-invert max-w-none">
             <p className="text-muted-foreground">
-              Form validation in BarefootJS uses <code className="text-foreground">createSignal</code> for field values and{' '}
-              <code className="text-foreground">createMemo</code> for derived error states.
-              This pattern provides reactive validation that automatically updates when field values change.
+              Validation lives in the schema you pass to{' '}
+              <a href="/docs/forms/create-form" className="text-foreground underline underline-offset-4"><code>createForm</code></a>.
+              Each field exposes <code className="text-foreground">value</code>,{' '}
+              <code className="text-foreground">error</code>, <code className="text-foreground">touched</code>, and the
+              <code className="text-foreground"> handleInput</code>/<code className="text-foreground">handleBlur</code> handlers — wire them to the input.
+              For cross-field rules use the validator's combinators (e.g. Zod's <code className="text-foreground">.refine</code>) and target a specific field via{' '}
+              <code className="text-foreground">path</code>.
             </p>
-            <p className="text-muted-foreground mt-2">
-              Key concepts:
-            </p>
-            <ul className="list-disc list-inside text-muted-foreground space-y-1 mt-2">
-              <li><strong>Field value signal</strong>: Stores the current input value</li>
-              <li><strong>Touched signal</strong>: Tracks if user has interacted with the field</li>
-              <li><strong>Error memo</strong>: Computes error message based on value and touched state</li>
-              <li><strong>Form validity memo</strong>: Computes overall form validity from all fields</li>
-            </ul>
           </div>
         </Section>
 
-        {/* Examples */}
         <Section id="examples" title="Examples">
           <div className="space-y-8">
-            <Example title="Required Field" code={requiredFieldCode}>
-              <div className="max-w-sm">
-                <RequiredFieldDemo />
-              </div>
-            </Example>
-
-            <Example title="Email Format Validation" code={emailValidationCode}>
-              <div className="max-w-sm">
-                <EmailValidationDemo />
-              </div>
-            </Example>
-
-            <Example title="Password Confirmation" code={passwordConfirmCode}>
-              <div className="max-w-sm">
-                <PasswordConfirmationDemo />
-              </div>
-            </Example>
-
-            <Example title="Multi-Field Form" code={multiFieldFormCode}>
-              <div className="max-w-md">
-                <MultiFieldFormDemo />
-              </div>
-            </Example>
-          </div>
-        </Section>
-
-        {/* Key Points */}
-        <Section id="key-points" title="Key Points">
-          <div className="space-y-4">
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Error State Management</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Use <code className="text-foreground">createSignal</code> for field values and touched states</li>
-                <li>Use <code className="text-foreground">createMemo</code> for computed error messages</li>
-                <li>Only show errors after field is touched (better UX)</li>
-                <li>Return empty string for valid state, error message for invalid</li>
-              </ul>
+            <div id="required-field">
+              <Example title="Required Field" code={requiredFieldCode}>
+                <div className="max-w-sm">
+                  <RequiredFieldDemo />
+                </div>
+              </Example>
             </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Validation Timing</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li><strong>On blur</strong>: Show errors when user leaves field (recommended)</li>
-                <li><strong>On submit</strong>: Validate all fields before form submission</li>
-                <li><strong>Real-time</strong>: For instant feedback (e.g., password strength)</li>
-              </ul>
+
+            <div id="email-format">
+              <Example title="Email Format" code={emailValidationCode}>
+                <div className="max-w-sm">
+                  <EmailValidationDemo />
+                </div>
+              </Example>
             </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Field Dependencies</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Access other field signals within a memo for cross-field validation</li>
-                <li>Example: <code className="text-foreground">{'password() !== confirmPassword()'}</code></li>
-                <li>The memo automatically re-evaluates when either signal changes</li>
-              </ul>
+
+            <div id="cross-field">
+              <Example title="Cross-Field (Password Confirmation)" code={passwordConfirmCode}>
+                <div className="max-w-sm">
+                  <PasswordConfirmationDemo />
+                </div>
+              </Example>
             </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Form-Level Validity</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Combine field validations in a single <code className="text-foreground">createMemo</code></li>
-                <li>Use for enabling/disabling submit button</li>
-                <li>No need for a separate form library - signals are sufficient</li>
-              </ul>
+
+            <div id="multi-field">
+              <Example title="Multi-Field Form" code={multiFieldFormCode}>
+                <div className="max-w-md">
+                  <MultiFieldFormDemo />
+                </div>
+              </Example>
             </div>
           </div>
         </Section>

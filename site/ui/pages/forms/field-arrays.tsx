@@ -1,7 +1,8 @@
 /**
  * Field Arrays Documentation Page
  *
- * Demonstrates dynamic list of form inputs pattern.
+ * Dynamic list of inputs. createForm covers fixed-shape records — for arrays
+ * we pair it with a touched-per-item signal and reuse the same Zod schema.
  */
 
 import { Input } from '@/components/ui/input'
@@ -18,111 +19,90 @@ import {
 } from '../../components/shared/docs'
 import { TableOfContents } from '@/components/table-of-contents'
 
-// Table of contents items
 const tocItems: TocItem[] = [
-  { id: 'pattern-overview', title: 'Pattern Overview' },
+  { id: 'overview', title: 'Overview' },
   { id: 'examples', title: 'Examples' },
-  { id: 'key-points', title: 'Key Points' },
+  { id: 'basic', title: 'Basic', branch: 'start' },
+  { id: 'duplicates', title: 'Duplicates', branch: 'child' },
+  { id: 'min-max', title: 'Min / Max', branch: 'end' },
 ]
 
-// Code examples
-const basicFieldArrayCode = `import { createSignal, createMemo } from '@barefootjs/client'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+const basicFieldArrayCode = `import { createForm } from '@barefootjs/form'
+import { createSignal } from '@barefootjs/client'
+import { z } from 'zod'
 
-type EmailField = {
-  id: number
-  value: string
-  touched: boolean
+const emailSchema = z
+  .string()
+  .min(1, 'Email is required')
+  .regex(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/, 'Invalid email format')
+
+const validateEmail = (v: string) =>
+  emailSchema.safeParse(v).success
+    ? ''
+    : emailSchema.safeParse(v).error!.issues[0].message
+
+const form = createForm({
+  schema: z.object({ emails: z.array(emailSchema).min(1) }),
+  defaultValues: { emails: [''] },
+  onSubmit: async ({ emails }) => { /* ... */ },
+})
+
+const emails = form.field('emails')
+const [touched, setTouched] = createSignal<boolean[]>([false])
+const [submitAttempted, setSubmitAttempted] = createSignal(false)
+
+const itemError = (i: number) =>
+  touched()[i] || submitAttempted() ? validateEmail(emails.value()[i]) : ''
+
+const update = (i: number, v: string) =>
+  emails.setValue(emails.value().map((e, idx) => idx === i ? v : e))
+
+const add = () => {
+  emails.setValue([...emails.value(), ''])
+  setTouched([...touched(), false])
 }
 
-const [fields, setFields] = createSignal<EmailField[]>([
-  { id: 1, value: '', touched: false }
-])
-const [nextId, setNextId] = createSignal(2)
-
-const validateEmail = (email: string): string => {
-  if (email.trim() === '') return 'Email is required'
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return 'Invalid email format'
-  return ''
-}
-
-const handleAdd = () => {
-  setFields([...fields(), { id: nextId(), value: '', touched: false }])
-  setNextId(nextId() + 1)
-}
-
-const handleRemove = (id: number) => {
-  if (fields().length > 1) {
-    setFields(fields().filter(f => f.id !== id))
+const remove = (i: number) => {
+  if (emails.value().length > 1) {
+    emails.setValue(emails.value().filter((_, idx) => idx !== i))
+    setTouched(touched().filter((_, idx) => idx !== i))
   }
 }
 
-const handleChange = (id: number, value: string) => {
-  setFields(fields().map(f => f.id === id ? { ...f, value } : f))
-}
+const handleSubmit = async (e: Event) => {
+  setSubmitAttempted(true)
+  await form.handleSubmit(e)
+}`
 
-{fields().map((field, index) => (
-  <div key={field.id}>
-    <Input
-      value={field.value}
-      onInput={(e) => handleChange(field.id, e.target.value)}
-    />
-    <Button onClick={() => handleRemove(field.id)}>Remove</Button>
-  </div>
-))}
-<Button onClick={handleAdd}>+ Add Email</Button>`
-
-const duplicateValidationCode = `import { createSignal, createMemo } from '@barefootjs/client'
-
-const isDuplicate = (id: number, value: string): boolean => {
-  if (value.trim() === '') return false
-  return fields().some(f => f.id !== id && f.value.toLowerCase() === value.toLowerCase())
-}
-
-const getFieldError = (field: EmailField): string => {
-  if (!field.touched) return ''
-  const basicError = validateEmail(field.value)
-  if (basicError) return basicError
-  if (isDuplicate(field.id, field.value)) return 'Duplicate email'
-  return ''
+const duplicateValidationCode = `// Reuses the per-item schema, then layers a cross-item rule on top.
+const itemError = (i: number) => {
+  if (!touched()[i]) return ''
+  const value = emails.value()[i]
+  const basic = validateEmail(value)
+  if (basic) return basic
+  const lower = value.toLowerCase()
+  const isDup = emails.value().some((o, idx) => idx !== i && o.toLowerCase() === lower)
+  return isDup ? 'Duplicate email' : ''
 }
 
 const duplicateCount = createMemo(() => {
-  const values = fields().map(f => f.value.toLowerCase().trim()).filter(v => v !== '')
-  const uniqueValues = new Set(values)
-  return values.length - uniqueValues.size
+  const values = emails.value().map(v => v.toLowerCase().trim()).filter(v => v !== '')
+  return values.length - new Set(values).size
+})`
+
+const minMaxFieldsCode = `const form = createForm({
+  schema: z.object({
+    emails: z.array(emailSchema).min(1).max(5),
+  }),
+  defaultValues: { emails: [''] },
 })
 
-{duplicateCount() > 0 && (
-  <p className="text-amber-400">{duplicateCount()} duplicate(s) detected</p>
-)}`
+const emails = form.field('emails')
+const canAdd = createMemo(() => emails.value().length < 5)
+const canRemove = createMemo(() => emails.value().length > 1)
 
-const minMaxFieldsCode = `import { createSignal, createMemo } from '@barefootjs/client'
-
-const MIN_FIELDS = 1
-const MAX_FIELDS = 5
-
-const canAdd = createMemo(() => fields().length < MAX_FIELDS)
-const canRemove = createMemo(() => fields().length > MIN_FIELDS)
-
-const handleAdd = () => {
-  if (canAdd()) {
-    setFields([...fields(), { id: nextId(), value: '', touched: false }])
-    setNextId(nextId() + 1)
-  }
-}
-
-const handleRemove = (id: number) => {
-  if (canRemove()) {
-    setFields(fields().filter(f => f.id !== id))
-  }
-}
-
-<Button onClick={handleAdd} disabled={!canAdd()}>
-  + Add Email
-</Button>
-<p>{fields().length} / {MAX_FIELDS} emails</p>`
+<Button onClick={handleAdd} disabled={!canAdd()}>+ Add Email</Button>
+<p>{emails.value().length} / 5 emails</p>`
 
 export function FieldArraysPage() {
   return (
@@ -130,10 +110,9 @@ export function FieldArraysPage() {
       <div className="flex-1 min-w-0 space-y-12">
         <PageHeader
           title="Field Arrays"
-          description="Demonstrates dynamic list of form inputs with add/remove and per-item validation."
+          description="Dynamic list of inputs. createForm holds the array; per-item touched + the same Zod schema power live feedback."
         />
 
-        {/* Preview - Static example */}
         <Example title="" code={basicFieldArrayCode}>
           <div className="max-w-md">
             <div className="space-y-2">
@@ -146,96 +125,43 @@ export function FieldArraysPage() {
           </div>
         </Example>
 
-        {/* Pattern Overview */}
-        <Section id="pattern-overview" title="Pattern Overview">
+        <Section id="overview" title="Overview">
           <div className="prose prose-invert max-w-none">
             <p className="text-muted-foreground">
-              Field arrays in BarefootJS use a <code className="text-foreground">createSignal</code> containing an array of field objects.
-              Each field has a unique ID for proper list reconciliation, and its own value and touched state.
+              <a href="/docs/forms/create-form" className="text-foreground underline underline-offset-4"><code>createForm</code></a>{' '}
+              targets fixed-shape records, so dynamic arrays are stored on a single field
+              (<code className="text-foreground">{`emails: z.array(emailSchema)`}</code>) and mutated through{' '}
+              <code className="text-foreground">field.setValue([...])</code>. createForm validates the whole array on submit;
+              for live per-item feedback, run the same item schema against each value and gate the message
+              on a parallel <code className="text-foreground">touched: boolean[]</code> signal.
             </p>
-            <p className="text-muted-foreground mt-2">
-              Key concepts:
-            </p>
-            <ul className="list-disc list-inside text-muted-foreground space-y-1 mt-2">
-              <li><strong>Field object</strong>: Contains id, value, and touched state</li>
-              <li><strong>Unique ID</strong>: Each field has a unique ID for stable key management</li>
-              <li><strong>Per-field validation</strong>: Validate each field independently</li>
-              <li><strong>Cross-field validation</strong>: Check duplicates or dependencies across fields</li>
-              <li><strong>Immutable updates</strong>: Use map/filter to update the array signal</li>
-            </ul>
           </div>
         </Section>
 
-        {/* Examples */}
         <Section id="examples" title="Examples">
           <div className="space-y-8">
-            <Example title="Basic Field Array" code={basicFieldArrayCode}>
-              <div className="max-w-md">
-                <BasicFieldArrayDemo />
-              </div>
-            </Example>
+            <div id="basic">
+              <Example title="Basic Field Array" code={basicFieldArrayCode}>
+                <div className="max-w-md">
+                  <BasicFieldArrayDemo />
+                </div>
+              </Example>
+            </div>
 
-            <Example title="Duplicate Detection" code={duplicateValidationCode}>
-              <div className="max-w-md">
-                <DuplicateValidationDemo />
-              </div>
-            </Example>
+            <div id="duplicates">
+              <Example title="Duplicate Detection" code={duplicateValidationCode}>
+                <div className="max-w-md">
+                  <DuplicateValidationDemo />
+                </div>
+              </Example>
+            </div>
 
-            <Example title="Min/Max Field Constraints" code={minMaxFieldsCode}>
-              <div className="max-w-md">
-                <MinMaxFieldsDemo />
-              </div>
-            </Example>
-          </div>
-        </Section>
-
-        {/* Key Points */}
-        <Section id="key-points" title="Key Points">
-          <div className="space-y-4">
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Array State Management</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Store field array in a single signal: <code className="text-foreground">{'createSignal<Field[]>([])'}</code></li>
-                <li>Each field object contains: id, value, touched (and any other state)</li>
-                <li>Use immutable operations: <code className="text-foreground">map()</code>, <code className="text-foreground">filter()</code>, spread operator</li>
-                <li>Maintain a separate counter signal for generating unique IDs</li>
-              </ul>
-            </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Key Management</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Always use <code className="text-foreground">key={'{field.id}'}</code> for list items</li>
-                <li>Never use array index as key (causes issues on reorder/delete)</li>
-                <li>Generate unique IDs with incrementing counter: <code className="text-foreground">nextId()</code></li>
-                <li>Unique keys ensure proper DOM reconciliation</li>
-              </ul>
-            </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Per-Item Validation</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Create a validation function that takes the field value</li>
-                <li>Check touched state before showing errors</li>
-                <li>Update touched state on blur: <code className="text-foreground">{'onBlur={() => handleBlur(field.id)}'}</code></li>
-                <li>Each field error is computed independently</li>
-              </ul>
-            </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Cross-Field Validation</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Access entire array in validation: <code className="text-foreground">fields().some()</code></li>
-                <li>Use <code className="text-foreground">createMemo</code> for derived validations (e.g., duplicate count)</li>
-                <li>Exclude current field when checking duplicates: <code className="text-foreground">f.id !== id</code></li>
-                <li>Show summary warnings for array-level issues</li>
-              </ul>
-            </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Add/Remove Operations</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li><strong>Add</strong>: Spread existing array and append new field</li>
-                <li><strong>Remove</strong>: Filter out field by ID</li>
-                <li>Enforce min/max constraints with <code className="text-foreground">createMemo</code> for canAdd/canRemove</li>
-                <li>Disable buttons when constraints are reached</li>
-              </ul>
+            <div id="min-max">
+              <Example title="Min / Max Field Constraints" code={minMaxFieldsCode}>
+                <div className="max-w-md">
+                  <MinMaxFieldsDemo />
+                </div>
+              </Example>
             </div>
           </div>
         </Section>
