@@ -530,6 +530,16 @@ function visitComponentBody(node: ts.Node, ctx: AnalyzerContext): void {
       if (ts.isIdentifier(decl.name)) {
         const isLet = (node.declarationList.flags & ts.NodeFlags.Let) !== 0
         collectConstant(decl, ctx, false, isLet ? 'let' : 'const')
+      } else if (
+        ts.isObjectBindingPattern(decl.name) &&
+        decl.initializer &&
+        ts.isIdentifier(decl.initializer) &&
+        ctx.propsObjectName === decl.initializer.text
+      ) {
+        // Body-level destructure from `props` — `collectConstant` handles
+        // the expansion into one entry per destructured name.
+        const isLet = (node.declarationList.flags & ts.NodeFlags.Let) !== 0
+        collectConstant(decl, ctx, false, isLet ? 'let' : 'const')
       }
     }
   }
@@ -1608,6 +1618,45 @@ function collectConstant(
   declarationKind: 'const' | 'let' = 'const',
   isExported: boolean = false
 ): void {
+  // Body-level destructure from `props` — e.g.
+  //   const { org, projectNumber } = props
+  // The standard collector below only handles plain identifier names. Without
+  // expanding the destructure here, downstream emit drops it entirely (the
+  // user's source destructure isn't preserved verbatim — emit-stage rebuilds
+  // declarations from `localConstants`). Expand into one `localConstants`
+  // entry per destructured name, valued `props.X`, so the late-stage
+  // props-object rename turns them into `const X = _p.X` in the init body.
+  if (
+    !_isModule &&
+    ts.isObjectBindingPattern(node.name) &&
+    node.initializer &&
+    ts.isIdentifier(node.initializer) &&
+    ctx.propsObjectName === node.initializer.text
+  ) {
+    const propsName = node.initializer.text
+    for (const el of node.name.elements) {
+      if (!ts.isBindingElement(el) || !ts.isIdentifier(el.name) || el.dotDotDotToken) continue
+      const localName = el.name.text
+      const sourceKey = el.propertyName && ts.isIdentifier(el.propertyName) ? el.propertyName.text : localName
+      const defaultValueExpr = el.initializer ? ctx.getJS(el.initializer) : undefined
+      const baseValue = `${propsName}.${sourceKey}`
+      const value = defaultValueExpr ? `${baseValue} ?? ${defaultValueExpr}` : baseValue
+      const containsArrow = el.initializer ? nodeContainsArrow(el.initializer) : false
+      const freeIdentifiers = el.initializer ? extractFreeIdentifiersFromNode(el.initializer) : new Set([propsName])
+      ctx.localConstants.push({
+        name: localName,
+        value,
+        declarationKind,
+        isExported,
+        type: null,
+        loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+        freeIdentifiers,
+        containsArrow: containsArrow || undefined,
+      })
+    }
+    return
+  }
+
   if (!ts.isIdentifier(node.name)) return
 
   // Skip if it's a signal, memo, captured effect disposer, or one of the
