@@ -8,6 +8,7 @@
  *   constant (bare):        <kw> <name>
  *   memo:                   const <name> = createMemo(<computationExpr>)
  *   function:               const <name> = (<paramList>) => <body>
+ *   async function:         const <name> = async (<paramList>) => <body>
  *
  *   signal (no setter):     const [<getter>] = createSignal(<initialValueExpr>)
  *   signal (with setter):   const [<getter>, <setter>] = createSignal(<initialValueExpr>)
@@ -81,5 +82,6 @@ function emitMemo(lines: string[], plan: MemoEmitPlan): void {
 }
 
 function emitFunction(lines: string[], plan: FunctionEmitPlan): void {
-  lines.push(`  const ${plan.name} = (${plan.paramList}) => ${plan.body}`)
+  const asyncKw = plan.isAsync ? 'async ' : ''
+  lines.push(`  const ${plan.name} = ${asyncKw}(${plan.paramList}) => ${plan.body}`)
 }

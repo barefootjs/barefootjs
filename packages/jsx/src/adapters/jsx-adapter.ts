@@ -165,7 +165,8 @@ export abstract class JsxAdapter extends BaseAdapter {
       const body = preserveTypes
         ? (func.typedBody ?? func.body)
         : func.body
-      lines.push(`  function ${func.name}(${params}) ${body}`)
+      const asyncKw = func.isAsync ? 'async ' : ''
+      lines.push(`  ${asyncKw}function ${func.name}(${params}) ${body}`)
     }
 
     return lines.join('\n')

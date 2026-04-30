@@ -61,6 +61,8 @@ export interface FunctionEmitPlan {
   paramList: string
   /** Arrow body — verbatim from the IR (block statement or expression). */
   body: string
+  /** When true, the lowered arrow keeps the `async` modifier (#1130). */
+  isAsync: boolean
 }
 
 export type DeclarationEmitPlan =

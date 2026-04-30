@@ -52,7 +52,8 @@ export function emitModuleLevelDeclarations(
   // cross-module use case arises.
   for (const fn of moduleLevelFunctions) {
     const paramStr = fn.params.map(p => p.name).join(', ')
-    lines.push(`var ${fn.name} = ${fn.name} ?? function(${paramStr}) ${fn.body}`)
+    const asyncKw = fn.isAsync ? 'async ' : ''
+    lines.push(`var ${fn.name} = ${fn.name} ?? ${asyncKw}function(${paramStr}) ${fn.body}`)
   }
   return lines.length > 0 ? lines.join('\n') + '\n' : ''
 }

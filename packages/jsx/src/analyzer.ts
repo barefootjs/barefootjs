@@ -1513,6 +1513,8 @@ function collectFunction(
     }
   }
 
+  const isAsync = node.modifiers?.some(m => m.kind === ts.SyntaxKind.AsyncKeyword) ?? false
+
   ctx.localFunctions.push({
     name,
     params,
@@ -1521,6 +1523,7 @@ function collectFunction(
     returnType,
     containsJsx,
     isExported,
+    isAsync: isAsync || undefined,
     isModule: _isModule || undefined,
     isJsxFunction: isJsxFunction || undefined,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
