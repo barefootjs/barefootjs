@@ -33,6 +33,21 @@ export function emitPropsExtraction(
 ): void {
   if (neededProps.size === 0) return
 
+  // Shadow guard: when a SolidJS-style component uses `(props)` and declares
+  // a signal / memo / local with the same name as a prop, the bare ref
+  // targets the local binding — emitting `const label = _p.label` would
+  // then collide with the user's `const [label] = createSignal(...)`. Skip
+  // those names; the local declaration the user wrote is what's wanted.
+  const shadowed = new Set<string>()
+  if (ctx.propsObjectName) {
+    for (const s of ctx.signals) {
+      shadowed.add(s.getter)
+      if (s.setter) shadowed.add(s.setter)
+    }
+    for (const m of ctx.memos) shadowed.add(m.name)
+    for (const c of ctx.localConstants) shadowed.add(c.name)
+  }
+
   // Props that guard a conditional branch must remain falsy when undefined,
   // so `{}` (truthy) is the wrong default for them — track and exclude.
   const propsUsedAsConditions = new Set<string>()
@@ -44,6 +59,7 @@ export function emitPropsExtraction(
   }
 
   for (const propName of neededProps) {
+    if (shadowed.has(propName)) continue
     const prop = ctx.propsParams.find(p => p.name === propName)
     const usage = propUsage.get(propName)
     const defaultVal = prop?.defaultValue

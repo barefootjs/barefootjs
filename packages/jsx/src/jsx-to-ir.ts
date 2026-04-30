@@ -122,13 +122,33 @@ function rewriteBarePropRefs(text: string, expr: ts.Node, ctx: TransformContext)
   // The bare `org` references inside JSX still need rewriting to `_p.org`
   // for the generated client template's standalone scope.
   //
-  // SolidJS-style usage (`props.org` everywhere, no destructured local
+  // Pure SolidJS-style usage (`props.org` everywhere, no destructured local
   // named `org`) is unaffected: rewriteBarePropRefsCore skips identifiers
   // appearing on the right side of property access, so `props.org` stays
   // intact even when `org` is in propNames.
+  //
+  // Shadow guard: a SolidJS-style component may declare a signal / memo /
+  // local const with the SAME name as a prop (e.g. `(props: { label?: string })`
+  // + `const [label, setLabel] = createSignal(props.label ?? '...')`). Those
+  // bare refs target the local binding, not the prop — exclude them from
+  // the rewrite set so the signal getter isn't turned into `_p.label`.
   if (ctx._destructuredPropNames === undefined) {
-    const names = ctx.analyzer.propsParams.map(p => p.name)
-    ctx._destructuredPropNames = names.length > 0 ? new Set(names) : null
+    if (ctx.analyzer.propsObjectName) {
+      const shadowed = new Set<string>()
+      for (const s of ctx.analyzer.signals) {
+        shadowed.add(s.getter)
+        if (s.setter) shadowed.add(s.setter)
+      }
+      for (const m of ctx.analyzer.memos) shadowed.add(m.name)
+      for (const c of ctx.analyzer.localConstants) shadowed.add(c.name)
+      const names = ctx.analyzer.propsParams
+        .map(p => p.name)
+        .filter(n => !shadowed.has(n))
+      ctx._destructuredPropNames = names.length > 0 ? new Set(names) : null
+    } else {
+      const names = ctx.analyzer.propsParams.map(p => p.name)
+      ctx._destructuredPropNames = names.length > 0 ? new Set(names) : null
+    }
   }
   if (!ctx._destructuredPropNames) return undefined
   return rewriteBarePropRefsCore(text, expr, ctx._destructuredPropNames)
