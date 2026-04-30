@@ -12,12 +12,9 @@
  *   - prop is optional with type info    → `?? <inferred default>`
  *   - otherwise                          → no default
  *
- * Emitted whenever `neededProps` is non-empty — i.e. the component body
- * actually references one or more bare prop names (via destructured arg
- * `({ org }: Props)` OR via destructuring inside the body
- * `const { org } = props`). Pure SolidJS-style components that always
- * read `props.X` don't add anything to `neededProps`, so the early-return
- * takes care of that case naturally without a `propsObjectName` check.
+ * Skipped entirely when the component uses an opaque props object name
+ * (`propsObjectName != null`) — in that case downstream code reads
+ * `_p.X` directly via the late-stage rename.
  */
 
 import type { PropUsage } from '../../types'
@@ -31,22 +28,7 @@ export function emitPropsExtraction(
   neededProps: Set<string>,
   propUsage: Map<string, PropUsage>,
 ): void {
-  if (neededProps.size === 0) return
-
-  // Shadow guard: when a SolidJS-style component uses `(props)` and declares
-  // a signal / memo / local with the same name as a prop, the bare ref
-  // targets the local binding — emitting `const label = _p.label` would
-  // then collide with the user's `const [label] = createSignal(...)`. Skip
-  // those names; the local declaration the user wrote is what's wanted.
-  const shadowed = new Set<string>()
-  if (ctx.propsObjectName) {
-    for (const s of ctx.signals) {
-      shadowed.add(s.getter)
-      if (s.setter) shadowed.add(s.setter)
-    }
-    for (const m of ctx.memos) shadowed.add(m.name)
-    for (const c of ctx.localConstants) shadowed.add(c.name)
-  }
+  if (neededProps.size === 0 || ctx.propsObjectName) return
 
   // Props that guard a conditional branch must remain falsy when undefined,
   // so `{}` (truthy) is the wrong default for them — track and exclude.
@@ -59,7 +41,6 @@ export function emitPropsExtraction(
   }
 
   for (const propName of neededProps) {
-    if (shadowed.has(propName)) continue
     const prop = ctx.propsParams.find(p => p.name === propName)
     const usage = propUsage.get(propName)
     const defaultVal = prop?.defaultValue

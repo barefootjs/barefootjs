@@ -133,22 +133,29 @@ function rewriteBarePropRefs(text: string, expr: ts.Node, ctx: TransformContext)
   // bare refs target the local binding, not the prop — exclude them from
   // the rewrite set so the signal getter isn't turned into `_p.label`.
   if (ctx._destructuredPropNames === undefined) {
+    const shadowed = new Set<string>()
     if (ctx.analyzer.propsObjectName) {
-      const shadowed = new Set<string>()
       for (const s of ctx.analyzer.signals) {
         shadowed.add(s.getter)
         if (s.setter) shadowed.add(s.setter)
       }
       for (const m of ctx.analyzer.memos) shadowed.add(m.name)
-      for (const c of ctx.analyzer.localConstants) shadowed.add(c.name)
-      const names = ctx.analyzer.propsParams
-        .map(p => p.name)
-        .filter(n => !shadowed.has(n))
-      ctx._destructuredPropNames = names.length > 0 ? new Set(names) : null
-    } else {
-      const names = ctx.analyzer.propsParams.map(p => p.name)
-      ctx._destructuredPropNames = names.length > 0 ? new Set(names) : null
+      for (const c of ctx.analyzer.localConstants) {
+        // A destructured-from-props local has value `<propsObjectName>.X` and
+        // should still be rewritten in templates (the JSX bare-name reference
+        // to the destructured local must reach `_p.X` in the template's
+        // standalone scope). Only skip locals whose value is something else.
+        const isDestructureFromProps =
+          typeof c.value === 'string' &&
+          (c.value === `${ctx.analyzer.propsObjectName}.${c.name}` ||
+            c.value.startsWith(`${ctx.analyzer.propsObjectName}.${c.name} ??`))
+        if (!isDestructureFromProps) shadowed.add(c.name)
+      }
     }
+    const names = ctx.analyzer.propsParams
+      .map(p => p.name)
+      .filter(n => !shadowed.has(n))
+    ctx._destructuredPropNames = names.length > 0 ? new Set(names) : null
   }
   if (!ctx._destructuredPropNames) return undefined
   return rewriteBarePropRefsCore(text, expr, ctx._destructuredPropNames)
