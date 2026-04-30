@@ -36,7 +36,8 @@ export function generateModuleExports(
   for (const func of ir.metadata.localFunctions) {
     if (!func.isExported) continue
     const params = func.params.map(formatParamWithType).join(', ')
-    lines.push(`export function ${func.name}(${params}) ${func.body}`)
+    const asyncKw = func.isAsync ? 'async ' : ''
+    lines.push(`export ${asyncKw}function ${func.name}(${params}) ${func.body}`)
   }
 
   const inlineExported = collectInlineExportedNames(ir)

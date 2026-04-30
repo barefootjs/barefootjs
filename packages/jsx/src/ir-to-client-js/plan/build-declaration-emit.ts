@@ -70,6 +70,7 @@ export function buildDeclarationEmitPlan(
         name: fn.name,
         paramList: fn.params.map(p => p.name).join(', '),
         body: fn.body,
+        isAsync: fn.isAsync ?? false,
       }
     }
   }

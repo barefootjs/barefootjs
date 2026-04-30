@@ -597,6 +597,8 @@ export interface FunctionInfo {
   returnType: TypeInfo | null
   containsJsx: boolean
   isExported?: boolean
+  /** When true, the source `function` declaration carries the `async` modifier (#1130). */
+  isAsync?: boolean
   /** When true, declared at module level (outside the component function). */
   isModule?: boolean
   /** When true, this function returns JSX and is inlined at call sites (#569). */
