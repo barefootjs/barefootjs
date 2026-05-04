@@ -40,7 +40,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -73,7 +73,7 @@ describe('plain nested loops without conditional wrapper', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'GroupedList.tsx', { adapter })
+    const result = compileJSX(source, 'GroupedList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -121,7 +121,7 @@ describe('plain nested loops without conditional wrapper', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'GroupedList.tsx', { adapter })
+    const result = compileJSX(source, 'GroupedList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -174,7 +174,7 @@ describe('plain nested loops without conditional wrapper', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'T.tsx', { adapter })
+    const result = compileJSX(source, 'T.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 
@@ -216,7 +216,7 @@ describe('plain nested loops without conditional wrapper', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'L.tsx', { adapter })
+    const result = compileJSX(source, 'L.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 
@@ -262,7 +262,7 @@ describe('plain nested loops without conditional wrapper', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'GridDemo.tsx', { adapter })
+    const result = compileJSX(source, 'GridDemo.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 
@@ -324,7 +324,7 @@ describe('plain nested loops without conditional wrapper', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'StaticGrid.tsx', { adapter })
+    const result = compileJSX(source, 'StaticGrid.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 
@@ -375,7 +375,7 @@ describe('plain nested loops without conditional wrapper', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'FlatList.tsx', { adapter })
+    const result = compileJSX(source, 'FlatList.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 
@@ -427,7 +427,7 @@ describe('plain nested loops without conditional wrapper', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'OuterPreambleGrid.tsx', { adapter })
+    const result = compileJSX(source, 'OuterPreambleGrid.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 
@@ -476,7 +476,7 @@ describe('plain nested loops without conditional wrapper', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'MixedGrid.tsx', { adapter })
+    const result = compileJSX(source, 'MixedGrid.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 

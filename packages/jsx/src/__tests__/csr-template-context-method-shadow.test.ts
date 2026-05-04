@@ -15,7 +15,7 @@
  * `inlinableConstants` already does at the call site in html-template.ts.
  */
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { HonoAdapter } from '../../../adapter-hono/src/adapter/hono-adapter'
 
 const onlyErrors = (errors: { severity?: string }[]) =>
@@ -119,7 +119,7 @@ describe('CSR template: shadowed ctx.<method>() (#1100)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Bar.tsx', { adapter: new HonoAdapter() })
+    const result = compileJSX(source, 'Bar.tsx', { adapter: new HonoAdapter() })
     expect(onlyErrors(result.errors)).toHaveLength(0)
 
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -150,7 +150,7 @@ describe('CSR template: shadowed ctx.<method>() (#1100)', () => {
         return <div>{ctx.count()} / {count()}</div>
       }
     `
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter: new HonoAdapter() })
+    const result = compileJSX(source, 'Counter.tsx', { adapter: new HonoAdapter() })
     expect(onlyErrors(result.errors)).toHaveLength(0)
 
     const clientJs = result.files.find((f) => f.type === 'clientJs')

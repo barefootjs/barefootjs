@@ -507,7 +507,7 @@ Each example's `playwright.config.ts` configures the webServer command, port, an
 
 ```typescript
 // ❌ Couples compiler test to adapter output format
-const result = compileJSXSync(source, { adapter: new HonoAdapter() })
+const result = compileJSX(source, { adapter: new HonoAdapter() })
 expect(result.files[0].content).toContain('<button onclick={handleClick}>')
 
 // ✅ Test IR structure instead (adapter-independent)

@@ -10,7 +10,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -30,7 +30,7 @@ describe('Component-body top-level imperative statements (#930, bug-2)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Badge.tsx', { adapter })
+    const result = compileJSX(source, 'Badge.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -57,7 +57,7 @@ describe('Component-body top-level imperative statements (#930, bug-2)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Widget.tsx', { adapter })
+    const result = compileJSX(source, 'Widget.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
@@ -84,7 +84,7 @@ describe('Component-body top-level imperative statements (#930, bug-2)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Live.tsx', { adapter })
+    const result = compileJSX(source, 'Live.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
@@ -109,7 +109,7 @@ describe('Component-body top-level imperative statements (#930, bug-2)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Logger.tsx', { adapter })
+    const result = compileJSX(source, 'Logger.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
@@ -132,7 +132,7 @@ describe('Component-body top-level imperative statements (#930, bug-2)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Safe.tsx', { adapter })
+    const result = compileJSX(source, 'Safe.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
@@ -161,7 +161,7 @@ describe('Init statements referencing module-scope declarations (#933)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Scoped.tsx', { adapter })
+    const result = compileJSX(source, 'Scoped.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
@@ -191,7 +191,7 @@ describe('Init statements referencing module-scope declarations (#933)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Persisted.tsx', { adapter })
+    const result = compileJSX(source, 'Persisted.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
@@ -215,7 +215,7 @@ describe('Init statements referencing module-scope declarations (#933)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Local.tsx', { adapter })
+    const result = compileJSX(source, 'Local.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
@@ -236,7 +236,7 @@ describe('Init statements referencing module-scope declarations (#933)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Broken.tsx', { adapter })
+    const result = compileJSX(source, 'Broken.tsx', { adapter })
     const bf052 = result.errors.find(e => e.code === 'BF052')
     expect(bf052).toBeDefined()
     expect(bf052!.severity).toBe('error')

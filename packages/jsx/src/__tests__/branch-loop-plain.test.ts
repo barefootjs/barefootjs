@@ -17,7 +17,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -49,7 +49,7 @@ describe('plain `.map()` inside a conditional branch (#1065)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'CondList.tsx', { adapter })
+    const result = compileJSX(source, 'CondList.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 
@@ -96,7 +96,7 @@ describe('plain `.map()` inside a conditional branch (#1065)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'CondListD.tsx', { adapter })
+    const result = compileJSX(source, 'CondListD.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 
@@ -151,7 +151,7 @@ describe('plain `.map()` inside a conditional branch (#1065)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'CondListSL.tsx', { adapter })
+    const result = compileJSX(source, 'CondListSL.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 
@@ -202,7 +202,7 @@ describe('plain `.map()` inside a conditional branch (#1065)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'CondListSLD.tsx', { adapter })
+    const result = compileJSX(source, 'CondListSLD.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
 

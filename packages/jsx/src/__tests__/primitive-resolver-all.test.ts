@@ -12,7 +12,7 @@ import { describe, test, expect } from 'bun:test'
 import path from 'path'
 import ts from 'typescript'
 import { analyzeComponent } from '../index'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const CLIENT_DIR = path.resolve(__dirname, '../../../client/src')
@@ -129,7 +129,7 @@ describe('createEffect — resolver migration', () => {
         return <button onClick={() => dispose()}>{n()}</button>
       }
     `
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter: new TestAdapter() })
+    const result = compileJSX(source, 'Counter.tsx', { adapter: new TestAdapter() })
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
     expect(clientJs).toBeDefined()

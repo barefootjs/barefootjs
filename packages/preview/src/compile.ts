@@ -91,9 +91,7 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
     const sourceContent = await Bun.file(entryPath).text()
     if (!hasUseClientDirective(sourceContent)) continue
 
-    const result = await compileJSX(entryPath, async (path) => {
-      return await Bun.file(path).text()
-    }, { adapter })
+    const result = compileJSX(sourceContent, entryPath, { adapter })
 
     const errors = result.errors.filter(e => e.severity === 'error')
     const warnings = result.errors.filter(e => e.severity === 'warning')

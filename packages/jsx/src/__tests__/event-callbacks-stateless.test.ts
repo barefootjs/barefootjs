@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
 import { analyzeClientNeeds } from '../ir-to-client-js'
@@ -21,7 +21,7 @@ describe('event callbacks on stateless components', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'SortHeader.tsx', { adapter })
+    const result = compileJSX(source, 'SortHeader.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -36,7 +36,7 @@ describe('event callbacks on stateless components', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'LogButton.tsx', { adapter })
+    const result = compileJSX(source, 'LogButton.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -96,7 +96,7 @@ describe('event callbacks on stateless components', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'StaticLabel.tsx', { adapter })
+    const result = compileJSX(source, 'StaticLabel.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -119,7 +119,7 @@ describe('event callbacks on stateless components', () => {
     // This should produce errors because signals require "use client"
     // The compiler itself doesn't throw, but the adapter will
     expect(() => {
-      compileJSXSync(source, 'Counter.tsx', { adapter })
+      compileJSX(source, 'Counter.tsx', { adapter })
     }).not.toThrow()
 
     // Verify the analyzer detects the issue
@@ -141,7 +141,7 @@ describe('event callbacks on stateless components', () => {
     `
 
     const honoAdapter = new HonoAdapter()
-    const result = compileJSXSync(source, 'SortHeader.tsx', { adapter: honoAdapter })
+    const result = compileJSX(source, 'SortHeader.tsx', { adapter: honoAdapter })
     expect(result.errors).toHaveLength(0)
 
     // Should produce client JS
@@ -166,7 +166,7 @@ describe('event callbacks on stateless components', () => {
 
     const honoAdapter = new HonoAdapter()
     expect(() => {
-      compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      compileJSX(source, 'Counter.tsx', { adapter: honoAdapter })
     }).toThrow(/reactive primitives/)
   })
 })

@@ -21,13 +21,13 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { computeFileScope } from '../ir-to-client-js/component-scope'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
 
-function clientJs(result: ReturnType<typeof compileJSXSync>): string {
+function clientJs(result: ReturnType<typeof compileJSX>): string {
   const file = result.files.find((f) => f.type === 'clientJs')
   if (!file) throw new Error('expected clientJs output')
   return file.content
@@ -69,8 +69,8 @@ const iconLibrarySource = `
 
 describe('component-scope: file-scoped registry keys for non-exported helpers', () => {
   test('non-exported helpers in two files register under distinct hydrate keys', () => {
-    const themeJs = clientJs(compileJSXSync(themeSwitcherSource, 'site/shared/components/theme-switcher.tsx', { adapter }))
-    const iconJs = clientJs(compileJSXSync(iconLibrarySource, 'ui/components/ui/icon/index.tsx', { adapter }))
+    const themeJs = clientJs(compileJSX(themeSwitcherSource, 'site/shared/components/theme-switcher.tsx', { adapter }))
+    const iconJs = clientJs(compileJSX(iconLibrarySource, 'ui/components/ui/icon/index.tsx', { adapter }))
 
     // Theme switcher's local SunIcon is private — must NOT register the
     // bare name (which would race with the icon library's export).
@@ -86,13 +86,13 @@ describe('component-scope: file-scoped registry keys for non-exported helpers', 
   })
 
   test('exported main component is not scoped even when it has non-exported siblings', () => {
-    const themeJs = clientJs(compileJSXSync(themeSwitcherSource, 'site/shared/components/theme-switcher.tsx', { adapter }))
+    const themeJs = clientJs(compileJSX(themeSwitcherSource, 'site/shared/components/theme-switcher.tsx', { adapter }))
     expect(themeJs).toMatch(/hydrate\('ThemeSwitcher',/)
     expect(themeJs).not.toMatch(/hydrate\('ThemeSwitcher__/)
   })
 
   test('within one file, hydrate / renderChild / initChild use the same scoped key', () => {
-    const themeJs = clientJs(compileJSXSync(themeSwitcherSource, 'site/shared/components/theme-switcher.tsx', { adapter }))
+    const themeJs = clientJs(compileJSX(themeSwitcherSource, 'site/shared/components/theme-switcher.tsx', { adapter }))
 
     // Pull the suffix from the hydrate registration so the assertion
     // fails loudly if the rewrite ever drifts between emit points.

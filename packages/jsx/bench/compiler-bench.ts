@@ -33,7 +33,7 @@ import ts from 'typescript'
 import { resolve, relative, dirname } from 'path'
 import { readdir, stat } from 'fs/promises'
 import {
-  compileJSXSync,
+  compileJSX,
   createProgramForFile,
   enableCompilerInstrumentation,
   disableCompilerInstrumentation,
@@ -149,7 +149,7 @@ async function runMode(mode: Mode, files: string[], top: number): Promise<void> 
       } else if (mode === 'shared') {
         program = sharedProgram
       }
-      const result = compileJSXSync(source, filePath, { adapter, program })
+      const result = compileJSX(source, filePath, { adapter, program })
       errors = result.errors.filter((e) => e.severity === 'error').length
     } catch (e) {
       errors = 1

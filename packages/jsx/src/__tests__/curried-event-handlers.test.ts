@@ -12,7 +12,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -46,7 +46,7 @@ describe('curried event handlers in mapArray (#837)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'DragList.tsx', { adapter })
+    const result = compileJSX(source, 'DragList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -82,7 +82,7 @@ describe('curried event handlers in mapArray (#837)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'App.tsx', { adapter })
+    const result = compileJSX(source, 'App.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -127,7 +127,7 @@ describe('curried event handlers in mapArray (#837)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'NestedDragList.tsx', { adapter })
+    const result = compileJSX(source, 'NestedDragList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

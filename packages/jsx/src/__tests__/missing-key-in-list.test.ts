@@ -10,14 +10,14 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 import { ErrorCodes } from '../errors'
 
 const adapter = new TestAdapter()
 
 function compile(source: string, filename = 'Test.tsx') {
-  return compileJSXSync(source, filename, { adapter })
+  return compileJSX(source, filename, { adapter })
 }
 
 function errorsFor(code: string, source: string) {

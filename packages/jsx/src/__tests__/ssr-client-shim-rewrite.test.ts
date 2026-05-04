@@ -8,7 +8,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 import { HonoAdapter } from '../../../../packages/adapter-hono/src/adapter/hono-adapter'
 
@@ -32,7 +32,7 @@ describe('SSR client-shim rewrite (#1084)', () => {
         return <g class="chart-grid">{lines().map((l) => <line key={l.y} y1={l.y} y2={l.y} />)}</g>
       }
     `
-    const result = compileJSXSync(source, 'CartesianGrid.tsx', { adapter: new HonoAdapter() })
+    const result = compileJSX(source, 'CartesianGrid.tsx', { adapter: new HonoAdapter() })
     expect(onlyErrors(result.errors)).toHaveLength(0)
 
     const tpl = result.files.find(f => f.type === 'markedTemplate')!
@@ -58,7 +58,7 @@ describe('SSR client-shim rewrite (#1084)', () => {
     const adapter = new TestAdapter()
     expect((adapter as { clientShimSource?: string }).clientShimSource).toBeUndefined()
 
-    const result = compileJSXSync(source, 'Box.tsx', { adapter })
+    const result = compileJSX(source, 'Box.tsx', { adapter })
     expect(onlyErrors(result.errors)).toHaveLength(0)
 
     const tpl = result.files.find(f => f.type === 'markedTemplate')!
@@ -80,7 +80,7 @@ describe('SSR client-shim rewrite (#1084)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Tabs.tsx', { adapter: new HonoAdapter() })
+    const result = compileJSX(source, 'Tabs.tsx', { adapter: new HonoAdapter() })
     expect(onlyErrors(result.errors)).toHaveLength(0)
 
     const tpl = result.files.find(f => f.type === 'markedTemplate')!
@@ -107,7 +107,7 @@ describe('SSR client-shim rewrite (#1084)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Outer.tsx', { adapter: new HonoAdapter() })
+    const result = compileJSX(source, 'Outer.tsx', { adapter: new HonoAdapter() })
     expect(onlyErrors(result.errors)).toHaveLength(0)
 
     const tpl = result.files.find(f => f.type === 'markedTemplate')!

@@ -8,7 +8,7 @@
 import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 import type { IRExpression, IRConditional } from '../types'
 
@@ -225,7 +225,7 @@ describe('ClientJS generation with semantic prop refs', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Dialog.tsx', { adapter })
+    const result = compileJSX(source, 'Dialog.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 
@@ -251,7 +251,7 @@ describe('ClientJS generation with semantic prop refs', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Dialog.tsx', { adapter })
+    const result = compileJSX(source, 'Dialog.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -275,7 +275,7 @@ describe('ClientJS generation with semantic prop refs', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Dialog.tsx', { adapter })
+    const result = compileJSX(source, 'Dialog.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 
@@ -300,7 +300,7 @@ describe('ClientJS generation with semantic prop refs', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Dialog.tsx', { adapter })
+    const result = compileJSX(source, 'Dialog.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 
@@ -326,7 +326,7 @@ describe('Issue #257 regression', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'CommandDisplay.tsx', { adapter })
+    const result = compileJSX(source, 'CommandDisplay.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -356,7 +356,7 @@ describe('Issue #807 regression', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Example.tsx', { adapter })
+    const result = compileJSX(source, 'Example.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -385,7 +385,7 @@ describe('Issue #807 regression', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Example.tsx', { adapter })
+    const result = compileJSX(source, 'Example.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -415,7 +415,7 @@ describe('Issue #807 regression', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Example.tsx', { adapter })
+    const result = compileJSX(source, 'Example.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -439,7 +439,7 @@ describe('Issue #807 regression', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Separator.tsx', { adapter })
+    const result = compileJSX(source, 'Separator.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')

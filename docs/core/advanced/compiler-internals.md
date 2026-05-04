@@ -40,7 +40,7 @@ description: How the BarefootJS compiler transforms JSX into marked templates an
 compileJSX(entryPath: string, readFile: ReadFileFn, options: CompileOptions): Promise<CompileResult>
 
 // Sync — source string input
-compileJSXSync(source: string, filePath: string, options: CompileOptions): CompileResult
+compileJSX(source: string, filePath: string, options: CompileOptions): CompileResult
 ```
 
 Both support multi-component files.
@@ -319,7 +319,7 @@ export function IconButton(props: IconButtonProps) { ... }
 ### View the IR
 
 ```typescript
-const result = compileJSXSync(source, 'file.tsx', { adapter })
+const result = compileJSX(source, 'file.tsx', { adapter })
 console.log(JSON.stringify(result.ir, null, 2))
 ```
 

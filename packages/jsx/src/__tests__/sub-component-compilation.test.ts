@@ -7,7 +7,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { listComponentFunctions } from '../analyzer'
 import { TestAdapter } from '../adapters/test-adapter'
 import { HonoAdapter } from '../../../../packages/adapter-hono/src/adapter/hono-adapter'
@@ -56,7 +56,7 @@ describe('sub-component compilation (#786)', () => {
     })
 
     test('client JS has no raw jsxDEV calls', () => {
-      const result = compileJSXSync(source, 'ItemList.tsx', { adapter })
+      const result = compileJSX(source, 'ItemList.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -69,7 +69,7 @@ describe('sub-component compilation (#786)', () => {
 
     test('non-exported component should not have export keyword in Hono template', () => {
       const honoAdapter = new HonoAdapter()
-      const result = compileJSXSync(source, 'ItemList.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'ItemList.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')
@@ -83,7 +83,7 @@ describe('sub-component compilation (#786)', () => {
     })
 
     test('non-exported component should not have export keyword in test template', () => {
-      const result = compileJSXSync(source, 'ItemList.tsx', { adapter })
+      const result = compileJSX(source, 'ItemList.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')
@@ -124,7 +124,7 @@ describe('sub-component compilation (#786)', () => {
     })
 
     test('client JS has no raw jsxDEV calls', () => {
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -159,7 +159,7 @@ describe('sub-component compilation (#786)', () => {
     `
 
     test('client JS has no raw jsxDEV calls', () => {
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -195,7 +195,7 @@ describe('sub-component compilation (#786)', () => {
     `
 
     test('compiles without errors', () => {
-      const result = compileJSXSync(source, 'StatusDisplay.tsx', { adapter })
+      const result = compileJSX(source, 'StatusDisplay.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -231,7 +231,7 @@ describe('sub-component compilation (#786)', () => {
 
     test('re-exported components have export keyword, non-exported do not', () => {
       const honoAdapter = new HonoAdapter()
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter: honoAdapter })
 
       const template = result.files.find(f => f.type === 'markedTemplate')
       expect(template).toBeDefined()

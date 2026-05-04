@@ -20,13 +20,13 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
 
 function getClientJs(source: string, filename: string): string {
-  const result = compileJSXSync(source, filename, { adapter })
+  const result = compileJSX(source, filename, { adapter })
   expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
   const clientJs = result.files.find(f => f.type === 'clientJs')
   expect(clientJs).toBeDefined()

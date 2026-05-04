@@ -1,10 +1,10 @@
 /**
  * Shared helpers for staged-IR fixture tests. Centralizes the
- * `compileJSXSync` + adapter setup and the assertions about emitted
+ * `compileJSX` + adapter setup and the assertions about emitted
  * artifact shapes (template body extraction, init body extraction).
  */
 
-import { compileJSXSync } from '../../compiler'
+import { compileJSX } from '../../compiler'
 import { TestAdapter } from '../../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -17,7 +17,7 @@ export interface CompileResult {
 }
 
 export function compile(source: string, fileName = 'Component.tsx'): CompileResult {
-  const result = compileJSXSync(source, fileName, { adapter })
+  const result = compileJSX(source, fileName, { adapter })
   const clientJs = result.files.find((f) => f.type === 'clientJs')?.content ?? ''
   return {
     clientJs,

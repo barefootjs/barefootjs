@@ -5,7 +5,7 @@
 import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -111,7 +111,7 @@ describe('Context.Provider JSX', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'DropdownMenu.tsx', { adapter })
+    const result = compileJSX(source, 'DropdownMenu.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!
@@ -224,7 +224,7 @@ describe('Context.Provider JSX', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Dialog.tsx', { adapter })
+    const result = compileJSX(source, 'Dialog.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!
@@ -253,7 +253,7 @@ describe('Context.Provider JSX', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Root.tsx', { adapter })
+    const result = compileJSX(source, 'Root.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!
@@ -283,7 +283,7 @@ describe('Context.Provider JSX', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Tabs.tsx', { adapter })
+    const result = compileJSX(source, 'Tabs.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!

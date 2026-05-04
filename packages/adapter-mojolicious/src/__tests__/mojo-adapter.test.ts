@@ -8,7 +8,7 @@ import { describe, test, expect } from 'bun:test'
 import { MojoAdapter } from '../adapter/mojo-adapter'
 import { runJSXConformanceTests } from '@barefootjs/adapter-tests'
 import { renderMojoComponent, PerlNotAvailableError } from '../test-render'
-import { compileJSXSync, type ComponentIR } from '@barefootjs/jsx'
+import { compileJSX, type ComponentIR } from '@barefootjs/jsx'
 
 // =============================================================================
 // JSX-Based Conformance Tests
@@ -54,7 +54,7 @@ runJSXConformanceTests({
 // =============================================================================
 
 function compileToIR(source: string, adapter?: MojoAdapter): ComponentIR {
-  const result = compileJSXSync(source.trimStart(), 'test.tsx', {
+  const result = compileJSX(source.trimStart(), 'test.tsx', {
     adapter: adapter ?? new MojoAdapter(),
     outputIR: true,
   })

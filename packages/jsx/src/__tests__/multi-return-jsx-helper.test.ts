@@ -12,7 +12,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -38,7 +38,7 @@ describe('Multi-return JSX helper preservation (#932)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Shell.tsx', { adapter })
+    const result = compileJSX(source, 'Shell.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')
@@ -67,7 +67,7 @@ describe('Multi-return JSX helper preservation (#932)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Panel.tsx', { adapter })
+    const result = compileJSX(source, 'Panel.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')!.content
@@ -88,7 +88,7 @@ describe('Multi-return JSX helper preservation (#932)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Host.tsx', { adapter })
+    const result = compileJSX(source, 'Host.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')!.content
@@ -113,7 +113,7 @@ describe('Multi-return JSX helper preservation (#932)', () => {
         return <button onClick={() => setOpen(!open())}>toggle</button>
       }
     `
-    const result = compileJSXSync(source, 'Toggle.tsx', { adapter })
+    const result = compileJSX(source, 'Toggle.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const clientJs = result.files.find(f => f.type === 'clientJs')
     expect(clientJs).toBeDefined()
@@ -132,7 +132,7 @@ describe('Multi-return JSX helper preservation (#932)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Lister.tsx', { adapter })
+    const result = compileJSX(source, 'Lister.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')!.content
@@ -158,7 +158,7 @@ describe('Multi-return JSX helper preservation (#932)', () => {
 
       export { ButtonGroupText }
     `
-    const result = compileJSXSync(source, 'button-group.tsx', { adapter })
+    const result = compileJSX(source, 'button-group.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')
     expect(markedTemplate).toBeDefined()
@@ -174,7 +174,7 @@ describe('Multi-return JSX helper preservation (#932)', () => {
         return <div>{children}</div>
       }
     `
-    const result = compileJSXSync(source, 'button-group.tsx', { adapter })
+    const result = compileJSX(source, 'button-group.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')
     expect(markedTemplate).toBeDefined()

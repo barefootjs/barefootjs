@@ -8,7 +8,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -40,7 +40,7 @@ describe('event delegation depth ordering (#774)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Table.tsx', { adapter })
+    const result = compileJSX(source, 'Table.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -81,7 +81,7 @@ describe('event delegation depth ordering (#774)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

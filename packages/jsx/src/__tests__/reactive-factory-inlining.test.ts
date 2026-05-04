@@ -12,7 +12,7 @@
 
 import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -41,7 +41,7 @@ describe('Reactive factory inlining (#931)', () => {
     expect(ctx.signals[0].getter).toBe('count')
     expect(ctx.signals[0].setter).toBe('setCount')
 
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const clientJs = result.files.find(f => f.type === 'clientJs')
     expect(clientJs).toBeDefined()
@@ -75,7 +75,7 @@ describe('Reactive factory inlining (#931)', () => {
     expect(ctx.signals.length).toBe(1)
     expect(ctx.signals[0].getter).toBe('value')
 
-    const result = compileJSXSync(source, 'Store.tsx', { adapter })
+    const result = compileJSX(source, 'Store.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
     // The body's custom setter should be emitted as a regular constant
@@ -106,7 +106,7 @@ describe('Reactive factory inlining (#931)', () => {
     const getters = ctx.signals.map(s => s.getter).sort()
     expect(getters).toEqual(['a', 'b'])
 
-    const result = compileJSXSync(source, 'Pair.tsx', { adapter })
+    const result = compileJSX(source, 'Pair.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
     // Both destructures should resolve to independent signals.
@@ -129,7 +129,7 @@ describe('Reactive factory inlining (#931)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
     // The argument expression must flow into the createSignal call.
@@ -148,7 +148,7 @@ describe('Reactive factory inlining (#931)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Gadget.tsx', { adapter })
+    const result = compileJSX(source, 'Gadget.tsx', { adapter })
     const bf110 = result.errors.find(e => e.code === 'BF110')
     expect(bf110).toBeDefined()
     expect(bf110!.message).toContain('useExternal')
@@ -170,7 +170,7 @@ describe('Reactive factory inlining (#931)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     const bf110 = result.errors.find(e => e.code === 'BF110')
     expect(bf110).toBeUndefined()
   })
@@ -187,7 +187,7 @@ describe('Reactive factory inlining (#931)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Comp.tsx', { adapter })
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const bf110 = result.errors.find(e => e.code === 'BF110')
     expect(bf110).toBeUndefined()

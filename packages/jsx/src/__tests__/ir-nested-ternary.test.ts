@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -15,7 +15,7 @@ describe('nested ternary (#495)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'StatusBadge.tsx', { adapter })
+    const result = compileJSX(source, 'StatusBadge.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -36,7 +36,7 @@ describe('nested ternary (#495)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'DeepTernary.tsx', { adapter })
+    const result = compileJSX(source, 'DeepTernary.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -54,7 +54,7 @@ describe('nested ternary (#495)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'StaticNested.tsx', { adapter })
+    const result = compileJSX(source, 'StaticNested.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     // Stateless components produce JSX templates — verify template is generated
@@ -76,7 +76,7 @@ describe('nested ternary (#495)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'AndInBranch.tsx', { adapter })
+    const result = compileJSX(source, 'AndInBranch.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

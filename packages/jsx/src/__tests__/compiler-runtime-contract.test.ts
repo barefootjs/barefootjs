@@ -7,12 +7,12 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '..'
+import { compileJSX } from '..'
 import { HonoAdapter } from '../../../adapter-hono/src/adapter/hono-adapter'
 
 const adapter = new HonoAdapter()
 function compileClient(source: string, filename = 'Test.tsx') {
-  const result = compileJSXSync(source, filename, { adapter })
+  const result = compileJSX(source, filename, { adapter })
   return result.files.find(f => f.type === 'clientJs')?.content ?? ''
 }
 
@@ -198,7 +198,7 @@ describe('Compiler-Runtime Contract', () => {
     })
 
     test('key in HTML template uses data-key attribute name', () => {
-      const result = compileJSXSync(`
+      const result = compileJSX(`
         "use client"
         import { createSignal } from '@barefootjs/client'
         export function Test() {

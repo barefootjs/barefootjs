@@ -9,14 +9,14 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 import type { IRNode, IRElement, IRTemplateLiteral } from '../types'
 
 const adapter = new TestAdapter()
 
 function compileToIR(source: string) {
-  const result = compileJSXSync(source, 'demo.tsx', { adapter, outputIR: true })
+  const result = compileJSX(source, 'demo.tsx', { adapter, outputIR: true })
   expect(result.errors.filter(e => e.severity === 'error')).toEqual([])
   const ir = result.files.find(f => f.type === 'ir')!
   return JSON.parse(ir.content)

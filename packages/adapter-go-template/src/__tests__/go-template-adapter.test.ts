@@ -8,7 +8,7 @@ import { describe, test, expect } from 'bun:test'
 import { GoTemplateAdapter } from '../adapter/go-template-adapter'
 import { runJSXConformanceTests } from '@barefootjs/adapter-tests'
 import { renderGoTemplateComponent, GoNotAvailableError } from '@barefootjs/go-template/test-render'
-import { compileJSXSync, type ComponentIR } from '@barefootjs/jsx'
+import { compileJSX, type ComponentIR } from '@barefootjs/jsx'
 
 // =============================================================================
 // JSX-Based Conformance Tests
@@ -60,7 +60,7 @@ runJSXConformanceTests({
  * Compile JSX source to ComponentIR using the GoTemplateAdapter.
  */
 function compileToIR(source: string, adapter?: GoTemplateAdapter): ComponentIR {
-  const result = compileJSXSync(source.trimStart(), 'test.tsx', {
+  const result = compileJSX(source.trimStart(), 'test.tsx', {
     adapter: adapter ?? new GoTemplateAdapter(),
     outputIR: true,
   })

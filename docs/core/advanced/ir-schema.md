@@ -50,9 +50,9 @@ Defined in [`packages/jsx/src/types.ts`](../../../packages/jsx/src/types.ts):
 Pass `outputIR: true` to inspect the IR:
 
 ```typescript
-import { compileJSXSync } from '@barefootjs/jsx'
+import { compileJSX } from '@barefootjs/jsx'
 
-const result = compileJSXSync(source, 'Counter.tsx', {
+const result = compileJSX(source, 'Counter.tsx', {
   adapter: new HonoAdapter(),
   outputIR: true,
 })
