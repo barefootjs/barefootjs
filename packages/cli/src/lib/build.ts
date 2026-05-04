@@ -1223,7 +1223,14 @@ async function compileEntry(args: CompileEntryArgs): Promise<CompileEntryOutcome
   const result = compileJSX(
     sourceContent,
     entryPath,
-    { adapter: config.adapter, program: sharedProgram },
+    {
+      adapter: config.adapter,
+      program: sharedProgram,
+      // Match the on-disk client bundle filename so adapters that
+      // bake the URL at codegen time (e.g. go-template's
+      // `Scripts.Register`) point at the file we actually emit.
+      scriptBaseName: baseNameNoExt,
+    },
   )
 
   const errors = result.errors.filter(e => e.severity === 'error')

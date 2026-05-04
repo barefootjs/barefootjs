@@ -184,7 +184,15 @@ function compileMultipleComponents(
   try {
 
   for (const { componentIR } of entries) {
-    const scriptBaseName = !componentIR.metadata.hasDefaultExport && defaultExportName ? defaultExportName : undefined
+    // Non-default exports share the parent's .client.js, so they
+    // route to the default export's script name. The pipeline's
+    // path-based override (`options.scriptBaseName`) takes
+    // precedence when set — it captures the on-disk filename
+    // (e.g. `ui/button/index`) which the default-export name
+    // (`Button`) doesn't.
+    const scriptBaseName =
+      options.scriptBaseName ??
+      (!componentIR.metadata.hasDefaultExport && defaultExportName ? defaultExportName : undefined)
     const adapterOutput = adapter.generate(componentIR, { scriptBaseName })
     const moduleExports = generateModuleExports(componentIR, fileWideInlineExported)
 
@@ -526,7 +534,7 @@ export function compileJSX(
   }
 
   const adapter = options.adapter
-  const adapterOutput = adapter.generate(componentIR)
+  const adapterOutput = adapter.generate(componentIR, { scriptBaseName: options.scriptBaseName })
   const moduleExports = generateModuleExports(componentIR)
 
   // Use structured sections if available, otherwise fall back to template
