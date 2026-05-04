@@ -22,7 +22,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -51,7 +51,7 @@ describe('event delegation must not shadow user loop params (#135)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Graph.tsx', { adapter })
+    const result = compileJSX(source, 'Graph.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -89,7 +89,7 @@ describe('event delegation must not shadow user loop params (#135)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Graph.tsx', { adapter })
+    const result = compileJSX(source, 'Graph.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

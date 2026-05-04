@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 import { isBooleanAttr, BOOLEAN_ATTRS } from '../html-constants'
 
@@ -54,7 +54,7 @@ describe('boolean attributes', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Checkbox.tsx', { adapter })
+    const result = compileJSX(source, 'Checkbox.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 
@@ -78,7 +78,7 @@ describe('boolean attributes', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Button.tsx', { adapter })
+    const result = compileJSX(source, 'Button.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 
@@ -100,7 +100,7 @@ describe('boolean attributes', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Button.tsx', { adapter })
+    const result = compileJSX(source, 'Button.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 
@@ -128,7 +128,7 @@ describe('boolean attributes', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Dialog.tsx', { adapter })
+    const result = compileJSX(source, 'Dialog.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 

@@ -15,7 +15,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -27,7 +27,7 @@ describe('SVG attribute kebab-case emission (#135)', () => {
         return <path d="M0 0" strokeWidth={1.5} fillOpacity={0.5} markerEnd="url(#a)" textAnchor="middle" />
       }
     `
-    const result = compileJSXSync(source, 'Edge.tsx', { adapter })
+    const result = compileJSX(source, 'Edge.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -56,7 +56,7 @@ describe('SVG attribute kebab-case emission (#135)', () => {
         return <path d="M0 0" strokeWidth={width()} />
       }
     `
-    const result = compileJSXSync(source, 'Edge.tsx', { adapter })
+    const result = compileJSX(source, 'Edge.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -73,7 +73,7 @@ describe('SVG attribute kebab-case emission (#135)', () => {
         return <div className="foo" />
       }
     `
-    const result = compileJSXSync(source, 'Box.tsx', { adapter })
+    const result = compileJSX(source, 'Box.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -92,7 +92,7 @@ describe('SVG attribute kebab-case emission (#135)', () => {
         return <button tabIndex={0} autoFocus={true}>x</button>
       }
     `
-    const result = compileJSXSync(source, 'Btn.tsx', { adapter })
+    const result = compileJSX(source, 'Btn.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

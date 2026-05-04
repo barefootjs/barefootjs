@@ -5,7 +5,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { analyzeComponent } from '../analyzer'
 import { TestAdapter } from '../adapters/test-adapter'
 import { HonoAdapter } from '../../../../packages/adapter-hono/src/adapter/hono-adapter'
@@ -13,7 +13,7 @@ import { HonoAdapter } from '../../../../packages/adapter-hono/src/adapter/hono-
 const adapter = new TestAdapter()
 
 describe('Client JS generation', () => {
-  describe('compileJSXSync', () => {
+  describe('compileJSX', () => {
     test('compiles simple component', () => {
       const source = `
         'use client'
@@ -29,7 +29,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
       expect(result.files).toHaveLength(2) // markedJsx + clientJs
@@ -57,7 +57,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Button.tsx', { adapter })
+      const result = compileJSX(source, 'Button.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -91,7 +91,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'CommandDisplay.tsx', { adapter })
+      const result = compileJSX(source, 'CommandDisplay.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -110,7 +110,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'App.tsx', { adapter, outputIR: true })
+      const result = compileJSX(source, 'App.tsx', { adapter, outputIR: true })
 
       const ir = result.files.find(f => f.type === 'ir')
       expect(ir).toBeDefined()
@@ -137,7 +137,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'AccordionItem.tsx', { adapter })
+      const result = compileJSX(source, 'AccordionItem.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -166,7 +166,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      const result = compileJSX(source, 'List.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -194,7 +194,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      const result = compileJSX(source, 'List.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -228,7 +228,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Icon.tsx', { adapter })
+      const result = compileJSX(source, 'Icon.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -254,7 +254,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Calculator.tsx', { adapter })
+      const result = compileJSX(source, 'Calculator.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -290,7 +290,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'PageNav.tsx', { adapter })
+      const result = compileJSX(source, 'PageNav.tsx', { adapter })
       const errors = result.errors.filter(e => e.severity === 'error')
 
       expect(errors).toHaveLength(0)
@@ -331,7 +331,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'NavButton.tsx', { adapter })
+      const result = compileJSX(source, 'NavButton.tsx', { adapter })
       const errors = result.errors.filter(e => e.severity === 'error')
 
       expect(errors).toHaveLength(0)
@@ -371,7 +371,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'ThemedBox.tsx', { adapter })
+      const result = compileJSX(source, 'ThemedBox.tsx', { adapter })
       const errors = result.errors.filter(e => e.severity === 'error')
 
       expect(errors).toHaveLength(0)
@@ -396,7 +396,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Button.tsx', { adapter })
+      const result = compileJSX(source, 'Button.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -424,7 +424,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -451,7 +451,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -472,7 +472,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Modal.tsx', { adapter })
+      const result = compileJSX(source, 'Modal.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -495,7 +495,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -527,7 +527,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'Form.tsx', { adapter })
+      const result = compileJSX(source, 'Form.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -547,7 +547,7 @@ describe('Client JS generation', () => {
           return <button onClick={() => console.log('hi')}>Click</button>
         }
       `
-      const result = compileJSXSync(source, 'Button.tsx', { adapter })
+      const result = compileJSX(source, 'Button.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -572,7 +572,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Button.tsx', { adapter })
+      const result = compileJSX(source, 'Button.tsx', { adapter })
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
       if (clientJs) {
@@ -598,7 +598,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Wrapper.tsx', { adapter })
+      const result = compileJSX(source, 'Wrapper.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -623,7 +623,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyItem.tsx', { adapter })
+      const result = compileJSX(source, 'MyItem.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -647,7 +647,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Badge.tsx', { adapter })
+      const result = compileJSX(source, 'Badge.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -672,7 +672,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Display.tsx', { adapter })
+      const result = compileJSX(source, 'Display.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -705,7 +705,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Display.tsx', { adapter })
+      const result = compileJSX(source, 'Display.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -727,7 +727,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyItem.tsx', { adapter })
+      const result = compileJSX(source, 'MyItem.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -758,7 +758,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyButton.tsx', { adapter })
+      const result = compileJSX(source, 'MyButton.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -788,7 +788,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Tag.tsx', { adapter })
+      const result = compileJSX(source, 'Tag.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -814,7 +814,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Card.tsx', { adapter })
+      const result = compileJSX(source, 'Card.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -839,7 +839,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Widget.tsx', { adapter })
+      const result = compileJSX(source, 'Widget.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -873,7 +873,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'Toolbar.tsx', { adapter })
+      const result = compileJSX(source, 'Toolbar.tsx', { adapter })
       const clientJs = result.files.find(f => f.type === 'clientJs')
       expect(clientJs).toBeDefined()
       expect(clientJs!.content).toContain('"aria-label"')
@@ -895,7 +895,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      const result = compileJSX(source, 'List.tsx', { adapter })
       const clientJs = result.files.find(f => f.type === 'clientJs')
       expect(clientJs).toBeDefined()
       expect(clientJs!.content).toContain('"data-testid"')
@@ -917,7 +917,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'Toolbar.tsx', { adapter })
+      const result = compileJSX(source, 'Toolbar.tsx', { adapter })
       const clientJs = result.files.find(f => f.type === 'clientJs')
       expect(clientJs).toBeDefined()
       // camelCase props should NOT be quoted
@@ -994,7 +994,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'TypeScriptGuard.tsx', { adapter })
+      const result = compileJSX(source, 'TypeScriptGuard.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1056,7 +1056,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'ToggleGroup.tsx', { adapter })
+      const result = compileJSX(source, 'ToggleGroup.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')!
@@ -1082,7 +1082,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter })
+      const result = compileJSX(source, 'MyComponent.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')!
@@ -1107,7 +1107,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter })
+      const result = compileJSX(source, 'MyComponent.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const markedTemplate = result.files.find(f => f.type === 'markedTemplate')
@@ -1135,7 +1135,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter })
+      const result = compileJSX(source, 'MyComponent.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1179,7 +1179,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MultiInputSync.tsx', { adapter })
+      const result = compileJSX(source, 'MultiInputSync.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1205,7 +1205,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'DisabledInput.tsx', { adapter })
+      const result = compileJSX(source, 'DisabledInput.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1231,7 +1231,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'FragComp.tsx', { adapter })
+      const result = compileJSX(source, 'FragComp.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1257,7 +1257,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'SingleRoot.tsx', { adapter })
+      const result = compileJSX(source, 'SingleRoot.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1283,7 +1283,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'Wrapper.tsx', { adapter })
+      const result = compileJSX(source, 'Wrapper.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1309,7 +1309,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1348,7 +1348,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Carousel.tsx', { adapter })
+      const result = compileJSX(source, 'Carousel.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1376,7 +1376,7 @@ describe('Client JS generation', () => {
       expect(letConstant!.declarationKind).toBe('let')
       expect(letConstant!.value).toBe('0')
 
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1402,7 +1402,7 @@ describe('Client JS generation', () => {
       expect(constConstant).toBeDefined()
       expect(constConstant!.declarationKind).toBe('const')
 
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1426,7 +1426,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyForm.tsx', { adapter })
+      const result = compileJSX(source, 'MyForm.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')!
@@ -1455,7 +1455,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'ToggleGroup.tsx', { adapter })
+      const result = compileJSX(source, 'ToggleGroup.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')!
@@ -1480,7 +1480,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')!
@@ -1508,7 +1508,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter })
+      const result = compileJSX(source, 'MyComponent.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')!
@@ -1534,7 +1534,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter })
+      const result = compileJSX(source, 'MyComponent.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')!
@@ -1562,7 +1562,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'SubmitButton.tsx', { adapter })
+      const result = compileJSX(source, 'SubmitButton.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1582,7 +1582,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'StatusMessage.tsx', { adapter })
+      const result = compileJSX(source, 'StatusMessage.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1615,7 +1615,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'VerifyForm.tsx', { adapter })
+      const result = compileJSX(source, 'VerifyForm.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1644,7 +1644,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'SubmitButton.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'SubmitButton.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1675,7 +1675,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      const result = compileJSX(source, 'List.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -1707,7 +1707,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      const result = compileJSX(source, 'List.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -1735,7 +1735,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      const result = compileJSX(source, 'List.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -1777,7 +1777,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'List.tsx', { adapter, outputIR: true })
+      const result = compileJSX(source, 'List.tsx', { adapter, outputIR: true })
 
       expect(result.errors).toHaveLength(0)
 
@@ -1821,7 +1821,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      const result = compileJSX(source, 'List.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -1854,7 +1854,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'List.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'List.tsx', { adapter: honoAdapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -1883,7 +1883,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'CheckIcon.tsx', { adapter })
+      const result = compileJSX(source, 'CheckIcon.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1907,7 +1907,7 @@ describe('Client JS generation', () => {
           return <svg {...attrs} viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
         }
       `
-      const result = compileJSXSync(source, 'Icon.tsx', { adapter })
+      const result = compileJSX(source, 'Icon.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1925,7 +1925,7 @@ describe('Client JS generation', () => {
           return <svg {...sizeAttrs} {...colorAttrs} viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
         }
       `
-      const result = compileJSXSync(source, 'Icon.tsx', { adapter })
+      const result = compileJSX(source, 'Icon.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1949,7 +1949,7 @@ describe('Client JS generation', () => {
           return <button {...rest} onClick={() => setCount(c => c + 1)}>{count()}</button>
         }
       `
-      const result = compileJSXSync(source, 'Button.tsx', { adapter })
+      const result = compileJSX(source, 'Button.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -1980,7 +1980,7 @@ describe('Client JS generation', () => {
           return <div {...childProps} {...props} onClick={() => setCount(c => c + 1)}>{count()}</div>
         }
       `
-      const result = compileJSXSync(source, 'Wrapper.tsx', { adapter })
+      const result = compileJSX(source, 'Wrapper.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -2013,7 +2013,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'CopyButton.tsx', { adapter })
+      const result = compileJSX(source, 'CopyButton.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -2057,7 +2057,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'Toggle.tsx', { adapter })
+      const result = compileJSX(source, 'Toggle.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -2088,7 +2088,7 @@ describe('Client JS generation', () => {
           return <CustomInput onChange={setValue} />
         }
       `
-      const result = compileJSXSync(source, 'Parent.tsx', { adapter })
+      const result = compileJSX(source, 'Parent.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -2124,7 +2124,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Badge.tsx', { adapter })
+      const result = compileJSX(source, 'Badge.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -2155,7 +2155,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Text.tsx', { adapter })
+      const result = compileJSX(source, 'Text.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -2181,7 +2181,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Text.tsx', { adapter })
+      const result = compileJSX(source, 'Text.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -2208,7 +2208,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Tag.tsx', { adapter })
+      const result = compileJSX(source, 'Tag.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -2232,7 +2232,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Greeting.tsx', { adapter })
+      const result = compileJSX(source, 'Greeting.tsx', { adapter })
       const errors = result.errors.filter(e => e.severity === 'error')
       expect(errors).toHaveLength(0)
 
@@ -2270,7 +2270,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       const errors = result.errors.filter(e => e.severity === 'error')
       expect(errors).toHaveLength(0)
 
@@ -2301,7 +2301,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       const errors = result.errors.filter(e => e.severity === 'error')
       expect(errors).toHaveLength(0)
 
@@ -2331,7 +2331,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Parent.tsx', { adapter })
+      const result = compileJSX(source, 'Parent.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -2359,7 +2359,7 @@ describe('Client JS generation', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Parent.tsx', { adapter })
+      const result = compileJSX(source, 'Parent.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -2390,7 +2390,7 @@ describe('Client JS generation', () => {
           return <button disabled={props.disabled ?? false} className={props.className ?? ''}>{count()}</button>
         }
       `
-      const result = compileJSXSync(source, 'MyButton.tsx', { adapter })
+      const result = compileJSX(source, 'MyButton.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
       const clientJs = result.files.find(f => f.type === 'clientJs')
       expect(clientJs).toBeDefined()
@@ -2408,7 +2408,7 @@ describe('Client JS generation', () => {
           return <div>{count()}</div>
         }
       `
-      const result = compileJSXSync(source, 'Wrapper.tsx', { adapter })
+      const result = compileJSX(source, 'Wrapper.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
     })
   })
@@ -2439,7 +2439,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'Page.tsx', { adapter })
+      const result = compileJSX(source, 'Page.tsx', { adapter })
       expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
       const js = result.files.find(f => f.type === 'clientJs')!.content
       // The branch arm's mapArray call must live inside a
@@ -2467,7 +2467,7 @@ describe('Client JS generation', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'Page.tsx', { adapter })
+      const result = compileJSX(source, 'Page.tsx', { adapter })
       expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
       const js = result.files.find(f => f.type === 'clientJs')!.content
       // The inner insert() must live inside a createDisposableEffect that

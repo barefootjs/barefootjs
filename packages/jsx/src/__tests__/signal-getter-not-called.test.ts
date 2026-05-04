@@ -8,7 +8,7 @@
 import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { ErrorCodes } from '../errors'
 import { TestAdapter } from '../adapters/test-adapter'
 
@@ -248,7 +248,7 @@ describe('Signal Getter Not Called (BF044)', () => {
       expect(ir!.type).toBe('element')
     })
 
-    test('compileJSXSync includes BF044 in result errors', () => {
+    test('compileJSX includes BF044 in result errors', () => {
       const source = `
         'use client'
         import { createSignal } from '@barefootjs/client'
@@ -259,7 +259,7 @@ describe('Signal Getter Not Called (BF044)', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
       const bf044 = result.errors.filter(e => e.code === ErrorCodes.SIGNAL_GETTER_NOT_CALLED)
 
       expect(bf044).toHaveLength(1)

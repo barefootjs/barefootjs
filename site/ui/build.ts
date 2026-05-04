@@ -227,9 +227,7 @@ for (const entryPath of componentFiles) {
   const isSharedComponent = entryPath.startsWith(SHARED_COMPONENTS_DIR)
   const rootDir = isUiComponent ? UI_COMPONENTS_DIR : isSharedComponent ? SHARED_COMPONENTS_DIR : DOCS_COMPONENTS_DIR
 
-  const result = await compileJSX(entryPath, async (path) => {
-    return await Bun.file(path).text()
-  }, {
+  const result = compileJSX(sourceContent, entryPath, {
     adapter,
     cssLayerPrefix: isUiComponent ? 'components' : undefined,
     localImportPrefixes: ['@/', '@ui/'],

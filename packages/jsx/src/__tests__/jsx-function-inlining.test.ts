@@ -9,7 +9,7 @@
 import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -335,7 +335,7 @@ describe('JSX function inlining (#569)', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter })
+      const result = compileJSX(source, 'MyComponent.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -358,7 +358,7 @@ describe('JSX function inlining (#569)', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter })
+      const result = compileJSX(source, 'MyComponent.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -407,7 +407,7 @@ describe('JSX function inlining (#569)', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Calendar.tsx', { adapter })
+      const result = compileJSX(source, 'Calendar.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 

@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 import { SourceMapGenerator, buildSourceMapFromIR } from '../ir-to-client-js/source-map'
 import { analyzeComponent } from '../analyzer'
@@ -48,7 +48,7 @@ describe('VLQ encoding', () => {
 })
 
 describe('Source map generation via compiler', () => {
-  test('compileJSXSync with sourceMaps: true produces source map file', () => {
+  test('compileJSX with sourceMaps: true produces source map file', () => {
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -63,7 +63,7 @@ describe('Source map generation via compiler', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter, sourceMaps: true })
+    const result = compileJSX(source, 'Counter.tsx', { adapter, sourceMaps: true })
 
     expect(result.errors).toHaveLength(0)
 
@@ -81,7 +81,7 @@ describe('Source map generation via compiler', () => {
     expect(map.mappings.length).toBeGreaterThan(0)
   })
 
-  test('compileJSXSync without sourceMaps does not produce source map', () => {
+  test('compileJSX without sourceMaps does not produce source map', () => {
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -92,7 +92,7 @@ describe('Source map generation via compiler', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
 
     const sourceMap = result.files.find(f => f.type === 'sourceMap')
     expect(sourceMap).toBeUndefined()
@@ -114,7 +114,7 @@ describe('Source map generation via compiler', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter, sourceMaps: true })
+    const result = compileJSX(source, 'Counter.tsx', { adapter, sourceMaps: true })
 
     const sourceMapFile = result.files.find(f => f.type === 'sourceMap')
     expect(sourceMapFile).toBeDefined()
@@ -139,7 +139,7 @@ describe('Source map generation via compiler', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Dashboard.tsx', { adapter, sourceMaps: true })
+    const result = compileJSX(source, 'Dashboard.tsx', { adapter, sourceMaps: true })
 
     const sourceMapFile = result.files.find(f => f.type === 'sourceMap')
     expect(sourceMapFile).toBeDefined()

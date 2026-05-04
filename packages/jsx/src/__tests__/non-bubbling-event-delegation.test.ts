@@ -7,7 +7,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -33,7 +33,7 @@ describe('non-bubbling event delegation (#852)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'HoverList.tsx', { adapter })
+    const result = compileJSX(source, 'HoverList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -63,7 +63,7 @@ describe('non-bubbling event delegation (#852)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'HoverList.tsx', { adapter })
+    const result = compileJSX(source, 'HoverList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -96,7 +96,7 @@ describe('non-bubbling event delegation (#852)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'PointerList.tsx', { adapter })
+    const result = compileJSX(source, 'PointerList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -129,7 +129,7 @@ describe('non-bubbling event delegation (#852)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'PointerList.tsx', { adapter })
+    const result = compileJSX(source, 'PointerList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -162,7 +162,7 @@ describe('non-bubbling event delegation (#852)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'ClickList.tsx', { adapter })
+    const result = compileJSX(source, 'ClickList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -196,7 +196,7 @@ describe('non-bubbling event delegation (#852)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'FocusList.tsx', { adapter })
+    const result = compileJSX(source, 'FocusList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

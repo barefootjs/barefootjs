@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -45,7 +45,7 @@ describe('composite loops inside conditional branches (#724)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'CartDemo.tsx', { adapter })
+    const result = compileJSX(source, 'CartDemo.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -88,7 +88,7 @@ describe('composite loops inside conditional branches (#724)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'SimpleList.tsx', { adapter })
+    const result = compileJSX(source, 'SimpleList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -139,7 +139,7 @@ describe('composite loops inside conditional branches (#724)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'ItemList.tsx', { adapter })
+    const result = compileJSX(source, 'ItemList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -192,7 +192,7 @@ describe('composite loops inside conditional branches (#724)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'TodoList.tsx', { adapter })
+    const result = compileJSX(source, 'TodoList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -239,7 +239,7 @@ describe('direct map call as conditional branch (#783)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'GroupList.tsx', { adapter })
+    const result = compileJSX(source, 'GroupList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -273,7 +273,7 @@ describe('direct map call as conditional branch (#783)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'ItemList.tsx', { adapter })
+    const result = compileJSX(source, 'ItemList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -305,7 +305,7 @@ describe('direct map call as conditional branch (#783)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'TagList.tsx', { adapter })
+    const result = compileJSX(source, 'TagList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -339,7 +339,7 @@ describe('mapPreamble in event delegation handlers (#851)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -380,7 +380,7 @@ describe('mapPreamble in event delegation handlers (#851)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

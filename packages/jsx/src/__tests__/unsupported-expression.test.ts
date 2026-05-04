@@ -8,7 +8,7 @@
 import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { ErrorCodes } from '../errors'
 import { TestAdapter } from '../adapters/test-adapter'
 
@@ -125,8 +125,8 @@ describe('Unsupported Expression Error (BF021)', () => {
     expect(ir!.type).toBe('element')
   })
 
-  test('compileJSXSync includes IR-phase BF021 errors in result', () => {
-    const result = compileJSXSync(unsupportedSource, 'TodoList.tsx', { adapter })
+  test('compileJSX includes IR-phase BF021 errors in result', () => {
+    const result = compileJSX(unsupportedSource, 'TodoList.tsx', { adapter })
     const bf021 = result.errors.filter(e => e.code === ErrorCodes.UNSUPPORTED_JSX_PATTERN)
 
     expect(bf021).toHaveLength(1)

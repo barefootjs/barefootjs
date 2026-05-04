@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -13,7 +13,7 @@ describe('nullish coalescing with JSX (#524)', () => {
       export { Separator }
     `
 
-    const result = compileJSXSync(source, 'Separator.tsx', { adapter })
+    const result = compileJSX(source, 'Separator.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const template = result.files.find(f => f.type === 'markedTemplate')
@@ -32,7 +32,7 @@ describe('nullish coalescing with JSX (#524)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Fallback.tsx', { adapter })
+    const result = compileJSX(source, 'Fallback.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -52,7 +52,7 @@ describe('nullish coalescing with JSX (#524)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Nested.tsx', { adapter })
+    const result = compileJSX(source, 'Nested.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -72,7 +72,7 @@ describe('nullish coalescing with JSX (#524)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -89,7 +89,7 @@ describe('nullish coalescing with JSX (#524)', () => {
       export { Label }
     `
 
-    const result = compileJSXSync(source, 'Label.tsx', { adapter })
+    const result = compileJSX(source, 'Label.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const template = result.files.find(f => f.type === 'markedTemplate')

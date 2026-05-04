@@ -10,7 +10,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -39,7 +39,7 @@ describe('.map() with ternary body', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Nav.tsx', { adapter })
+    const result = compileJSX(source, 'Nav.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const template = result.files.find((f) => f.type === 'markedTemplate')
@@ -66,7 +66,7 @@ describe('.map() with ternary body', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Names.tsx', { adapter })
+    const result = compileJSX(source, 'Names.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
     // Sanity: still compiles. No specific shape assertion — the JSX-element
     // body case is already valid without wrapping; this just guards against

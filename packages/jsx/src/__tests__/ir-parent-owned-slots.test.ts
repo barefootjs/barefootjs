@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -86,7 +86,7 @@ describe('parent-owned slots (^ prefix)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Parent.tsx', { adapter })
+    const result = compileJSX(source, 'Parent.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

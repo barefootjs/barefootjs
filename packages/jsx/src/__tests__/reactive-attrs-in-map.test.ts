@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -30,7 +30,7 @@ describe('reactive attributes inside .map() callbacks', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'TagList.tsx', { adapter })
+    const result = compileJSX(source, 'TagList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -59,7 +59,7 @@ describe('reactive attributes inside .map() callbacks', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'ItemList.tsx', { adapter })
+    const result = compileJSX(source, 'ItemList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -86,7 +86,7 @@ describe('reactive attributes inside .map() callbacks', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'DynamicTagList.tsx', { adapter })
+    const result = compileJSX(source, 'DynamicTagList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -118,7 +118,7 @@ describe('reactive attributes inside .map() callbacks', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'TagList.tsx', { adapter })
+    const result = compileJSX(source, 'TagList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -156,7 +156,7 @@ describe('reactive attributes inside .map() callbacks', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'PivotTable.tsx', { adapter })
+    const result = compileJSX(source, 'PivotTable.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -192,7 +192,7 @@ describe('reactive attributes inside .map() callbacks', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'SimpleList.tsx', { adapter })
+    const result = compileJSX(source, 'SimpleList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -225,7 +225,7 @@ describe('reactive attributes inside .map() callbacks', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'L.tsx', { adapter })
+    const result = compileJSX(source, 'L.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
     const js = result.files.find(f => f.type === 'clientJs')!.content
     // Both effects must still be present.
@@ -261,7 +261,7 @@ describe('reactive attributes inside .map() callbacks', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'L.tsx', { adapter })
+    const result = compileJSX(source, 'L.tsx', { adapter })
     expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

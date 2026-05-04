@@ -10,7 +10,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { HonoAdapter } from '../../../../packages/adapter-hono/src/adapter/hono-adapter'
 
 const adapter = new HonoAdapter()
@@ -36,7 +36,7 @@ export function ChatList() {
   )
 }
 `
-    const result = compileJSXSync(source, 'ChatList.tsx', { adapter })
+    const result = compileJSX(source, 'ChatList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')
@@ -75,7 +75,7 @@ export function ItemList() {
   )
 }
 `
-    const result = compileJSXSync(source, 'ItemList.tsx', { adapter })
+    const result = compileJSX(source, 'ItemList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')
@@ -104,7 +104,7 @@ export function ItemList() {
   )
 }
 `
-    const result = compileJSXSync(source, 'ItemList.tsx', { adapter })
+    const result = compileJSX(source, 'ItemList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')
@@ -133,7 +133,7 @@ export function ClientOnly() {
   )
 }
 `
-    const result = compileJSXSync(source, 'Test.tsx', { adapter })
+    const result = compileJSX(source, 'Test.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')
@@ -163,7 +163,7 @@ export function SiblingMaps() {
   )
 }
 `
-    const result = compileJSXSync(source, 'SiblingMaps.tsx', { adapter })
+    const result = compileJSX(source, 'SiblingMaps.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const markedTemplate = result.files.find(f => f.type === 'markedTemplate')

@@ -12,7 +12,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -29,7 +29,7 @@ describe('ref={...} emit shape (#1161)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Foo.tsx', { adapter })
+    const result = compileJSX(source, 'Foo.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
     const content = clientJs?.content ?? ''
@@ -59,7 +59,7 @@ describe('ref={...} emit shape (#1161)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Foo.tsx', { adapter })
+    const result = compileJSX(source, 'Foo.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
     const content = clientJs?.content ?? ''
@@ -80,7 +80,7 @@ describe('ref={...} emit shape (#1161)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Foo.tsx', { adapter })
+    const result = compileJSX(source, 'Foo.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
     const content = clientJs?.content ?? ''
@@ -108,7 +108,7 @@ describe('ref={...} emit shape (#1161)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Foo.tsx', { adapter })
+    const result = compileJSX(source, 'Foo.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
     const content = clientJs?.content ?? ''
