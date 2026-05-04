@@ -829,11 +829,11 @@ export function FlowNodeTypeBridge(props: FlowNodeTypeBridgeProps) {
   // produce the same id are deduped by createMemo (Object.is on the
   // string). The DOM fallback handles SSR hydration where `props.forNode`
   // may be empty.
-  const idMemo = createMemo(() => {
+  const idMemo = createMemo<string | undefined>(() => {
     const el = bridgeEl()
-    if (!el) return null
+    if (!el) return undefined
     const live = props.forNode
-    return (live?.id ?? (el.closest('.bf-flow__node') as HTMLElement | null)?.dataset.id) ?? null
+    return live?.id ?? (el.closest('.bf-flow__node') as HTMLElement | null)?.dataset.id ?? undefined
   })
 
   // Subscribe to the node's `data` *identity*, not to the whole
@@ -842,9 +842,9 @@ export function FlowNodeTypeBridge(props: FlowNodeTypeBridgeProps) {
   // a data-identity memo deduplicates selection-only updates and stops
   // them from tearing down whatever DOM the user's `initFn` mounted
   // (focus, in-flight editors, native dblclick target identity, …).
-  // Real `data` changes — e.g. a consumer flipping `node.data.compact`
-  // via setNodes — produce a new data object and DO trigger a re-run,
-  // matching the behaviour the previous coarse subscription provided.
+  // Real `data` changes — a consumer mutating `node.data` via setNodes —
+  // produce a new data object and DO trigger a re-run, matching the
+  // behaviour the previous coarse subscription provided.
   //
   // The live-props fallback is folded INTO this memo so the effect
   // below depends only on `dataMemo` — reading `props.forNode?.data`
@@ -890,6 +890,12 @@ export function FlowNodeTypeBridge(props: FlowNodeTypeBridgeProps) {
     // inside the user component would re-run the bridge, wiping the
     // DOM the user just mounted and breaking imperative state (focus,
     // in-flight editors, native dblclick target identity, …).
+    //
+    // `untrack` only swaps `Listener`, not `Owner` — `Owner` stays the
+    // bridge effect, so any `onCleanup(...)` the user component
+    // registers is still rooted at this effect and tears down on the
+    // next bridge re-run, preserving the wipe + rebuild semantics
+    // documented above.
     untrack(() =>
       initFn.call(el, {
         id,

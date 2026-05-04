@@ -259,4 +259,14 @@ describe('FlowNodeTypeBridge', () => {
     expect(result.memos).toContain('idMemo')
     expect(result.memos).toContain('dataMemo')
   })
+
+  test('declares exactly one createEffect (the initFn dispatcher)', () => {
+    // Structural guard: any extra createEffect added inside the bridge
+    // would re-introduce the cross-scope subscription leak that
+    // piconic-ai/barefootjs#bridge-stable-init fixed (initFn is called
+    // INSIDE this effect, so signals it reads at the top level should
+    // never end up subscribing the bridge). If a later refactor splits
+    // the dispatcher into multiple effects, revisit the `untrack` wrap.
+    expect(result.effects).toBe(1)
+  })
 })
