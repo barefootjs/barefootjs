@@ -900,8 +900,21 @@ export function FlowNodeTypeBridge(props: FlowNodeTypeBridgeProps) {
       initFn.call(el, {
         id,
         data,
-        type,
-        selected: () => !!store.nodeLookup().get(id)?.selected,
+        // The `selected` getter has to subscribe consumers (the user
+        // component's effects that read it) to the `nodes()` signal,
+        // not just `nodeLookup()`. `nodesInitialized` mutates the
+        // lookup map in place and re-fires `setNodeLookup(() => lookup)`
+        // with the same reference, which createSignal dedupes — so
+        // `nodeLookup()` reads alone never wake up downstream effects
+        // on selection changes. Reading `nodes()` first guarantees
+        // the consumer's effect re-runs on every setNodes; the
+        // `nodeLookup().get(id)?.selected` read after still returns
+        // the latest selected state because the lookup is mutated in
+        // place. (Mirrors `NodeWrapper`'s `node` memo.)
+        selected: () => {
+          store.nodes()
+          return !!store.nodeLookup().get(id)?.selected
+        },
         dragging: false,
         positionAbsoluteX: 0,
         positionAbsoluteY: 0,
