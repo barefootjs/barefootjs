@@ -12,7 +12,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -28,7 +28,7 @@ describe('signal index-access — pattern A (direct)', () => {
         return <div>{count()}</div>
       }
     `
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -50,7 +50,7 @@ describe('signal index-access — pattern A (direct)', () => {
         return <button onClick={() => setCount(1)}>bump</button>
       }
     `
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -70,7 +70,7 @@ describe('signal index-access — pattern A (direct)', () => {
         return <span>{label()}</span>
       }
     `
-    const result = compileJSXSync(source, 'Display.tsx', { adapter })
+    const result = compileJSX(source, 'Display.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const template = result.files.find((f) => f.type === 'markedTemplate')
@@ -92,7 +92,7 @@ describe('signal index-access — pattern C (late extraction)', () => {
         return <div>{count()}</div>
       }
     `
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -116,7 +116,7 @@ describe('signal index-access — pattern C (late extraction)', () => {
         return <button onClick={() => setCount(count() + 1)}>{count()}</button>
       }
     `
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -136,7 +136,7 @@ describe('signal index-access — pattern C (late extraction)', () => {
         return <button onClick={() => setCount(count() + 1)}>{count()}</button>
       }
     `
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -156,7 +156,7 @@ describe('signal index-access — pattern C (late extraction)', () => {
         return <div>{count()} {first}</div>
       }
     `
-    const result = compileJSXSync(source, 'Things.tsx', { adapter })
+    const result = compileJSX(source, 'Things.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find((f) => f.type === 'clientJs')
@@ -182,7 +182,7 @@ describe('signal index-access — mixed patterns in one component', () => {
         return <div>{a()} {b()} {c()} <button onClick={() => setA(a() + 1)}>+</button></div>
       }
     `
-    const result = compileJSXSync(source, 'Mixed.tsx', { adapter })
+    const result = compileJSX(source, 'Mixed.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find((f) => f.type === 'clientJs')

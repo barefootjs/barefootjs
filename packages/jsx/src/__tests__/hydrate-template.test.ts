@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -22,7 +22,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -51,7 +51,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'ItemList.tsx', { adapter })
+    const result = compileJSX(source, 'ItemList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -80,7 +80,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Parent.tsx', { adapter })
+    const result = compileJSX(source, 'Parent.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -121,7 +121,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Dashboard.tsx', { adapter })
+    const result = compileJSX(source, 'Dashboard.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -150,7 +150,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Filtered.tsx', { adapter })
+    const result = compileJSX(source, 'Filtered.tsx', { adapter })
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
     expect(clientJs).toBeDefined()
@@ -191,7 +191,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Icon.tsx', { adapter })
+    const result = compileJSX(source, 'Icon.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -232,7 +232,7 @@ describe('hydrate() template generation for signal-bearing components', () => {
         return <div className="chart-selected-label">{selectedLabel()}</div>
       }
     `
-    const result = compileJSXSync(source, 'ChartWidget.tsx', { adapter })
+    const result = compileJSX(source, 'ChartWidget.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

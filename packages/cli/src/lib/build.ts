@@ -1220,9 +1220,9 @@ async function compileEntry(args: CompileEntryArgs): Promise<CompileEntryOutcome
     deps[depPath] = hashContent(await readText(depPath))
   }
 
-  const result = await compileJSX(
+  const result = compileJSX(
+    sourceContent,
     entryPath,
-    async (path) => readText(path),
     { adapter: config.adapter, program: sharedProgram },
   )
 

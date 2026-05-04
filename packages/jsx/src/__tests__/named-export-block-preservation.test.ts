@@ -6,13 +6,13 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
 
 function getMarkedTemplate(source: string): string {
-  const result = compileJSXSync(source, 'index.tsx', { adapter })
+  const result = compileJSX(source, 'index.tsx', { adapter })
   expect(result.errors).toHaveLength(0)
   const out = result.files.find(f => f.type === 'markedTemplate')
   expect(out).toBeDefined()

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -21,7 +21,7 @@ describe('conditional JSX returns (if-statement)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Toggle.tsx', { adapter })
+    const result = compileJSX(source, 'Toggle.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 
@@ -48,7 +48,7 @@ describe('conditional JSX returns (if-statement)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Disclosure.tsx', { adapter })
+    const result = compileJSX(source, 'Disclosure.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 
@@ -75,7 +75,7 @@ describe('conditional JSX returns (if-statement)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Wrapper.tsx', { adapter })
+    const result = compileJSX(source, 'Wrapper.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 
@@ -102,7 +102,7 @@ describe('top-level ternary return (#968)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'BadgeDemo.tsx', { adapter })
+    const result = compileJSX(source, 'BadgeDemo.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
 
@@ -136,7 +136,7 @@ describe('top-level ternary return (#968)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Toggle.tsx', { adapter })
+    const result = compileJSX(source, 'Toggle.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -156,7 +156,7 @@ describe('top-level ternary return (#968)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Paren.tsx', { adapter })
+    const result = compileJSX(source, 'Paren.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -184,7 +184,7 @@ describe('return-position dispatcher unification (#971)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Guard.tsx', { adapter })
+    const result = compileJSX(source, 'Guard.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const marked = result.files.find(f => f.type === 'markedTemplate')
@@ -213,7 +213,7 @@ describe('return-position dispatcher unification (#971)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Banner.tsx', { adapter })
+    const result = compileJSX(source, 'Banner.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const marked = result.files.find(f => f.type === 'markedTemplate')
@@ -234,7 +234,7 @@ describe('return-position dispatcher unification (#971)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     // Pre-refactor this threw "No marked template in compile output" because
     // the analyzer's recursion-fallback explicitly skips function bodies, so
     // `jsxReturn` never saw the `<li/>` inside the map callback. The

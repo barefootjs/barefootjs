@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -28,7 +28,7 @@ describe('signal partial destructuring (getter only)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'ReadOnlyList.tsx', { adapter })
+    const result = compileJSX(source, 'ReadOnlyList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
   })
 
@@ -42,7 +42,7 @@ describe('signal partial destructuring (getter only)', () => {
         return <div>{count()}</div>
       }
     `
-    const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+    const result = compileJSX(source, 'Counter.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -64,7 +64,7 @@ describe('signal partial destructuring (getter only)', () => {
         return <span>{label()}</span>
       }
     `
-    const result = compileJSXSync(source, 'Display.tsx', { adapter })
+    const result = compileJSX(source, 'Display.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const template = result.files.find(f => f.type === 'markedTemplate')
@@ -84,7 +84,7 @@ describe('signal partial destructuring (getter only)', () => {
         return <div>{total()}</div>
       }
     `
-    const result = compileJSXSync(source, 'Summary.tsx', { adapter })
+    const result = compileJSX(source, 'Summary.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

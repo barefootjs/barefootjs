@@ -5,7 +5,7 @@
  * Used by adapter-tests conformance runner.
  */
 
-import { compileJSXSync } from '@barefootjs/jsx'
+import { compileJSX } from '@barefootjs/jsx'
 import type { TemplateAdapter } from '@barefootjs/jsx'
 import { Hono } from 'hono'
 import { mkdir, rm } from 'node:fs/promises'
@@ -34,7 +34,7 @@ export async function renderHonoComponent(options: RenderOptions): Promise<strin
   if (components) {
     for (const [filename, childSource] of Object.entries(components)) {
       componentKeys.add(filename)
-      const childResult = compileJSXSync(childSource, filename, { adapter })
+      const childResult = compileJSX(childSource, filename, { adapter })
       const childErrors = childResult.errors.filter(e => e.severity === 'error')
       if (childErrors.length > 0) {
         throw new Error(`Compilation errors in ${filename}:\n${childErrors.map(e => e.message).join('\n')}`)
@@ -48,7 +48,7 @@ export async function renderHonoComponent(options: RenderOptions): Promise<strin
   }
 
   // Compile parent source
-  const result = compileJSXSync(source, 'component.tsx', { adapter })
+  const result = compileJSX(source, 'component.tsx', { adapter })
 
   const errors = result.errors.filter(e => e.severity === 'error')
   if (errors.length > 0) {

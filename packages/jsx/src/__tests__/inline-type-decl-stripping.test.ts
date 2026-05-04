@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -47,7 +47,7 @@ describe('inline type / interface declarations inside function bodies (#1131)', 
       }
     `
 
-    const result = compileJSXSync(source, 'DeskCanvas.tsx', { adapter })
+    const result = compileJSX(source, 'DeskCanvas.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
     const content = clientJs?.content ?? ''
@@ -78,7 +78,7 @@ describe('inline type / interface declarations inside function bodies (#1131)', 
       }
     `
 
-    const result = compileJSXSync(source, 'Page.tsx', { adapter })
+    const result = compileJSX(source, 'Page.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
     const content = clientJs?.content ?? ''
@@ -111,7 +111,7 @@ describe('inline type / interface declarations inside function bodies (#1131)', 
       }
     `
 
-    const result = compileJSXSync(source, 'Nested.tsx', { adapter })
+    const result = compileJSX(source, 'Nested.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')
     const content = clientJs?.content ?? ''

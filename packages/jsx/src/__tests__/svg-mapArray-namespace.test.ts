@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -38,7 +38,7 @@ describe('SVG mapArray namespace preservation (#135)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Graph.tsx', { adapter })
+    const result = compileJSX(source, 'Graph.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -73,7 +73,7 @@ describe('SVG mapArray namespace preservation (#135)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Pts.tsx', { adapter })
+    const result = compileJSX(source, 'Pts.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -101,7 +101,7 @@ describe('SVG mapArray namespace preservation (#135)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'L.tsx', { adapter })
+    const result = compileJSX(source, 'L.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -141,7 +141,7 @@ describe('SVG mapArray namespace preservation (#135)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'CondMap.tsx', { adapter })
+    const result = compileJSX(source, 'CondMap.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -181,7 +181,7 @@ describe('SVG mapArray namespace preservation (#135)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'PolarGridLike.tsx', { adapter })
+    const result = compileJSX(source, 'PolarGridLike.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -214,7 +214,7 @@ describe('SVG mapArray namespace preservation (#135)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Mixed.tsx', { adapter })
+    const result = compileJSX(source, 'Mixed.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -245,7 +245,7 @@ describe('SVG mapArray namespace preservation (#135)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Toggle.tsx', { adapter })
+    const result = compileJSX(source, 'Toggle.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

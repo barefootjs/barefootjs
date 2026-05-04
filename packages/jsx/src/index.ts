@@ -5,7 +5,7 @@
  */
 
 // Main compiler API
-export { compileJSX, compileJSXSync, buildMetadata } from './compiler'
+export { compileJSX, buildMetadata } from './compiler'
 export type { CompileResult, CompileOptions, CompileOptionsWithAdapter, FileOutput } from './compiler'
 
 // Pure IR types

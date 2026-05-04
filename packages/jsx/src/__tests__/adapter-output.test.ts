@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync, compileJSX } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 import { HonoAdapter } from '../../../../packages/adapter-hono/src/adapter/hono-adapter'
 import { resolve, dirname } from 'node:path'
@@ -20,10 +20,8 @@ describe('Adapter output', () => {
       const docsUiPath = resolve(dirname(import.meta.path), '../../../../site/ui')
       const buttonDemoPath = resolve(docsUiPath, 'components/button-demo.tsx')
 
-      const result = await compileJSX(buttonDemoPath, async (path) => {
-        const file = Bun.file(path)
-        return await file.text()
-      }, { adapter })
+      const source = await Bun.file(buttonDemoPath).text()
+      const result = compileJSX(source, buttonDemoPath, { adapter })
 
       // Should have no errors
       expect(result.errors).toHaveLength(0)
@@ -60,7 +58,7 @@ describe('Adapter output', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
 
       expect(result.errors).toHaveLength(0)
 
@@ -84,7 +82,7 @@ describe('Adapter output', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'SubmitButton.tsx', { adapter })
+      const result = compileJSX(source, 'SubmitButton.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -104,7 +102,7 @@ describe('Adapter output', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'SubmitButton.tsx', { adapter })
+      const result = compileJSX(source, 'SubmitButton.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -121,7 +119,7 @@ describe('Adapter output', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'SubmitButton.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'SubmitButton.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -142,7 +140,7 @@ describe('Adapter output', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'SubmitButton.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'SubmitButton.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -166,7 +164,7 @@ describe('Adapter output', () => {
           return <input pattern={props.pattern ?? REGEXP_ONLY_DIGITS} />
         }
       `
-      const result = compileJSXSync(source, 'OTPInput.tsx', { adapter })
+      const result = compileJSX(source, 'OTPInput.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')
@@ -194,7 +192,7 @@ describe('Adapter output', () => {
           return <div>{INTERNAL_VALUE}</div>
         }
       `
-      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter })
+      const result = compileJSX(source, 'MyComponent.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -221,7 +219,7 @@ describe('Adapter output', () => {
           return <div>{helperFn(count())}</div>
         }
       `
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -249,7 +247,7 @@ describe('Adapter output', () => {
           return <input />
         }
       `
-      const result = compileJSXSync(source, 'InputField.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'InputField.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -277,7 +275,7 @@ describe('Adapter output', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'Calendar.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Calendar.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -298,7 +296,7 @@ describe('Adapter output', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'MyComponent.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -322,7 +320,7 @@ describe('Adapter output', () => {
         }
       `
 
-      const result = compileJSXSync(source, 'DatePicker.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'DatePicker.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -343,7 +341,7 @@ describe('Adapter output', () => {
           return <button onClick={() => setCount(n => n + 1)}>Count: {count()}</button>
         }
       `
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -361,7 +359,7 @@ describe('Adapter output', () => {
           return <button onClick={() => setCount(n => n + 1)}>Count: {count()}</button>
         }
       `
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -382,7 +380,7 @@ describe('Adapter output', () => {
           return <span>{formatNum(val())}</span>
         }
       `
-      const result = compileJSXSync(source, 'Display.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Display.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -402,7 +400,7 @@ describe('Adapter output', () => {
           return <div>{helperFn(val(), 'value: ')}</div>
         }
       `
-      const result = compileJSXSync(source, 'MyComponent.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'MyComponent.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -422,7 +420,7 @@ describe('Adapter output', () => {
           return <button onClick={() => setCount(n => n + 1)}>{count()}</button>
         }
       `
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -441,7 +439,7 @@ describe('Adapter output', () => {
           return <button onClick={() => setCount(n => n + 1)}>Count: {count()}</button>
         }
       `
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -476,7 +474,7 @@ describe('Adapter output', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'MembersPanel.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'MembersPanel.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -504,7 +502,7 @@ describe('Adapter output', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'Display.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Display.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -523,7 +521,7 @@ describe('Adapter output', () => {
           return <button onClick={() => setCount(n => n + 1)}>{count()}</button>
         }
       `
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -543,7 +541,7 @@ describe('Adapter output', () => {
           return <div class="logo">BarefootJS</div>
         }
       `
-      const result = compileJSXSync(source, 'Logo.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Logo.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -561,7 +559,7 @@ describe('Adapter output', () => {
           return <button onClick={() => setCount(n => n + 1)}>Count: {count()}</button>
         }
       `
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -588,7 +586,7 @@ describe('Adapter output', () => {
           return <button onClick={() => setCount(n => n + 1)}>{count()}</button>
         }
       `
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -607,7 +605,7 @@ describe('Adapter output', () => {
           return <span>{items().length}</span>
         }
       `
-      const result = compileJSXSync(source, 'TodoList.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'TodoList.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -626,7 +624,7 @@ describe('Adapter output', () => {
           return <span>{ids().length}</span>
         }
       `
-      const result = compileJSXSync(source, 'Panel.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Panel.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!
@@ -647,7 +645,7 @@ describe('Adapter output', () => {
           return <button onClick={() => setCount(n => n + 1)}>{count()}</button>
         }
       `
-      const result = compileJSXSync(source, 'Counter.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'Counter.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')!

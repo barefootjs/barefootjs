@@ -16,13 +16,13 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
 
 function clientJs(source: string, file = 'CondKey.tsx'): string {
-  const result = compileJSXSync(source, file, { adapter })
+  const result = compileJSX(source, file, { adapter })
   expect(result.errors.filter((e) => (e as { severity?: string }).severity === 'error')).toHaveLength(0)
   const cjs = result.files.find((f) => f.type === 'clientJs')
   expect(cjs).toBeDefined()

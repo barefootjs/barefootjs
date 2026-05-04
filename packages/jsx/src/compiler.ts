@@ -96,139 +96,10 @@ function applyExportKeyword(component: string, ir: ComponentIR): string {
 }
 
 // =============================================================================
-// Main Entry Point
-// =============================================================================
-
-export async function compileJSX(
-  entryPath: string,
-  readFile: (path: string) => Promise<string>,
-  options: CompileOptionsWithAdapter
-): Promise<CompileResult> {
-  const files: FileOutput[] = []
-  const errors: CompileResult['errors'] = []
-
-  // Read source file
-  const source = await readFile(entryPath)
-
-  // List all exported components in the file
-  const componentNames = listComponentFunctions(source, entryPath)
-
-  // If multiple components, compile each separately and combine
-  if (componentNames.length > 1) {
-    return compileMultipleComponents(source, entryPath, componentNames, options)
-  }
-
-  // Single component flow
-  const ctx = analyzeComponent(source, entryPath, undefined, options.program)
-
-  if (!ctx.jsxReturn) {
-    errors.push(...ctx.errors)  // Only analyzer errors
-    return { files, errors }
-  }
-
-  const ir = jsxToIR(ctx)
-  errors.push(...ctx.errors)  // All errors: analyzer + IR phase
-
-  if (!ir) {
-    return { files, errors }
-  }
-
-  const componentIR: ComponentIR = {
-    version: '0.1',
-    metadata: buildMetadata(ctx, options.adapter.clientShimSource),
-    root: ir,
-    errors: [],
-  }
-
-  // Pre-compute client JS analysis for adapter optimization
-  componentIR.metadata.clientAnalysis = analyzeClientNeeds(componentIR)
-
-  // Apply CSS layer prefix if configured
-  if (options.cssLayerPrefix) {
-    applyCssLayerPrefix(componentIR, options.cssLayerPrefix)
-  }
-
-  if (options?.outputIR) {
-    files.push({
-      path: entryPath.replace(/\.tsx?$/, '.ir.json'),
-      content: JSON.stringify(componentIR, null, 2),
-      type: 'ir',
-    })
-  }
-
-  const adapter = options.adapter
-  const adapterOutput = adapter.generate(componentIR)
-  const moduleExports = generateModuleExports(componentIR)
-
-  // Use structured sections if available, otherwise fall back to template
-  let content: string
-  if (adapterOutput.sections) {
-    const s = adapterOutput.sections
-    const component = applyExportKeyword(s.component, componentIR)
-    content = [s.imports, s.moduleConstants ?? '', s.types, moduleExports, component]
-      .filter(Boolean).join('\n\n') + (s.defaultExport || '')
-  } else {
-    content = adapterOutput.template
-  }
-
-  files.push({
-    path: entryPath.replace(/\.tsx?$/, adapter.extension),
-    content,
-    type: 'markedTemplate',
-  })
-
-  // Emit adapter types as a separate FileOutput
-  if (adapterOutput.types) {
-    files.push({
-      path: entryPath.replace(/\.tsx?$/, '.types'),
-      content: adapterOutput.types,
-      type: 'types',
-    })
-  }
-
-  const clientJsPath = entryPath.replace(/\.tsx?$/, '.client.js')
-  // Single-component file: only the component itself can collide. Scope it
-  // when it's non-exported so a private helper can't be overwritten by an
-  // identically-named exported component in another file.
-  const singleScope = {
-    fileScope: computeFileScope(entryPath),
-    nonExportedSiblings: componentIR.metadata.isExported
-      ? new Set<string>()
-      : new Set([componentIR.metadata.componentName]),
-  }
-  setActiveComponentScope(singleScope)
-  try {
-    if (options.sourceMaps) {
-      const result = generateClientJsWithSourceMap(componentIR, undefined, options.localImportPrefixes, {
-        sourceMaps: true,
-        generatedFileName: clientJsPath.split('/').pop(),
-      })
-      errors.push(...componentIR.errors)
-      if (result.code) {
-        files.push({ path: clientJsPath, content: result.code, type: 'clientJs' })
-        if (result.sourceMap) {
-          files.push({ path: clientJsPath + '.map', content: JSON.stringify(result.sourceMap), type: 'sourceMap' as FileOutput['type'] })
-        }
-      }
-    } else {
-      const clientJs = generateClientJs(componentIR, undefined, options.localImportPrefixes)
-      errors.push(...componentIR.errors)
-      if (clientJs) {
-        files.push({ path: clientJsPath, content: clientJs, type: 'clientJs' })
-      }
-    }
-  } finally {
-    setActiveComponentScope(null)
-  }
-
-  return { files, errors }
-}
-
-// =============================================================================
 // Multiple Component Compilation
 // =============================================================================
 
-function compileMultipleComponentsSync(
+function compileMultipleComponents(
   source: string,
   filePath: string,
   componentNames: string[],
@@ -564,15 +435,6 @@ function compileMultipleComponentsSync(
   return { files, errors }
 }
 
-async function compileMultipleComponents(
-  source: string,
-  filePath: string,
-  componentNames: string[],
-  options: CompileOptionsWithAdapter
-): Promise<CompileResult> {
-  return compileMultipleComponentsSync(source, filePath, componentNames, options)
-}
-
 // =============================================================================
 // Helpers
 // =============================================================================
@@ -606,10 +468,10 @@ export function buildMetadata(
 }
 
 // =============================================================================
-// Sync Version (for compatibility)
+// Main Entry Point
 // =============================================================================
 
-export function compileJSXSync(
+export function compileJSX(
   source: string,
   filePath: string,
   options: CompileOptionsWithAdapter
@@ -622,7 +484,7 @@ export function compileJSXSync(
 
   // If multiple components, compile each separately and combine
   if (componentNames.length > 1) {
-    return compileMultipleComponentsSync(source, filePath, componentNames, options)
+    return compileMultipleComponents(source, filePath, componentNames, options)
   }
 
   // Single component flow
@@ -694,13 +556,16 @@ export function compileJSXSync(
   }
 
   const clientJsPath = filePath.replace(/\.tsx?$/, '.client.js')
-  const syncSingleScope = {
+  // Single-component file: only the component itself can collide. Scope it
+  // when it's non-exported so a private helper can't be overwritten by an
+  // identically-named exported component in another file.
+  const singleScope = {
     fileScope: computeFileScope(filePath),
     nonExportedSiblings: componentIR.metadata.isExported
       ? new Set<string>()
       : new Set([componentIR.metadata.componentName]),
   }
-  setActiveComponentScope(syncSingleScope)
+  setActiveComponentScope(singleScope)
   try {
     if (options.sourceMaps) {
       const result = generateClientJsWithSourceMap(componentIR, undefined, options.localImportPrefixes, {

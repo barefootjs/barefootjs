@@ -13,7 +13,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -36,7 +36,7 @@ describe('destructured-from-props-object → template rewrite', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'Page.tsx', { adapter })
+    const result = compileJSX(source, 'Page.tsx', { adapter })
 
     expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find((f) => f.type === 'clientJs')

@@ -5,7 +5,7 @@
  * Used by adapter-tests conformance runner.
  */
 
-import { compileJSXSync } from '@barefootjs/jsx'
+import { compileJSX } from '@barefootjs/jsx'
 import type { TemplateAdapter, ComponentIR } from '@barefootjs/jsx'
 import { mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
@@ -67,7 +67,7 @@ export async function renderGoTemplateComponent(options: RenderOptions): Promise
   const childTypeBlocks: string[] = []
   if (components) {
     for (const [filename, childSource] of Object.entries(components)) {
-      const childResult = compileJSXSync(childSource, filename, { adapter, outputIR: true })
+      const childResult = compileJSX(childSource, filename, { adapter, outputIR: true })
       const childErrors = childResult.errors.filter(e => e.severity === 'error')
       if (childErrors.length > 0) {
         throw new Error(`Compilation errors in ${filename}:\n${childErrors.map(e => e.message).join('\n')}`)
@@ -92,7 +92,7 @@ export async function renderGoTemplateComponent(options: RenderOptions): Promise
   }
 
   // Compile parent source
-  const result = compileJSXSync(source, 'component.tsx', { adapter, outputIR: true })
+  const result = compileJSX(source, 'component.tsx', { adapter, outputIR: true })
 
   const errors = result.errors.filter(e => e.severity === 'error')
   if (errors.length > 0) {

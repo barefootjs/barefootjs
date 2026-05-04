@@ -3,7 +3,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 import { HonoAdapter } from '../../../../packages/adapter-hono/src/adapter/hono-adapter'
 
@@ -25,7 +25,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'RadioGroup.tsx', { adapter })
+    const result = compileJSX(source, 'RadioGroup.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -48,7 +48,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'RadioGroup.tsx', { adapter })
+    const result = compileJSX(source, 'RadioGroup.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -74,7 +74,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -99,7 +99,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -122,7 +122,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -147,7 +147,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -190,7 +190,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'SelectionDemo.tsx', { adapter })
+    const result = compileJSX(source, 'SelectionDemo.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -219,7 +219,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'RadioGroup.tsx', { adapter })
+    const result = compileJSX(source, 'RadioGroup.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -244,7 +244,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'CardList.tsx', { adapter: honoAdapter })
+    const result = compileJSX(source, 'CardList.tsx', { adapter: honoAdapter })
     expect(result.errors).toHaveLength(0)
 
     const template = result.files.find(f => f.type === 'markedTemplate')
@@ -270,7 +270,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'StaticList.tsx', { adapter: honoAdapter })
+    const result = compileJSX(source, 'StaticList.tsx', { adapter: honoAdapter })
     expect(result.errors).toHaveLength(0)
 
     const template = result.files.find(f => f.type === 'markedTemplate')
@@ -297,7 +297,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Parent.tsx', { adapter })
+    const result = compileJSX(source, 'Parent.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -340,7 +340,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'DataTable.tsx', { adapter })
+    const result = compileJSX(source, 'DataTable.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -376,7 +376,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -405,7 +405,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'RadioGroup.tsx', { adapter })
+    const result = compileJSX(source, 'RadioGroup.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -437,7 +437,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'DataTable.tsx', { adapter })
+    const result = compileJSX(source, 'DataTable.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -472,7 +472,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -505,7 +505,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -534,7 +534,7 @@ describe('child components inside .map() (#344)', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      const result = compileJSX(source, 'List.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       // The .map() call should become an expression, not a loop with empty children
@@ -558,7 +558,7 @@ describe('child components inside .map() (#344)', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      const result = compileJSX(source, 'List.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -581,7 +581,7 @@ describe('child components inside .map() (#344)', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'List.tsx', { adapter })
+      const result = compileJSX(source, 'List.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -605,7 +605,7 @@ describe('child components inside .map() (#344)', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'List.tsx', { adapter: honoAdapter })
+      const result = compileJSX(source, 'List.tsx', { adapter: honoAdapter })
       expect(result.errors).toHaveLength(0)
 
       const template = result.files.find(f => f.type === 'markedTemplate')
@@ -635,7 +635,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'DynList.tsx', { adapter })
+    const result = compileJSX(source, 'DynList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -664,7 +664,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Header.tsx', { adapter })
+    const result = compileJSX(source, 'Header.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -692,7 +692,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'Header.tsx', { adapter })
+    const result = compileJSX(source, 'Header.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -718,7 +718,7 @@ describe('child components inside .map() (#344)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'List.tsx', { adapter })
+    const result = compileJSX(source, 'List.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')

@@ -9,7 +9,7 @@
 import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 import type { IRComponent, IRElement } from '../types'
 
@@ -157,7 +157,7 @@ describe('JSX props (#559)', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -181,7 +181,7 @@ describe('JSX props (#559)', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -202,7 +202,7 @@ describe('JSX props (#559)', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -225,7 +225,7 @@ describe('JSX props (#559)', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -250,7 +250,7 @@ describe('JSX props (#559)', () => {
           )
         }
       `
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -275,7 +275,7 @@ describe('JSX props (#559)', () => {
           return <Layout controls={<Button label="ok" />} />
         }
       `
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -293,7 +293,7 @@ describe('JSX props (#559)', () => {
           return <Layout controls={<input type="text" />} />
         }
       `
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -311,7 +311,7 @@ describe('JSX props (#559)', () => {
           return <Layout controls={<div><Button /></div>} />
         }
       `
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -329,7 +329,7 @@ describe('JSX props (#559)', () => {
           return <Layout controls={<Button label="ok" />} />
         }
       `
-      const result = compileJSXSync(source, 'App.tsx', { adapter })
+      const result = compileJSX(source, 'App.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -352,7 +352,7 @@ describe('JSX props (#559)', () => {
           return <div>{props.controls}</div>
         }
       `
-      const result = compileJSXSync(source, 'Layout.tsx', { adapter })
+      const result = compileJSX(source, 'Layout.tsx', { adapter })
       expect(result.errors).toHaveLength(0)
 
       const clientJs = result.files.find(f => f.type === 'clientJs')

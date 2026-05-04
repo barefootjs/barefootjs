@@ -8,7 +8,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { compileJSXSync } from '../compiler'
+import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -54,7 +54,7 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'FileBrowser.tsx', { adapter })
+    const result = compileJSX(source, 'FileBrowser.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -113,7 +113,7 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'SocialFeed.tsx', { adapter })
+    const result = compileJSX(source, 'SocialFeed.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -168,7 +168,7 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'App.tsx', { adapter })
+    const result = compileJSX(source, 'App.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -209,7 +209,7 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
       }
     `
 
-    const result = compileJSXSync(source, 'ToggleList.tsx', { adapter })
+    const result = compileJSX(source, 'ToggleList.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -265,7 +265,7 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'InlineEditTable.tsx', { adapter })
+    const result = compileJSX(source, 'InlineEditTable.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
@@ -330,7 +330,7 @@ describe('nested loops/conditionals inside mapArray (#830, #839)', () => {
         )
       }
     `
-    const result = compileJSXSync(source, 'FileBrowser.tsx', { adapter })
+    const result = compileJSX(source, 'FileBrowser.tsx', { adapter })
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')
