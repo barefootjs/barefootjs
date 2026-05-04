@@ -2385,11 +2385,22 @@ interface ProcessedAttributes {
   ref: string | null
 }
 
-// Spread expansion: shared between HTML attrs and component props. When the
-// analyzer can statically enumerate the rest-prop key list, the spread is
-// unrolled per key; otherwise it's emitted as a single `...` entry that the
-// runtime expands. The shape returned satisfies both IRAttribute and IRProp
-// (string value, dynamic, isLiteral=false).
+// Spread expansion: shared between HTML attrs and component props.
+//
+// When the spread target is the destructured rest-prop and the analyzer
+// closed its key set (e.g. `function X({ a, ...rest }: { a: A; b: B; c: C })`),
+// we unroll into one entry per known key. Adapters can then emit each as a
+// separate slot — this is what lets static keys stay static and dynamic
+// keys keep their per-key reactivity. The catch-all `...` entry forces the
+// runtime to spread at hydration time, which loses that per-key resolution
+// and is reserved for cases where the key set isn't statically known.
+//
+// The `spreadExpr === restName` check is what restricts unrolling to the
+// rest-prop itself: arbitrary `{...someObject}` spreads can't be unrolled
+// because we don't have a static key list for them.
+//
+// The shape returned satisfies both IRAttribute and IRProp (string value,
+// dynamic, isLiteral=false).
 function expandSpreadAttribute(
   attr: ts.JsxSpreadAttribute,
   ctx: TransformContext,
@@ -2427,10 +2438,13 @@ function expandSpreadAttribute(
 }
 
 // AST-derived reactivity flags for the Solid-style wrap-by-default fallback
-// (#940 / #942 DRY consolidation). Computed on the source JSX expression so
-// collect-elements.ts can decide wrapping structurally instead of regex-
-// scanning the expanded value string — a regex can false-match call-like
-// substrings inside string literals (e.g. `style={{ color: 'hsl(221 83% 53%)' }}`).
+// (#940 / #942). Computed from the source JSX expression rather than the
+// expanded value string because a regex over the expanded string would
+// false-match call-like substrings inside string literals — most notoriously
+// CSS like `style={{ color: 'hsl(221 83% 53%)' }}`. Boolean shorthand
+// (`<X disabled />`) and string literals have no expression to analyze, so
+// they get the empty-flags fallback below; collect-elements.ts then treats
+// them as static.
 function computeReactivityFlags(
   attr: ts.JsxAttribute,
   ctx: TransformContext,
@@ -2467,6 +2481,10 @@ function processAttributes(
 
     const name = attr.name.getText(ctx.sourceFile)
 
+    // ref is captured separately (not pushed into `attrs`) because it never
+    // appears in the rendered HTML — it's a compile-time binding from the
+    // JSX call site to the runtime DOM element, surfaced via the IRElement
+    // `ref` field for the client-JS emitter.
     if (name === 'ref') {
       if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
         ref = ctx.getJS(attr.initializer.expression)
@@ -2474,6 +2492,10 @@ function processAttributes(
       continue
     }
 
+    // Event handlers are pulled out of `attrs` for the same reason as ref:
+    // they're wired up at hydration time (delegated event registration) and
+    // must not leak into rendered HTML. The DOM event name is lowercase
+    // (`click`, not `Click`), so strip the `on` prefix and downcase.
     if (/^on[A-Z]/.test(name)) {
       if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
         const eventName = name.slice(2).toLowerCase()
