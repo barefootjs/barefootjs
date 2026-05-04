@@ -881,16 +881,27 @@ export function FlowNodeTypeBridge(props: FlowNodeTypeBridgeProps) {
     // `createEffect` runs cleanups before the next body invocation.
     for (; el.firstChild;) el.removeChild(el.firstChild)
     el.removeAttribute('style')
-    initFn.call(el, {
-      id,
-      data,
-      type,
-      selected: () => !!store.nodeLookup().get(id)?.selected,
-      dragging: false,
-      positionAbsoluteX: 0,
-      positionAbsoluteY: 0,
-      isConnectable: true,
-    })
+    // The user component is invoked under `untrack` so any signals it
+    // reads at the top level (e.g. its own state in imperative render
+    // helpers) do NOT subscribe THIS bridge effect. Without the wrap,
+    // `Listener` is the bridge effect while `initFn` runs, so a
+    // top-level `someSignal()` read inside the user component
+    // re-subscribes the bridge — and any later setSomeSignal() from
+    // inside the user component would re-run the bridge, wiping the
+    // DOM the user just mounted and breaking imperative state (focus,
+    // in-flight editors, native dblclick target identity, …).
+    untrack(() =>
+      initFn.call(el, {
+        id,
+        data,
+        type,
+        selected: () => !!store.nodeLookup().get(id)?.selected,
+        dragging: false,
+        positionAbsoluteX: 0,
+        positionAbsoluteY: 0,
+        isConnectable: true,
+      }),
+    )
   })
 
   return <div data-bf-bridge="" ref={setBridgeEl} />
