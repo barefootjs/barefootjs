@@ -1,7 +1,12 @@
 import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
+import { compileJSX } from '../compiler'
+import { ErrorCodes } from '../errors'
+import { TestAdapter } from '../adapters/test-adapter'
 import type { IRAsync, IRElement } from '../types'
+
+const adapter = new TestAdapter()
 
 describe('<Async> streaming boundary', () => {
   test('transforms <Async> with fallback and children into IRAsync', () => {
@@ -91,7 +96,7 @@ describe('<Async> streaming boundary', () => {
     expect(asyncNode.fallback.type).toBe('component')
   })
 
-  test('throws when fallback prop is missing', () => {
+  test('reports BF046 when fallback prop is missing and emits a fragment stub', () => {
     const source = `
       export function Page() {
         return (
@@ -103,6 +108,66 @@ describe('<Async> streaming boundary', () => {
     `
 
     const ctx = analyzeComponent(source, 'Page.tsx')
-    expect(() => jsxToIR(ctx)).toThrow('fallback')
+    const ir = jsxToIR(ctx)
+
+    const error = ctx.errors.find(e => e.code === ErrorCodes.COMPONENT_REQUIRED_PROP_MISSING)
+    expect(error).toBeDefined()
+    expect(error?.severity).toBe('error')
+    expect(error?.message).toContain('fallback')
+
+    // The dispatcher stays non-null so downstream walkers (parseFallbackProp,
+    // transformJsxFunctionCall, etc.) don't silently coerce. Children are
+    // walked so any descendant diagnostics still accumulate.
+    expect(ir?.type).toBe('fragment')
+  })
+
+  test('reports BF046 when self-closing <Async /> is missing fallback', () => {
+    const source = `
+      export function Page() {
+        return <Async />
+      }
+    `
+
+    const ctx = analyzeComponent(source, 'Page.tsx')
+    const ir = jsxToIR(ctx)
+
+    const error = ctx.errors.find(e => e.code === ErrorCodes.COMPONENT_REQUIRED_PROP_MISSING)
+    expect(error).toBeDefined()
+    expect(error?.severity).toBe('error')
+    expect(error?.message).toContain('fallback')
+    expect(ir?.type).toBe('fragment')
+
+    // Empty stub at root must NOT emit `needsScopeComment` — a bare
+    // bf-scope comment would let the runtime fall back to
+    // comment.parentElement, hydrating the broken component against its
+    // parent container instead of an isolated boundary.
+    if (ir?.type === 'fragment') {
+      expect(ir.children.length).toBe(0)
+      expect(ir.needsScopeComment).toBeUndefined()
+    }
+  })
+
+  test('compileJSX surfaces BF046 in errors without crashing on multi-child stub', () => {
+    // Multi-child + root pins the scope-metadata path: a transparent stub
+    // would suppress needsScopeComment and leak ctx.isRoot to only the first
+    // child. Whatever the adapter chooses to emit, compileJSX must not throw
+    // and the BF046 diagnostic must reach result.errors so consumers can
+    // fail the build.
+    const source = `
+      export function Page() {
+        return (
+          <Async>
+            <header>a</header>
+            <footer>b</footer>
+          </Async>
+        )
+      }
+    `
+
+    const result = compileJSX(source, 'Page.tsx', { adapter })
+
+    const error = result.errors.find(e => e.code === ErrorCodes.COMPONENT_REQUIRED_PROP_MISSING)
+    expect(error).toBeDefined()
+    expect(error?.severity).toBe('error')
   })
 })

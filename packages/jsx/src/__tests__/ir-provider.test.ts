@@ -6,6 +6,7 @@ import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
 import { compileJSX } from '../compiler'
+import { ErrorCodes } from '../errors'
 import { TestAdapter } from '../adapters/test-adapter'
 
 const adapter = new TestAdapter()
@@ -323,5 +324,84 @@ describe('Context.Provider JSX', () => {
       },
       children: [],
     })
+  })
+
+  test('reports BF046 and walks children when value prop is missing', () => {
+    const source = `
+      import { createContext } from '@barefootjs/client'
+      const Ctx = createContext<unknown>()
+      export function Page() {
+        return (
+          <Ctx.Provider>
+            <span>x</span>
+          </Ctx.Provider>
+        )
+      }
+    `
+
+    const ctx = analyzeComponent(source, 'Page.tsx')
+    const ir = jsxToIR(ctx)
+
+    const error = ctx.errors.find(e => e.code === ErrorCodes.COMPONENT_REQUIRED_PROP_MISSING)
+    expect(error).toBeDefined()
+    expect(error?.severity).toBe('error')
+    expect(error?.message).toContain('value')
+
+    // Stub fragment preserves the IR shape and the descendant walk.
+    expect(ir?.type).toBe('fragment')
+    if (ir?.type === 'fragment') {
+      expect(ir.children.length).toBe(1)
+    }
+  })
+
+  test('reports BF046 when self-closing Provider lacks value prop', () => {
+    const source = `
+      import { createContext } from '@barefootjs/client'
+      const Ctx = createContext<unknown>()
+      export function Page() {
+        return <Ctx.Provider />
+      }
+    `
+
+    const ctx = analyzeComponent(source, 'Page.tsx')
+    const ir = jsxToIR(ctx)
+
+    const error = ctx.errors.find(e => e.code === ErrorCodes.COMPONENT_REQUIRED_PROP_MISSING)
+    expect(error).toBeDefined()
+    expect(error?.severity).toBe('error')
+    expect(ir?.type).toBe('fragment')
+
+    // Empty stub at root must NOT emit `needsScopeComment` — see
+    // ir-async.test.ts for the runtime parentElement-fallback rationale.
+    if (ir?.type === 'fragment') {
+      expect(ir.children.length).toBe(0)
+      expect(ir.needsScopeComment).toBeUndefined()
+    }
+  })
+
+  test('compileJSX surfaces BF046 in errors without crashing on multi-child stub', () => {
+    // Multi-child + root pins the scope-metadata path: a transparent stub
+    // would suppress needsScopeComment and leak ctx.isRoot to only the first
+    // child. Whatever the adapter chooses to emit, compileJSX must not throw
+    // and the BF046 diagnostic must reach result.errors so consumers can
+    // fail the build.
+    const source = `
+      import { createContext } from '@barefootjs/client'
+      const Ctx = createContext<unknown>()
+      export function Page() {
+        return (
+          <Ctx.Provider>
+            <header>a</header>
+            <footer>b</footer>
+          </Ctx.Provider>
+        )
+      }
+    `
+
+    const result = compileJSX(source, 'Page.tsx', { adapter })
+
+    const error = result.errors.find(e => e.code === ErrorCodes.COMPONENT_REQUIRED_PROP_MISSING)
+    expect(error).toBeDefined()
+    expect(error?.severity).toBe('error')
   })
 })
