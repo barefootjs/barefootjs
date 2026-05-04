@@ -2,6 +2,7 @@ import { describe, test, expect } from 'bun:test'
 import { analyzeComponent } from '../analyzer'
 import { jsxToIR } from '../jsx-to-ir'
 import { compileJSX } from '../compiler'
+import { ErrorCodes } from '../errors'
 import { TestAdapter } from '../adapters/test-adapter'
 import type { IRAsync, IRElement } from '../types'
 
@@ -109,7 +110,7 @@ describe('<Async> streaming boundary', () => {
     const ctx = analyzeComponent(source, 'Page.tsx')
     const ir = jsxToIR(ctx)
 
-    const error = ctx.errors.find(e => e.code === 'BF046')
+    const error = ctx.errors.find(e => e.code === ErrorCodes.COMPONENT_REQUIRED_PROP_MISSING)
     expect(error).toBeDefined()
     expect(error?.severity).toBe('error')
     expect(error?.message).toContain('fallback')
@@ -130,7 +131,7 @@ describe('<Async> streaming boundary', () => {
     const ctx = analyzeComponent(source, 'Page.tsx')
     const ir = jsxToIR(ctx)
 
-    const error = ctx.errors.find(e => e.code === 'BF046')
+    const error = ctx.errors.find(e => e.code === ErrorCodes.COMPONENT_REQUIRED_PROP_MISSING)
     expect(error).toBeDefined()
     expect(error?.severity).toBe('error')
     expect(error?.message).toContain('fallback')
@@ -165,7 +166,7 @@ describe('<Async> streaming boundary', () => {
 
     const result = compileJSX(source, 'Page.tsx', { adapter })
 
-    const error = result.errors.find(e => e.code === 'BF046')
+    const error = result.errors.find(e => e.code === ErrorCodes.COMPONENT_REQUIRED_PROP_MISSING)
     expect(error).toBeDefined()
     expect(error?.severity).toBe('error')
   })

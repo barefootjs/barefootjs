@@ -507,22 +507,20 @@ function reportMissingRequiredProp(
   )
 }
 
-// Stub returned in place of an invalid built-in (Provider/Async) so the IR
-// stays well-formed for downstream walkers. compileJSX still emits files
-// when the IR root is non-null, so the BF046 diagnostic in `analyzer.errors`
-// is the source of truth: consumers must check `result.errors` and fail the
-// build on `severity:'error'` rather than rely on output absence.
+// Stub returned in place of an invalid built-in (Provider/Async). compileJSX
+// still emits files when the IR root is non-null, so the BF046 diagnostic in
+// `analyzer.errors` is the source of truth — consumers must check
+// `result.errors` and fail on `severity:'error'`.
 //
-// Children are computed via callback so we can clear `ctx.isRoot` before the
-// walk: a transparent root fragment would suppress `needsScopeComment` and
-// leak `isRoot` into only the first child, leaving malformed scope metadata
-// for cases like `<Async><header/><footer/></Async>` at component root.
+// Children are computed lazily so we can clear `ctx.isRoot` before the walk:
+// otherwise `isRoot` would leak into only the first child, leaving the
+// fragment without `needsScopeComment` and the rest of the children
+// unscoped.
 //
-// `needsScopeComment` is only emitted when there is actual content to scope.
-// For an empty stub (e.g. `<Async />` missing `fallback`) a bare `bf-scope`
-// comment would let the runtime fall back to `comment.parentElement` as the
-// proxy scope, hydrating the invalid component against the parent container
-// instead of an isolated boundary.
+// `needsScopeComment` is suppressed for an empty stub (e.g. self-closing
+// `<Async />`) — a bare bf-scope comment with no element sibling makes the
+// runtime fall back to `comment.parentElement` as the proxy scope, hydrating
+// the broken component against its parent container.
 function stubFragment(
   ctx: TransformContext,
   node: ts.Node,
