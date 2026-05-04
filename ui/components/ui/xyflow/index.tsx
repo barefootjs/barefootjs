@@ -28,8 +28,10 @@
  */
 
 import {
-  createSignal,
+  createEffect,
   createMemo,
+  createSignal,
+  untrack,
   useContext,
 } from '@barefootjs/client'
 import type { JSX } from '@barefootjs/jsx/jsx-runtime'
@@ -820,32 +822,115 @@ interface FlowNodeTypeBridgeProps {
 // template-emitter shorthand bug that produces `{node(): node()}`).
 export function FlowNodeTypeBridge(props: FlowNodeTypeBridgeProps) {
   const store = useContext(FlowContext) as FlowStore | undefined
-  return (
-    <div
-      data-bf-bridge=""
-      ref={(el: HTMLElement) => {
-        if (!store) return
-        const live = props.forNode
-        const id = live.id ?? (el.closest('.bf-flow__node') as HTMLElement | null)?.dataset.id
-        if (!id) return
-        const internal = store.nodeLookup().get(id)
-        const data = live.data ?? internal?.data ?? {}
-        const type = (live.type ?? internal?.type ?? 'default') as string
-        const initFn = props.nodeTypes[type] ?? props.nodeTypes.default
-        if (!initFn) return
-        initFn.call(el, {
-          id,
-          data,
-          type,
-          selected: () => !!store.nodeLookup().get(id)?.selected,
-          dragging: false,
-          positionAbsoluteX: 0,
-          positionAbsoluteY: 0,
-          isConnectable: true,
-        })
-      }}
-    />
-  )
+  const [bridgeEl, setBridgeEl] = createSignal<HTMLElement | null>(null)
+
+  // Resolve identity once the element exists. `idMemo` only emits when
+  // the resolved id actually changes — re-runs of `props.forNode` that
+  // produce the same id are deduped by createMemo (Object.is on the
+  // string). The DOM fallback handles SSR hydration where `props.forNode`
+  // may be empty.
+  const idMemo = createMemo<string | undefined>(() => {
+    const el = bridgeEl()
+    if (!el) return undefined
+    const live = props.forNode
+    return live?.id ?? (el.closest('.bf-flow__node') as HTMLElement | null)?.dataset.id ?? undefined
+  })
+
+  // Subscribe to the node's `data` *identity*, not to the whole
+  // `nodeLookup()` map. `setNodes(prev => prev.map(n => n.id === target ?
+  // {...n, selected: true} : n))` keeps `n.data` as the same object, so
+  // a data-identity memo deduplicates selection-only updates and stops
+  // them from tearing down whatever DOM the user's `initFn` mounted
+  // (focus, in-flight editors, native dblclick target identity, …).
+  // Real `data` changes — a consumer mutating `node.data` via setNodes —
+  // produce a new data object and DO trigger a re-run, matching the
+  // behaviour the previous coarse subscription provided.
+  //
+  // The live-props fallback is folded INTO this memo so the effect
+  // below depends only on `dataMemo` — reading `props.forNode?.data`
+  // from the effect body would re-subscribe to forNode and undo the
+  // dedup whenever mapArray hands the bridge a fresh wrapper object on
+  // every setNodes call.
+  const dataMemo = createMemo(() => {
+    const id = idMemo()
+    if (store && id) {
+      const fromStore = store.nodeLookup().get(id)?.data
+      if (fromStore !== undefined) return fromStore
+    }
+    return props.forNode?.data ?? {}
+  })
+
+  // Subscribe to `type` identity (string, deduped by Object.is) so
+  // a `setNodes` call that swaps `node.type` re-runs the dispatcher
+  // and remounts the new renderer. Without this memo the dispatcher
+  // would only react to id/data changes and leave the previous
+  // renderer mounted with a stale `type`.
+  const typeMemo = createMemo<string>(() => {
+    const id = idMemo()
+    const live = props.forNode
+    return (live?.type ?? (id ? store?.nodeLookup().get(id)?.type : undefined) ?? 'default') as string
+  })
+
+  createEffect(() => {
+    const el = bridgeEl()
+    if (!el || !store) return
+    const id = idMemo()
+    if (!id) return
+    const data = dataMemo()
+    const type = typeMemo()
+    const initFn = untrack(() => props.nodeTypes[type] ?? props.nodeTypes.default)
+    // Wipe whatever the previous run mounted BEFORE bailing out on a
+    // missing `initFn` so an unmapped `type` swap doesn't leave the
+    // previous renderer's DOM stranded with its onCleanup chain
+    // already fired. Cleanups run when `createEffect` invokes the
+    // next body; the wipe just makes the host element a clean slate
+    // either way.
+    for (; el.firstChild;) el.removeChild(el.firstChild)
+    el.removeAttribute('style')
+    if (!initFn) return
+    // The user component is invoked under `untrack` so any signals it
+    // reads at the top level (e.g. its own state in imperative render
+    // helpers) do NOT subscribe THIS bridge effect. Without the wrap,
+    // `Listener` is the bridge effect while `initFn` runs, so a
+    // top-level `someSignal()` read inside the user component
+    // re-subscribes the bridge — and any later setSomeSignal() from
+    // inside the user component would re-run the bridge, wiping the
+    // DOM the user just mounted and breaking imperative state (focus,
+    // in-flight editors, native dblclick target identity, …).
+    //
+    // `untrack` only swaps `Listener`, not `Owner` — `Owner` stays the
+    // bridge effect, so any `onCleanup(...)` the user component
+    // registers is still rooted at this effect and tears down on the
+    // next bridge re-run, preserving the wipe + rebuild semantics
+    // documented above.
+    untrack(() =>
+      initFn.call(el, {
+        id,
+        data,
+        // The `selected` getter has to subscribe consumers (the user
+        // component's effects that read it) to the `nodes()` signal,
+        // not just `nodeLookup()`. `nodesInitialized` mutates the
+        // lookup map in place and re-fires `setNodeLookup(() => lookup)`
+        // with the same reference, which createSignal dedupes — so
+        // `nodeLookup()` reads alone never wake up downstream effects
+        // on selection changes. Reading `nodes()` first guarantees
+        // the consumer's effect re-runs on every setNodes; the
+        // `nodeLookup().get(id)?.selected` read after still returns
+        // the latest selected state because the lookup is mutated in
+        // place. (Mirrors `NodeWrapper`'s `node` memo.)
+        selected: () => {
+          store.nodes()
+          return !!store.nodeLookup().get(id)?.selected
+        },
+        dragging: false,
+        positionAbsoluteX: 0,
+        positionAbsoluteY: 0,
+        isConnectable: true,
+      }),
+    )
+  })
+
+  return <div data-bf-bridge="" ref={setBridgeEl} />
 }
 
 export function Flow<
