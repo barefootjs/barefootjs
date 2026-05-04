@@ -508,13 +508,21 @@ function reportMissingRequiredProp(
 }
 
 // Stub returned in place of an invalid built-in (Provider/Async) so the IR
-// stays well-formed for downstream walkers. The diagnostic in `analyzer.errors`
-// is the real signal — consumers fail the build on it.
+// stays well-formed for downstream walkers. compileJSX still emits files
+// when the IR root is non-null, so the BF046 diagnostic in `analyzer.errors`
+// is the source of truth: consumers must check `result.errors` and fail the
+// build on `severity:'error'` rather than rely on output absence.
 //
 // Children are computed via callback so we can clear `ctx.isRoot` before the
 // walk: a transparent root fragment would suppress `needsScopeComment` and
 // leak `isRoot` into only the first child, leaving malformed scope metadata
 // for cases like `<Async><header/><footer/></Async>` at component root.
+//
+// `needsScopeComment` is only emitted when there is actual content to scope.
+// For an empty stub (e.g. `<Async />` missing `fallback`) a bare `bf-scope`
+// comment would let the runtime fall back to `comment.parentElement` as the
+// proxy scope, hydrating the invalid component against the parent container
+// instead of an isolated boundary.
 function stubFragment(
   ctx: TransformContext,
   node: ts.Node,
@@ -526,7 +534,7 @@ function stubFragment(
   return {
     type: 'fragment',
     children,
-    needsScopeComment: isFragmentRoot || undefined,
+    needsScopeComment: (isFragmentRoot && children.length > 0) || undefined,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
   }
 }

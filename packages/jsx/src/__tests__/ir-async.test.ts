@@ -95,7 +95,7 @@ describe('<Async> streaming boundary', () => {
     expect(asyncNode.fallback.type).toBe('component')
   })
 
-  test('reports BF046 when fallback prop is missing and emits a transparent stub', () => {
+  test('reports BF046 when fallback prop is missing and emits a fragment stub', () => {
     const source = `
       export function Page() {
         return (
@@ -135,6 +135,15 @@ describe('<Async> streaming boundary', () => {
     expect(error?.severity).toBe('error')
     expect(error?.message).toContain('fallback')
     expect(ir?.type).toBe('fragment')
+
+    // Empty stub at root must NOT emit `needsScopeComment` — a bare
+    // bf-scope comment would let the runtime fall back to
+    // comment.parentElement, hydrating the broken component against its
+    // parent container instead of an isolated boundary.
+    if (ir?.type === 'fragment') {
+      expect(ir.children.length).toBe(0)
+      expect(ir.needsScopeComment).toBeUndefined()
+    }
   })
 
   test('compileJSX surfaces BF046 in errors without crashing on multi-child stub', () => {

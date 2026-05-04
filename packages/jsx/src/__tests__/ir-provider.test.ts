@@ -369,6 +369,13 @@ describe('Context.Provider JSX', () => {
     expect(error).toBeDefined()
     expect(error?.severity).toBe('error')
     expect(ir?.type).toBe('fragment')
+
+    // Empty stub at root must NOT emit `needsScopeComment` — see
+    // ir-async.test.ts for the runtime parentElement-fallback rationale.
+    if (ir?.type === 'fragment') {
+      expect(ir.children.length).toBe(0)
+      expect(ir.needsScopeComment).toBeUndefined()
+    }
   })
 
   test('compileJSX surfaces BF046 in errors without crashing on multi-child stub', () => {
