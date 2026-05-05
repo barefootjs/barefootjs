@@ -47,6 +47,40 @@ export interface AdapterGenerateOptions {
   scriptBaseName?: string
 }
 
+/**
+ * Emit a registered primitive call into the template. Receives the already-
+ * rewritten argument expressions (as strings) and returns the substituted
+ * template-side call expression.
+ *
+ * Examples:
+ *   Hono: `(args) => \`JSON.stringify(\${args[0]})\``
+ *   Go:   `(args) => \`{{ json \${args[0]} }}\``
+ */
+export type TemplatePrimitiveEmit = (args: string[]) => string
+
+/**
+ * Maps callee identifier paths to adapter-specific template emit functions.
+ * Keys are the textual callee path as it appears in the JSX expression
+ * (`JSON.stringify`, `Math.floor`, `String`).
+ *
+ * V1 scope: identifier-path callees only. Method calls on values whose type
+ * the analyzer must resolve (`props.name.toUpperCase()`) are out of scope —
+ * see #1187 R1. Users can fall back to `/* @client *\/` for those.
+ */
+export type TemplatePrimitiveRegistry = Record<string, TemplatePrimitiveEmit>
+
+/**
+ * Optional broad-acceptance predicate for adapters whose template runtime is
+ * a full JS engine (Hono SSR, CSR adapter). When the callee isn't found in
+ * `templatePrimitives`, the compiler consults this predicate; returning true
+ * means "inline the call as-is in the template, the runtime can execute it".
+ *
+ * Adapters whose template runtime can't execute arbitrary JS (Go, Perl,
+ * other server-side template languages) should leave this undefined and
+ * rely on the explicit `templatePrimitives` map alone.
+ */
+export type TemplateCallAcceptor = (calleeName: string) => boolean
+
 export interface TemplateAdapter {
   name: string
   extension: string
@@ -68,6 +102,35 @@ export interface TemplateAdapter {
    * behaviour for adapters that do not run JS at SSR (e.g. go-template).
    */
   clientShimSource?: string
+
+  /**
+   * Pure JS callees the adapter promises it can render in template scope.
+   * The compiler consults this map when classifying expressions for
+   * template-scope safety: a call whose callee is registered is treated as
+   * lift-safe instead of forcing the surrounding expression into init scope.
+   *
+   * Contract: the emit function must produce template-side code whose value
+   * is **value-equivalent** to the JS reference implementation given the
+   * same input. Order/whitespace differences are acceptable for non-string-
+   * compared outputs (CSS class lists, JSON-decoded objects). See #1187
+   * registry contract for details.
+   *
+   * V1 scope is identifier-path callees (`JSON.stringify`, `Math.floor`,
+   * `String`). Method calls on values whose receiver type the analyzer
+   * must resolve are out of scope; users can fall back to `/* @client *\/`.
+   */
+  templatePrimitives?: TemplatePrimitiveRegistry
+
+  /**
+   * Broad-acceptance predicate for adapters whose template runtime is a
+   * full JS engine (Hono SSR, CSR). Consulted when a callee isn't in
+   * `templatePrimitives`. Returning true means the runtime can execute the
+   * call as-is — the compiler keeps the call inlined in the template.
+   *
+   * Server-side template languages (Go, Perl) should leave this undefined
+   * and rely on the explicit `templatePrimitives` map.
+   */
+  acceptsTemplateCall?: TemplateCallAcceptor
 
   // Main entry point - generates complete template from IR
   generate(ir: ComponentIR, options?: AdapterGenerateOptions): AdapterOutput
