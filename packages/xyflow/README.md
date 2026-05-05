@@ -114,7 +114,4 @@ that come from publishing `.tsx` directly from a workspace package.
 
 ## Related
 
-- [Issue #1081](https://github.com/piconic-ai/barefootjs/issues/1081) — Phase-9 migration plan that delivered this layout.
-- [Issue #1080](https://github.com/piconic-ai/barefootjs/issues/1080) — chart migration; same pattern, different package.
-- [`piconic-ai/desk#41`](https://github.com/piconic-ai/desk/issues/41) — downstream desk migration.
 - [`@xyflow/system`](https://www.npmjs.com/package/@xyflow/system) — upstream pan/zoom + edge-path math library this package wraps.
