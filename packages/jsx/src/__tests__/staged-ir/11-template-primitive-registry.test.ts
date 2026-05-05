@@ -153,4 +153,106 @@ describe('isInlinableInTemplate — adapter-aware acceptance (#1187 phase 2)', (
       expect(r.ok).toBe(true)
     })
   })
+
+  describe('shadow guard — local bindings must not activate the registry', () => {
+    test('local const shadowing a global registry entry is rejected', () => {
+      // User has `const JSON = ...` in init scope (or similar local
+      // binding). `JSON.stringify` here is the local's `.stringify`
+      // member, NOT the global. Registry must not fire.
+      const env = envWith(
+        [
+          ['JSON', 'init-local'], // shadows the global
+          ['name', 'prop'],
+        ],
+        {
+          propsObjectName: null,
+          templatePrimitives: {
+            'JSON.stringify': (args) => `JSON.stringify(${args[0]})`,
+          },
+        },
+      )
+      const r = isInlinableInTemplate('JSON.stringify(name)', env)
+      expect(r.ok).toBe(false) // bridged-arg fires because shadow guard kept the rejection in play
+    })
+
+    test('module-import binding: registry still applies', () => {
+      // Module imports are stable enough to register against.
+      const env = envWith(
+        [
+          ['JSON', 'module-import'],
+          ['name', 'prop'],
+        ],
+        {
+          propsObjectName: null,
+          templatePrimitives: {
+            'JSON.stringify': (args) => `JSON.stringify(${args[0]})`,
+          },
+        },
+      )
+      const r = isInlinableInTemplate('JSON.stringify(name)', env)
+      expect(r.ok).toBe(true)
+    })
+
+    test('module-local binding: registry still applies', () => {
+      // A pure helper defined at module scope (not imported) is still a
+      // valid registration target — outside component-instance scope.
+      const env = envWith(
+        [
+          ['format', 'module-local'],
+          ['name', 'prop'],
+        ],
+        {
+          propsObjectName: null,
+          templatePrimitives: {
+            format: (args) => `format(${args[0]})`,
+          },
+        },
+      )
+      const r = isInlinableInTemplate('format(name)', env)
+      expect(r.ok).toBe(true)
+    })
+
+    test('signal-getter shadowing: registry must not fire', () => {
+      // Even more obvious shadow case — `count` is a signal getter, the
+      // registry has `count` as a registered primitive. Local wins.
+      const env = envWith([['count', 'signal-getter']], {
+        templatePrimitives: {
+          count: () => 'count()',
+        },
+      })
+      const r = isInlinableInTemplate('count()', env)
+      expect(r.ok).toBe(false) // zero-arg rejection still fires
+    })
+  })
+
+  describe('out-of-scope per #1187 R1: method calls on values', () => {
+    test('method call on a prop value is not registry-resolvable', () => {
+      // `name.toUpperCase()` — receiver type isn't part of the textual
+      // callee path. Registry can only key on identifier paths, not on
+      // type-anchored prototype methods (`String.prototype.toUpperCase`).
+      // Pin so this limitation doesn't accidentally regress: the user
+      // should fall back to `/* @client */`.
+      const env = envWith([['name', 'prop']], {
+        propsObjectName: null,
+        templatePrimitives: {
+          // A speculative future encoding the compiler doesn't understand:
+          'String.prototype.toUpperCase': () => 'whatever',
+        },
+      })
+      const r = isInlinableInTemplate('name.toUpperCase()', env)
+      expect(r.ok).toBe(false) // bridged-arg fires (name is a prop)
+    })
+
+    test('non-identifier callee shape (`(getX())()`) returns null path → no registry hit', () => {
+      // Even if a `getX` entry existed, the dynamic-dispatch shape
+      // `(getX())()` doesn't expose a stable identifier path.
+      const env = envWith([['getX', 'module-import']], {
+        templatePrimitives: {
+          getX: () => 'getX()',
+        },
+      })
+      const r = isInlinableInTemplate('(getX())()', env)
+      expect(r.ok).toBe(false) // outer call has no identifier path → unaccepted, zero-arg fires
+    })
+  })
 })

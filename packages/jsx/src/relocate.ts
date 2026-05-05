@@ -328,6 +328,13 @@ export function isInlinableInTemplate(
  * `Math.floor`, `String`, `obj.method`. Returns null when the callee shape
  * isn't a plain identifier or property-access chain (e.g. `(cond ? a : b)()`,
  * computed access `obj['method']()`). Keeps the registry lookup deterministic.
+ *
+ * Note: this resolves the *textual* path only. It does not know whether
+ * `obj` is a value of a particular TypeScript type, so method calls on
+ * arbitrary receivers (`props.name.toUpperCase()`) cannot be matched
+ * against type-anchored registry keys like `String.prototype.toUpperCase`.
+ * This is the V1 limitation #1187 R1 records — users fall back to
+ * `/* @client *\/` for those cases.
  */
 function getCalleeIdentifierPath(callee: ts.Expression): string | null {
   if (ts.isIdentifier(callee)) return callee.text
@@ -340,9 +347,44 @@ function getCalleeIdentifierPath(callee: ts.Expression): string | null {
 }
 
 /**
+ * Walk to the leftmost identifier of a callee path. For `JSON.stringify`
+ * returns `JSON`, for `obj.method.deeper` returns `obj`, for a bare
+ * `foo()` returns `foo`. Used by `isCallAcceptedByAdapter` to decide
+ * whether the callee is a *truly* global / imported name vs a local
+ * binding that happens to share its name with a registered primitive
+ * (the shadowing case — the registry must not fire then).
+ */
+function getCalleeLeftmostIdentifier(callee: ts.Expression): string | null {
+  if (ts.isIdentifier(callee)) return callee.text
+  if (ts.isPropertyAccessExpression(callee)) {
+    return getCalleeLeftmostIdentifier(callee.expression)
+  }
+  return null
+}
+
+/**
+ * Binding kinds whose names safely escape component-scope shadowing —
+ * the registry can apply when the callee's leftmost identifier resolves
+ * to one of these. Local-ish kinds (`prop`, `signal-*`, `init-local`,
+ * etc.) are explicitly excluded: a local const named `JSON` shadows the
+ * global, so `JSON.stringify` in that scope must not be accepted just
+ * because the registry has a `JSON.stringify` entry.
+ */
+const REGISTRY_SAFE_BINDING_KINDS: ReadonlySet<BindingKind> = new Set([
+  'global',
+  'module-import',
+  'module-local',
+])
+
+/**
  * Whether `env`'s adapter promises it can render this call in template
  * scope. Resolves the callee path and consults `templatePrimitives` first,
  * then `acceptsTemplateCall`. Either match returns true.
+ *
+ * Shadow guard: rejects when the leftmost identifier of the callee
+ * resolves to a local-ish binding kind. This prevents a local variable
+ * named after a registered primitive (e.g. `const JSON = props.config`)
+ * from accidentally activating the registry.
  */
 function isCallAcceptedByAdapter(
   call: ts.CallExpression,
@@ -350,6 +392,17 @@ function isCallAcceptedByAdapter(
 ): boolean {
   const name = getCalleeIdentifierPath(call.expression)
   if (name === null) return false
+
+  // Shadow guard. `undefined` (not in bindings) means truly global —
+  // safe; we let it through. A tracked binding must be in the safe set.
+  const leftmost = getCalleeLeftmostIdentifier(call.expression)
+  if (leftmost !== null) {
+    const kind = env.bindings.get(leftmost)
+    if (kind !== undefined && !REGISTRY_SAFE_BINDING_KINDS.has(kind)) {
+      return false
+    }
+  }
+
   if (env.templatePrimitives && env.templatePrimitives[name]) return true
   if (env.acceptsTemplateCall && env.acceptsTemplateCall(name)) return true
   return false
