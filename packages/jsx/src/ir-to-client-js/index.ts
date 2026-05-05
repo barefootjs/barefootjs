@@ -6,6 +6,10 @@
 
 import type { ComponentIR } from '../types'
 import type { ClientJsContext } from './types'
+import type {
+  TemplatePrimitiveRegistry,
+  TemplateCallAcceptor,
+} from '../adapters/interface'
 import { collectElements, computeLoopSiblingOffsets } from './collect-elements'
 import { generateInitFunction } from './generate-init'
 import { buildReferencesGraph, graphUsedIdentifiers } from './build-references'
@@ -21,6 +25,18 @@ import { buildSourceMapFromIR, type SourceMapV3 } from './source-map'
 export interface ClientJsResult {
   code: string
   sourceMap?: SourceMapV3
+}
+
+/**
+ * Adapter capabilities consulted by relocate's inline-safety check
+ * (#1187 phase 3). Threaded through the client-JS pipeline so that
+ * `compute-inlinability` / `emit-registration` see the same registry
+ * the adapter declares. Optional — empty caps reproduces pre-#1187
+ * behaviour.
+ */
+export interface AdapterCapabilities {
+  templatePrimitives?: TemplatePrimitiveRegistry
+  acceptsTemplateCall?: TemplateCallAcceptor
 }
 
 /**
@@ -40,8 +56,16 @@ export function generateClientJs(
   siblingComponents?: string[],
   localImportPrefixes?: string[],
   scope?: ScopeInfo,
+  adapterCapabilities?: AdapterCapabilities,
 ): string {
-  return generateClientJsWithSourceMap(ir, siblingComponents, localImportPrefixes, undefined, scope).code
+  return generateClientJsWithSourceMap(
+    ir,
+    siblingComponents,
+    localImportPrefixes,
+    undefined,
+    scope,
+    adapterCapabilities,
+  ).code
 }
 
 /**
@@ -54,8 +78,9 @@ export function generateClientJsWithSourceMap(
   localImportPrefixes?: string[],
   options?: { sourceMaps?: boolean; generatedFileName?: string },
   scope?: ScopeInfo,
+  adapterCapabilities?: AdapterCapabilities,
 ): ClientJsResult {
-  const ctx = createContext(ir, scope)
+  const ctx = createContext(ir, scope, adapterCapabilities)
   const siblingOffsets = computeLoopSiblingOffsets(ir.root)
   collectElements(ir.root, ctx, siblingOffsets)
 
@@ -124,7 +149,11 @@ export function analyzeClientNeeds(ir: ComponentIR): { needsInit: boolean; usedP
 }
 
 /** Initialize an empty ClientJsContext from component IR metadata. */
-function createContext(ir: ComponentIR, scope?: ScopeInfo): ClientJsContext {
+function createContext(
+  ir: ComponentIR,
+  scope?: ScopeInfo,
+  adapterCapabilities?: AdapterCapabilities,
+): ClientJsContext {
   return {
     componentName: ir.metadata.componentName,
     fileScope: scope?.fileScope ?? '',
@@ -154,6 +183,8 @@ function createContext(ir: ComponentIR, scope?: ScopeInfo): ClientJsContext {
     providerSetups: [],
     restAttrElements: [],
     warnings: [],
+    templatePrimitives: adapterCapabilities?.templatePrimitives,
+    acceptsTemplateCall: adapterCapabilities?.acceptsTemplateCall,
   }
 }
 
@@ -204,28 +235,34 @@ function hasInitScopeOnlyConstant(ctx: ClientJsContext): boolean {
  * post-collect-elements ctx.
  */
 function buildEnvFromCtx(ctx: ClientJsContext) {
-  return buildRelocateEnvFromIR({
-    componentName: ctx.componentName,
-    hasDefaultExport: false,
-    isExported: false,
-    isClientComponent: true,
-    typeDefinitions: [],
-    propsType: null,
-    propsParams: ctx.propsParams,
-    propsObjectName: ctx.propsObjectName,
-    restPropsName: ctx.restPropsName,
-    restPropsExpandedKeys: [],
-    signals: ctx.signals,
-    memos: ctx.memos,
-    effects: ctx.effects,
-    onMounts: ctx.onMounts,
-    initStatements: ctx.initStatements,
-    imports: [],
-    templateImports: [],
-    namedExports: [],
-    localFunctions: ctx.localFunctions,
-    localConstants: ctx.localConstants,
-  })
+  return buildRelocateEnvFromIR(
+    {
+      componentName: ctx.componentName,
+      hasDefaultExport: false,
+      isExported: false,
+      isClientComponent: true,
+      typeDefinitions: [],
+      propsType: null,
+      propsParams: ctx.propsParams,
+      propsObjectName: ctx.propsObjectName,
+      restPropsName: ctx.restPropsName,
+      restPropsExpandedKeys: [],
+      signals: ctx.signals,
+      memos: ctx.memos,
+      effects: ctx.effects,
+      onMounts: ctx.onMounts,
+      initStatements: ctx.initStatements,
+      imports: [],
+      templateImports: [],
+      namedExports: [],
+      localFunctions: ctx.localFunctions,
+      localConstants: ctx.localConstants,
+    },
+    {
+      templatePrimitives: ctx.templatePrimitives,
+      acceptsTemplateCall: ctx.acceptsTemplateCall,
+    },
+  )
 }
 
 /**

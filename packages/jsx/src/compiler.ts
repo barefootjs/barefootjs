@@ -181,6 +181,12 @@ function compileMultipleComponents(
     }
   }
   setActiveComponentScope({ fileScope, nonExportedSiblings })
+  // Same adapter capabilities for every component compiled in this file
+  // (#1187 phase 3).
+  const multiAdapterCaps = {
+    templatePrimitives: options.adapter.templatePrimitives,
+    acceptsTemplateCall: options.adapter.acceptsTemplateCall,
+  }
   try {
 
   for (const { componentIR } of entries) {
@@ -248,7 +254,13 @@ function compileMultipleComponents(
       types,
       moduleExports: moduleExports || '',
       component,
-      clientJs: generateClientJs(componentIR, componentNames, options.localImportPrefixes) || undefined,
+      clientJs: generateClientJs(
+        componentIR,
+        componentNames,
+        options.localImportPrefixes,
+        undefined,
+        multiAdapterCaps,
+      ) || undefined,
       adapterTypes: adapterOutput.types || undefined,
     })
     errors.push(...componentIR.errors)
@@ -574,12 +586,26 @@ export function compileJSX(
       : new Set([componentIR.metadata.componentName]),
   }
   setActiveComponentScope(singleScope)
+  // Adapter capabilities thread through to relocate's inline-safety
+  // check so a registered template primitive escapes the bridged-arg /
+  // zero-arg rejection (#1187 phase 3).
+  const adapterCaps = {
+    templatePrimitives: options.adapter.templatePrimitives,
+    acceptsTemplateCall: options.adapter.acceptsTemplateCall,
+  }
   try {
     if (options.sourceMaps) {
-      const result = generateClientJsWithSourceMap(componentIR, undefined, options.localImportPrefixes, {
-        sourceMaps: true,
-        generatedFileName: clientJsPath.split('/').pop(),
-      })
+      const result = generateClientJsWithSourceMap(
+        componentIR,
+        undefined,
+        options.localImportPrefixes,
+        {
+          sourceMaps: true,
+          generatedFileName: clientJsPath.split('/').pop(),
+        },
+        undefined,
+        adapterCaps,
+      )
       errors.push(...componentIR.errors)
       if (result.code) {
         files.push({ path: clientJsPath, content: result.code, type: 'clientJs' })
@@ -588,7 +614,13 @@ export function compileJSX(
         }
       }
     } else {
-      const clientJs = generateClientJs(componentIR, undefined, options.localImportPrefixes)
+      const clientJs = generateClientJs(
+        componentIR,
+        undefined,
+        options.localImportPrefixes,
+        undefined,
+        adapterCaps,
+      )
       errors.push(...componentIR.errors)
       if (clientJs) {
         files.push({ path: clientJsPath, content: clientJs, type: 'clientJs' })

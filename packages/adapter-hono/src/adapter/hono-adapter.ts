@@ -46,10 +46,50 @@ export interface HonoAdapterOptions {
   clientJsFilename?: string
 }
 
+/**
+ * Inline emit for a callee whose template runtime is just JS — the
+ * adapter's SSR runs in Node/Bun/CF Workers, so a registered call is
+ * simply re-emitted as the same JS expression. Used to populate the
+ * Hono adapter's `templatePrimitives` (#1187 phase 3).
+ */
+const honoInline = (callee: string) => (args: string[]) =>
+  `${callee}(${args.join(', ')})`
+
 export class HonoAdapter extends JsxAdapter {
   name = 'hono'
   extension = '.tsx'
   clientShimSource = '@barefootjs/hono/client-shim'
+
+  // Pure JS callees the Hono adapter promises it can render at template
+  // scope. Conservative starting set: ECMAScript built-ins that are
+  // synchronous, deterministic for a given input, and don't depend on
+  // a browser-only API. Each entry inlines the call as-is (Hono SSR runs
+  // JS, so the rendered template literal is just JavaScript).
+  //
+  // Scope intentionally narrow for V1: catches the common
+  // JSON.stringify(props.x) / Math.floor(props.score) / String(n)
+  // patterns that #1187 phase 1 measurement flagged as silently
+  // falling back today. Method calls on values (.toUpperCase() etc.)
+  // are out of scope per #1187 R1 — users fall back to /* @client */.
+  templatePrimitives = {
+    'JSON.stringify': honoInline('JSON.stringify'),
+    'JSON.parse': honoInline('JSON.parse'),
+    String: honoInline('String'),
+    Number: honoInline('Number'),
+    Boolean: honoInline('Boolean'),
+    'Math.floor': honoInline('Math.floor'),
+    'Math.ceil': honoInline('Math.ceil'),
+    'Math.round': honoInline('Math.round'),
+    'Math.abs': honoInline('Math.abs'),
+    'Math.max': honoInline('Math.max'),
+    'Math.min': honoInline('Math.min'),
+    'Math.pow': honoInline('Math.pow'),
+    'Math.sqrt': honoInline('Math.sqrt'),
+    'Object.keys': honoInline('Object.keys'),
+    'Object.values': honoInline('Object.values'),
+    'Object.entries': honoInline('Object.entries'),
+    'Array.isArray': honoInline('Array.isArray'),
+  }
 
   protected jsxConfig: JsxAdapterConfig = { preserveTypes: true }
 

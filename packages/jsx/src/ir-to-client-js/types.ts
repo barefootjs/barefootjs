@@ -3,6 +3,10 @@
  */
 
 import type {
+  TemplatePrimitiveRegistry,
+  TemplateCallAcceptor,
+} from '../adapters/interface'
+import type {
   AttrMeta,
   IREvent,
   IRLoopChildComponent,
@@ -64,6 +68,19 @@ export interface ClientJsContext {
   restAttrElements: RestAttrElement[]
   /** Warnings collected during client JS generation */
   warnings: CompilerError[]
+  /**
+   * Adapter-supplied registry of pure JS callees that can be safely
+   * rendered in template scope (#1187). Threaded through to relocate's
+   * `isInlinableInTemplate` so registered calls bypass the bridged-arg
+   * / zero-arg shape rejections. Undefined when the adapter doesn't
+   * declare any — same behaviour as pre-#1187.
+   */
+  templatePrimitives?: TemplatePrimitiveRegistry
+  /**
+   * Broad-acceptance predicate from the adapter (Hono / CSR with full
+   * JS runtimes). Consulted when a callee isn't in `templatePrimitives`.
+   */
+  acceptsTemplateCall?: TemplateCallAcceptor
 }
 
 export interface InteractiveElement {

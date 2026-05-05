@@ -147,29 +147,38 @@ export function computeInlinability(
   const memoNames = new Set(ctx.memos.map(m => m.name))
 
   // RelocateEnv is built once per component from the live ClientJsContext
-  // — same shape as IRMetadata, so the IR-keyed builder applies.
-  const env = buildRelocateEnvFromIR({
-    componentName: ctx.componentName,
-    hasDefaultExport: false,
-    isExported: false,
-    isClientComponent: true,
-    typeDefinitions: [],
-    propsType: null,
-    propsParams: ctx.propsParams,
-    propsObjectName: ctx.propsObjectName,
-    restPropsName: ctx.restPropsName,
-    restPropsExpandedKeys: [],
-    signals: ctx.signals,
-    memos: ctx.memos,
-    effects: ctx.effects,
-    onMounts: ctx.onMounts,
-    initStatements: ctx.initStatements,
-    imports: [],
-    templateImports: [],
-    namedExports: [],
-    localFunctions: ctx.localFunctions,
-    localConstants: ctx.localConstants,
-  })
+  // — same shape as IRMetadata, so the IR-keyed builder applies. The
+  // adapter capabilities (`templatePrimitives` / `acceptsTemplateCall`)
+  // are threaded in here so a registered call escapes the bridged-arg /
+  // zero-arg rejections during classification.
+  const env = buildRelocateEnvFromIR(
+    {
+      componentName: ctx.componentName,
+      hasDefaultExport: false,
+      isExported: false,
+      isClientComponent: true,
+      typeDefinitions: [],
+      propsType: null,
+      propsParams: ctx.propsParams,
+      propsObjectName: ctx.propsObjectName,
+      restPropsName: ctx.restPropsName,
+      restPropsExpandedKeys: [],
+      signals: ctx.signals,
+      memos: ctx.memos,
+      effects: ctx.effects,
+      onMounts: ctx.onMounts,
+      initStatements: ctx.initStatements,
+      imports: [],
+      templateImports: [],
+      namedExports: [],
+      localFunctions: ctx.localFunctions,
+      localConstants: ctx.localConstants,
+    },
+    {
+      templatePrimitives: ctx.templatePrimitives,
+      acceptsTemplateCall: ctx.acceptsTemplateCall,
+    },
+  )
 
   const decisionsByName = new Map<string, RelocateDecision[]>()
   for (const c of ctx.localConstants) {
