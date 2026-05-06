@@ -23,12 +23,15 @@
  * Stage E.4 of issue #1021.
  */
 
-import type { ConstantInfo, ReferencesGraph } from '../types'
+import type { ConstantInfo, IRNode, ReferencesGraph } from '../types'
 import type { ClientJsContext } from './types'
 import { graphFunctionReferences } from './build-references'
+import { extractIdentifiers } from './identifiers'
 import { isInlinableInTemplate, buildRelocateEnvFromIR } from '../relocate'
 import type { RelocateEnv, RelocateDecision } from '../relocate'
-import { createWarning, ErrorCodes } from '../errors'
+import { createError, ErrorCodes } from '../errors'
+import { attrValueToString } from './utils'
+import { walkIR, type IRVisitor } from './walker'
 
 /**
  * Build a `RelocateEnv` from a live `ClientJsContext`. The IR-keyed env
@@ -129,16 +132,35 @@ export interface InlinabilityAnalysis {
    */
   decisionsByName: Map<string, RelocateDecision[]>
   /**
-   * Names referenced from regular template scope (a `template-closure`
-   * edge in the references graph). Used by `toLegacyInlinability` to
-   * skip BF060/BF061 emission for unsafe consts that have no such edge —
-   * either they're never referenced from template at all, or every
-   * reference is inside a `/* @client *\/` expression (which routes
-   * through `clientOnlyElements` and doesn't add a `template-closure`
-   * edge). Either way, the silent-fallback failure mode the diagnostic
-   * warns about can't manifest, so the warning is a false positive.
+   * Names referenced from a template position where the relocate
+   * fallback (`UNSAFE_TEMPLATE_EXPR = 'undefined'`) would actually
+   * surface as a visible defect in the SSR HTML. Concretely:
+   *
+   *   - Element attribute values → renders as `attr="undefined"`
+   *   - Bare JSX expressions without a slotId → literal "undefined" text
+   *   - Conditional / if-statement conditions → `undefined` is falsey,
+   *     wrong branch renders (silent semantic drift)
+   *   - Loop arrays → substituted to `[]`, SSR has zero items
+   *
+   * Excluded (safe-fallback positions where the pipeline already
+   * recovers at hydrate without a visible artefact, so a BF060/BF061
+   * diagnostic would be a false positive):
+   *
+   *   - Component props → stripped on UNSAFE; `initChild` getter
+   *     binding fills the prop once init runs
+   *   - JSX expressions WITH a slotId → emit `<!--bf:s1-->${''}<!--/-->`,
+   *     hydrate's reactive binding fills the slot
+   *   - Expressions wrapped in `/* @client *\/` → routed through
+   *     `clientOnlyElements`, never reach the regular template
+   *
+   * `toLegacyInlinability` gates BF060/BF061 emission on this set so
+   * patterns like `<Component prop={field.value()}>` (the form-library
+   * shape) don't false-positive. Their relocate decision is "fallback",
+   * but the actual SSR emission is safe (stripped prop) — surfacing the
+   * diagnostic would mislead the user into restructuring code that's
+   * already correct.
    */
-  templateReferencedNames: Set<string>
+  templateRiskyNames: Set<string>
 }
 
 // JavaScript built-in identifiers that are always available at any scope.
@@ -184,6 +206,7 @@ const JS_BUILTINS = new Set([
 export function computeInlinability(
   ctx: ClientJsContext,
   graph: ReferencesGraph,
+  irRoot: IRNode,
 ): InlinabilityAnalysis {
   const constants = new Map<string, ConstantInlinability>()
   const functions = new Map<string, FunctionInlinability>()
@@ -220,58 +243,123 @@ export function computeInlinability(
     decisionsByName.set(c.name, decisions)
   }
 
-  // Collect names that ROOT_SOURCE references from regular template
-  // scope — i.e. an edge whose context is `'template-closure'`. This
-  // intentionally excludes references that route through
-  // `clientOnlyElements` / `clientOnlyConditionals`, since those don't
-  // add `template-closure` edges. `toLegacyInlinability` uses the set
-  // to gate BF060/BF061 emission so a const whose only template-side
-  // usage is inside `/* @client */` doesn't produce a false-positive
-  // diagnostic.
-  const templateReferencedNames = new Set<string>()
-  for (const edge of graph.edges) {
-    if (edge.context === 'template-closure') {
-      templateReferencedNames.add(edge.to)
-    }
-  }
+  const templateRiskyNames = collectTemplateRiskyNames(irRoot)
 
-  return { constants, functions, decisionsByName, templateReferencedNames }
+  return { constants, functions, decisionsByName, templateRiskyNames }
 }
 
 /**
- * Emit warnings for stage-violation decisions surfaced during inline
- * classification. Exposed so opt-in callers (a future
- * `strictStageBoundaries` compile mode, IDE tooling, etc.) can
- * surface BF060/BF061 to users without breaking the default silent-
- * fallback contract documented in #1128.
+ * Walk the IR collecting every identifier that appears in a position
+ * where the relocate fallback would produce a user-visible defect at
+ * SSR. Mirrors the per-node-kind branches in `html-template.ts` —
+ * positions that emit a slot, strip the prop, or substitute a safe
+ * literal (`[]`, `''`) on `UNSAFE_TEMPLATE_EXPR` are intentionally
+ * excluded so BF060/BF061 doesn't fire on already-handled shapes.
+ */
+function collectTemplateRiskyNames(irRoot: IRNode): Set<string> {
+  const risky = new Set<string>()
+
+  const visitor: IRVisitor<null> = {
+    element: ({ node: el, descend }) => {
+      // Element attribute values get substituted directly into the
+      // SSR HTML attribute slot. UNSAFE_TEMPLATE_EXPR ('undefined')
+      // becomes `attr="undefined"` — visible defect, real bug.
+      for (const attr of el.attrs) {
+        if (attr.dynamic && attr.value) {
+          const v = typeof attr.value === 'string' ? attr.value : attrValueToString(attr.value)
+          if (v) extractIdentifiers(v, risky)
+        }
+      }
+      // Event handlers run in init-body context, not template. Skip.
+      descend()
+    },
+    component: ({ descend, descendJsxChildren }) => {
+      // Component props are stripped from `renderChild` when
+      // `transformExpr` returns UNSAFE_TEMPLATE_EXPR (see
+      // html-template.ts). `initChild`'s getter binding then fills
+      // the prop once init runs. No diagnostic needed.
+      descend()
+      descendJsxChildren()
+    },
+    expression: ({ node: ex }) => {
+      if (ex.clientOnly) return
+      // Slotted expressions emit `<!--bf:s1-->${''}<!--/-->` on
+      // UNSAFE — hydrate's reactive binding fills the slot. Safe.
+      if (ex.slotId) return
+      // Bare `${expr}` substitution — UNSAFE produces literal
+      // "undefined" in the SSR text. Real bug.
+      extractIdentifiers(ex.expr, risky)
+    },
+    conditional: ({ node: c, descend }) => {
+      // `${cond} ? a : b` — UNSAFE evaluates as undefined (falsey),
+      // so the wrong branch renders at SSR. Hydrate corrects, but
+      // SSR HTML is silently wrong.
+      extractIdentifiers(c.condition, risky)
+      descend()
+    },
+    ifStatement: ({ node: i, descend }) => {
+      extractIdentifiers(i.condition, risky)
+      descend()
+    },
+    loop: ({ node: l, descend }) => {
+      // `safeArrayExpr` substitutes `[]` on UNSAFE — SSR has zero
+      // items, hydrate reconciles to N. Hydration mismatch in DOM
+      // shape, worth surfacing.
+      extractIdentifiers(l.array, risky)
+      descend()
+    },
+    provider: ({ descend }) => {
+      // Provider valueProp is component-prop-shaped (passed via
+      // initChild-style binding). Same safe fallback. Skip.
+      descend()
+    },
+  }
+
+  walkIR(irRoot, null, visitor)
+  return risky
+}
+
+/**
+ * Emit errors for stage-violation decisions surfaced during inline
+ * classification.
  *
  *  - BF060: signal/memo getter referenced from template scope. The
  *    template lambda has no reactive context; the value falls back
- *    to `undefined` and init's createEffect repaints.
+ *    to `undefined` and init's createEffect repaints — but only
+ *    where the pipeline can recover (slotted expression,
+ *    component prop). At an element attribute or bare slotless
+ *    expression position the SSR HTML observably contains
+ *    "undefined".
  *  - BF061: init-scope local referenced from template scope. Same
  *    fallback shape, different binding kind.
  *
  * BF062 (cross-stage await) belongs at the Phase 1 dispatcher (await
  * is a statement-level concern); not surfaced here.
+ *
+ * Promoted from warning to error in #1187 phase 6 — the
+ * `templateRiskyNames` gate in `toLegacyInlinability` ensures only
+ * actually-broken positions reach this function, so a hard error
+ * here is no longer a false-positive risk for code that uses safe
+ * shapes (form-field accessors, slotted reactive children, etc.).
  */
 export function recordStageDiagnostics(
   c: ConstantInfo,
   decisions: RelocateDecision[],
-  warnings: ReturnType<typeof createWarning>[],
+  errors: ReturnType<typeof createError>[],
 ): void {
   // De-dup per-name so a value with multiple references to the same
-  // unsafe binding emits one warning, not many.
+  // unsafe binding emits one diagnostic, not many.
   const seen = new Set<string>()
   for (const d of decisions) {
     if (seen.has(d.name)) continue
     seen.add(d.name)
     if (d.kind === 'signal-getter' || d.kind === 'signal-setter' || d.kind === 'memo-getter') {
-      warnings.push(createWarning(ErrorCodes.STAGE_REACTIVE_IN_TEMPLATE, c.loc, {
-        message: `Reactive binding '${d.name}' referenced from template scope (via const '${c.name}'). The template lambda runs at module scope and cannot reach reactive bindings; the value falls back to undefined and init's createEffect repaints. Wrap the JSX expression in /* @client */ to defer evaluation, or restructure so the template uses a prop or static value.`,
+      errors.push(createError(ErrorCodes.STAGE_REACTIVE_IN_TEMPLATE, c.loc, {
+        message: `Reactive binding '${d.name}' referenced from template scope (via const '${c.name}'). The template lambda runs at module scope and cannot reach reactive bindings; the SSR HTML would contain literal "undefined" before init's createEffect repaints. Wrap the JSX expression in /* @client */ to defer evaluation, or restructure so the template uses a prop or static value.`,
       }))
     } else if (d.kind === 'init-local' || d.kind === 'sub-init-local') {
-      warnings.push(createWarning(ErrorCodes.STAGE_INIT_LOCAL_IN_TEMPLATE, c.loc, {
-        message: `Init-scope local '${d.name}' referenced from template scope (via const '${c.name}'). The template lambda runs at module scope and cannot reach init-body locals; the value falls back to undefined and init's effect repaints. Wrap the JSX expression in /* @client */ to defer evaluation, or lift the value to a prop or module-scope const.`,
+      errors.push(createError(ErrorCodes.STAGE_INIT_LOCAL_IN_TEMPLATE, c.loc, {
+        message: `Init-scope local '${d.name}' referenced from template scope (via const '${c.name}'). The template lambda runs at module scope and cannot reach init-body locals; the SSR HTML would contain literal "undefined" before init's effect repaints. Wrap the JSX expression in /* @client */ to defer evaluation, or lift the value to a prop or module-scope const.`,
       }))
     }
   }
@@ -420,21 +508,23 @@ export function toLegacyInlinability(
   }
 
   // Surface BF060/BF061 for constants that ended up unsafe AFTER chain
-  // resolution AND are actually referenced from a non-`@client` template
-  // position. The post-chain check avoids false-positives on chains
-  // that resolve to safe prop-based expressions; the template-reference
-  // check avoids false-positives on consts whose only template-side
-  // usage is inside `/* @client */` (those references go through
-  // `clientOnlyElements` and don't add a `template-closure` graph
-  // edge, so the silent-fallback failure mode the diagnostic warns
-  // about can't manifest).
+  // resolution AND are actually referenced from a template position
+  // where the relocate fallback would produce a user-visible defect
+  // (`templateRiskyNames`). Two layers of false-positive avoidance:
+  //   1. post-chain check — chains that resolve to safe prop-based
+  //      expressions don't fire.
+  //   2. risky-position check — consts referenced only from safe
+  //      fallback positions (component props that get stripped,
+  //      slotted JSX expressions, `/* @client */` wrappers) don't fire.
+  //      The pipeline already recovers at hydrate without a visible
+  //      artefact, so the diagnostic would be misleading.
   //
   // `recordStageDiagnostics` further filters decisions by kind, so it's
   // a no-op for constants whose unsafety came from non-stage causes
   // (arrow-literal, system-construct, function references etc.).
   const constsByName = new Map(ctx.localConstants.map(c => [c.name, c]))
   for (const name of unsafeLocalNames) {
-    if (!analysis.templateReferencedNames.has(name)) continue
+    if (!analysis.templateRiskyNames.has(name)) continue
     const c = constsByName.get(name)
     const decisions = analysis.decisionsByName.get(name)
     if (c && decisions && decisions.length > 0) {
