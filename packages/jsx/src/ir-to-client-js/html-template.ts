@@ -155,6 +155,8 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
         .filter(p => p.name !== '...' && !p.name.startsWith('...') && p.name !== 'key')
         .filter(p => !(p.name.startsWith('on') && p.name.length > 2 && p.name[2] === p.name[2].toUpperCase()))
         .map(p => {
+          // `/* @client */` defers the prop to hydrate via initChild.
+          if (p.clientOnly) return null
           // JSX prop: render children inline as template literal
           if (p.jsxChildren?.length) {
             const childHtml = p.jsxChildren.map(c => recurse(c)).join('')
@@ -163,6 +165,7 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
           if (p.isLiteral) return `${quotePropName(p.name)}: ${JSON.stringify(p.value)}`
           return `${quotePropName(p.name)}: ${p.value}`
         })
+        .filter((entry): entry is string => entry !== null)
       // Include children as a prop for renderChild() template rendering
       if (node.children.length > 0) {
         const childHtml = node.children.map(recurse).join('')
@@ -489,6 +492,10 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
     case 'element': {
       const attrParts = node.attrs
         .map((a) => {
+          // `/* @client */` defers the attribute to hydrate via
+          // `reactiveAttrs`. Skip from the SSR template so init's
+          // createEffect is the sole authority on the attribute.
+          if (a.clientOnly) return ''
           if (a.name === '...') {
             const spreadValue = attrValueToString(a.value, { useTemplate: true })
             if (!spreadValue) return ''
@@ -557,6 +564,8 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
         .filter(p => p.name !== '...' && !p.name.startsWith('...') && p.name !== 'key')
         .filter(p => !(p.name.startsWith('on') && p.name.length > 2 && p.name[2] === p.name[2].toUpperCase()))
         .map(p => {
+          // `/* @client */` defers the prop to hydrate via initChild.
+          if (p.clientOnly) return null
           if (p.jsxChildren?.length) {
             const childHtml = p.jsxChildren.map(recurse).join('')
             return `${quotePropName(p.name)}: \`${childHtml}\``
@@ -565,6 +574,7 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
           const valueStr = attrValueToString(p.value, { useTemplate: true })
           return `${quotePropName(p.name)}: ${valueStr ? transformExpr(valueStr, p.templateValue) : JSON.stringify(p.value)}`
         })
+        .filter((entry): entry is string => entry !== null)
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
       const keyArg = keyProp ? `, ${transformExpr(keyProp.value, keyProp.templateValue)}` : ''
@@ -796,6 +806,13 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
     case 'element': {
       const attrParts = node.attrs
         .map((a) => {
+          // `/* @client */` defers the attribute to hydrate. The
+          // `reactiveAttrs` push in collect-elements wires a
+          // `createEffect` that sets the attribute via the existing
+          // hydrate-time path; the SSR template must not race that
+          // by emitting an initial value, so skip the attribute
+          // entirely here.
+          if (a.clientOnly) return ''
           if (a.name === '...') {
             const spreadValue = attrValueToString(a.value, { useTemplate: true })
             if (!spreadValue) return ''
@@ -866,6 +883,11 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
         .filter(p => p.name !== '...' && !p.name.startsWith('...') && p.name !== 'key')
         .filter(p => !(p.name.startsWith('on') && p.name.length > 2 && p.name[2] === p.name[2].toUpperCase()))
         .map(p => {
+          // `/* @client */` defers the prop to hydrate. Drop from the
+          // SSR `renderChild` props — `initChild`'s `propsExpr` getter
+          // (built in collect-elements) reads the value once init
+          // runs, mirroring the existing UNSAFE strip path below.
+          if (p.clientOnly) return null
           if (p.jsxChildren?.length) {
             const childHtml = p.jsxChildren.map(c => recurse(c)).join('')
             return `${quotePropName(p.name)}: \`${childHtml}\``

@@ -304,6 +304,11 @@ function collectTemplateRiskyNames(irRoot: IRNode): Set<string> {
       // hydrate adds the attribute, producing a flash, and any code
       // that reads the attribute pre-hydrate sees nothing. Real bug.
       for (const attr of el.attrs) {
+        // `/* @client */` attrs are stripped from the SSR template
+        // (see html-template.ts) and applied by init's `createEffect`,
+        // so their identifiers never reach a risky template
+        // position. Same carve-out the build-references walker uses.
+        if (attr.clientOnly) continue
         if (!attr.dynamic || !attr.value) continue
         const text = typeof attr.value === 'string'
           ? (attr.templateValue ?? attr.value)
