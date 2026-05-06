@@ -316,14 +316,14 @@ describe('compileJSX surfaces stage-violation diagnostics by default', () => {
     expect(errors.find(e => e.startsWith('[BF061]'))).toBeUndefined()
   })
 
-  test('/* @client */ on element-attribute defers BF061 (init-local in attr)', () => {
+  test('/* @client */ on element-attribute defers BF061 + wires hydrate createEffect', () => {
     // The `<details open={shouldOpen}>` shape: `shouldOpen` is an
     // init-local computed from props. Wrapping the initializer in
     // `/* @client */` defers the attribute to a hydrate-time
     // createEffect (collect-elements pushes into reactiveAttrs); the
     // SSR template skips the attribute entirely. Diagnostic gate
     // mirrors the routing — clientOnly attrs aren't risky.
-    const { errors, templateBody } = compile(`
+    const { errors, templateBody, initBody } = compile(`
       interface Props { items: string[]; current: string }
 
       export function Foo(props: Props) {
@@ -339,14 +339,23 @@ describe('compileJSX surfaces stage-violation diagnostics by default', () => {
     // marker so the runtime can find it.
     expect(templateBody).not.toContain('open=')
     expect(templateBody).toContain('<details')
+    expect(templateBody).toMatch(/bf="s\d+"/)
+    // Init body wires a `createEffect` that applies the value at
+    // hydrate. `<details open>` is a boolean property attr so emit
+    // uses the property-assignment shape (`_s0.open = !!(...)`)
+    // rather than `setAttribute`. The bug we pin: SSR-strip without
+    // the corresponding effect would leave the attribute
+    // permanently unset.
+    expect(initBody).toContain('createEffect')
+    expect(initBody).toMatch(/\.open\s*=|setAttribute\(['"]open['"]/)
   })
 
-  test('/* @client */ on component-prop defers BF061 (init-local as prop)', () => {
+  test('/* @client */ on component-prop defers BF061 + wires initChild getter', () => {
     // The `<Calendar maxDate={today}>` shape: `today` is an init-local.
     // `/* @client */` strips the prop from the SSR `renderChild` call;
     // `initChild`'s `propsExpr` getter still evaluates in init scope,
     // so the value reaches the child component once init runs.
-    const { errors, templateBody } = compile(`
+    const { errors, templateBody, initBody } = compile(`
       'use client'
       import { Calendar } from './calendar'
 
@@ -361,5 +370,172 @@ describe('compileJSX surfaces stage-violation diagnostics by default', () => {
     expect(errors.find(e => e.startsWith('[BF061]'))).toBeUndefined()
     // SSR renderChild props don't carry toDate.
     expect(templateBody).not.toContain('toDate')
+    // Init's initChild propsExpr exposes a getter for `toDate` so the
+    // child sees the value once init runs.
+    expect(initBody).toContain('initChild')
+    expect(initBody).toMatch(/get toDate\(\)/)
+  })
+
+  test('/* @client */ attr inside a conditional branch wires the per-branch effect (regression: collectBranchReactiveAttrs)', () => {
+    // The branch-level reactive-attr collector has its own gate that
+    // independently of the main `element` handler decides whether to
+    // emit a hydrate-time binding. Without honoring `clientOnly`, the
+    // SSR strip (in html-template) and the per-branch bindEvents
+    // would disagree, leaving the attribute permanently unset. This
+    // test pins both halves of the contract.
+    const { templateBody, clientJs } = compile(`
+      interface Props { items: string[]; current: string; show: boolean }
+
+      export function Foo(props: Props) {
+        const hasActive = props.items.includes(props.current)
+        const shouldOpen = hasActive
+        return (
+          <div>
+            {props.show ? <details open={/* @client */ shouldOpen}>x</details> : null}
+          </div>
+        )
+      }
+    `)
+
+    expect(templateBody).not.toContain('open=')
+    // The branch's `bindEvents` callback (emitted via `insert(...)`)
+    // must contain a `createDisposableEffect` that applies `open`.
+    // Same property-vs-attribute split as the top-level case —
+    // accept either form.
+    expect(clientJs).toContain('createDisposableEffect')
+    expect(clientJs).toMatch(/\.open\s*=|setAttribute\(['"]open['"]/)
+  })
+
+  test('/* @client */ promotes a no-"use client" component to a hydrating client component', () => {
+    // A component without `'use client'` would normally compile to a
+    // pure server-render shape (no init, no hydrate). The directive
+    // demands hydrate-time wiring, which forces the compiler to emit
+    // an init function — otherwise the SSR-stripped attribute would
+    // be permanently unset. Pin this so a future refactor doesn't
+    // accidentally silently drop the directive on no-"use client"
+    // components.
+    const { errors, templateBody, initBody } = compile(`
+      interface Props { items: string[]; current: string }
+
+      export function Foo(props: Props) {
+        const hasActive = props.items.includes(props.current)
+        return <details open={/* @client */ hasActive}>x</details>
+      }
+    `)
+
+    expect(errors.find(e => e.startsWith('[BF06'))).toBeUndefined()
+    expect(templateBody).not.toContain('open=')
+    // Directive forced init emission even without `'use client'`.
+    expect(initBody).not.toBe('')
+    expect(initBody).toMatch(/\.open\s*=|setAttribute\(['"]open['"]/)
+  })
+
+  test('/* @client */ on attribute inside .map() loop wires per-item effect', () => {
+    // Loop bodies allocate per-item slots; clientOnly attrs on loop
+    // children must still route through the reactive-attr machinery
+    // so each rendered item gets its hydrate-time binding.
+    const { templateBody, clientJs } = compile(`
+      'use client'
+      interface Props { rows: { id: string; raw: string }[] }
+
+      export function Foo(props: Props) {
+        return (
+          <ul>
+            {props.rows.map(row => {
+              const computed = row.raw.toUpperCase()
+              return <li key={row.id} data-tag={/* @client */ computed}>{row.id}</li>
+            })}
+          </ul>
+        )
+      }
+    `)
+
+    expect(templateBody).not.toContain('data-tag=')
+    expect(clientJs).toMatch(/setAttribute\(['"]data-tag['"]/)
+  })
+
+  test('/* @client */ on multiple attrs of the same element each wire their own effect', () => {
+    const { templateBody, initBody } = compile(`
+      'use client'
+      interface Props { ax: string; bx: string }
+
+      export function Foo(props: Props) {
+        const a = props.ax + '!'
+        const b = props.bx + '!'
+        return <div data-a={/* @client */ a} data-b={/* @client */ b}>x</div>
+      }
+    `)
+
+    expect(templateBody).not.toContain('data-a=')
+    expect(templateBody).not.toContain('data-b=')
+    // Both attributes get their own setAttribute call inside init's
+    // createEffect block.
+    expect(initBody).toMatch(/setAttribute\(['"]data-a['"]/)
+    expect(initBody).toMatch(/setAttribute\(['"]data-b['"]/)
+  })
+
+  test('/* @client */ on signal-bearing attr does not double-push reactiveAttrs', () => {
+    // The wrap heuristic would already wrap a signal-bearing attr
+    // (`<div data-x={count()}>`). Adding `/* @client */` shouldn't
+    // emit a duplicate binding — the OR gate in collect-elements
+    // unions the two, it doesn't sum them.
+    const { initBody } = compile(`
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      interface Props {}
+
+      export function Foo(_props: Props) {
+        const [count, _set] = createSignal(0)
+        return <div data-x={/* @client */ count()}>x</div>
+      }
+    `)
+
+    const matches = initBody.match(/setAttribute\(['"]data-x['"]/g) ?? []
+    expect(matches).toHaveLength(1)
+  })
+
+  test('/* @client */ on event handler is a no-op (handlers are init-body anyway)', () => {
+    // Event handlers are pulled out of attrs in jsx-to-ir before
+    // clientOnly detection runs. The directive is silently ignored
+    // — the handler is wired up via the existing event-delegation
+    // path. Pin this so we spot a behaviour drift.
+    const { initBody } = compile(`
+      'use client'
+      interface Props {}
+
+      export function Foo(_props: Props) {
+        const handleClick = () => {}
+        return <button onClick={/* @client */ handleClick}>x</button>
+      }
+    `)
+
+    // Handler is wired via the standard bindEvents path — exact form
+    // varies by adapter, but the handler name should appear inside
+    // the init body.
+    expect(initBody).toContain('handleClick')
+  })
+
+  test('/* @client */ component-prop with JSX subtree value: directive ignored (jsxChildren branch returns early)', () => {
+    // `processComponentProps` treats `<MyComp content={<Bar />}>` via
+    // a separate `jsxChildren` path that returns before the
+    // clientOnly detection. The prop is structurally a child subtree,
+    // not a deferred init-body value, so silent ignore is correct.
+    // Pin this so a future refactor doesn't accidentally start
+    // honouring the directive there.
+    const { errors } = compile(`
+      'use client'
+      import { Wrapper } from './wrapper'
+      import { Inner } from './inner'
+
+      interface Props {}
+
+      export function Foo(_props: Props) {
+        return <Wrapper content={/* @client */ <Inner />} />
+      }
+    `)
+
+    // No diagnostic noise either way.
+    expect(errors.find(e => e.startsWith('[BF06'))).toBeUndefined()
   })
 })

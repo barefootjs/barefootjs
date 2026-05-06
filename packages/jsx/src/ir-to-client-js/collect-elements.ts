@@ -694,7 +694,13 @@ function collectBranchReactiveAttrs(node: IRNode, ctx: ClientJsContext): Conditi
         const valueStr = attrValueToString(attr.value)
         if (!valueStr) continue
         const expanded = expandConstantForReactivity(valueStr, ctx)
-        if (!decideWrapForAttr(expanded, ctx, attr).wrap) continue
+        // Mirror the main-path gate (collectElements.element handler):
+        // `/* @client */` always defers via createEffect regardless of
+        // the wrap heuristic — without this carve-out, a clientOnly
+        // attr inside a conditional branch would be skipped at SSR
+        // (html-template strips it) AND never get a hydrate-time
+        // binding emitted, leaving the attribute permanently unset.
+        if (!attr.clientOnly && !decideWrapForAttr(expanded, ctx, attr).wrap) continue
         attrs.push({
           slotId: el.slotId,
           attrName: attr.name,
