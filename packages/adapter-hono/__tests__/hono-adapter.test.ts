@@ -1,19 +1,19 @@
 /**
  * Hono Adapter Tests
  *
- * JSX conformance tests (shared across adapters).
+ * Single mandatory `runAdapterConformanceTests` call below covers every
+ * shared conformance suite the adapter contract defines today and any
+ * future ones added to that function.
  */
 
 import { HonoAdapter } from '../src/adapter'
-import { runJSXConformanceTests } from '@barefootjs/adapter-tests'
+import { runAdapterConformanceTests } from '@barefootjs/adapter-tests'
 import { renderHonoComponent } from '@barefootjs/hono/test-render'
 
-// =============================================================================
-// JSX-Based Conformance Tests
-// =============================================================================
-
-runJSXConformanceTests({
-  createAdapter: () => new HonoAdapter(),
+runAdapterConformanceTests({
+  name: 'hono',
+  factory: () => new HonoAdapter(),
   render: renderHonoComponent,
-  // No referenceAdapter: compile + render success only
+  // Hono's SSR runtime is JS — broad `acceptsTemplateCall` covers
+  // every conformance case. No skip sets needed.
 })

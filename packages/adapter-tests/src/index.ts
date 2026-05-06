@@ -9,3 +9,18 @@ export { createFixture, normalizeExpectedHtml } from './types'
 export type { JSXFixture } from './types'
 export { indentHTML } from './indent-html'
 export type { RunJSXConformanceOptions, RenderOptions } from './jsx-runner'
+export { runConformanceSuite } from './conformance'
+export type {
+  ConformanceAdapter,
+  ConformanceCase,
+  RunSuiteArgs,
+} from './conformance'
+export {
+  templatePrimitiveCases,
+  TemplatePrimitiveCaseId,
+  runTemplatePrimitiveCase,
+  FALLBACK_SENTINEL,
+} from './cases/template-primitives'
+export type { TemplatePrimitiveInput } from './cases/template-primitives'
+export { runAdapterConformanceTests } from './run-adapter-conformance'
+export type { RunAdapterConformanceOptions } from './run-adapter-conformance'
