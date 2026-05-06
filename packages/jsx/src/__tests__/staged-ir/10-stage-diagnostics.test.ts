@@ -516,6 +516,45 @@ describe('compileJSX surfaces stage-violation diagnostics by default', () => {
     expect(initBody).toContain('handleClick')
   })
 
+  test('"@client" inside string literal does NOT trigger clientOnly routing (false-positive guard)', () => {
+    // Regression for a Copilot review concern (#1199): prior to the
+    // shared `hasLeadingClientDirective` helper, detection used
+    // `getFullText().includes('@client')`, which would also match a
+    // bare `"@client"` substring inside the expression — silently
+    // stripping the attribute from SSR. Pin the tightened detection
+    // (leading block-comment trivia matching the directive shape
+    // exactly) by checking that the SSR template still emits the
+    // attribute when no leading comment is present.
+    const { templateBody } = compile(`
+      'use client'
+      interface Props {}
+
+      export function Foo(_props: Props) {
+        return <div data-x={'@client tag'}>x</div>
+      }
+    `)
+
+    expect(templateBody).toContain('data-x=')
+  })
+
+  test('/* @client */ as TRAILING comment does NOT trigger clientOnly routing (leading-only)', () => {
+    // The directive is a position-sensitive marker — `<div data-x={x
+    // /* @client */}>` is an inline annotation about the expression,
+    // not a deferral request. Tightened detection only honours
+    // *leading* trivia, so the SSR template must still emit the
+    // attribute.
+    const { templateBody } = compile(`
+      'use client'
+      interface Props { tag: string }
+
+      export function Foo(props: Props) {
+        return <div data-x={props.tag /* @client */}>x</div>
+      }
+    `)
+
+    expect(templateBody).toContain('data-x=')
+  })
+
   test('/* @client */ component-prop with JSX subtree value: directive ignored (jsxChildren branch returns early)', () => {
     // `processComponentProps` treats `<MyComp content={<Bar />}>` via
     // a separate `jsxChildren` path that returns before the

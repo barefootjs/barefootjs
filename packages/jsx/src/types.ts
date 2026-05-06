@@ -607,11 +607,12 @@ export interface IRAttribute extends AttrMeta {
   hasFunctionCalls?: boolean
   /**
    * Set when the JSX initializer carries a leading `/* @client *\/`
-   * comment. The CSR template emitter omits the attribute from SSR
-   * HTML; collect-elements pushes the value into `reactiveAttrs` so a
-   * `createEffect`-wrapped binding sets it at hydrate. Mirrors the
-   * existing JSX-child `clientOnly` semantic — same opt-out, applied
-   * to element-attribute position.
+   * comment. `html-template.ts`'s template generators omit the
+   * attribute from the SSR output; `collect-elements.ts` pushes the
+   * value into `reactiveAttrs` (top-level, conditional-branch, and
+   * loop-child paths) so a `createEffect` binding applies it at
+   * hydrate. Mirrors the existing JSX-child `clientOnly` semantic —
+   * same opt-out, applied to element-attribute position.
    */
   clientOnly?: boolean
 }
@@ -639,11 +640,12 @@ export interface IRProp extends AttrMeta {
   hasFunctionCalls?: boolean
   /**
    * Set when the JSX initializer carries a leading `/* @client *\/`
-   * comment. The CSR template emitter omits the prop from
-   * `renderChild`; `initChild`'s `propsExpr` getters already evaluate
-   * in init scope, so the value still reaches the child component
-   * once init runs. No SSR markup carries the value, mirroring the
-   * existing JSX-child / element-attribute `clientOnly` semantic.
+   * comment. `html-template.ts`'s template generators omit the prop
+   * from the `renderChild` arguments in the SSR output;
+   * `initChild`'s `propsExpr` getters (built in `collect-elements.ts`)
+   * still evaluate in init scope, so the value reaches the child
+   * component once init runs. Mirrors the JSX-child / element-
+   * attribute `clientOnly` semantic.
    */
   clientOnly?: boolean
 }
