@@ -48,6 +48,37 @@ describe('relocate: init → template, props lift to _p.X', () => {
     expect(r.text).toContain('_p.a')
     expect(r.text).toContain('_p.b')
   })
+
+  // The props *object name* (e.g. `props` in `function Foo(props: P)`) is
+  // tracked as a `prop`-kind binding so bare references to it (`makeStore(props)`)
+  // get bridged. But bridging it to `_p.props` (the per-key form) would point
+  // at a non-existent property: the template lambda receives `_p` directly,
+  // not an object that wraps it. Lift the props object to the whole `_p`
+  // instead. Pre-fix this produced `customSerialize(_p.props.config)` for
+  // `customSerialize(props.config)`, which html-template's `props.→_p.`
+  // rewrite then double-substituted into `_p._p.config`.
+  test('the props object itself lifts to bare `_p`, not `_p.props`', () => {
+    const env = envWith([['props', 'prop']], { propsObjectName: 'props' })
+    const r = relocate('makeStore(props)', null, 'init', 'template', env)
+    expect(r.ok).toBe(true)
+    expect(r.text).toContain('makeStore(_p)')
+    expect(r.text).not.toContain('_p.props')
+  })
+
+  test('destructured prop key keeps the per-key form (`_p.config`)', () => {
+    // Sanity check: only the props-object-name special-cases to bare `_p`.
+    // Destructured props still lift to `_p.<name>`.
+    const env = envWith([['props', 'prop'], ['config', 'prop']], {
+      propsObjectName: 'props',
+    })
+    const r = relocate('serialize(props.config)', null, 'init', 'template', env)
+    expect(r.ok).toBe(true)
+    // `props` rewrites to `_p`; `config` is a member access, untouched.
+    expect(r.text).toContain('serialize(_p.config)')
+    // No double-prefix.
+    expect(r.text).not.toContain('_p._p')
+    expect(r.text).not.toContain('_p.props')
+  })
 })
 
 describe('relocate: init → template, module imports pass through', () => {
