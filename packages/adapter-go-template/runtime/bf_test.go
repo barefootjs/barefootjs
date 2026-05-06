@@ -2,6 +2,7 @@ package bf
 
 import (
 	"html/template"
+	"math"
 	"testing"
 )
 
@@ -623,17 +624,33 @@ func TestSort_NonMutating(t *testing.T) {
 // =============================================================================
 
 func TestJSON(t *testing.T) {
-	if got := JSON(map[string]any{"a": 1}); got != `{"a":1}` {
-		t.Errorf("JSON(map) = %v, want {\"a\":1}", got)
+	cases := []struct {
+		name string
+		in   any
+		want string
+	}{
+		{"map", map[string]any{"a": 1}, `{"a":1}`},
+		{"slice", []any{1, 2, 3}, `[1,2,3]`},
+		{"string", "hi", `"hi"`},
+		{"nil", nil, "null"},
 	}
-	if got := JSON([]any{1, 2, 3}); got != `[1,2,3]` {
-		t.Errorf("JSON(slice) = %v, want [1,2,3]", got)
+	for _, c := range cases {
+		got, err := JSON(c.in)
+		if err != nil {
+			t.Errorf("JSON(%s) unexpected err: %v", c.name, err)
+		}
+		if got != c.want {
+			t.Errorf("JSON(%s) = %v, want %v", c.name, got, c.want)
+		}
 	}
-	if got := JSON("hi"); got != `"hi"` {
-		t.Errorf("JSON(string) = %v, want \"hi\"", got)
-	}
-	if got := JSON(nil); got != "null" {
-		t.Errorf("JSON(nil) = %v, want null", got)
+}
+
+func TestJSONPropagatesError(t *testing.T) {
+	// Cyclic / unsupported values must surface as a real error so
+	// `template.Execute` aborts loudly. Channels aren't marshallable.
+	_, err := JSON(make(chan int))
+	if err == nil {
+		t.Errorf("JSON(chan) expected error, got nil")
 	}
 }
 
@@ -665,11 +682,14 @@ func TestNumber(t *testing.T) {
 	if got := Number(false); got != 0.0 {
 		t.Errorf("Number(false) = %v, want 0", got)
 	}
-	if got := Number("not a number"); got != 0.0 {
-		t.Errorf("Number(garbage) = %v, want 0", got)
+	// JS `Number("garbage")` and `Number(null)` both return NaN —
+	// match that so chained primitives (e.g. `Math.floor`) stay
+	// JS-compat.
+	if got := Number("not a number"); !math.IsNaN(got) {
+		t.Errorf("Number(garbage) = %v, want NaN", got)
 	}
-	if got := Number(nil); got != 0.0 {
-		t.Errorf("Number(nil) = %v, want 0", got)
+	if got := Number(nil); !math.IsNaN(got) {
+		t.Errorf("Number(nil) = %v, want NaN", got)
 	}
 }
 

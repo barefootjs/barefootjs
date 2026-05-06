@@ -121,6 +121,28 @@ export class GoTemplateAdapter extends BaseAdapter {
     'Math.round':     (args) => `bf_round ${args[0]}`,
   }
 
+  /**
+   * Expected arg count per primitive. Consulted before invoking the
+   * registered emit fn so a 0-arg `JSON.stringify()` or 2-arg
+   * `JSON.stringify(x, replacer)` doesn't silently produce invalid
+   * Go template syntax (the V1 emit fns blindly read `args[0]`).
+   * Keys must mirror `templatePrimitives` exactly; a mismatch
+   * causes the adapter to fall back to the standard BF101
+   * unsupported-call diagnostic.
+   *
+   * Currently every V1 entry is single-arg. Future multi-arg
+   * primitives (`String.prototype.slice(start, end)` style) need
+   * to add an entry here too.
+   */
+  private readonly templatePrimitiveArities: Record<string, number> = {
+    'JSON.stringify': 1,
+    'String':         1,
+    'Number':         1,
+    'Math.floor':     1,
+    'Math.ceil':      1,
+    'Math.round':     1,
+  }
+
   private componentName: string = ''
   private options: Required<GoTemplateAdapterOptions>
   private inLoop: boolean = false
@@ -1426,10 +1448,32 @@ export class GoTemplateAdapter extends BaseAdapter {
         // to Go template syntax. Wrap in parens to preserve operator
         // precedence in the surrounding expression (e.g. `bf_floor x`
         // composed inside `gt (bf_floor x) 3`).
+        //
+        // Arity is checked against `templatePrimitiveArities` so a
+        // wrong-arity call (`JSON.stringify()`, `JSON.stringify(x,
+        // replacer)`) falls through to the standard BF101 path
+        // instead of emitting invalid Go template syntax via
+        // `args[0]` on a missing or extra argument.
         const path = identifierPath(expr.callee)
         if (path && this.templatePrimitives[path]) {
-          const renderedArgs = expr.args.map(a => this.renderParsedExpr(a))
-          return `(${this.templatePrimitives[path](renderedArgs)})`
+          const expected = this.templatePrimitiveArities[path]
+          if (expected === undefined || expr.args.length === expected) {
+            const renderedArgs = expr.args.map(a => this.renderParsedExpr(a))
+            return `(${this.templatePrimitives[path](renderedArgs)})`
+          }
+          // Arity mismatch — record a diagnostic and continue to the
+          // generic call rendering (which will surface a BF101 if
+          // `convertExpressionToGo`'s `isSupported` rejects the
+          // shape). We don't return here so the fallback path runs.
+          this.errors.push({
+            code: 'BF101',
+            severity: 'error',
+            message: `templatePrimitive '${path}' expects ${expected} arg(s), got ${expr.args.length}`,
+            loc: this.makeLoc(),
+            suggestion: {
+              message: `Call '${path}' with exactly ${expected} argument(s), or wrap the JSX expression in /* @client */ to defer evaluation.`,
+            },
+          })
         }
         // Handle method calls on objects: items().length is handled by member
         // For other calls, render callee and args

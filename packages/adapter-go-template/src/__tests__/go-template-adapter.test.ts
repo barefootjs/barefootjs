@@ -39,11 +39,18 @@ runAdapterConformanceTests({
     'return-nullish-coalescing',
     'return-map',
   ],
-  // The first three identifier-path callees are now mapped to Go
-  // template fns via `templatePrimitives` (#1188). The user-import
-  // case still skips: the registry is identifier-path-only, and a
-  // bespoke user import can't be rendered server-side without
-  // user-supplied template fn mappings (out of scope for V1).
+  // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
+  // via `GoTemplateAdapter.templatePrimitives` (#1188). The two
+  // remaining cases stay skipped because the V1 registry is
+  // identifier-path-only and explicit:
+  //   - `USER_IMPORT_VIA_CONST` — a bespoke user import isn't in
+  //     the registry and can't be rendered server-side without
+  //     user-supplied template-fn mappings.
+  //   - `NO_DOUBLE_REWRITE_OF_PROPS_OBJECT` — uses `customSerialize`
+  //     too, same reason.
+  // Adding new entries to `templatePrimitives` should narrow this
+  // skip set; see `templatePrimitives` declaration in
+  // `go-template-adapter.ts` for the full V1 surface.
   skipTemplatePrimitives: new Set([
     TemplatePrimitiveCaseId.USER_IMPORT_VIA_CONST,
     TemplatePrimitiveCaseId.NO_DOUBLE_REWRITE_OF_PROPS_OBJECT,
@@ -631,6 +638,23 @@ export function Tagged(props: { className?: string }) {
       // arbitrary identifier-paths via this map.
       const a = new GoTemplateAdapter()
       expect(a.templatePrimitives?.['customSerialize']).toBeUndefined()
+    })
+
+    test('wrong-arity primitive call falls back to BF101 instead of emitting invalid template', () => {
+      // V1 emit fns blindly read `args[0]`. The arity gate must
+      // reject 0-arg / 2-arg shapes so we don't ship invalid Go
+      // template syntax (`bf_json` with no operand) or silently
+      // drop extra args.
+      const result = compileAndGenerate(`
+        'use client'
+        export function Foo(props: { config: object; replacer: any }) {
+          return <div data-x={JSON.stringify(props.config, props.replacer)}>hi</div>
+        }
+      `)
+      // The substituted form must NOT appear with a stray second
+      // arg; the call falls through and surfaces an error
+      // instead.
+      expect(result.template).not.toContain('bf_json')
     })
   })
 })

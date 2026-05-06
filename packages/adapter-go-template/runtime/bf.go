@@ -236,13 +236,12 @@ func Replace(s, oldStr, newStr string) string {
 	return strings.ReplaceAll(s, oldStr, newStr)
 }
 
-// String returns the string form of v. Mirrors JS `String(v)` —
-// `null` / `undefined` (Go's nil) returns the literal "null" /
-// "undefined"-equivalent the Go template expects, but we keep it
-// simple and use `fmt.Sprintf("%v", v)` which produces "<nil>" for
-// nil. Callers passing nil via the templatePrimitives path are rare;
-// the conformance contract only requires value-equivalence on the
-// non-nil paths.
+// String returns the string form of v. Mirrors JS `String(v)` for
+// non-nil values via `fmt.Sprintf("%v", ...)`. Diverges from JS on
+// nil: JS `String(null)` is "null", but the template path renders
+// `nil` as the empty string here so an unset prop doesn't surface
+// as a literal "null"/"undefined" in user-facing HTML. Document the
+// divergence explicitly so callers don't rely on JS-exact parity.
 func String(v any) string {
 	if v == nil {
 		return ""
@@ -255,20 +254,30 @@ func String(v any) string {
 // or `space`). Object key order is determined by Go's `encoding/json`
 // (alphabetical for maps, declaration order for structs) — the
 // #1187 contract requires value-compat, not order-compat.
-func JSON(v any) string {
+//
+// Returns the marshal error so a `template.Execute` call fails
+// loudly on cycles / unsupported values rather than silently
+// producing `""` and reintroducing the SSR data-loss class
+// #1187 was filed against. Go's text/template treats a non-nil
+// error return from a func as an execution failure.
+func JSON(v any) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return string(b)
+	return string(b), nil
 }
 
-// Number coerces v to a float64. Mirrors JS `Number(v)` — non-numeric
-// strings produce 0 (JS would produce NaN, but template-side NaN
-// handling is fraught; 0 keeps the rendered output deterministic).
+// Number coerces v to a float64. Mirrors JS `Number(v)` semantics:
+// numeric / boolean inputs convert as expected; non-numeric strings
+// and other unsupported shapes return `NaN` (matching JS rather
+// than silently substituting 0, which would mis-shape downstream
+// arithmetic and template-side comparisons). Templates that need
+// a deterministic fallback should compose with the user-side
+// default (e.g. `Number(props.x ?? 0)` in JSX).
 func Number(v any) float64 {
 	if v == nil {
-		return 0
+		return math.NaN()
 	}
 	switch x := v.(type) {
 	case float64:
@@ -289,11 +298,11 @@ func Number(v any) float64 {
 	case string:
 		f, err := strconv.ParseFloat(x, 64)
 		if err != nil {
-			return 0
+			return math.NaN()
 		}
 		return f
 	}
-	return 0
+	return math.NaN()
 }
 
 // Floor returns the largest integer ≤ v as a float64. Mirrors JS
