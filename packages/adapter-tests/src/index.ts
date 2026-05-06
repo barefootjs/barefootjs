@@ -15,3 +15,10 @@ export type {
   ConformanceCase,
   RunSuiteArgs,
 } from './conformance'
+export {
+  templatePrimitiveCases,
+  TemplatePrimitiveCaseId,
+  runTemplatePrimitiveCase,
+  FALLBACK_SENTINEL,
+} from './cases/template-primitives'
+export type { TemplatePrimitiveInput } from './cases/template-primitives'

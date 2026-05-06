@@ -1,20 +1,26 @@
 /**
  * Cross-adapter conformance suite harness.
  *
+ * Inverted dependency: this package owns the harness and the case data,
+ * but never imports concrete adapters. Each adapter package
+ * (`@barefootjs/hono`, `@barefootjs/go-template`, ...) provides its own
+ * test file that imports the cases and runs them through this harness
+ * against its own adapter — same pattern as `runJSXConformanceTests`.
+ *
  * The pattern:
  *
- *   suite =
- *     - a name (the describe label)
- *     - a list of adapters under test, each with a typed `skip` set of
- *       case ids that adapter doesn't yet support
- *     - a list of cases, each with: an id, a description, a per-case
- *       input shape, and an `assert` callback over the runner's output
- *     - a runner that turns (adapter, case-input) into the value the
- *       assert callback inspects (e.g. compiled client JS, IR, etc.)
+ *   suite = { adapter, cases, run }
  *
- * Each adapter × case combination becomes one test. Skipped pairs use
- * `test.skip` so they stay visible in the test report — silently
- * absent skips are how spec drift hides.
+ *     - adapter: a single adapter under test, with a typed `skip` set
+ *       of case ids it doesn't yet support
+ *     - cases: a list of cases — each with id, description, input, and
+ *       an `assert` callback over the runner's output
+ *     - run: turns (adapter, case-input) into the value the assert
+ *       callback inspects (e.g. compiled client JS, IR, etc.)
+ *
+ * Each case becomes one test. Skipped cases use `test.skip` so they
+ * stay visible in the test report — silently absent skips are how
+ * spec drift hides.
  *
  * Adapter authors: when your adapter graduates a case, remove it from
  * the skip set; the next test run picks it up. No suite-file edits
@@ -54,13 +60,13 @@ export interface ConformanceCase<CaseId extends string, Input, Output> {
 export interface RunSuiteArgs<CaseId extends string, Input, Output> {
   /** Suite label used in describe heading; e.g. `'template primitives'`. */
   name: string
-  adapters: Array<ConformanceAdapter<CaseId>>
-  cases: Array<ConformanceCase<CaseId, Input, Output>>
+  adapter: ConformanceAdapter<CaseId>
+  cases: ReadonlyArray<ConformanceCase<CaseId, Input, Output>>
   /**
-   * Per (adapter, case) execution. Receives a fresh adapter instance
-   * and the case's input; returns the artifact the case's `assert`
-   * inspects. Synchronous compile + extract is the typical shape; an
-   * async return is allowed for adapters that need async setup.
+   * Per-case execution. Receives a fresh adapter instance and the
+   * case's input; returns the artifact the case's `assert` inspects.
+   * Synchronous compile + extract is the typical shape; an async
+   * return is allowed for adapters that need async setup.
    */
   run: (adapter: TemplateAdapter, input: Input) => Output | Promise<Output>
   /** Optional issue reference appended to the suite heading. */
@@ -71,16 +77,13 @@ export function runConformanceSuite<CaseId extends string, Input, Output>(
   args: RunSuiteArgs<CaseId, Input, Output>,
 ): void {
   const heading = args.issue ? `${args.name} (${args.issue})` : args.name
-
-  for (const adapter of args.adapters) {
-    describe(`[${adapter.name}] ${heading}`, () => {
-      for (const c of args.cases) {
-        const t = adapter.skip.has(c.id) ? test.skip : test
-        t(`${c.id}: ${c.description}`, async () => {
-          const output = await args.run(adapter.factory(), c.input)
-          c.assert(output)
-        })
-      }
-    })
-  }
+  describe(`[${args.adapter.name}] ${heading}`, () => {
+    for (const c of args.cases) {
+      const t = args.adapter.skip.has(c.id) ? test.skip : test
+      t(`${c.id}: ${c.description}`, async () => {
+        const output = await args.run(args.adapter.factory(), c.input)
+        c.assert(output)
+      })
+    }
+  })
 }
