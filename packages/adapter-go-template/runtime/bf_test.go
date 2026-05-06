@@ -654,6 +654,50 @@ func TestJSONPropagatesError(t *testing.T) {
 	}
 }
 
+// Same loud-failure policy as `JSON`: any helper that serialises
+// user-supplied data through `encoding/json` must propagate
+// marshal errors so `template.Execute` aborts loudly instead of
+// silently dropping content. Pre-fix, both helpers returned an
+// empty value on error (the same #1187 silent-data-loss class
+// `JSON` was changed to avoid).
+
+func TestBfPropsAttrPropagatesError(t *testing.T) {
+	// Use a struct whose root field is a chan to defeat marshalling
+	// while still satisfying `getBoolField(props, "BfIsRoot")`.
+	type bad struct {
+		BfIsRoot bool
+		Ch       chan int
+	}
+	_, err := BfPropsAttr(bad{BfIsRoot: true, Ch: make(chan int)})
+	if err == nil {
+		t.Errorf("BfPropsAttr(bad props) expected error, got nil")
+	}
+	// Non-root components must still succeed (bf-p is suppressed by design).
+	got, err := BfPropsAttr(bad{BfIsRoot: false})
+	if err != nil {
+		t.Errorf("BfPropsAttr(non-root) unexpected err: %v", err)
+	}
+	if got != "" {
+		t.Errorf("BfPropsAttr(non-root) = %q, want empty", got)
+	}
+}
+
+func TestScopeCommentPropagatesError(t *testing.T) {
+	type bad struct {
+		BfIsRoot bool
+		ScopeID  string
+		Ch       chan int
+	}
+	_, err := ScopeComment(bad{BfIsRoot: true, ScopeID: "x", Ch: make(chan int)})
+	if err == nil {
+		t.Errorf("ScopeComment(bad props) expected error, got nil")
+	}
+	// Non-root case: no JSON marshal happens, so no error.
+	if _, err := ScopeComment(bad{BfIsRoot: false, ScopeID: "x"}); err != nil {
+		t.Errorf("ScopeComment(non-root) unexpected err: %v", err)
+	}
+}
+
 func TestString(t *testing.T) {
 	if got := String(42); got != "42" {
 		t.Errorf("String(42) = %v, want 42", got)

@@ -108,23 +108,29 @@ func IsChild(props interface{}) template.HTMLAttr {
 	return ""
 }
 
-// BfPropsAttr returns a bf-p attribute with the JSON-serialized props in flat format.
-// Output format: bf-p='{"propName": value, ...}'
-// Only emits the attribute for root components (BfIsRoot == true).
-// Child components receive props from their parent via initChild().
-func BfPropsAttr(props interface{}) template.HTMLAttr {
+// BfPropsAttr returns the bf-p attribute with the JSON-serialized
+// props in flat format. Output format: `bf-p='{"propName":value,...}'`.
+// Only emits the attribute for root components (BfIsRoot == true);
+// child components receive props from their parent via initChild().
+//
+// Returns the marshal error so a `template.Execute` call fails
+// loudly on cycles / unsupported props rather than silently
+// dropping the bf-p attribute and breaking client-side hydration.
+// Same loud-failure policy as `JSON` — user data going through
+// `encoding/json` shouldn't fail invisibly.
+func BfPropsAttr(props interface{}) (template.HTMLAttr, error) {
 	// Only root components should emit bf-p
 	if !getBoolField(props, "BfIsRoot") {
-		return ""
+		return "", nil
 	}
 
 	propsJSON, err := json.Marshal(props)
 	if err != nil {
-		return ""
+		return "", err
 	}
 
 	escaped := template.HTMLEscapeString(string(propsJSON))
-	return template.HTMLAttr(`bf-p="` + escaped + `"`)
+	return template.HTMLAttr(`bf-p="` + escaped + `"`), nil
 }
 
 // =============================================================================
@@ -655,17 +661,24 @@ func TextEnd() template.HTML {
 // ScopeComment outputs a comment-based scope marker for fragment root components.
 // Format: <!--bf-scope:ScopeID--> or <!--bf-scope:~ScopeID|PropsJSON-->
 // Uses the same logic as ScopeAttr for child prefix and BfPropsAttr for props.
-func ScopeComment(props interface{}) template.HTML {
+//
+// Returns the marshal error so a `template.Execute` call fails
+// loudly on bad props — same loud-failure policy as `JSON` /
+// `BfPropsAttr`. Without this propagation a cycle in props would
+// silently drop the |PropsJSON suffix from the scope comment,
+// breaking client-side hydration without a visible diagnostic.
+func ScopeComment(props interface{}) (template.HTML, error) {
 	scopeAttr := ScopeAttr(props)
 	propsJSON := ""
 	if getBoolField(props, "BfIsRoot") {
 		// Build flat props JSON (same as BfPropsAttr but without the attribute wrapper)
 		pJSON, err := json.Marshal(props)
-		if err == nil {
-			propsJSON = "|" + string(pJSON)
+		if err != nil {
+			return "", err
 		}
+		propsJSON = "|" + string(pJSON)
 	}
-	return template.HTML("<!--bf-scope:" + scopeAttr + propsJSON + "-->")
+	return template.HTML("<!--bf-scope:" + scopeAttr + propsJSON + "-->"), nil
 }
 
 // PortalHTML parses and executes a template string with the provided data.
