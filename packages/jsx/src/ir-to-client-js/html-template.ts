@@ -37,6 +37,24 @@ const VOID_ELEMENTS = new Set([
 ])
 
 /**
+ * If the IR component node has JSX children, return a `children: \`...\``
+ * prop entry that forwards their rendered HTML to the child component's
+ * template at runtime; otherwise return null.
+ *
+ * Shared by every component-emitting path (static, CSR, reconcile) so the
+ * children-forwarding contract stays in one place — without this entry the
+ * child component receives `props.children === undefined` and renders an
+ * empty `props.children ?? ''` slot.
+ */
+function childrenPropEntry(
+  children: IRNode[],
+  recurse: (n: IRNode) => string,
+): string | null {
+  if (children.length === 0) return null
+  return `children: \`${children.map(recurse).join('')}\``
+}
+
+/**
  * Sentinel returned by the CSR template's `transformExpr` when the expression
  * references an init-body-only name (#1128). Equality with this sentinel is
  * how downstream emit sites decide to drop a renderChild prop, swap a loop
@@ -163,11 +181,8 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
           if (p.isLiteral) return `${quotePropName(p.name)}: ${JSON.stringify(p.value)}`
           return `${quotePropName(p.name)}: ${p.value}`
         })
-      // Include children as a prop for renderChild() template rendering
-      if (node.children.length > 0) {
-        const childHtml = node.children.map(recurse).join('')
-        propsEntries.push(`children: \`${childHtml}\``)
-      }
+      const childrenEntry = childrenPropEntry(node.children, recurse)
+      if (childrenEntry) propsEntries.push(childrenEntry)
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
       const keyArg = keyProp ? `, ${keyProp.value}` : ''
@@ -565,15 +580,8 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
           const valueStr = attrValueToString(p.value, { useTemplate: true })
           return `${quotePropName(p.name)}: ${valueStr ? transformExpr(valueStr, p.templateValue) : JSON.stringify(p.value)}`
         })
-      // Include JSX children as a `children` prop so renderChild() can pass
-      // them through to the child component's template at runtime. Mirrors
-      // the static-template path in irToHtmlTemplate; without this, parent
-      // CSR templates emit a renderChild() call with no children and the
-      // child component's `props.children ?? ''` slot stays empty.
-      if (node.children.length > 0) {
-        const childHtml = node.children.map(recurse).join('')
-        propsEntries.push(`children: \`${childHtml}\``)
-      }
+      const childrenEntry = childrenPropEntry(node.children, recurse)
+      if (childrenEntry) propsEntries.push(childrenEntry)
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
       const keyArg = keyProp ? `, ${transformExpr(keyProp.value, keyProp.templateValue)}` : ''
@@ -890,15 +898,8 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
           return `${quotePropName(p.name)}: ${transformed}`
         })
         .filter((entry): entry is string => entry !== null)
-      // Include JSX children as a `children` prop so renderChild() can pass
-      // them through to the child component's template at runtime. Mirrors
-      // the static-template path in irToHtmlTemplate; without this, parent
-      // CSR templates emit a renderChild() call with no children and the
-      // child component's `props.children ?? ''` slot stays empty.
-      if (node.children.length > 0) {
-        const childHtml = node.children.map(recurse).join('')
-        propsEntries.push(`children: \`${childHtml}\``)
-      }
+      const childrenEntry = childrenPropEntry(node.children, recurse)
+      if (childrenEntry) propsEntries.push(childrenEntry)
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
       const keyArg = keyProp ? `, ${transformExpr(keyProp.value, keyProp.templateValue)}` : ''

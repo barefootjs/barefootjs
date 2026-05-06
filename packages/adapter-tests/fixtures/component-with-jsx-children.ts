@@ -22,9 +22,7 @@ export function Page() {
   components: {
     './card.tsx': `
 'use client'
-import type { JSX } from '@barefootjs/jsx/jsx-runtime'
-type Child = JSX.Element | string | number | boolean | null | undefined | Child[]
-export function Card(props: { children?: Child }) {
+export function Card(props: { children?: unknown }) {
   return <section>{props.children ?? ''}</section>
 }
 `,
