@@ -2512,8 +2512,21 @@ function processAttributes(
     const attrResult = getAttributeValue(attr, ctx)
     const { value, dynamic, isLiteral } = attrResult
     let templateValue: string | undefined
-    if (dynamic && typeof value === 'string' && attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
-      templateValue = rewriteBarePropRefs(value, attr.initializer.expression, ctx)
+    let clientOnly: boolean | undefined
+    if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+      if (dynamic && typeof value === 'string') {
+        templateValue = rewriteBarePropRefs(value, attr.initializer.expression, ctx)
+      }
+      // `/* @client */` in attribute initializer position: defer the
+      // attribute to hydrate. Same detection as JSX-child position
+      // (see `transformExpression`) — `getFullText` includes leading
+      // trivia (comments, whitespace) so the directive is visible
+      // here. Element vs component-prop routing happens downstream:
+      // collect-elements wires this into `reactiveAttrs` for elements,
+      // html-template strips it from `renderChild` for components.
+      if (attr.initializer.getFullText(ctx.sourceFile).includes('@client')) {
+        clientOnly = true
+      }
     }
 
     attrs.push({
@@ -2522,6 +2535,7 @@ function processAttributes(
       templateValue,
       dynamic,
       isLiteral,
+      clientOnly,
       loc: getSourceLocation(attr, ctx.sourceFile, ctx.filePath),
       ...computeReactivityFlags(attr, ctx),
       ...pickAttrMeta(attrResult),
@@ -2998,8 +3012,18 @@ function processComponentProps(
     const propValue = templateLiteralToString(value) ?? 'true'
 
     let propTemplateValue: string | undefined
-    if (dynamic && typeof value === 'string' && attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
-      propTemplateValue = rewriteBarePropRefs(propValue, attr.initializer.expression, ctx)
+    let clientOnly: boolean | undefined
+    if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+      if (dynamic && typeof value === 'string') {
+        propTemplateValue = rewriteBarePropRefs(propValue, attr.initializer.expression, ctx)
+      }
+      // `/* @client */` in component-prop initializer position: defer
+      // to hydrate. html-template strips the prop from `renderChild`;
+      // `initChild`'s `propsExpr` already runs in init scope so the
+      // value reaches the child component once init runs.
+      if (attr.initializer.getFullText(ctx.sourceFile).includes('@client')) {
+        clientOnly = true
+      }
     }
 
     props.push({
@@ -3008,6 +3032,7 @@ function processComponentProps(
       templateValue: propTemplateValue,
       dynamic,
       isLiteral,
+      clientOnly,
       loc: getSourceLocation(attr, ctx.sourceFile, ctx.filePath),
       ...computeReactivityFlags(attr, ctx),
       ...pickAttrMeta(attrResult),
@@ -3228,6 +3253,10 @@ function hasReactiveAttributes(attrs: IRAttribute[], ctx: TransformContext): boo
   for (const attr of attrs) {
     // Skip key — it's used for loop reconciliation, not rendered to DOM
     if (attr.name === 'key') continue
+    // `/* @client */` always defers via the reactiveAttrs path, so the
+    // element MUST have a slotId for runtime lookup — even if the
+    // expression itself doesn't trip the signal/memo/prop heuristics.
+    if (attr.clientOnly) return true
     if (attr.dynamic && attr.value) {
       const valueToCheck = getAttributeValueAsString(attr.value)
       if (!valueToCheck) continue

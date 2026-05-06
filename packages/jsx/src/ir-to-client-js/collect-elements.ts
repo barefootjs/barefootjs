@@ -646,7 +646,13 @@ function collectFromElement(element: IRElement, ctx: ClientJsContext, insideCond
         // they can't false-match call-like substrings inside string
         // literals (e.g. `style={{ color: 'hsl(221 83% 53%)' }}`) and
         // don't depend on the expansion order of local constants.
-        if (decideWrapForAttr(expandedValueStr, ctx, attr).wrap) {
+        // `/* @client */` forces the attribute through the
+        // `reactiveAttrs` path regardless of the wrap heuristic —
+        // the SSR template won't emit the attribute (see
+        // html-template.ts), so init's `createEffect` is the only
+        // authority that ever sets it. Without this push the
+        // attribute would be silently dropped.
+        if (attr.clientOnly || decideWrapForAttr(expandedValueStr, ctx, attr).wrap) {
           // Slots inside a conditional branch are collected per-branch by
           // `collectBranchReactiveAttrs` and emitted inside `insert()`
           // bindEvents — keeping them out of init-level `ctx.reactiveAttrs`

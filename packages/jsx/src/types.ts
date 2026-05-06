@@ -605,6 +605,15 @@ export interface IRAttribute extends AttrMeta {
   callsReactiveGetters?: boolean
   /** When true, attr expression contains any `identifier()` pattern (computed from AST). (#940 DRY consolidation) */
   hasFunctionCalls?: boolean
+  /**
+   * Set when the JSX initializer carries a leading `/* @client *\/`
+   * comment. The CSR template emitter omits the attribute from SSR
+   * HTML; collect-elements pushes the value into `reactiveAttrs` so a
+   * `createEffect`-wrapped binding sets it at hydrate. Mirrors the
+   * existing JSX-child `clientOnly` semantic — same opt-out, applied
+   * to element-attribute position.
+   */
+  clientOnly?: boolean
 }
 
 export interface IREvent {
@@ -628,6 +637,15 @@ export interface IRProp extends AttrMeta {
   callsReactiveGetters?: boolean
   /** When true, prop expression contains any `identifier()` pattern (computed from AST). (#942 DRY consolidation) */
   hasFunctionCalls?: boolean
+  /**
+   * Set when the JSX initializer carries a leading `/* @client *\/`
+   * comment. The CSR template emitter omits the prop from
+   * `renderChild`; `initChild`'s `propsExpr` getters already evaluate
+   * in init scope, so the value still reaches the child component
+   * once init runs. No SSR markup carries the value, mirroring the
+   * existing JSX-child / element-attribute `clientOnly` semantic.
+   */
+  clientOnly?: boolean
 }
 
 // =============================================================================

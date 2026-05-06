@@ -315,4 +315,51 @@ describe('compileJSX surfaces stage-violation diagnostics by default', () => {
 
     expect(errors.find(e => e.startsWith('[BF061]'))).toBeUndefined()
   })
+
+  test('/* @client */ on element-attribute defers BF061 (init-local in attr)', () => {
+    // The `<details open={shouldOpen}>` shape: `shouldOpen` is an
+    // init-local computed from props. Wrapping the initializer in
+    // `/* @client */` defers the attribute to a hydrate-time
+    // createEffect (collect-elements pushes into reactiveAttrs); the
+    // SSR template skips the attribute entirely. Diagnostic gate
+    // mirrors the routing — clientOnly attrs aren't risky.
+    const { errors, templateBody } = compile(`
+      interface Props { items: string[]; current: string }
+
+      export function Foo(props: Props) {
+        const hasActive = props.items.includes(props.current)
+        const shouldOpen = hasActive
+        return <details open={/* @client */ shouldOpen}>x</details>
+      }
+    `)
+
+    expect(errors.find(e => e.startsWith('[BF061]'))).toBeUndefined()
+    // SSR template must not carry the attribute; init's createEffect
+    // is the sole authority. The element still carries a `bf=` slot
+    // marker so the runtime can find it.
+    expect(templateBody).not.toContain('open=')
+    expect(templateBody).toContain('<details')
+  })
+
+  test('/* @client */ on component-prop defers BF061 (init-local as prop)', () => {
+    // The `<Calendar maxDate={today}>` shape: `today` is an init-local.
+    // `/* @client */` strips the prop from the SSR `renderChild` call;
+    // `initChild`'s `propsExpr` getter still evaluates in init scope,
+    // so the value reaches the child component once init runs.
+    const { errors, templateBody } = compile(`
+      'use client'
+      import { Calendar } from './calendar'
+
+      interface Props { offsetDays: number }
+
+      export function Foo(props: Props) {
+        const today = new Date()
+        return <Calendar fromDate={today} toDate={/* @client */ new Date(today.getTime() + props.offsetDays * 86400000)} />
+      }
+    `)
+
+    expect(errors.find(e => e.startsWith('[BF061]'))).toBeUndefined()
+    // SSR renderChild props don't carry toDate.
+    expect(templateBody).not.toContain('toDate')
+  })
 })
