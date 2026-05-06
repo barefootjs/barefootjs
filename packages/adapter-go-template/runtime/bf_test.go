@@ -617,6 +617,101 @@ func TestSort_NonMutating(t *testing.T) {
 	}
 }
 
+// =============================================================================
+// JS-compat callees (#1188): bf_json / bf_string / bf_number /
+// bf_floor / bf_ceil / bf_round / bf_replace.
+// =============================================================================
+
+func TestJSON(t *testing.T) {
+	if got := JSON(map[string]any{"a": 1}); got != `{"a":1}` {
+		t.Errorf("JSON(map) = %v, want {\"a\":1}", got)
+	}
+	if got := JSON([]any{1, 2, 3}); got != `[1,2,3]` {
+		t.Errorf("JSON(slice) = %v, want [1,2,3]", got)
+	}
+	if got := JSON("hi"); got != `"hi"` {
+		t.Errorf("JSON(string) = %v, want \"hi\"", got)
+	}
+	if got := JSON(nil); got != "null" {
+		t.Errorf("JSON(nil) = %v, want null", got)
+	}
+}
+
+func TestString(t *testing.T) {
+	if got := String(42); got != "42" {
+		t.Errorf("String(42) = %v, want 42", got)
+	}
+	if got := String("hi"); got != "hi" {
+		t.Errorf("String(hi) = %v, want hi", got)
+	}
+	if got := String(true); got != "true" {
+		t.Errorf("String(true) = %v, want true", got)
+	}
+	if got := String(nil); got != "" {
+		t.Errorf("String(nil) = %q, want empty", got)
+	}
+}
+
+func TestNumber(t *testing.T) {
+	if got := Number("3.14"); got != 3.14 {
+		t.Errorf("Number(3.14 string) = %v, want 3.14", got)
+	}
+	if got := Number(42); got != 42.0 {
+		t.Errorf("Number(int 42) = %v, want 42", got)
+	}
+	if got := Number(true); got != 1.0 {
+		t.Errorf("Number(true) = %v, want 1", got)
+	}
+	if got := Number(false); got != 0.0 {
+		t.Errorf("Number(false) = %v, want 0", got)
+	}
+	if got := Number("not a number"); got != 0.0 {
+		t.Errorf("Number(garbage) = %v, want 0", got)
+	}
+	if got := Number(nil); got != 0.0 {
+		t.Errorf("Number(nil) = %v, want 0", got)
+	}
+}
+
+func TestFloor(t *testing.T) {
+	if got := Floor(3.7); got != 3.0 {
+		t.Errorf("Floor(3.7) = %v, want 3", got)
+	}
+	if got := Floor(-3.2); got != -4.0 {
+		t.Errorf("Floor(-3.2) = %v, want -4", got)
+	}
+	if got := Floor("4.9"); got != 4.0 {
+		t.Errorf("Floor(\"4.9\") = %v, want 4", got)
+	}
+}
+
+func TestCeil(t *testing.T) {
+	if got := Ceil(3.1); got != 4.0 {
+		t.Errorf("Ceil(3.1) = %v, want 4", got)
+	}
+	if got := Ceil(-3.7); got != -3.0 {
+		t.Errorf("Ceil(-3.7) = %v, want -3", got)
+	}
+}
+
+func TestRound(t *testing.T) {
+	if got := Round(3.5); got != 4.0 {
+		t.Errorf("Round(3.5) = %v, want 4", got)
+	}
+	if got := Round(3.4); got != 3.0 {
+		t.Errorf("Round(3.4) = %v, want 3", got)
+	}
+}
+
+func TestReplace(t *testing.T) {
+	if got := Replace("foo bar foo", "foo", "baz"); got != "baz bar baz" {
+		t.Errorf("Replace = %v, want baz bar baz", got)
+	}
+	if got := Replace("abc", "x", "y"); got != "abc" {
+		t.Errorf("Replace no match = %v, want abc", got)
+	}
+}
+
 func containsHelper(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {

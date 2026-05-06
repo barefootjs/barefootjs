@@ -26,6 +26,7 @@ import type {
   IRIfStatement,
   IRProvider,
   IRAsync,
+  TemplatePrimitiveRegistry,
 } from '@barefootjs/jsx'
 import { BaseAdapter, type AdapterOutput, type AdapterGenerateOptions, isBooleanAttr, parseExpression, isSupported } from '@barefootjs/jsx'
 
@@ -35,6 +36,24 @@ import { BaseAdapter, type AdapterOutput, type AdapterGenerateOptions, isBoolean
  */
 interface NestedComponentInfo extends IRLoopChildComponent {
   isDynamic: boolean
+}
+
+/**
+ * Extract the textual identifier path from a parsed expression's
+ * callee — `{kind:'identifier', name:'String'}` → `"String"`,
+ * `{kind:'member', object:{kind:'identifier', name:'JSON'},
+ * property:'stringify'}` → `"JSON.stringify"`. Returns `null` for
+ * any other callee shape (call result, computed member, etc.) — the
+ * `templatePrimitives` registry only matches identifier paths
+ * (#1187 R1).
+ */
+function identifierPath(callee: ParsedExpr): string | null {
+  if (callee.kind === 'identifier') return callee.name
+  if (callee.kind === 'member' && !callee.computed) {
+    const head = identifierPath(callee.object)
+    return head ? `${head}.${callee.property}` : null
+  }
+  return null
 }
 
 export interface GoTemplateAdapterOptions {
@@ -71,6 +90,36 @@ function slotIdToFieldSuffix(slotId: string): string {
 export class GoTemplateAdapter extends BaseAdapter {
   name = 'go-template'
   extension = '.tmpl'
+
+  /**
+   * Identifier-path callees the Go runtime can render in template
+   * scope (#1188). The relocate pass consults this map to mark
+   * matching calls as template-safe so the surrounding expression
+   * stays inlinable; the SSR template emitter (`renderParsedExpr`'s
+   * `call` branch) uses the same map to substitute the JS call with
+   * the registered Go template form.
+   *
+   * Keys are the textual callee path as written in the JSX
+   * expression. Values are emit functions that receive the already-
+   * Go-rendered argument expressions (e.g. `.Config`, `_p.Score`)
+   * and return the substituted Go template body — without the
+   * surrounding `{{ }}` action delimiters, so callers can wrap the
+   * result in `{{...}}` or compose into larger expressions like
+   * `{{if eq (bf_json .X) "..."}}`.
+   *
+   * V1 scope (#1187 R1): identifier-path callees only. Method calls
+   * on values (`(arr).join(",")`) require analyzer-resolved receiver
+   * type and are explicitly out of scope — users fall back to
+   * `/* @client *\/` for those.
+   */
+  templatePrimitives: TemplatePrimitiveRegistry = {
+    'JSON.stringify': (args) => `bf_json ${args[0]}`,
+    'String':         (args) => `bf_string ${args[0]}`,
+    'Number':         (args) => `bf_number ${args[0]}`,
+    'Math.floor':     (args) => `bf_floor ${args[0]}`,
+    'Math.ceil':      (args) => `bf_ceil ${args[0]}`,
+    'Math.round':     (args) => `bf_round ${args[0]}`,
+  }
 
   private componentName: string = ''
   private options: Required<GoTemplateAdapterOptions>
@@ -1369,6 +1418,18 @@ export class GoTemplateAdapter extends BaseAdapter {
         // Handle signal calls: count() -> .Count
         if (expr.callee.kind === 'identifier' && expr.args.length === 0) {
           return `.${this.capitalizeFieldName(expr.callee.name)}`
+        }
+        // Identifier-path primitive callee (#1188): if the JS call
+        // resolves to a path registered on `templatePrimitives`
+        // (e.g. `JSON.stringify`, `Math.floor`), substitute the Go
+        // template form. The emit fn receives args already rendered
+        // to Go template syntax. Wrap in parens to preserve operator
+        // precedence in the surrounding expression (e.g. `bf_floor x`
+        // composed inside `gt (bf_floor x) 3`).
+        const path = identifierPath(expr.callee)
+        if (path && this.templatePrimitives[path]) {
+          const renderedArgs = expr.args.map(a => this.renderParsedExpr(a))
+          return `(${this.templatePrimitives[path](renderedArgs)})`
         }
         // Handle method calls on objects: items().length is handled by member
         // For other calls, render callee and args
