@@ -51,6 +51,25 @@ export class HonoAdapter extends JsxAdapter {
   extension = '.tsx'
   clientShimSource = '@barefootjs/hono/client-shim'
 
+  // The Hono SSR runtime is JavaScript (Node / Bun / CF Workers), so any
+  // synchronous JS call the user writes can be rendered as-is at template
+  // scope — there is no language-level subset to enumerate. Broad
+  // acceptance is the contract.
+  //
+  // What this delegates to the user: Hono accepts the call; whether that
+  // call actually works at SSR is the user's responsibility. A function
+  // that touches `window` / `document` / `localStorage` will throw a clear
+  // ReferenceError at build time rather than silently rendering as
+  // `undefined`. The fix is to wrap the offending JSX expression with
+  // `/* @client */` so the call is deferred to hydrate.
+  //
+  // Component-internal bindings (signals, memos, init-locals, destructured
+  // props) are still correctly rejected by the shadow guard inside
+  // `isCallAcceptedByAdapter` (relocate.ts), regardless of what this
+  // predicate returns — those identifiers carry a non-`global`/`module-*`
+  // BindingKind, so the guard short-circuits before the predicate runs.
+  acceptsTemplateCall = (): boolean => true
+
   protected jsxConfig: JsxAdapterConfig = { preserveTypes: true }
 
   private options: HonoAdapterOptions

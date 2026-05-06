@@ -142,6 +142,14 @@ function decideAction(
 
   // Not reachable bare. Decide how to bridge:
   if (kind === 'prop' && toScope === 'template') {
+    // The props *object* itself (e.g. bare `props` in `makeStore(props)`)
+    // lifts to the whole `_p` parameter. Lifting to `_p.props` would be a
+    // non-existent property: the template lambda receives `_p` directly,
+    // not an object that wraps it. Destructured prop names (`config`,
+    // `name`, etc.) keep the per-key `_p.name` form.
+    if (env.propsObjectName !== null && name === env.propsObjectName) {
+      return { action: 'lift-to-prop', rewrittenAs: PROPS_PARAM }
+    }
     // Lift `name` → `_p.name`.
     return { action: 'lift-to-prop', rewrittenAs: `${PROPS_PARAM}.${name}` }
   }
