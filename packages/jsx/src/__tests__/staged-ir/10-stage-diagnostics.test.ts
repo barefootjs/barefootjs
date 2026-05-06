@@ -287,4 +287,32 @@ describe('compileJSX surfaces stage-violation diagnostics by default', () => {
 
     expect(errors.find(e => e.startsWith('[BF061]'))).toBeDefined()
   })
+
+  test('CSS-class tokens inside attribute template literal don\'t false-positive', () => {
+    // Regression for a Copilot review concern (#1198): the static
+    // segments of a backtick-quoted attribute value (`text-sm
+    // ${variant}`) carry tokens like `text` and `sm` that match
+    // `/\b[a-zA-Z_]\w*\b/g`. With a naive identifier extractor, a
+    // chained const happening to share a name with one of those
+    // tokens would surface a spurious BF061 — the const isn't
+    // actually referenced from the template at all.
+    const { errors } = compile(`
+      'use client'
+      import { useSettings } from './nodes'
+
+      interface Props {}
+
+      export function Foo(_props: Props) {
+        // 'text' is a chained init-local; its only reference would
+        // need to be a real \${text} substitution, NOT a CSS class
+        // word inside the static segment of the template literal.
+        const setting = useSettings()
+        const text = JSON.stringify(setting)
+        const variant = 'primary'
+        return <div className={\`text-sm \${variant}\`}>hi</div>
+      }
+    `)
+
+    expect(errors.find(e => e.startsWith('[BF061]'))).toBeUndefined()
+  })
 })

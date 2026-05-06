@@ -23,10 +23,10 @@
  * Stage E.4 of issue #1021.
  */
 
-import type { ConstantInfo, IRNode, ReferencesGraph } from '../types'
+import type { ConstantInfo, IRNode, IRTemplateLiteral, ReferencesGraph } from '../types'
 import type { ClientJsContext } from './types'
 import { graphFunctionReferences } from './build-references'
-import { extractIdentifiers } from './identifiers'
+import { extractIdentifiers, extractTemplateIdentifiers } from './identifiers'
 import { isInlinableInTemplate, buildRelocateEnvFromIR } from '../relocate'
 import type { RelocateEnv, RelocateDecision } from '../relocate'
 import { createError, ErrorCodes } from '../errors'
@@ -133,14 +133,23 @@ export interface InlinabilityAnalysis {
   decisionsByName: Map<string, RelocateDecision[]>
   /**
    * Names referenced from a template position where the relocate
-   * fallback (`UNSAFE_TEMPLATE_EXPR = 'undefined'`) would actually
-   * surface as a visible defect in the SSR HTML. Concretely:
+   * fallback (`UNSAFE_TEMPLATE_EXPR = 'undefined'`) would surface as
+   * a user-visible SSR defect. The defect varies by position — the
+   * common thread is that the SSR HTML doesn't match the intended
+   * output and there's no slot for hydrate to recover from:
    *
-   *   - Element attribute values → renders as `attr="undefined"`
-   *   - Bare JSX expressions without a slotId → literal "undefined" text
+   *   - Element attribute values → `templateAttrExpr` drops the
+   *     attribute when the value is `undefined` (one carve-out:
+   *     `data-key`, but loops fall back to `[]` so no items render
+   *     anyway). The SSR markup is missing the attribute; hydrate
+   *     re-adds it, producing a flash and breaking pre-hydrate reads.
+   *   - Slotless JSX expressions → emit `''` at SSR with no slot
+   *     marker, so the text is permanently empty for the lifetime of
+   *     the component.
    *   - Conditional / if-statement conditions → `undefined` is falsey,
-   *     wrong branch renders (silent semantic drift)
-   *   - Loop arrays → substituted to `[]`, SSR has zero items
+   *     so the wrong branch renders at SSR until hydrate corrects.
+   *   - Loop arrays → substituted to `[]`, SSR has zero items;
+   *     hydrate reconciles to N — visible item-count flash.
    *
    * Excluded (safe-fallback positions where the pipeline already
    * recovers at hydrate without a visible artefact, so a BF060/BF061
@@ -250,25 +259,48 @@ export function computeInlinability(
 
 /**
  * Walk the IR collecting every identifier that appears in a position
- * where the relocate fallback would produce a user-visible defect at
- * SSR. Mirrors the per-node-kind branches in `html-template.ts` —
- * positions that emit a slot, strip the prop, or substitute a safe
- * literal (`[]`, `''`) on `UNSAFE_TEMPLATE_EXPR` are intentionally
- * excluded so BF060/BF061 doesn't fire on already-handled shapes.
+ * where the relocate fallback (`UNSAFE_TEMPLATE_EXPR = 'undefined'`)
+ * would produce a user-visible SSR defect — a missing attribute, a
+ * permanent empty text node, or a wrong conditional branch. Mirrors
+ * the per-node-kind branches in `html-template.ts`: positions that
+ * route through a slot, drop the prop, or substitute a recoverable
+ * empty literal (`[]`, `''` inside `<!--bf:s1-->`) are intentionally
+ * excluded, so BF060/BF061 doesn't fire on already-handled shapes.
  */
 function collectTemplateRiskyNames(irRoot: IRNode): Set<string> {
   const risky = new Set<string>()
 
+  const addAttrIdents = (v: string | IRTemplateLiteral): void => {
+    // Backtick-quoted template literals (either passed through as raw
+    // expression text by jsx-to-ir for the simple-interpolation case,
+    // or round-tripped via `attrValueToString` for the structured
+    // `IRTemplateLiteral` case) carry CSS / class-name tokens in
+    // their static segments. The template-aware extractor restricts
+    // identifier collection to `${...}` substitutions so a class word
+    // like `text` in `\`text-sm \${variant}\`` doesn't false-positive
+    // against a same-named local const.
+    const text = typeof v === 'string' ? v : (attrValueToString(v) ?? '')
+    if (text.startsWith('`') && text.endsWith('`')) {
+      extractTemplateIdentifiers(text, risky)
+    } else {
+      extractIdentifiers(text, risky)
+    }
+  }
+
   const visitor: IRVisitor<null> = {
     element: ({ node: el, descend }) => {
-      // Element attribute values get substituted directly into the
-      // SSR HTML attribute slot. UNSAFE_TEMPLATE_EXPR ('undefined')
-      // becomes `attr="undefined"` — visible defect, real bug.
+      // Element attribute values are substituted into `templateAttrExpr`,
+      // whose generic path emits `${val != null ? \`attr="\${val}"\` : ''}`
+      // — when `val` resolves to `undefined`, the attribute is dropped
+      // from the SSR HTML entirely (boolean / style attrs share this
+      // fallback; `data-key*` is the one carve-out that does keep
+      // a literal "undefined", but loop arrays already fall back to
+      // `[]` so loop items don't render in that case anyway).
+      // Either way, the SSR shape doesn't match the intended output:
+      // hydrate adds the attribute, producing a flash, and any code
+      // that reads the attribute pre-hydrate sees nothing. Real bug.
       for (const attr of el.attrs) {
-        if (attr.dynamic && attr.value) {
-          const v = typeof attr.value === 'string' ? attr.value : attrValueToString(attr.value)
-          if (v) extractIdentifiers(v, risky)
-        }
+        if (attr.dynamic && attr.value) addAttrIdents(attr.value)
       }
       // Event handlers run in init-body context, not template. Skip.
       descend()
@@ -286,8 +318,11 @@ function collectTemplateRiskyNames(irRoot: IRNode): Set<string> {
       // Slotted expressions emit `<!--bf:s1-->${''}<!--/-->` on
       // UNSAFE — hydrate's reactive binding fills the slot. Safe.
       if (ex.slotId) return
-      // Bare `${expr}` substitution — UNSAFE produces literal
-      // "undefined" in the SSR text. Real bug.
+      // Slotless `${expr}` substitution. The CSR emit path
+      // substitutes `''` for UNSAFE so no literal "undefined" leaks,
+      // but there's no slot for hydrate to update either — the text
+      // stays empty for the lifetime of the component. Permanent
+      // visible defect.
       extractIdentifiers(ex.expr, risky)
     },
     conditional: ({ node: c, descend }) => {
@@ -321,15 +356,18 @@ function collectTemplateRiskyNames(irRoot: IRNode): Set<string> {
 
 /**
  * Emit errors for stage-violation decisions surfaced during inline
- * classification.
+ * classification. Only called by `toLegacyInlinability` for consts
+ * the `templateRiskyNames` gate has already classified as
+ * actually-broken — so by the time this runs, the SSR output is
+ * known to be wrong (missing attribute, permanently empty text,
+ * wrong conditional branch, or zero-item loop). Hydrate may or may
+ * not recover depending on the position; either way the SSR
+ * artefact is visible to the user (or to crawlers / cached HTML
+ * consumers).
  *
  *  - BF060: signal/memo getter referenced from template scope. The
- *    template lambda has no reactive context; the value falls back
- *    to `undefined` and init's createEffect repaints — but only
- *    where the pipeline can recover (slotted expression,
- *    component prop). At an element attribute or bare slotless
- *    expression position the SSR HTML observably contains
- *    "undefined".
+ *    template lambda has no reactive context, so relocate
+ *    falls back at the offending site.
  *  - BF061: init-scope local referenced from template scope. Same
  *    fallback shape, different binding kind.
  *
@@ -355,11 +393,11 @@ export function recordStageDiagnostics(
     seen.add(d.name)
     if (d.kind === 'signal-getter' || d.kind === 'signal-setter' || d.kind === 'memo-getter') {
       errors.push(createError(ErrorCodes.STAGE_REACTIVE_IN_TEMPLATE, c.loc, {
-        message: `Reactive binding '${d.name}' referenced from template scope (via const '${c.name}'). The template lambda runs at module scope and cannot reach reactive bindings; the SSR HTML would contain literal "undefined" before init's createEffect repaints. Wrap the JSX expression in /* @client */ to defer evaluation, or restructure so the template uses a prop or static value.`,
+        message: `Reactive binding '${d.name}' referenced from template scope (via const '${c.name}'). The template lambda runs at module scope and cannot reach reactive bindings; the value falls back at SSR (missing attribute / empty text / wrong branch depending on the JSX position) and stays that way unless hydrate happens to re-render the position. Wrap the JSX expression in /* @client */ to defer evaluation, or restructure so the template uses a prop or static value.`,
       }))
     } else if (d.kind === 'init-local' || d.kind === 'sub-init-local') {
       errors.push(createError(ErrorCodes.STAGE_INIT_LOCAL_IN_TEMPLATE, c.loc, {
-        message: `Init-scope local '${d.name}' referenced from template scope (via const '${c.name}'). The template lambda runs at module scope and cannot reach init-body locals; the SSR HTML would contain literal "undefined" before init's effect repaints. Wrap the JSX expression in /* @client */ to defer evaluation, or lift the value to a prop or module-scope const.`,
+        message: `Init-scope local '${d.name}' referenced from template scope (via const '${c.name}'). The template lambda runs at module scope and cannot reach init-body locals; the value falls back at SSR (missing attribute / empty text / wrong branch depending on the JSX position) and stays that way unless hydrate happens to re-render the position. Wrap the JSX expression in /* @client */ to defer evaluation, or lift the value to a prop or module-scope const.`,
       }))
     }
   }
