@@ -7,49 +7,48 @@
 import { describe, test, expect } from 'bun:test'
 import { GoTemplateAdapter } from '../adapter/go-template-adapter'
 import {
-  runJSXConformanceTests,
-  runConformanceSuite,
-  templatePrimitiveCases,
-  runTemplatePrimitiveCase,
+  runAdapterConformanceTests,
   TemplatePrimitiveCaseId,
-  type TemplatePrimitiveInput,
 } from '@barefootjs/adapter-tests'
 import { renderGoTemplateComponent, GoNotAvailableError } from '@barefootjs/go-template/test-render'
 import { compileJSX, type ComponentIR } from '@barefootjs/jsx'
 
-// =============================================================================
-// JSX-Based Conformance Tests
-// =============================================================================
-
-runJSXConformanceTests({
-  createAdapter: () => new GoTemplateAdapter(),
+runAdapterConformanceTests({
+  name: 'go-template',
+  factory: () => new GoTemplateAdapter(),
   render: renderGoTemplateComponent,
-  // Uses fixture.expectedHtml (pre-generated from Hono adapter) for comparison
-  // Static array with child components from separate files is not yet supported
-  // by the Go template renderer (child templates are not registered)
-  // Dynamic style objects (non-static values) require Go template interpolation
-  // support for JS template literals, which is not yet implemented.
-  // `branch-self-closing` and `nullish-coalescing-jsx` diverge on conditional
-  // marker strategy: the Go adapter emits `<!--bf-cond-start:sN-->` / `<!--bf-cond-end:sN-->`
-  // comment pairs around the active branch, while Hono places a `bf-c="sN"`
-  // attribute on the single element. Both are valid hydration markers — the
-  // runtime accepts either — but the literal HTML differs, so the Hono-derived
-  // `expectedHtml` does not match Go-template output. Same class of divergence
-  // as `fragment-conditional`, which is already handled by comment markers in
-  // both adapters.
-  skip: [
+  // Static array with child components from separate files is not yet
+  // supported by the Go template renderer (child templates are not
+  // registered). Dynamic style objects (non-static values) require Go
+  // template interpolation support for JS template literals, which is
+  // not yet implemented.
+  // `branch-self-closing` / `nullish-coalescing-jsx` /
+  // `return-nullish-coalescing` diverge on conditional marker strategy:
+  // the Go adapter emits `<!--bf-cond-start:sN-->` / `<!--bf-cond-end:sN-->`
+  // comment pairs around the active branch, while Hono places a
+  // `bf-c="sN"` attribute on the single element. Both are valid
+  // hydration markers — the runtime accepts either — but the literal
+  // HTML differs, so the Hono-derived `expectedHtml` doesn't match.
+  // `return-map` uses the `data-key` serialisation that differs
+  // between Hono (runtime helper) and Go (template variable).
+  skipJsx: [
     'static-array-children',
     'style-object-dynamic',
     'branch-self-closing',
     'nullish-coalescing-jsx',
-    // Same conditional-marker / data-key divergences at return position.
-    // `return-nullish-coalescing` hits the same `bf-c` vs comment-marker
-    // split as `nullish-coalescing-jsx`. `return-map` uses the
-    // `data-key` serialisation that differs between Hono (runtime helper)
-    // and Go (template variable).
     'return-nullish-coalescing',
     'return-map',
   ],
+  // Go's template runtime can render only callees the adapter
+  // explicitly maps to a Go template function via `templatePrimitives`.
+  // None mapped yet (#1188); every positive-inlining case stays
+  // skipped until that PR.
+  skipTemplatePrimitives: new Set([
+    TemplatePrimitiveCaseId.JSON_STRINGIFY_VIA_CONST,
+    TemplatePrimitiveCaseId.MATH_FLOOR_VIA_CONST,
+    TemplatePrimitiveCaseId.USER_IMPORT_VIA_CONST,
+    TemplatePrimitiveCaseId.NO_DOUBLE_REWRITE_OF_PROPS_OBJECT,
+  ]),
   onRenderError: (err, id) => {
     if (err instanceof GoNotAvailableError) {
       console.log(`Skipping [${id}]: ${err.message}`)
@@ -57,31 +56,6 @@ runJSXConformanceTests({
     }
     return false
   },
-})
-
-// =============================================================================
-// Template-Primitive Conformance (#1187 phase 3)
-// =============================================================================
-
-// Go's template runtime is the html/template engine — it can render
-// only callees the adapter explicitly maps to a Go template function
-// via `templatePrimitives`. None mapped yet (#1188 will land them);
-// every positive-inlining case stays skipped until that PR.
-runConformanceSuite<typeof TemplatePrimitiveCaseId[keyof typeof TemplatePrimitiveCaseId], TemplatePrimitiveInput, string>({
-  name: 'template primitives conformance',
-  issue: '#1187 phase 3',
-  adapter: {
-    name: 'go-template',
-    factory: () => new GoTemplateAdapter(),
-    skip: new Set([
-      TemplatePrimitiveCaseId.JSON_STRINGIFY_VIA_CONST,
-      TemplatePrimitiveCaseId.MATH_FLOOR_VIA_CONST,
-      TemplatePrimitiveCaseId.USER_IMPORT_VIA_CONST,
-      TemplatePrimitiveCaseId.NO_DOUBLE_REWRITE_OF_PROPS_OBJECT,
-    ]),
-  },
-  cases: templatePrimitiveCases,
-  run: runTemplatePrimitiveCase,
 })
 
 // =============================================================================

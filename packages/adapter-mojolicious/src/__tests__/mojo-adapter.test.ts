@@ -6,40 +6,51 @@
 
 import { describe, test, expect } from 'bun:test'
 import { MojoAdapter } from '../adapter/mojo-adapter'
-import { runJSXConformanceTests } from '@barefootjs/adapter-tests'
+import {
+  runAdapterConformanceTests,
+  TemplatePrimitiveCaseId,
+} from '@barefootjs/adapter-tests'
 import { renderMojoComponent, PerlNotAvailableError } from '../test-render'
 import { compileJSX, type ComponentIR } from '@barefootjs/jsx'
 
-// =============================================================================
-// JSX-Based Conformance Tests
-// =============================================================================
-
-runJSXConformanceTests({
-  createAdapter: () => new MojoAdapter(),
+runAdapterConformanceTests({
+  name: 'mojo',
+  factory: () => new MojoAdapter(),
   render: renderMojoComponent,
-  // Dynamic style objects (non-static values) require Perl template interpolation
-  // support for JS object literals, which is not yet implemented.
-  // `logical-or-jsx`, `nullish-coalescing-jsx`, `branch-map` reference a prop
-  // directly inside a conditional branch (`$label`, `$banner`, `$active`). The
-  // Mojo adapter emits these as bare Perl variables (`% if ($label) { ... }`)
-  // without a corresponding `my $label = ...;` declaration, so Perl rejects the
-  // template with "Global symbol requires explicit package name". Same class of
-  // Perl-scoping divergence that motivates the existing skips — out of scope
-  // for the #971 refactor.
-  skip: [
+  // Dynamic style objects (non-static values) require Perl template
+  // interpolation support for JS object literals, not yet implemented.
+  // `logical-or-jsx`, `nullish-coalescing-jsx`, `branch-map` reference
+  // a prop directly inside a conditional branch (`$label`, `$banner`,
+  // `$active`). The Mojo adapter emits these as bare Perl variables
+  // (`% if ($label) { ... }`) without a corresponding
+  // `my $label = ...;` declaration, so Perl rejects the template with
+  // "Global symbol requires explicit package name". Same class of
+  // Perl-scoping divergence that motivates the existing skips —
+  // out of scope for the #971 refactor.
+  // Return-position variants of the same divergence —
+  // `return-logical-or` / `return-nullish-coalescing` reference
+  // `$label` / `$banner` directly; `return-map` iterates over `$items`
+  // without a `my` declaration.
+  skipJsx: [
     'static-array-children',
     'style-object-dynamic',
     'logical-or-jsx',
     'nullish-coalescing-jsx',
     'branch-map',
-    // Return-position variants of the same bare-prop / loop-variable
-    // Perl-scoping divergence — `return-logical-or` / `return-nullish-coalescing`
-    // reference `$label` / `$banner` directly; `return-map` iterates over
-    // `$items` without a `my` declaration. Out of scope for the #971 refactor.
     'return-logical-or',
     'return-nullish-coalescing',
     'return-map',
   ],
+  // Mojo's template runtime is Perl's Mojolicious — the adapter has no
+  // `templatePrimitives` registered yet (#1189). Every positive-
+  // inlining case stays skipped until that PR. Once landed, entries
+  // come off this set and the conformance signal lights up.
+  skipTemplatePrimitives: new Set([
+    TemplatePrimitiveCaseId.JSON_STRINGIFY_VIA_CONST,
+    TemplatePrimitiveCaseId.MATH_FLOOR_VIA_CONST,
+    TemplatePrimitiveCaseId.USER_IMPORT_VIA_CONST,
+    TemplatePrimitiveCaseId.NO_DOUBLE_REWRITE_OF_PROPS_OBJECT,
+  ]),
   onRenderError: (err, id) => {
     if (err instanceof PerlNotAvailableError) {
       console.log(`Skipping [${id}]: ${err.message}`)

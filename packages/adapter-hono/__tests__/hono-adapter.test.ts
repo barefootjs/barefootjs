@@ -1,44 +1,19 @@
 /**
  * Hono Adapter Tests
  *
- * JSX conformance tests (shared across adapters).
+ * Single mandatory `runAdapterConformanceTests` call below covers every
+ * shared conformance suite the adapter contract defines today and any
+ * future ones added to that function.
  */
 
 import { HonoAdapter } from '../src/adapter'
-import {
-  runJSXConformanceTests,
-  runConformanceSuite,
-  templatePrimitiveCases,
-  runTemplatePrimitiveCase,
-  type TemplatePrimitiveCaseId,
-  type TemplatePrimitiveInput,
-} from '@barefootjs/adapter-tests'
+import { runAdapterConformanceTests } from '@barefootjs/adapter-tests'
 import { renderHonoComponent } from '@barefootjs/hono/test-render'
 
-// =============================================================================
-// JSX-Based Conformance Tests
-// =============================================================================
-
-runJSXConformanceTests({
-  createAdapter: () => new HonoAdapter(),
+runAdapterConformanceTests({
+  name: 'hono',
+  factory: () => new HonoAdapter(),
   render: renderHonoComponent,
-  // No referenceAdapter: compile + render success only
-})
-
-// =============================================================================
-// Template-Primitive Conformance (#1187 phase 3)
-// =============================================================================
-
-// Hono's SSR runtime is JS, so it satisfies every case via broad
-// `acceptsTemplateCall`. Empty skip set.
-runConformanceSuite<TemplatePrimitiveCaseId, TemplatePrimitiveInput, string>({
-  name: 'template primitives conformance',
-  issue: '#1187 phase 3',
-  adapter: {
-    name: 'hono',
-    factory: () => new HonoAdapter(),
-    skip: new Set(),
-  },
-  cases: templatePrimitiveCases,
-  run: runTemplatePrimitiveCase,
+  // Hono's SSR runtime is JS — broad `acceptsTemplateCall` covers
+  // every conformance case. No skip sets needed.
 })

@@ -22,3 +22,5 @@ export {
   FALLBACK_SENTINEL,
 } from './cases/template-primitives'
 export type { TemplatePrimitiveInput } from './cases/template-primitives'
+export { runAdapterConformanceTests } from './run-adapter-conformance'
+export type { RunAdapterConformanceOptions } from './run-adapter-conformance'
