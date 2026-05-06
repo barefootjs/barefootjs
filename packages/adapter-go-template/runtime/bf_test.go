@@ -633,6 +633,10 @@ func TestJSON(t *testing.T) {
 		{"slice", []any{1, 2, 3}, `[1,2,3]`},
 		{"string", "hi", `"hi"`},
 		{"nil", nil, "null"},
+		// JS-parity carve-out: top-level NaN / ±Inf → "null".
+		{"NaN", math.NaN(), "null"},
+		{"+Inf", math.Inf(1), "null"},
+		{"-Inf", math.Inf(-1), "null"},
 	}
 	for _, c := range cases {
 		got, err := JSON(c.in)
@@ -764,15 +768,6 @@ func TestRound(t *testing.T) {
 	}
 	if got := Round(3.4); got != 3.0 {
 		t.Errorf("Round(3.4) = %v, want 3", got)
-	}
-}
-
-func TestReplace(t *testing.T) {
-	if got := Replace("foo bar foo", "foo", "baz"); got != "baz bar baz" {
-		t.Errorf("Replace = %v, want baz bar baz", got)
-	}
-	if got := Replace("abc", "x", "y"); got != "abc" {
-		t.Errorf("Replace no match = %v, want abc", got)
 	}
 }
 

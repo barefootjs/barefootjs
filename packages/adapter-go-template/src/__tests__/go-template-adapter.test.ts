@@ -656,5 +656,90 @@ export function Tagged(props: { className?: string }) {
       // instead.
       expect(result.template).not.toContain('bf_json')
     })
+
+    test('computed-member callee does NOT match a string-keyed registry path', () => {
+      // `arr[0](x)` parses as a call whose callee is a
+      // computed-member. `identifierPath` must return null for
+      // computed members so a same-named primitive in the
+      // registry can't be triggered through array indexing.
+      // Pin: the substitution path doesn't fire here.
+      const result = compileAndGenerate(`
+        'use client'
+        export function Foo(props: { fns: ((x: any) => string)[]; v: any }) {
+          return <div data-x={props.fns[0](props.v)}>hi</div>
+        }
+      `)
+      expect(result.template).not.toContain('bf_json')
+      expect(result.template).not.toContain('bf_string')
+    })
+
+    test('two-tier source-of-truth keeps emit + arity in sync', () => {
+      // Regression for the previous parallel-map shape (#1200
+      // review): ensure every `templatePrimitives` key has a
+      // matching arity entry, so a registry-only addition can't
+      // silently bypass the arity gate.
+      const a = new GoTemplateAdapter()
+      const arities = (a as unknown as { templatePrimitiveArities: Record<string, number> }).templatePrimitiveArities
+      for (const key of Object.keys(a.templatePrimitives ?? {})) {
+        expect(arities[key]).toBeGreaterThan(0)
+      }
+    })
+
+    test('Math.floor end-to-end via go run produces the expected rendered HTML', async () => {
+      // The other tests assert template emission strings; this one
+      // closes the loop by actually running `go run` against the
+      // generated template + Go runtime helpers, so a regression in
+      // the Go-side `Floor`/`Number` funcs surfaces here. Skipped
+      // automatically on hosts without Go (the test-render harness
+      // throws GoNotAvailableError, which we treat as test skip).
+      try {
+        const html = await renderGoTemplateComponent({
+          source: `
+'use client'
+export function Foo(props: { score: number }) {
+  return <div data-rounded={Math.floor(props.score)}>hi</div>
+}
+          `,
+          adapter: new GoTemplateAdapter(),
+          props: { score: 3.7 },
+        })
+        // 3.7 floored is 3. Go's float→string rendering is "3" for
+        // whole-number floats coming back from math.Floor, but the
+        // template path interpolates the float64 via `%v` which
+        // formats as "3" for integer-valued floats.
+        expect(html).toContain('data-rounded="3"')
+      } catch (err) {
+        if (err instanceof GoNotAvailableError) {
+          console.log('Skipping Math.floor e2e: go command not found')
+          return
+        }
+        throw err
+      }
+    })
+
+    test('JSON.stringify end-to-end via go run produces the expected rendered HTML', async () => {
+      try {
+        const html = await renderGoTemplateComponent({
+          source: `
+'use client'
+export function Foo(props: { name: string }) {
+  return <div data-config={JSON.stringify(props.name)}>hi</div>
+}
+          `,
+          adapter: new GoTemplateAdapter(),
+          props: { name: 'alice' },
+        })
+        // `JSON.stringify("alice")` → `"alice"` (with quotes).
+        // The template interpolates into an attribute value, so the
+        // outer quotes get HTML-entity escaped.
+        expect(html).toContain('&#34;alice&#34;')
+      } catch (err) {
+        if (err instanceof GoNotAvailableError) {
+          console.log('Skipping JSON.stringify e2e: go command not found')
+          return
+        }
+        throw err
+      }
+    })
   })
 })

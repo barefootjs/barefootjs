@@ -87,6 +87,27 @@ function slotIdToFieldSuffix(slotId: string): string {
   return cleanId.replace('slot_', 'Slot')
 }
 
+/**
+ * Single source of truth for the Go adapter's template-primitive
+ * surface (#1188). Each entry pairs the expected arity with the
+ * emit function so adding / removing a primitive is a one-line
+ * change and the two derived maps (`templatePrimitives` and
+ * `templatePrimitiveArities`) can't drift out of sync.
+ */
+interface PrimitiveSpec {
+  arity: number
+  emit: (args: string[]) => string
+}
+
+const GO_TEMPLATE_PRIMITIVES: Record<string, PrimitiveSpec> = {
+  'JSON.stringify': { arity: 1, emit: (args) => `bf_json ${args[0]}` },
+  'String':         { arity: 1, emit: (args) => `bf_string ${args[0]}` },
+  'Number':         { arity: 1, emit: (args) => `bf_number ${args[0]}` },
+  'Math.floor':     { arity: 1, emit: (args) => `bf_floor ${args[0]}` },
+  'Math.ceil':      { arity: 1, emit: (args) => `bf_ceil ${args[0]}` },
+  'Math.round':     { arity: 1, emit: (args) => `bf_round ${args[0]}` },
+}
+
 export class GoTemplateAdapter extends BaseAdapter {
   name = 'go-template'
   extension = '.tmpl'
@@ -111,37 +132,31 @@ export class GoTemplateAdapter extends BaseAdapter {
    * on values (`(arr).join(",")`) require analyzer-resolved receiver
    * type and are explicitly out of scope — users fall back to
    * `/* @client *\/` for those.
+   *
+   * Public because the `TemplateAdapter` interface contract requires
+   * the relocate pass to read this for boolean acceptance. The arity
+   * map below is implementation detail (private) — the asymmetry is
+   * deliberate.
    */
-  templatePrimitives: TemplatePrimitiveRegistry = {
-    'JSON.stringify': (args) => `bf_json ${args[0]}`,
-    'String':         (args) => `bf_string ${args[0]}`,
-    'Number':         (args) => `bf_number ${args[0]}`,
-    'Math.floor':     (args) => `bf_floor ${args[0]}`,
-    'Math.ceil':      (args) => `bf_ceil ${args[0]}`,
-    'Math.round':     (args) => `bf_round ${args[0]}`,
-  }
+  templatePrimitives: TemplatePrimitiveRegistry =
+    Object.fromEntries(
+      Object.entries(GO_TEMPLATE_PRIMITIVES).map(([k, v]) => [k, v.emit])
+    )
 
   /**
    * Expected arg count per primitive. Consulted before invoking the
    * registered emit fn so a 0-arg `JSON.stringify()` or 2-arg
    * `JSON.stringify(x, replacer)` doesn't silently produce invalid
    * Go template syntax (the V1 emit fns blindly read `args[0]`).
-   * Keys must mirror `templatePrimitives` exactly; a mismatch
-   * causes the adapter to fall back to the standard BF101
-   * unsupported-call diagnostic.
    *
-   * Currently every V1 entry is single-arg. Future multi-arg
-   * primitives (`String.prototype.slice(start, end)` style) need
-   * to add an entry here too.
+   * Derived from `GO_TEMPLATE_PRIMITIVES` so it can't drift from
+   * `templatePrimitives` — a wrong-arity call falls back to the
+   * standard BF101 unsupported-call diagnostic.
    */
-  private readonly templatePrimitiveArities: Record<string, number> = {
-    'JSON.stringify': 1,
-    'String':         1,
-    'Number':         1,
-    'Math.floor':     1,
-    'Math.ceil':      1,
-    'Math.round':     1,
-  }
+  private readonly templatePrimitiveArities: Record<string, number> =
+    Object.fromEntries(
+      Object.entries(GO_TEMPLATE_PRIMITIVES).map(([k, v]) => [k, v.arity])
+    )
 
   private componentName: string = ''
   private options: Required<GoTemplateAdapterOptions>

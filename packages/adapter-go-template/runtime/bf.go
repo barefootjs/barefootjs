@@ -34,7 +34,6 @@ func FuncMap() template.FuncMap {
 		"bf_trim":     Trim,
 		"bf_contains": Contains,
 		"bf_join":     Join,
-		"bf_replace":  Replace,
 		"bf_string":   String,
 
 		// JSON / numeric primitives — JS-compat callees registered on
@@ -233,15 +232,6 @@ func Join(items any, sep string) string {
 	return strings.Join(parts, sep)
 }
 
-// Replace returns s with all (non-overlapping) occurrences of `old`
-// replaced by `new`. Mirrors JS `str.replaceAll(old, new)` semantics —
-// JS's single-arg `str.replace(old, new)` only replaces the first
-// match, but the SSR template path uses replace as a value transform
-// where deterministic full-string replacement is the safer default.
-func Replace(s, oldStr, newStr string) string {
-	return strings.ReplaceAll(s, oldStr, newStr)
-}
-
 // String returns the string form of v. Mirrors JS `String(v)` for
 // non-nil values via `fmt.Sprintf("%v", ...)`. Diverges from JS on
 // nil: JS `String(null)` is "null", but the template path renders
@@ -261,12 +251,24 @@ func String(v any) string {
 // (alphabetical for maps, declaration order for structs) — the
 // #1187 contract requires value-compat, not order-compat.
 //
+// Top-level NaN / ±Inf are pre-handled to match JS — JS's
+// `JSON.stringify(NaN)` and `JSON.stringify(Infinity)` both produce
+// `"null"`, but Go's `encoding/json` rejects them with
+// `UnsupportedValueError`. Without this carve-out the common
+// composition `JSON.stringify(Number("garbage"))` would error
+// instead of emitting `"null"` like JS does. Nested NaN/Inf inside
+// a struct/map still surfaces an error — covering that needs a
+// custom marshaller; out of V1 scope.
+//
 // Returns the marshal error so a `template.Execute` call fails
 // loudly on cycles / unsupported values rather than silently
 // producing `""` and reintroducing the SSR data-loss class
 // #1187 was filed against. Go's text/template treats a non-nil
 // error return from a func as an execution failure.
 func JSON(v any) (string, error) {
+	if f, ok := v.(float64); ok && (math.IsNaN(f) || math.IsInf(f, 0)) {
+		return "null", nil
+	}
 	b, err := json.Marshal(v)
 	if err != nil {
 		return "", err
