@@ -5,7 +5,7 @@ test.describe('Graph Editor Block', () => {
     page.on('pageerror', error => {
       console.log('Page error:', error.message)
     })
-    await page.goto('/components/graph-editor')
+    await page.goto('/xyflow/introduction')
   })
 
   const section = (page: any) =>

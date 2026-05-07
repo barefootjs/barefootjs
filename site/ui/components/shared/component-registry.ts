@@ -67,7 +67,6 @@ export const componentEntries: ComponentEntry[] = [
   { slug: 'skeleton', title: 'Skeleton', description: 'Placeholder loading indicator', category: 'display' },
   { slug: 'table', title: 'Table', description: 'Responsive data table', category: 'display' },
   { slug: 'typography', title: 'Typography', description: 'Styled text elements for prose', category: 'display' },
-  { slug: 'xyflow', title: 'xyflow', description: 'Signal-based graph editor (Flow / Background / Controls / MiniMap / Handle / NodeWrapper / SimpleEdge)', category: 'display' },
 
   // Feedback (7)
   { slug: 'alert', title: 'Alert', description: 'Callout for important content', category: 'feedback' },
@@ -116,7 +115,6 @@ export const blockEntries: BlockEntry[] = [
   { slug: 'theme-customizer', title: 'Theme Customizer', description: 'Three signal-driven context providers (palette, spacing, typography) wrapping a 12-level deep consumer tree. Tests Provider value propagation, multi-provider ordering, stale-read safety, and dynamic token add/remove' },
   { slug: 'infinite-scroll', title: 'Async Infinite Scroll', description: 'IntersectionObserver-triggered pagination with <Async> streaming boundary, mapArray append, per-item like/save actions, and effect cleanup on unmount. Tests the IRAsync + mapArray compiler path, reactive list growth, and error/empty-state branches' },
   { slug: 'toast-queue', title: 'Toast Queue', description: 'Signal-backed notification queue with N simultaneous portals, auto-dismiss timers, manual dismiss, stack ordering, and per-toast cleanup on dynamic unmount' },
-  { slug: 'graph-editor', title: 'Graph / DAG Editor', description: 'SVG-based node graph with reactive cx/cy/d/viewBox bindings, drag-to-move, drag-to-connect, and auto-layout toggle. Exercises the compiler\'s SVG namespace path that other blocks don\'t touch' },
 ]
 
 // Helper: get components filtered by category

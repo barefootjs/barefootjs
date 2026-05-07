@@ -22,7 +22,7 @@ import {
   type PropDefinition,
   type TocItem,
 } from '../../components/shared/docs'
-import { getNavLinks } from '../../components/shared/PageNavigation'
+import { getXyflowNavLinks } from '../../components/shared/PageNavigation'
 
 const tocItems: TocItem[] = [
   { id: 'preview', title: 'Preview' },
@@ -206,7 +206,7 @@ export function XyflowRefPage() {
         <PageHeader
           title="xyflow"
           description="Signal-based graph editor with Flow, Background, Controls, MiniMap, Handle, NodeWrapper, and SimpleEdge components."
-          {...getNavLinks('xyflow')}
+          {...getXyflowNavLinks('xyflow')}
         />
 
         <Section id="preview" title="Preview">

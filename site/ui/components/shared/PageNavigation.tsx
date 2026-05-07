@@ -38,6 +38,31 @@ export function getChartNavLinks(currentSlug: string): {
   }
 }
 
+// Order for the xyflow section. Each entry knows its href because the
+// section spans both the dedicated /xyflow/ tree and the existing
+// /components/xyflow reference page.
+export const xyflowOrder = [
+  { slug: 'introduction', title: 'Introduction', href: '/xyflow/introduction' },
+  { slug: 'xyflow', title: 'Components', href: '/components/xyflow' },
+]
+
+// Get prev/next links for a page in the xyflow section.
+export function getXyflowNavLinks(currentSlug: string): {
+  prev?: { href: string; title: string }
+  next?: { href: string; title: string }
+} {
+  const currentIndex = xyflowOrder.findIndex(c => c.slug === currentSlug)
+  if (currentIndex === -1) return {}
+
+  const prev = currentIndex > 0 ? xyflowOrder[currentIndex - 1] : undefined
+  const next = currentIndex < xyflowOrder.length - 1 ? xyflowOrder[currentIndex + 1] : undefined
+
+  return {
+    prev: prev ? { href: prev.href, title: prev.title } : undefined,
+    next: next ? { href: next.href, title: next.title } : undefined,
+  }
+}
+
 // Get prev/next links for a component
 export function getNavLinks(currentSlug: string): {
   prev?: { href: string; title: string }
