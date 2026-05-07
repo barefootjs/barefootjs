@@ -136,9 +136,15 @@ sub async_resolve ($self, $id, $content_html) {
 
 sub json ($self, $value) {
     # Mojo::JSON::to_json returns a character string (not bytes), suitable
-    # for embedding in HTML output via Mojo::ByteStream / `<%==`. JS's
-    # `JSON.stringify(undef)` is the literal string "null" — to_json
-    # produces the same.
+    # for embedding in HTML output via Mojo::ByteStream / `<%==`.
+    #
+    # Documented divergence from JS: JS distinguishes `null` (renders as
+    # "null") from `undefined` (`JSON.stringify(undefined)` returns the
+    # JS value `undefined`, not a string). Perl has no such distinction
+    # — both map to `undef`. We choose the `null` rendering for SSR
+    # ergonomics: an unset prop becomes the string "null" rather than
+    # the literal text "undefined" or an empty attribute. Matches the
+    # `null` case of JS exactly; diverges from the `undefined` case.
     return to_json($value);
 }
 
@@ -175,11 +181,14 @@ sub ceil ($self, $value) {
 sub round ($self, $value) {
     my $n = $self->number($value);
     return 'NaN' if $n eq 'NaN';
-    # POSIX has no `round` (only `floor`/`ceil`). Half-away-from-zero
-    # matches Math.round's positive case; negative .5 rounding diverges
-    # from JS (JS rounds toward +Infinity, this rounds away from zero)
-    # — accepted as a value-compat-not-bit-compat divergence.
-    return $n >= 0 ? POSIX::floor($n + 0.5) : -POSIX::floor(-$n + 0.5);
+    # POSIX has no `round` (only `floor`/`ceil`). JS `Math.round`
+    # rounds half toward +Infinity (so `Math.round(-1.5) === -1`,
+    # not -2). `floor(n + 0.5)` reproduces that exact rule for both
+    # positive and negative inputs:
+    #   Math.round(1.5)   → floor(2.0)  = 2
+    #   Math.round(-1.5)  → floor(-1.0) = -1   (JS-faithful tie-break)
+    #   Math.round(-1.6)  → floor(-1.1) = -2
+    return POSIX::floor($n + 0.5);
 }
 
 1;

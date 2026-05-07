@@ -99,9 +99,17 @@ function stringifyParsedExpr(expr: ParsedExpr): string {
     }
     case 'member': {
       const obj = stringifyParsedExpr(expr.object)
-      return expr.computed
-        ? `${obj}[${stringifyParsedExpr({ kind: 'identifier', name: expr.property })}]`
-        : `${obj}.${expr.property}`
+      if (!expr.computed) return `${obj}.${expr.property}`
+      // `ParsedExpr.member.property` is a string for both numeric
+      // and string-literal keys. Numeric indices round-trip
+      // verbatim (`arr[0]`); anything else needs quoting so a
+      // string key like `obj['key']` doesn't degrade to
+      // `obj[key]` (a bare-identifier lookup with different
+      // semantics).
+      const key = /^-?\d+$/.test(expr.property)
+        ? expr.property
+        : JSON.stringify(expr.property)
+      return `${obj}[${key}]`
     }
     case 'binary':
       return `${stringifyParsedExpr(expr.left)} ${expr.op} ${stringifyParsedExpr(expr.right)}`
