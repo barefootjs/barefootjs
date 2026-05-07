@@ -32,7 +32,7 @@ export function XyflowQuickStartDemo() {
   return (
     <div className="w-full h-[420px] rounded-lg border bg-background overflow-hidden">
       <Flow nodes={twoNodes} edges={oneEdge}>
-        <Background variant="dots" gap={20} />
+        <Background variant="dots" gap={30} />
         <Controls />
       </Flow>
     </div>
@@ -46,7 +46,7 @@ export function XyflowEmptyDemo() {
   return (
     <div className="w-full h-[240px] rounded-lg border bg-background overflow-hidden">
       <Flow nodes={[]} edges={[]}>
-        <Background variant="dots" gap={20} />
+        <Background variant="dots" gap={30} />
       </Flow>
     </div>
   )
@@ -59,7 +59,7 @@ export function XyflowNodesDemo() {
   return (
     <div className="w-full h-[240px] rounded-lg border bg-background overflow-hidden">
       <Flow nodes={twoNodes} edges={[]}>
-        <Background variant="dots" gap={20} />
+        <Background variant="dots" gap={30} />
       </Flow>
     </div>
   )
@@ -72,7 +72,7 @@ export function XyflowEdgesDemo() {
   return (
     <div className="w-full h-[240px] rounded-lg border bg-background overflow-hidden">
       <Flow nodes={twoNodes} edges={oneEdge}>
-        <Background variant="dots" gap={20} />
+        <Background variant="dots" gap={30} />
       </Flow>
     </div>
   )

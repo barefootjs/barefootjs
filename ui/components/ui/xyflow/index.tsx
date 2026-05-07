@@ -371,7 +371,11 @@ export function Background(props: BackgroundProps) {
   const variant = createMemo(() => props.variant ?? 'dots')
   const gap = createMemo(() => props.gap ?? 20)
   const size = createMemo(() => props.size ?? 1)
-  const color = createMemo(() => props.color ?? '#ddd')
+  // Theme-aware default. `var(--border)` resolves to a near-white grey
+  // in light mode and to a 10%-alpha white in dark mode, so the pattern
+  // reads as a subtle texture rather than the high-contrast pop dots
+  // the literal `#ddd` produced against a dark canvas.
+  const color = createMemo(() => props.color ?? 'var(--border, #ddd)')
   const lineWidth = createMemo(() => props.lineWidth ?? 1)
   const offset = createMemo(() => props.offset ?? 0)
 

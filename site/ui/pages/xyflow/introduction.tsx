@@ -96,7 +96,7 @@ export function MyFlow() {
   return (
     <div className="w-full h-[420px] rounded-lg border bg-background overflow-hidden">
       <Flow nodes={nodes} edges={edges}>
-        <Background variant="dots" gap={20} />
+        <Background variant="dots" gap={30} />
         <Controls />
       </Flow>
     </div>
@@ -109,7 +109,7 @@ export function MyFlow() {
   return (
     <div className="w-full h-[240px] rounded-lg border bg-background overflow-hidden">
       <Flow nodes={[]} edges={[]}>
-        <Background variant="dots" gap={20} />
+        <Background variant="dots" gap={30} />
       </Flow>
     </div>
   )
@@ -126,7 +126,7 @@ export function MyFlow() {
   return (
     <div className="w-full h-[240px] rounded-lg border bg-background overflow-hidden">
       <Flow nodes={nodes} edges={[]}>
-        <Background variant="dots" gap={20} />
+        <Background variant="dots" gap={30} />
       </Flow>
     </div>
   )
@@ -138,11 +138,11 @@ const edges = [
 ]
 
 <Flow nodes={nodes} edges={edges}>
-  <Background variant="dots" gap={20} />
+  <Background variant="dots" gap={30} />
 </Flow>`
 
 const overlaysCode = `<Flow nodes={nodes} edges={edges}>
-  <Background variant="dots" gap={20} />
+  <Background variant="dots" gap={30} />
   <Controls />
 </Flow>`
 
