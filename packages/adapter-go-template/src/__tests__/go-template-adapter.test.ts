@@ -31,10 +31,6 @@ runAdapterConformanceTests({
   // HTML differs, so the Hono-derived `expectedHtml` doesn't match.
   // `return-map` uses the `data-key` serialisation that differs
   // between Hono (runtime helper) and Go (template variable).
-  // `component-with-jsx-children` — the Go template emitter drops
-  // JSX children when emitting the parent's `renderChild()` call, so
-  // the child renders an empty slot. Forwarding is implemented for
-  // CSR templates only; the Go-template path is tracked separately.
   skipJsx: [
     'static-array-children',
     'style-object-dynamic',
@@ -42,7 +38,6 @@ runAdapterConformanceTests({
     'nullish-coalescing-jsx',
     'return-nullish-coalescing',
     'return-map',
-    'component-with-jsx-children',
   ],
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `GoTemplateAdapter.templatePrimitives` (#1188). The two
@@ -143,6 +138,105 @@ export function Counter(props: { initial?: number }) {
       expect(result.types).toContain('ScopeID string')
       expect(result.types).toContain('Initial int')
       expect(result.types).toContain('Count int')
+    })
+  })
+
+  describe('JSX children forwarding (#1203)', () => {
+    test('forwards element children via Children: template.HTML(...)', () => {
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+'use client'
+import { createSignal } from "@barefootjs/client"
+
+export function Page() {
+  const [x] = createSignal(0)
+  return (
+    <main data-x={x()}>
+      <Card>
+        <span>hello</span>
+        <span>world</span>
+      </Card>
+    </main>
+  )
+}
+`)
+      const types = adapter.generateTypes(ir)!
+      expect(types).toContain('"html/template"')
+      expect(types).toContain(
+        'Children: template.HTML("<span>hello</span><span>world</span>")',
+      )
+    })
+
+    test('text-only children stay on the plain string path (#461 carry-over)', () => {
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+'use client'
+import { createSignal } from "@barefootjs/client"
+
+export function Page() {
+  const [x] = createSignal(0)
+  return <main data-x={x()}><Button>+1</Button></main>
+}
+`)
+      const types = adapter.generateTypes(ir)!
+      expect(types).toContain('Children: "+1"')
+      expect(types).not.toContain('template.HTML')
+      expect(types).not.toContain('"html/template"')
+    })
+
+    test('omits Children entry when component has no JSX children', () => {
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+'use client'
+import { createSignal } from "@barefootjs/client"
+
+export function Page() {
+  const [x] = createSignal(0)
+  return <main data-x={x()}><Card label="x" /></main>
+}
+`)
+      const types = adapter.generateTypes(ir)!
+      expect(types).not.toContain('Children:')
+      expect(types).not.toContain('template.HTML')
+    })
+
+    test('drops dynamic children that would emit Go template actions', () => {
+      // V1 limitation: a `template.HTML` value isn't re-parsed by the
+      // parent's `{{.Children}}` pipeline, so any `{{...}}` inside the
+      // rendered fragment would output literally. Dynamic-expression /
+      // nested-component / conditional children stay on the existing
+      // drop path (same as before this issue) until a re-evaluation
+      // hook lands.
+      const cases = [
+        // signal expression inside child
+        `'use client'
+import { createSignal } from "@barefootjs/client"
+export function Page() {
+  const [c] = createSignal(0)
+  return <main><Card><span>{c()}</span></Card></main>
+}`,
+        // nested component child
+        `'use client'
+import { createSignal } from "@barefootjs/client"
+export function Page() {
+  const [x] = createSignal(0)
+  return <main data-x={x()}><Card><Button/></Card></main>
+}`,
+        // conditional child
+        `'use client'
+import { createSignal } from "@barefootjs/client"
+export function Page() {
+  const [v] = createSignal(true)
+  return <main><Card>{v() ? <span>a</span> : <span>b</span>}</Card></main>
+}`,
+      ]
+      for (const src of cases) {
+        const adapter = new GoTemplateAdapter()
+        const ir = compileToIR(src, adapter)
+        const types = adapter.generateTypes(ir)!
+        expect(types).not.toContain('Children:')
+        expect(types).not.toContain('template.HTML')
+      }
     })
   })
 
