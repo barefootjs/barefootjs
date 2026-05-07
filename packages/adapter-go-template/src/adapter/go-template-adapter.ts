@@ -45,13 +45,18 @@ interface StaticChildInstance {
   fieldName: string
   /** Concatenated text content from JSX children (e.g. `+1` for
    *  `<Button>+1</Button>`). Null when children include any non-text
-   *  node — the HTML path below covers those. */
+   *  node; those go through the `childrenHtml` path when they're
+   *  purely static HTML, otherwise they're dropped. */
   childrenText: string | null
-  /** Rendered Go-template HTML fragment for JSX children that include
-   *  any non-text node (e.g. `<Card><span>x</span></Card>`). Forwarded
-   *  to the child via `Children: template.HTML(...)` so the child's
+  /** Rendered Go-template fragment for purely-static, non-text JSX
+   *  children (e.g. `<Card><span>x</span></Card>`). Forwarded to the
+   *  child via `Children: template.HTML(...)` so the child's
    *  `{{or .Children ""}}` skips re-escaping. Null when children are
-   *  text-only or absent. */
+   *  text-only or absent — and also null when the rendered fragment
+   *  contains any `{{...}}` action (signal expressions, nested
+   *  components, conditionals, etc.) since those wouldn't re-evaluate
+   *  through the parent's `{{.Children}}` read; those cases stay on
+   *  the existing drop path. */
   childrenHtml: string | null
 }
 
