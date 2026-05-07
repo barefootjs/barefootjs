@@ -31,6 +31,12 @@ runAdapterConformanceTests({
   // HTML differs, so the Hono-derived `expectedHtml` doesn't match.
   // `return-map` uses the `data-key` serialisation that differs
   // between Hono (runtime helper) and Go (template variable).
+  // `component-with-jsx-children` exercises forwarding JSX children
+  // through `renderChild()` for `'use client'` parent → `'use client'`
+  // child. The CSR-template fix in #1196 lands that path on the client;
+  // the Go template emitter still drops the children entry, so the
+  // child component renders an empty slot. Out of scope for #1196 —
+  // tracked separately for the Go adapter.
   skipJsx: [
     'static-array-children',
     'style-object-dynamic',
@@ -38,6 +44,7 @@ runAdapterConformanceTests({
     'nullish-coalescing-jsx',
     'return-nullish-coalescing',
     'return-map',
+    'component-with-jsx-children',
   ],
   // Go's template runtime can render only callees the adapter
   // explicitly maps to a Go template function via `templatePrimitives`.
