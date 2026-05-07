@@ -3,6 +3,8 @@ use Mojo::Base -base, -signatures;
 
 use Mojo::ByteStream qw(b);
 use Mojo::JSON qw(encode_json to_json);
+use POSIX ();
+use Scalar::Util qw(looks_like_number);
 
 has 'c';       # Mojolicious controller
 has 'config';  # Plugin config
@@ -115,6 +117,69 @@ sub async_boundary ($self, $id, $fallback_html) {
 
 sub async_resolve ($self, $id, $content_html) {
     return qq{<template bf-async-resolve="$id">$content_html</template><script>__bf_swap("$id")</script>};
+}
+
+# ---------------------------------------------------------------------------
+# JS-compat callees (#1189) — invoked from generated Mojo templates as
+# <%= bf->json($val) %>, <%= bf->floor($val) %>, etc. The MojoAdapter's
+# `templatePrimitives` registry emits these helper calls in place of the
+# corresponding JS callees (`JSON.stringify`, `Math.floor`, …) so the SSR
+# template can render value-equivalent output without a JS engine.
+#
+# Failure policy mirrors the Go adapter (#1188): user-data marshalling
+# (json) bubbles errors so Mojolicious aborts loudly on cycles /
+# unsupported values rather than silently producing an empty payload.
+# Numeric coercion follows JS semantics (NaN propagates as the special
+# string 'NaN'; non-numeric input returns 'NaN' rather than 0). Strings
+# always coerce to a string representation.
+# ---------------------------------------------------------------------------
+
+sub json ($self, $value) {
+    # Mojo::JSON::to_json returns a character string (not bytes), suitable
+    # for embedding in HTML output via Mojo::ByteStream / `<%==`. JS's
+    # `JSON.stringify(undef)` is the literal string "null" — to_json
+    # produces the same.
+    return to_json($value);
+}
+
+sub string ($self, $value) {
+    # JS `String(v)` mirror. `undef` renders as the empty string here so
+    # an unset prop doesn't surface as a literal "undefined" / "null"
+    # in user-facing HTML — same divergence the Go adapter documents
+    # for `bf_string`.
+    return defined $value ? "$value" : '';
+}
+
+sub number ($self, $value) {
+    # JS `Number(v)` mirror. Non-numeric strings / undef → "NaN" so
+    # downstream `floor`/`ceil`/`round` propagate the JS NaN semantics
+    # (`Math.floor(NaN) === NaN`). Numeric strings coerce via Perl's
+    # implicit numeric context.
+    return 'NaN' unless defined $value;
+    return $value + 0 if looks_like_number($value);
+    return 'NaN';
+}
+
+sub floor ($self, $value) {
+    my $n = $self->number($value);
+    return 'NaN' if $n eq 'NaN';
+    return POSIX::floor($n);
+}
+
+sub ceil ($self, $value) {
+    my $n = $self->number($value);
+    return 'NaN' if $n eq 'NaN';
+    return POSIX::ceil($n);
+}
+
+sub round ($self, $value) {
+    my $n = $self->number($value);
+    return 'NaN' if $n eq 'NaN';
+    # POSIX has no `round` (only `floor`/`ceil`). Half-away-from-zero
+    # matches Math.round's positive case; negative .5 rounding diverges
+    # from JS (JS rounds toward +Infinity, this rounds away from zero)
+    # — accepted as a value-compat-not-bit-compat divergence.
+    return $n >= 0 ? POSIX::floor($n + 0.5) : -POSIX::floor(-$n + 0.5);
 }
 
 1;
