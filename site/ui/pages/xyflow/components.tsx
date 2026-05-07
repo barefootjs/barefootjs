@@ -5,7 +5,10 @@
  * page so all xyflow docs live under a single section.
  */
 
-import { XyflowBackgroundVariantsDemo } from '@/components/xyflow-demo'
+import {
+  XyflowBackgroundVariantsDemo,
+  XyflowPreviewDemo,
+} from '@/components/xyflow-demo'
 import {
   PageHeader,
   Section,
@@ -28,6 +31,27 @@ const tocItems: TocItem[] = [
   { id: 'simple-edge', title: '<SimpleEdge>' },
 ]
 
+const flowOverviewCode = `import { Flow, Background, Controls, MiniMap } from "@/components/ui/xyflow"
+
+const initialNodes = [
+  { id: "1", position: { x: 100, y: 100 }, data: { label: "Input" } },
+  { id: "2", position: { x: 350, y:  50 }, data: { label: "Transform" } },
+  { id: "3", position: { x: 350, y: 200 }, data: { label: "Validate" } },
+  { id: "4", position: { x: 600, y: 125 }, data: { label: "Output" } },
+]
+const initialEdges = [
+  { id: "e1-2", source: "1", target: "2" },
+  { id: "e1-3", source: "1", target: "3" },
+  { id: "e2-4", source: "2", target: "4" },
+  { id: "e3-4", source: "3", target: "4" },
+]
+
+<Flow nodes={initialNodes} edges={initialEdges}>
+  <Background variant="dots" gap={20} />
+  <Controls />
+  <MiniMap pannable zoomable />
+</Flow>`
+
 const backgroundVariantsCode = `import { Flow, Background } from "@/components/ui/xyflow"
 
 export function Variants() {
@@ -45,6 +69,7 @@ export function Variants() {
     </div>
   )
 }`
+
 
 const flowProps: PropDefinition[] = [
   {
@@ -214,6 +239,10 @@ export function XyflowComponentsPage() {
               (minimap, custom nodes, custom edges).
             </p>
           </div>
+
+          <Example title="Everything together" code={flowOverviewCode}>
+            <XyflowPreviewDemo />
+          </Example>
         </Section>
 
         <Section id="flow" title="<Flow>">
@@ -283,6 +312,7 @@ export function XyflowComponentsPage() {
               side so edges can target a specific connection point.
             </p>
           </div>
+
           <PropsTable props={handleProps} />
         </Section>
 

@@ -51,49 +51,73 @@ export function MyFlow() {
 
 const customNodeCode = `"use client"
 
-import { Flow, Handle } from "@/components/ui/xyflow"
+import { Background, Controls, Flow, Handle } from "@/components/ui/xyflow"
 import { Position } from "@barefootjs/xyflow"
 
-// A custom node is a regular function component. The store passes
-// per-node props (id, data, selected, ...) through the nodeTypes map.
-function PillNode(props) {
-  return (
-    <div className="rounded-full border-2 bg-card px-4 py-2 text-sm font-medium shadow-sm">
-      <Handle type="target" position={Position.Top} nodeId={props.id} />
-      {props.data.label}
-      <Handle type="source" position={Position.Bottom} nodeId={props.id} />
-    </div>
-  )
-}
-
-const nodeTypes = { pill: PillNode }
-
 const nodes = [
-  { id: "a", type: "pill", position: { x: 80, y: 30 },  data: { label: "Hello" } },
-  { id: "b", type: "pill", position: { x: 320, y: 180 }, data: { label: "World" } },
+  { id: "src", position: { x:  80, y: 100 }, data: { label: "Source" } },
+  { id: "mid", position: { x: 320, y:  80 }, data: { label: "Pipeline" } },
+  { id: "dst", position: { x: 560, y: 120 }, data: { label: "Sink" } },
+]
+const edges = [
+  { id: "src-mid", source: "src", target: "mid" },
+  { id: "mid-dst", source: "mid", target: "dst" },
 ]
 
-<Flow nodes={nodes} edges={edges} nodeTypes={nodeTypes}>
-  <Background />
-</Flow>`
+export function MyFlow() {
+  return (
+    <Flow
+      nodes={nodes}
+      edges={edges}
+      renderNode={(n) => (
+        <div className="rounded-md border bg-card px-3 py-2 text-sm shadow-sm">
+          {n.data.label}
+          <Handle type="target" position={Position.Left}  nodeId={n.id} />
+          <Handle type="source" position={Position.Right} nodeId={n.id} />
+        </div>
+      )}
+    >
+      <Background variant="cross" gap={28} />
+      <Controls showInteractive={false} />
+    </Flow>
+  )
+}`
 
 const customHandlesCode = `// Multiple handles per node — give each one a stable \`id\`
 // and reference it from the edge's \`sourceHandle\` / \`targetHandle\`.
-function SplitNode(props) {
-  return (
-    <div className="...">
-      <Handle type="target" position={Position.Top}    nodeId={props.id} />
-      {props.data.label}
-      <Handle type="source" position={Position.Bottom} nodeId={props.id} id="ok"   />
-      <Handle type="source" position={Position.Right}  nodeId={props.id} id="warn" />
-    </div>
-  )
-}
-
+const nodes = [
+  { id: "fan", position: { x:  80, y: 120 }, data: { label: "Router" } },
+  { id: "a",   position: { x: 360, y:  30 }, data: { label: "A" } },
+  { id: "b",   position: { x: 360, y: 140 }, data: { label: "B" } },
+  { id: "c",   position: { x: 360, y: 240 }, data: { label: "C" } },
+]
 const edges = [
-  { id: "a-b-ok",   source: "a", sourceHandle: "ok",   target: "b" },
-  { id: "a-c-warn", source: "a", sourceHandle: "warn", target: "c" },
-]`
+  { id: "fan-a", source: "fan", sourceHandle: "top",    target: "a" },
+  { id: "fan-b", source: "fan", sourceHandle: "right",  target: "b" },
+  { id: "fan-c", source: "fan", sourceHandle: "bottom", target: "c" },
+]
+
+<Flow
+  nodes={nodes}
+  edges={edges}
+  renderNode={(n) =>
+    n.id === "fan" ? (
+      <div className="rounded-md border bg-card px-3 py-2 text-sm font-medium">
+        {n.data.label}
+        <Handle type="source" position={Position.Top}    nodeId={n.id} id="top"    />
+        <Handle type="source" position={Position.Right}  nodeId={n.id} id="right"  />
+        <Handle type="source" position={Position.Bottom} nodeId={n.id} id="bottom" />
+      </div>
+    ) : (
+      <div className="rounded-md border bg-card px-3 py-2 text-sm">
+        {n.data.label}
+        <Handle type="target" position={Position.Left} nodeId={n.id} />
+      </div>
+    )
+  }
+>
+  <Background variant="dots" gap={30} />
+</Flow>`
 
 export function XyflowNodesPage() {
   return (
@@ -139,14 +163,15 @@ export function XyflowNodesPage() {
         <Section id="custom-bodies" title="Custom Bodies">
           <div className="prose prose-invert max-w-none">
             <p className="text-muted-foreground">
-              To customise the body — colour, layout, an icon, an inline status — give the node a{' '}
-              <code className="text-foreground">type</code> and pass a matching component through the{' '}
-              <code className="text-foreground">nodeTypes</code> map. Flow mounts your component once per
-              node and forwards the live{' '}
-              <code className="text-foreground">id</code> / <code className="text-foreground">data</code> /{' '}
+              To customise the body — colour, layout, an icon, an inline status — pass a{' '}
+              <code className="text-foreground">renderNode</code> callback to{' '}
+              <code className="text-foreground">{'<Flow>'}</code>. Flow calls it once per node and forwards
+              the live <code className="text-foreground">id</code> /{' '}
+              <code className="text-foreground">data</code> /{' '}
               <code className="text-foreground">selected</code> as props.
             </p>
           </div>
+
           <CodeBlock code={customNodeCode} />
         </Section>
 
@@ -162,6 +187,7 @@ export function XyflowNodesPage() {
               <code className="text-foreground">targetHandle</code>.
             </p>
           </div>
+
           <CodeBlock code={customHandlesCode} />
         </Section>
       </div>

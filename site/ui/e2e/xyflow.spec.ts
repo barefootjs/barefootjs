@@ -147,28 +147,11 @@ test.describe('xyflow Reference Page', () => {
   })
 
   // ------------------------------------------------------------
-  test.describe('Custom Node Demo', () => {
-    const scope = '[bf-s^="XyflowCustomNodeDemo_"]:not([data-slot])'
-
-    test('renders three custom-bodied nodes', async ({ page }) => {
-      const container = firstScope(page, scope)
-      await expect(container.locator('.bf-flow__node')).toHaveCount(3)
-    })
-
-    test('each node has both target and source handles', async ({ page }) => {
-      const container = firstScope(page, scope)
-      await expect(container.locator('.bf-flow__handle--target')).toHaveCount(3)
-      await expect(container.locator('.bf-flow__handle--source')).toHaveCount(3)
-    })
-
-    test('handles expose data-node-id and data-handle-type', async ({ page }) => {
-      const container = firstScope(page, scope)
-      const handle = container.locator('.bf-flow__handle').first()
-      await expect(handle).toHaveAttribute('data-node-id', /.+/)
-      await expect(handle).toHaveAttribute('data-handle-type', /(source|target)/)
-    })
-  })
-
+  // Custom-node-body coverage (renderNode / nodeTypes) is intentionally
+  // absent: the docs page only ships code samples for that path because
+  // the barefoot compiler does not transform JSX nested inside
+  // arrow-function callbacks, so a `renderNode={(n) => <div/>}` demo
+  // would emit raw JSX into the client bundle and crash the parser.
   // ------------------------------------------------------------
   // Pan / zoom / drag / connection-drag interactivity is gated on the
   // pointer-paced subsystem attach implemented in cutover step C4.

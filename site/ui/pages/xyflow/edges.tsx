@@ -2,11 +2,11 @@
  * xyflow Edges Page
  *
  * Standalone deep dive on edges — the shape, default routing, the path
- * variants `<SimpleEdge>` understands, and how custom edge components
- * with labels plug in.
+ * variants `<SimpleEdge>` understands, and the `animated` flag.
  */
 
 import { XyflowEdgesDemo } from '@/components/xyflow-intro-demo'
+import { XyflowEdgeVariantsDemo, XyflowAnimatedEdgesDemo } from '@/components/xyflow-demo'
 import {
   PageHeader,
   Section,
@@ -21,7 +21,7 @@ const tocItems: TocItem[] = [
   { id: 'shape', title: 'Edge Shape' },
   { id: 'default-routing', title: 'Default Routing' },
   { id: 'variants', title: 'Edge Variants' },
-  { id: 'custom-edges', title: 'Custom Edges and Labels' },
+  { id: 'animated', title: 'Animated Edges' },
 ]
 
 const edgeShapeCode = `// An edge is a plain object connecting two node ids.
@@ -29,13 +29,10 @@ const edges = [
   { id: "a-b", source: "a", target: "b" },
   // Optional fields:
   // - type        : 'default' | 'bezier' | 'straight' | 'smoothstep' | 'step'
-  //                 or a key into the \`edgeTypes\` map for custom edges
   // - animated    : true → renders a moving dashed stroke
-  // - markerStart : 'arrow' | 'arrowclosed' to draw an arrow at the start
-  // - markerEnd   : same for the end (default is 'arrow' on directed flows)
   // - sourceHandle / targetHandle : pin to a specific handle id
   // - selected    : initial selection state
-  // - data        : arbitrary payload your custom edge component can read
+  // - data        : arbitrary payload for forward compatibility
 ]`
 
 const defaultRoutingCode = `import { Flow, Background } from "@/components/ui/xyflow"
@@ -58,31 +55,23 @@ export function MyFlow() {
   )
 }`
 
-const edgeVariantsCode = `const edges = [
-  { id: "a-b", source: "a", target: "b", type: "smoothstep" },
-  { id: "b-c", source: "b", target: "c", type: "straight", animated: true },
-  { id: "c-d", source: "c", target: "d", markerEnd: "arrowclosed" },
+const edgeVariantsCode = `// Each edge picks its path algorithm from \`type\`.
+const edges = [
+  { id: "e1", source: "l1", target: "r1" },                       // default (bezier)
+  { id: "e2", source: "l2", target: "r2", type: "bezier"     },
+  { id: "e3", source: "l3", target: "r3", type: "smoothstep" },
+  { id: "e4", source: "l4", target: "r4", type: "straight"   },
 ]`
 
-const customEdgeCode = `// Custom edges receive an \`svgGroup\` slot to render label / decorations
-// into. Keep the path stroke on a sibling SVG <path>.
-import { getEdgePath, computeEdgePosition } from "@barefootjs/xyflow"
-
-function ApprovalEdge(props) {
-  // \`props\` includes id, source, target, sourceX/Y, targetX/Y,
-  // sourcePosition, targetPosition, data, selected, animated, label,
-  // and svgGroup (an SVGGElement to mount custom content into).
-  // Render a path + foreignObject label inside svgGroup imperatively
-  // (or hand it to a JSX render helper).
-}
-
-const edgeTypes = { approval: ApprovalEdge }
-
+const animatedEdgesCode = `// Toggle the moving-dash animation per edge.
 const edges = [
-  { id: "a-b", source: "a", target: "b", type: "approval", label: "OK" },
+  { id: "a-b", source: "a", target: "b", animated: true },
+  { id: "b-c", source: "b", target: "c", animated: true },
 ]
 
-<Flow nodes={nodes} edges={edges} edgeTypes={edgeTypes} />`
+<Flow nodes={nodes} edges={edges}>
+  <Background variant="dots" gap={30} />
+</Flow>`
 
 export function XyflowEdgesPage() {
   return (
@@ -90,7 +79,7 @@ export function XyflowEdgesPage() {
       <div className="flex-1 min-w-0 space-y-12">
         <PageHeader
           title="Edges"
-          description="The edge shape, the path-type variants the built-in renderer understands, and how to plug in custom edges with labels."
+          description="The edge shape, the path-type variants the built-in renderer understands, and the animated flag."
           {...getXyflowNavLinks('edges')}
         />
 
@@ -99,7 +88,7 @@ export function XyflowEdgesPage() {
             <p className="text-muted-foreground">
               An edge connects two nodes by their ids. The minimal shape is{' '}
               <code className="text-foreground">{'{ id, source, target }'}</code>; everything else —
-              the curve type, animation, arrow markers, labels — is opt-in. Flow looks up{' '}
+              the curve type, animation, handle pinning — is opt-in. Flow looks up{' '}
               <code className="text-foreground">source</code> /{' '}
               <code className="text-foreground">target</code> in the node lookup, finds the matching
               handles, and draws a path between them.
@@ -129,25 +118,29 @@ export function XyflowEdgesPage() {
               <code className="text-foreground">"bezier"</code> (curve),{' '}
               <code className="text-foreground">"straight"</code> (line),{' '}
               <code className="text-foreground">"smoothstep"</code> /{' '}
-              <code className="text-foreground">"step"</code> (right-angle). Animated edges add a moving
-              dashed stroke; markers attach an arrow at either end.
+              <code className="text-foreground">"step"</code> (right-angle).
             </p>
           </div>
-          <CodeBlock code={edgeVariantsCode} />
+
+          <Example title="Four path types side-by-side" code={edgeVariantsCode}>
+            <XyflowEdgeVariantsDemo />
+          </Example>
         </Section>
 
-        <Section id="custom-edges" title="Custom Edges and Labels">
+        <Section id="animated" title="Animated Edges">
           <div className="prose prose-invert max-w-none">
             <p className="text-muted-foreground">
-              For edge labels, decorations, or interactive controls along the path, register a custom
-              edge component through the <code className="text-foreground">edgeTypes</code> map. Each
-              custom edge receives the resolved geometry plus an{' '}
-              <code className="text-foreground">svgGroup</code> slot it can render label foreignObjects
-              and toolbars into. The <code className="text-foreground">label</code> field on the edge
-              data is forwarded to your component as a prop.
+              Set <code className="text-foreground">animated: true</code> on an edge and{' '}
+              <code className="text-foreground">{'<SimpleEdge>'}</code> appends the{' '}
+              <code className="text-foreground">bf-flow__edge--animated</code> class — a stroke-dasharray
+              keyframe animation that gives a sense of direction or activity. The flag is independent of{' '}
+              <code className="text-foreground">type</code>, so it composes with any of the path variants.
             </p>
           </div>
-          <CodeBlock code={customEdgeCode} />
+
+          <Example title="Animated stroke" code={animatedEdgesCode}>
+            <XyflowAnimatedEdgesDemo />
+          </Example>
         </Section>
       </div>
       <TableOfContents items={tocItems} />
