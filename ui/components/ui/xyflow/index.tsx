@@ -449,7 +449,7 @@ const PATH_LOCK = 'M21.333 10.667H19.81V7.619C19.81 3.429 16.38 0 12.19 0 8 0 4.
 const PATH_UNLOCK = 'M21.333 10.667H19.81V7.619C19.81 3.429 16.38 0 12.19 0c-4.114 1.828-1.37 2.133.305 2.438 1.676.305 4.42 2.59 4.42 5.181v3.048H3.047A3.056 3.056 0 000 13.714v15.238A3.056 3.056 0 003.048 32h18.285a3.056 3.056 0 003.048-3.048V13.714a3.056 3.056 0 00-3.048-3.047zM12.19 24.533a3.056 3.056 0 01-3.047-3.047 3.056 3.056 0 013.047-3.048 3.056 3.056 0 013.048 3.048 3.056 3.056 0 01-3.048 3.047z'
 
 const BUTTON_STYLE =
-  'display: flex; justify-content: center; align-items: center; height: 26px; width: 26px; padding: 4px; border: none; border-bottom: 1px solid #eee; background: #fefefe; cursor: pointer; user-select: none; color: inherit;'
+  'display: flex; justify-content: center; align-items: center; height: 26px; width: 26px; padding: 4px; border: none; border-bottom: 1px solid var(--border, #eee); background: var(--card, #fefefe); cursor: pointer; user-select: none; color: var(--card-foreground, inherit);'
 const ICON_WRAPPER_STYLE = 'display: flex; align-items: center; justify-content: center;'
 const ICON_SVG_STYLE = 'width: 100%; max-width: 12px; max-height: 12px; fill: currentColor;'
 
@@ -620,7 +620,7 @@ export function MiniMap(props: MiniMapComponentProps) {
 
   const containerStyle = createMemo(
     () =>
-      `position: absolute; z-index: 5; overflow: hidden; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); background-color: #fff; ${miniMapPositionStyle(position())}`,
+      `position: absolute; z-index: 5; overflow: hidden; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); background-color: var(--card, #fff); ${miniMapPositionStyle(position())}`,
   )
 
   // Geometry memo. Re-runs when nodeLookup, viewport, dimensions, or
@@ -788,31 +788,25 @@ export interface FlowComponentProps<
 
 /**
  * Default node body used when neither `renderNode` nor `nodeTypes` is
- * provided. Mounts a styled card-like box with left/right connection
- * handles so:
- *   1. Nodes have a sensible visual without consumers wiring up CSS.
- *   2. Edges resolve to the proper handle bounds (`@xyflow/system`'s
- *      `getEdgePosition` strict path) instead of the centered
- *      bottom→top fallback in `computeEdgePosition`, which produces
- *      curling beziers on horizontal layouts.
+ * provided. The `<NodeWrapper>` itself carries the `.bf-flow__node`
+ * class whose default CSS (in `@barefootjs/xyflow`'s injected
+ * stylesheet) already paints the card surface, so this component just
+ * adds the label content and the source/target handles. Without these
+ * handles, `@xyflow/system`'s strict edge resolution can't lock onto
+ * connection points and `computeEdgePosition` falls back to a
+ * Bottom→Top center line — fine vertically, but it produces curling
+ * beziers on the typical left-to-right flow.
  *
  * Consumers can still opt out with `renderNode` / `nodeTypes` for full
- * customization.
+ * customization (those paths take precedence in <Flow>'s renderer).
  */
-const DEFAULT_NODE_BODY_STYLE =
-  'position: relative; min-width: 80px; padding: 6px 16px;' +
-  'border: 1px solid var(--border); border-radius: 6px;' +
-  'background: var(--card); color: var(--card-foreground);' +
-  'font-size: 14px; font-weight: 500; text-align: center;' +
-  'box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);'
-
 function DefaultNodeBody(props: { nodeId: string; label: string }) {
   return (
-    <div style={DEFAULT_NODE_BODY_STYLE}>
+    <>
       <Handle type="target" position={Position.Left} nodeId={props.nodeId} />
       {props.label}
       <Handle type="source" position={Position.Right} nodeId={props.nodeId} />
-    </div>
+    </>
   )
 }
 

@@ -216,14 +216,23 @@ function injectDefaultStyles() {
   document.head.appendChild(style)
 }
 
+// Default styles use design-system CSS variables (with hard-coded
+// fallbacks for environments that don't define them, e.g. raw <Flow>
+// usage outside a themed shell). Handle placement is driven by the
+// `data-handlepos` attribute the JSX <Handle> already emits, so the
+// `position` prop drives where each handle sits regardless of whether
+// the inline style on the element ever lands (the barefoot compiler
+// currently strips dynamic-string `style={memo()}` props on JSX
+// components, so attribute-driven CSS is the load-bearing path).
 const DEFAULT_STYLES = `
 .bf-flow__node {
-  padding: 10px;
-  border: 1px solid #1a192b;
-  border-radius: 5px;
-  background-color: #fff;
-  font-size: 12px;
-  color: #222;
+  padding: 6px 14px;
+  border: 1px solid var(--border, #1a192b);
+  border-radius: 6px;
+  background-color: var(--card, #fff);
+  color: var(--card-foreground, #222);
+  font-size: 14px;
+  font-weight: 500;
   text-align: center;
   cursor: grab;
   user-select: none;
@@ -231,26 +240,30 @@ const DEFAULT_STYLES = `
 }
 .bf-flow__node--custom { border: none; background: transparent; padding: 0; border-radius: 0; }
 .bf-flow__node--custom.bf-flow__node--selected { box-shadow: none; }
-.bf-flow__node--selected { box-shadow: 0 0 0 0.5px #1a192b; }
+.bf-flow__node--selected { box-shadow: 0 0 0 1px var(--ring, #1a192b); }
 .bf-flow__handle {
-  width: 6px; height: 6px; border-radius: 50%; background-color: #1a192b;
-  position: absolute; left: 50%; transform: translateX(-50%);
-  cursor: crosshair; pointer-events: all;
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background-color: var(--primary, #1a192b);
+  cursor: crosshair;
+  pointer-events: all;
+  z-index: 1;
 }
-.bf-flow__handle:hover { width: 10px; height: 10px; transform: translateX(-50%); }
-.bf-flow__handle--target { top: -3px; }
-.bf-flow__handle--target:hover { top: -5px; }
-.bf-flow__handle--source { bottom: -3px; }
-.bf-flow__handle--source:hover { bottom: -5px; }
-.bf-flow__handle.valid { background-color: #22c55e; border-color: #16a34a; width: 10px; height: 10px; }
-.bf-flow__handle.invalid { background-color: #ef4444; border-color: #dc2626; width: 10px; height: 10px; }
-.bf-flow__edge { fill: none; stroke: #b1b1b7; stroke-width: 1; pointer-events: none; }
-.bf-flow__edge--selected { stroke: #555; stroke-width: 2; }
+.bf-flow__handle[data-handlepos="top"]    { top: 0;    left: 50%; transform: translate(-50%, -50%); }
+.bf-flow__handle[data-handlepos="bottom"] { bottom: 0; left: 50%; transform: translate(-50%, 50%); }
+.bf-flow__handle[data-handlepos="left"]   { left: 0;   top: 50%;  transform: translate(-50%, -50%); }
+.bf-flow__handle[data-handlepos="right"]  { right: 0;  top: 50%;  transform: translate(50%, -50%); }
+.bf-flow__handle:hover { width: 10px; height: 10px; }
+.bf-flow__handle.valid   { background-color: #22c55e; }
+.bf-flow__handle.invalid { background-color: #ef4444; }
+.bf-flow__edge { fill: none; stroke: var(--muted-foreground, #b1b1b7); stroke-width: 1.5; pointer-events: none; }
+.bf-flow__edge--selected { stroke: var(--foreground, #555); stroke-width: 2; }
 .bf-flow__edge--animated { stroke-dasharray: 5; animation: bf-dashdraw 0.5s linear infinite; }
 @keyframes bf-dashdraw { from { stroke-dashoffset: 10; } }
 .bf-flow__edge-reconnect { fill: transparent; stroke: transparent; cursor: move; pointer-events: all; }
 path.bf-flow__edge.bf-flow__edge--reconnect-hover { stroke: var(--text-primary, #222); }
-.bf-flow__controls-button:hover { background: #f4f4f4 !important; }
+.bf-flow__controls-button:hover { background: var(--accent, #f4f4f4) !important; }
 .bf-flow__controls-button:last-child { border-bottom: none !important; }
 .bf-flow__edge-label {
   position: absolute; top: 0; left: 0; background: #fff;
