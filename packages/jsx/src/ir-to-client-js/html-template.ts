@@ -36,16 +36,6 @@ const VOID_ELEMENTS = new Set([
   'input', 'link', 'meta', 'param', 'source', 'track', 'wbr',
 ])
 
-/**
- * If the IR component node has JSX children, return a `children: \`...\``
- * prop entry that forwards their rendered HTML to the child component's
- * template at runtime; otherwise return null.
- *
- * Shared by every component-emitting path (static, CSR, reconcile) so the
- * children-forwarding contract stays in one place — without this entry the
- * child component receives `props.children === undefined` and renders an
- * empty `props.children ?? ''` slot.
- */
 function childrenPropEntry(
   children: IRNode[],
   recurse: (n: IRNode) => string,
