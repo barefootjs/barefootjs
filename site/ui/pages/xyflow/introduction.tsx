@@ -17,6 +17,7 @@ import {
 import {
   PageHeader,
   Section,
+  Subsection,
   Example,
   CodeBlock,
   PackageManagerTabs,
@@ -35,6 +36,9 @@ const tocItems: TocItem[] = [
   { id: 'adding-nodes', title: 'Adding Nodes', branch: 'child' },
   { id: 'connecting-edges', title: 'Connecting Edges', branch: 'child' },
   { id: 'adding-overlays', title: 'Adding Overlays', branch: 'end' },
+  { id: 'nodes', title: 'Nodes' },
+  { id: 'edges', title: 'Edges' },
+  { id: 'built-in-components', title: 'Built-in Components' },
   { id: 'next-steps', title: 'Next Steps' },
 ]
 
@@ -145,6 +149,101 @@ const overlaysCode = `<Flow nodes={nodes} edges={edges}>
   <Background variant="dots" gap={30} />
   <Controls />
 </Flow>`
+
+const nodeShapeCode = `// A node is a plain object: id, position, data.
+const nodes = [
+  { id: "a", position: { x: 80, y: 30 }, data: { label: "Hello" } },
+  // Optional fields:
+  // - type      : key into the \`nodeTypes\` map (custom rendering)
+  // - selected  : initial selection state
+  // - draggable : disable per-node drag
+]`
+
+const customNodeCode = `"use client"
+
+import { Flow, Handle } from "@/components/ui/xyflow"
+import { Position } from "@barefootjs/xyflow"
+
+// A custom node is a regular function component. The store passes
+// per-node props (id, data, selected, ...) through the nodeTypes map.
+function PillNode(props) {
+  return (
+    <div className="rounded-full border-2 bg-card px-4 py-2 text-sm font-medium shadow-sm">
+      <Handle type="target" position={Position.Top} nodeId={props.id} />
+      {props.data.label}
+      <Handle type="source" position={Position.Bottom} nodeId={props.id} />
+    </div>
+  )
+}
+
+const nodeTypes = { pill: PillNode }
+
+const nodes = [
+  { id: "a", type: "pill", position: { x: 80, y: 30 },  data: { label: "Hello" } },
+  { id: "b", type: "pill", position: { x: 320, y: 180 }, data: { label: "World" } },
+]
+
+<Flow nodes={nodes} edges={edges} nodeTypes={nodeTypes}>
+  <Background />
+</Flow>`
+
+const customHandlesCode = `// Multiple handles per node — give each one a stable \`id\`
+// and reference it from the edge's \`sourceHandle\` / \`targetHandle\`.
+function SplitNode(props) {
+  return (
+    <div className="...">
+      <Handle type="target" position={Position.Top}    nodeId={props.id} />
+      {props.data.label}
+      <Handle type="source" position={Position.Bottom} nodeId={props.id} id="ok"   />
+      <Handle type="source" position={Position.Right}  nodeId={props.id} id="warn" />
+    </div>
+  )
+}
+
+const edges = [
+  { id: "a-b-ok",   source: "a", sourceHandle: "ok",   target: "b" },
+  { id: "a-c-warn", source: "a", sourceHandle: "warn", target: "c" },
+]`
+
+const edgeShapeCode = `// An edge is a plain object connecting two node ids.
+const edges = [
+  { id: "a-b", source: "a", target: "b" },
+  // Optional fields:
+  // - type        : 'default' | 'bezier' | 'straight' | 'smoothstep' | 'step'
+  //                 or a key into the \`edgeTypes\` map for custom edges
+  // - animated    : true → renders a moving dashed stroke
+  // - markerStart : 'arrow' | 'arrowclosed' to draw an arrow at the start
+  // - markerEnd   : same for the end (default is 'arrow' on directed flows)
+  // - sourceHandle / targetHandle : pin to a specific handle id
+  // - selected    : initial selection state
+  // - data        : arbitrary payload your custom edge component can read
+]`
+
+const edgeVariantsCode = `const edges = [
+  { id: "a-b", source: "a", target: "b", type: "smoothstep" },
+  { id: "b-c", source: "b", target: "c", type: "straight", animated: true },
+  { id: "c-d", source: "c", target: "d", markerEnd: "arrowclosed" },
+]`
+
+const customEdgeCode = `// Custom edges receive an \`svgGroup\` slot to render label / decorations
+// into. Keep the path stroke on a sibling SVG <path>.
+import { getEdgePath, computeEdgePosition } from "@barefootjs/xyflow"
+
+function ApprovalEdge(props) {
+  // \`props\` includes id, source, target, sourceX/Y, targetX/Y,
+  // sourcePosition, targetPosition, data, selected, animated, label,
+  // and svgGroup (an SVGGElement to mount custom content into).
+  // Render a path + foreignObject label inside svgGroup imperatively
+  // (or hand it to a JSX render helper — see /components/xyflow).
+}
+
+const edgeTypes = { approval: ApprovalEdge }
+
+const edges = [
+  { id: "a-b", source: "a", target: "b", type: "approval", label: "OK" },
+]
+
+<Flow nodes={nodes} edges={edges} edgeTypes={edgeTypes} />`
 
 export function XyflowIntroductionPage() {
   return (
@@ -314,6 +413,174 @@ export function XyflowIntroductionPage() {
           <p className="text-sm text-muted-foreground mt-2">
             With all three you have the Quick Start demo at the top of this page.
           </p>
+        </Section>
+
+        {/* Nodes — concept + custom rendering + custom handles */}
+        <Section id="nodes" title="Nodes">
+          <div className="prose prose-invert max-w-none">
+            <p className="text-muted-foreground">
+              A node is a plain JavaScript object that lives in the{' '}
+              <code className="text-foreground">nodes</code> prop. It needs a unique{' '}
+              <code className="text-foreground">id</code>, a{' '}
+              <code className="text-foreground">position</code> in flow coordinates, and a{' '}
+              <code className="text-foreground">data</code> bag of whatever payload your renderer wants — a
+              label, a status, a row from your database. Everything else (selected, dragging, measured size,
+              absolute position) is computed by the store.
+            </p>
+          </div>
+
+          <CodeBlock code={nodeShapeCode} />
+
+          <Subsection title="Custom node bodies">
+            <p className="text-sm text-muted-foreground">
+              Out of the box Flow renders each node's{' '}
+              <code className="text-foreground">data.label</code> inside the default card. To customise the
+              body — colour, layout, an icon, an inline status — give the node a{' '}
+              <code className="text-foreground">type</code> and pass a matching component through the{' '}
+              <code className="text-foreground">nodeTypes</code> map. Flow mounts your component once per
+              node and forwards the live{' '}
+              <code className="text-foreground">id</code> / <code className="text-foreground">data</code> /{' '}
+              <code className="text-foreground">selected</code> as props.
+            </p>
+            <CodeBlock code={customNodeCode} />
+          </Subsection>
+
+          <Subsection title="Custom handles">
+            <p className="text-sm text-muted-foreground">
+              The default node has one target handle on top and one source handle on the bottom. For richer
+              graphs you can mount as many{' '}
+              <code className="text-foreground">{'<Handle>'}</code> elements as you need, each with its own{' '}
+              <code className="text-foreground">position</code> and an{' '}
+              <code className="text-foreground">id</code> so edges can pin to a specific connection point
+              via <code className="text-foreground">sourceHandle</code> /{' '}
+              <code className="text-foreground">targetHandle</code>.
+            </p>
+            <CodeBlock code={customHandlesCode} />
+          </Subsection>
+        </Section>
+
+        {/* Edges — concept + customization + labels */}
+        <Section id="edges" title="Edges">
+          <div className="prose prose-invert max-w-none">
+            <p className="text-muted-foreground">
+              An edge connects two nodes by their ids. The minimal shape is{' '}
+              <code className="text-foreground">{'{ id, source, target }'}</code>; everything else —
+              the curve type, animation, arrow markers, labels — is opt-in. Flow looks up{' '}
+              <code className="text-foreground">source</code> /{' '}
+              <code className="text-foreground">target</code> in the node lookup, finds the matching
+              handles, and draws a path between them.
+            </p>
+          </div>
+
+          <CodeBlock code={edgeShapeCode} />
+
+          <Subsection title="Edge variants">
+            <p className="text-sm text-muted-foreground">
+              The built-in <code className="text-foreground">{'<SimpleEdge>'}</code> picks a path
+              algorithm from the edge's <code className="text-foreground">type</code> string. Animated
+              edges add a moving dashed stroke; markers attach an arrow at either end.
+            </p>
+            <CodeBlock code={edgeVariantsCode} />
+          </Subsection>
+
+          <Subsection title="Custom edges and labels">
+            <p className="text-sm text-muted-foreground">
+              For edge labels, decorations, or interactive controls along the path, register a custom
+              edge component through the <code className="text-foreground">edgeTypes</code> map. Each
+              custom edge receives the resolved geometry plus an{' '}
+              <code className="text-foreground">svgGroup</code> slot it can render label foreignObjects
+              and toolbars into. The <code className="text-foreground">label</code> field on the edge
+              data is forwarded to your component as a prop.
+            </p>
+            <CodeBlock code={customEdgeCode} />
+          </Subsection>
+        </Section>
+
+        {/* Built-in Components — what's in the box */}
+        <Section id="built-in-components" title="Built-in Components">
+          <div className="prose prose-invert max-w-none">
+            <p className="text-muted-foreground">
+              <code className="text-foreground">@barefootjs/xyflow</code> ships a small set of components
+              you can drop inside <code className="text-foreground">{'<Flow>'}</code> (or compose into
+              custom nodes / edges). Each one is documented in detail on the{' '}
+              <a href="/components/xyflow" className="text-foreground underline underline-offset-4">
+                Components
+              </a>{' '}
+              page — the summaries below are an at-a-glance index.
+            </p>
+          </div>
+
+          <div className="space-y-3 mt-4">
+            <div className="p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold text-foreground mb-1"><code>{'<Flow>'}</code></h3>
+              <p className="text-sm text-muted-foreground">
+                The top-level container. Owns the store, the viewport transform, pan / zoom / drag
+                subsystems, and the per-node measurement loop. Accepts <code className="text-foreground">nodes</code>,{' '}
+                <code className="text-foreground">edges</code>, optional{' '}
+                <code className="text-foreground">nodeTypes</code> / <code className="text-foreground">edgeTypes</code> maps,
+                and any of the overlays below as children.
+              </p>
+            </div>
+            <div className="p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold text-foreground mb-1"><code>{'<Background>'}</code></h3>
+              <p className="text-sm text-muted-foreground">
+                Pattern background that scales and pans with the viewport. Three{' '}
+                <code className="text-foreground">variant</code> options —{' '}
+                <code className="text-foreground">"dots"</code>,{' '}
+                <code className="text-foreground">"lines"</code>,{' '}
+                <code className="text-foreground">"cross"</code> — plus{' '}
+                <code className="text-foreground">gap</code> / <code className="text-foreground">color</code> tuning.
+              </p>
+            </div>
+            <div className="p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold text-foreground mb-1"><code>{'<Controls>'}</code></h3>
+              <p className="text-sm text-muted-foreground">
+                Zoom-in / zoom-out / fit-view / lock buttons. Each button is opt-out via{' '}
+                <code className="text-foreground">showZoom</code> /{' '}
+                <code className="text-foreground">showFitView</code> /{' '}
+                <code className="text-foreground">showInteractive</code>; corner placement via{' '}
+                <code className="text-foreground">position</code>.
+              </p>
+            </div>
+            <div className="p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold text-foreground mb-1"><code>{'<MiniMap>'}</code></h3>
+              <p className="text-sm text-muted-foreground">
+                Overview map with a synced viewport rectangle. Pannable and zoomable by default; per-node
+                colours via the <code className="text-foreground">nodeColor</code> prop (string or function).
+              </p>
+            </div>
+            <div className="p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold text-foreground mb-1"><code>{'<Handle>'}</code></h3>
+              <p className="text-sm text-muted-foreground">
+                Per-node connection point. Render inside a custom node body with a{' '}
+                <code className="text-foreground">type</code> ({' '}
+                <code className="text-foreground">"source"</code> | <code className="text-foreground">"target"</code>) and
+                a <code className="text-foreground">position</code> ({' '}
+                <code className="text-foreground">Position.Top</code> /{' '}
+                <code className="text-foreground">Bottom</code> / <code className="text-foreground">Left</code> /{' '}
+                <code className="text-foreground">Right</code>). Pass a stable{' '}
+                <code className="text-foreground">id</code> when a node has more than one handle on the same side.
+              </p>
+            </div>
+            <div className="p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold text-foreground mb-1"><code>{'<NodeWrapper>'}</code></h3>
+              <p className="text-sm text-muted-foreground">
+                The transform / selection / measurement shell Flow mounts around every node. You usually
+                don't reach for it directly — it shows up when you opt into a fully manual rendering path
+                instead of the <code className="text-foreground">nodeTypes</code> map.
+              </p>
+            </div>
+            <div className="p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold text-foreground mb-1"><code>{'<SimpleEdge>'}</code></h3>
+              <p className="text-sm text-muted-foreground">
+                The default edge renderer. Reads the edge's{' '}
+                <code className="text-foreground">type</code> /{' '}
+                <code className="text-foreground">animated</code> /{' '}
+                <code className="text-foreground">selected</code> flags and draws a stroke + an invisible
+                wide hit area for click selection.
+              </p>
+            </div>
+          </div>
         </Section>
 
         {/* Next Steps */}
