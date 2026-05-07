@@ -1,18 +1,24 @@
 /**
  * xyflow Introduction Page
  *
- * Entry point for the xyflow section. Mirrors the Forms / Charts pattern:
- * a compact demo using the built-in primitives, then the case for reaching
- * for @barefootjs/xyflow once panning, zooming, and edge interaction enter
- * the picture.
+ * Mirrors the xyflow/react getting-started tutorial: an empty Flow,
+ * then nodes, then edges, then overlays — each step compounds. Wraps
+ * with the same "simple createSignal demo first, reach for the package
+ * once it gets complex" framing as the Forms / Charts intros.
  */
 
 import { GraphEditorDemo } from '@/components/graph-editor-demo'
-import { XyflowPreviewDemo } from '@/components/xyflow-demo'
+import {
+  XyflowQuickStartDemo,
+  XyflowEmptyDemo,
+  XyflowNodesDemo,
+  XyflowEdgesDemo,
+} from '@/components/xyflow-intro-demo'
 import {
   PageHeader,
   Section,
   Example,
+  CodeBlock,
   PackageManagerTabs,
   type TocItem,
 } from '../../components/shared/docs'
@@ -23,9 +29,12 @@ const tocItems: TocItem[] = [
   { id: 'overview', title: 'Overview' },
   { id: 'simple-example', title: 'Simple Example' },
   { id: 'when-to-reach-for-xyflow', title: 'When to Reach for @barefootjs/xyflow' },
-  { id: 'features', title: 'Features' },
-  { id: 'installation', title: 'Installation' },
   { id: 'quick-start', title: 'Quick Start' },
+  { id: 'installation', title: 'Installation', branch: 'start' },
+  { id: 'first-flow', title: 'Your First Flow', branch: 'child' },
+  { id: 'adding-nodes', title: 'Adding Nodes', branch: 'child' },
+  { id: 'connecting-edges', title: 'Connecting Edges', branch: 'child' },
+  { id: 'adding-overlays', title: 'Adding Overlays', branch: 'end' },
   { id: 'next-steps', title: 'Next Steps' },
 ]
 
@@ -33,10 +42,10 @@ const simpleSvgCode = `"use client"
 
 import { createSignal, createMemo } from '@barefootjs/client'
 
-// Nodes and edges live in plain signals. The SVG view binds directly:
-// <circle cx={n.x}/> reflects a node's position, <path d={edgePath(e)}/>
-// rebuilds whenever any endpoint moves, and the root <svg viewBox=...>
-// reacts to zoom changes. No extra package required.
+// Nodes / edges / zoom live in plain signals. SVG attributes bind
+// directly: <circle cx={n.x}/> tracks a node's position, edge <path d=
+// {edgePath(e)}/> rebuilds whenever any endpoint moves, and the root
+// viewBox reacts to zoom. No extra package required.
 
 function GraphEditor() {
   const [nodes, setNodes] = createSignal(INITIAL_NODES)
@@ -51,16 +60,15 @@ function GraphEditor() {
   return (
     <svg viewBox={viewBox()} onPointerMove={onMove} onPointerUp={onUp}>
       <g>
-        {edges().map(e => (
+        {edges().map((e) => (
           <path key={e.id} d={edgePath(e)} stroke="#94a3b8" fill="none" />
         ))}
       </g>
       <g>
-        {nodes().map(n => (
+        {nodes().map((n) => (
           <g key={n.id} data-node-id={n.id} onPointerDown={onNodeDown}>
-            <circle cx={n.x} cy={n.y} r={28} fill={KIND_FILL[n.kind]} />
+            <circle cx={n.x} cy={n.y} r={28} />
             <text x={n.x} y={n.y}>{n.label}</text>
-            <circle cx={n.x + 28} cy={n.y} r={5} onPointerDown={onHandleDown} />
           </g>
         ))}
       </g>
@@ -70,26 +78,30 @@ function GraphEditor() {
 
 const quickStartCode = `"use client"
 
-import { Flow, Background, Controls, MiniMap } from "@/components/ui/xyflow"
-import { useNodesState, useEdgesState } from "@barefootjs/xyflow"
+import {
+  Flow,
+  Background,
+  Controls,
+  MiniMap,
+} from "@/components/ui/xyflow"
 
-const initialNodes = [
-  { id: "1", position: { x: 100, y: 100 }, data: { label: "Input" } },
-  { id: "2", position: { x: 350, y: 50 },  data: { label: "Transform" } },
-  { id: "3", position: { x: 600, y: 125 }, data: { label: "Output" } },
+const nodes = [
+  { id: "1", position: { x: 40,  y: 60 },  data: { label: "Input" } },
+  { id: "2", position: { x: 220, y: 20 },  data: { label: "Transform" } },
+  { id: "3", position: { x: 220, y: 140 }, data: { label: "Validate" } },
+  { id: "4", position: { x: 420, y: 80 },  data: { label: "Output" } },
 ]
-const initialEdges = [
+const edges = [
   { id: "e1-2", source: "1", target: "2" },
-  { id: "e2-3", source: "2", target: "3" },
+  { id: "e1-3", source: "1", target: "3" },
+  { id: "e2-4", source: "2", target: "4" },
+  { id: "e3-4", source: "3", target: "4" },
 ]
 
-export function MyCanvas() {
-  const [nodes, setNodes] = useNodesState(initialNodes)
-  const [edges, setEdges] = useEdgesState(initialEdges)
-
+export function MyFlow() {
   return (
-    <div className="w-full h-[420px]">
-      <Flow nodes={nodes()} edges={edges()}>
+    <div className="w-full h-[420px] rounded-lg border bg-background overflow-hidden">
+      <Flow nodes={nodes} edges={edges}>
         <Background variant="dots" gap={20} />
         <Controls />
         <MiniMap pannable zoomable />
@@ -98,13 +110,57 @@ export function MyCanvas() {
   )
 }`
 
+const emptyFlowCode = `import { Flow, Background } from "@/components/ui/xyflow"
+
+export function MyFlow() {
+  return (
+    <div className="w-full h-[240px] rounded-lg border bg-background overflow-hidden">
+      <Flow nodes={[]} edges={[]}>
+        <Background variant="dots" gap={20} />
+      </Flow>
+    </div>
+  )
+}`
+
+const nodesCode = `import { Flow, Background } from "@/components/ui/xyflow"
+
+const nodes = [
+  { id: "a", position: { x: 80, y: 80 },  data: { label: "Hello" } },
+  { id: "b", position: { x: 320, y: 80 }, data: { label: "World" } },
+]
+
+export function MyFlow() {
+  return (
+    <div className="w-full h-[240px] rounded-lg border bg-background overflow-hidden">
+      <Flow nodes={nodes} edges={[]}>
+        <Background variant="dots" gap={20} />
+      </Flow>
+    </div>
+  )
+}`
+
+const edgesCode = `// Same as before — just pass an edges array this time.
+const edges = [
+  { id: "a-b", source: "a", target: "b" },
+]
+
+<Flow nodes={nodes} edges={edges}>
+  <Background variant="dots" gap={20} />
+</Flow>`
+
+const overlaysCode = `<Flow nodes={nodes} edges={edges}>
+  <Background variant="dots" gap={20} />
+  <Controls />
+  <MiniMap pannable zoomable />
+</Flow>`
+
 export function XyflowIntroductionPage() {
   return (
     <div className="flex gap-10">
       <div className="flex-1 min-w-0 space-y-12">
         <PageHeader
           title="Introduction"
-          description="Node graphs in BarefootJS — start with createSignal + SVG for small canvases, reach for @barefootjs/xyflow once panning, zooming, and edge interaction become non-trivial."
+          description="Node graphs in BarefootJS — start with createSignal + SVG for small canvases, reach for @barefootjs/xyflow once you need pan / zoom / drag-to-connect / minimap and friends."
           {...getXyflowNavLinks('introduction')}
         />
 
@@ -115,11 +171,10 @@ export function XyflowIntroductionPage() {
               BarefootJS lets you bind signals directly to SVG attributes — <code className="text-foreground">cx</code>,{' '}
               <code className="text-foreground">cy</code>, <code className="text-foreground">d</code>, and{' '}
               <code className="text-foreground">viewBox</code> all update granularly when their underlying
-              signals change. That alone is enough to build a small interactive canvas. When you start needing
-              pan / zoom, drag-to-connect with snapping, fit-view, minimap, or a node renderer registry, the{' '}
-              <code className="text-foreground">@barefootjs/xyflow</code> package wraps{' '}
-              <code className="text-foreground">@xyflow/system</code> with a signal-friendly store and ships a
-              JSX-native renderer.
+              signals change. That alone is enough to build a small interactive canvas.{' '}
+              <code className="text-foreground">@barefootjs/xyflow</code> wraps{' '}
+              <code className="text-foreground">@xyflow/system</code> (the engine behind React Flow / Svelte
+              Flow) with a signal-friendly store and a JSX-native renderer for everything bigger.
             </p>
           </div>
         </Section>
@@ -128,8 +183,8 @@ export function XyflowIntroductionPage() {
         <Section id="simple-example" title="Simple Example">
           <div className="prose prose-invert max-w-none">
             <p className="text-muted-foreground">
-              For a small canvas, plain signals plus SVG attributes go a long way. The demo below stores
-              nodes / edges / zoom in <code className="text-foreground">createSignal</code>, recomputes
+              For a small canvas, plain signals plus SVG attribute bindings go a long way. The demo below
+              keeps nodes / edges / zoom in <code className="text-foreground">createSignal</code>, recomputes
               the edge <code className="text-foreground">d</code> path whenever an endpoint moves, and
               reactively rewrites the root <code className="text-foreground">viewBox</code>. No extra
               dependencies.
@@ -158,93 +213,115 @@ export function XyflowIntroductionPage() {
             </ul>
             <p className="text-muted-foreground mt-2">
               At that point, <code className="text-foreground">@barefootjs/xyflow</code> packages all of it
-              behind a small JSX-native API and a signal store you can read with{' '}
-              <code className="text-foreground">useFlow</code> /{' '}
-              <code className="text-foreground">useViewport</code> /{' '}
-              <code className="text-foreground">useNodes</code>.
+              behind a small JSX-native API.
             </p>
           </div>
         </Section>
 
-        {/* Features */}
-        <Section id="features" title="Features">
-          <div className="space-y-4">
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Built on @xyflow/system</h3>
-              <p className="text-sm text-muted-foreground">
-                The same battle-tested pan / zoom / connection subsystems that power React Flow and Svelte
-                Flow, wrapped in a signal-driven store instead of a virtual DOM diffing loop.
-              </p>
-            </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">JSX-native renderer</h3>
-              <p className="text-sm text-muted-foreground">
-                <code className="text-foreground">{'<Flow>'}</code>,{' '}
-                <code className="text-foreground">{'<Background>'}</code>,{' '}
-                <code className="text-foreground">{'<Controls>'}</code>,{' '}
-                <code className="text-foreground">{'<MiniMap>'}</code>,{' '}
-                <code className="text-foreground">{'<Handle>'}</code>,{' '}
-                <code className="text-foreground">{'<NodeWrapper>'}</code>, and{' '}
-                <code className="text-foreground">{'<SimpleEdge>'}</code> are plain BarefootJS components —
-                drop in only the overlays you need.
-              </p>
-            </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Signal-friendly store</h3>
-              <p className="text-sm text-muted-foreground">
-                Read state through <code className="text-foreground">useFlow</code>,{' '}
-                <code className="text-foreground">useViewport</code>,{' '}
-                <code className="text-foreground">useNodes</code>,{' '}
-                <code className="text-foreground">useEdges</code>, and{' '}
-                <code className="text-foreground">useStore</code>; nodes and edges live in standard
-                BarefootJS signals so derived state and effects stay granular.
-              </p>
-            </div>
-            <div className="p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Custom HTML nodes</h3>
-              <p className="text-sm text-muted-foreground">
-                Wrap any BarefootJS component in <code className="text-foreground">{'<NodeWrapper>'}</code>{' '}
-                and place <code className="text-foreground">{'<Handle>'}</code> children to expose
-                connection points. Nodes participate in pan / zoom and edge routing automatically.
-              </p>
-            </div>
+        {/* Quick Start (full demo at the top, like reactflow.dev) */}
+        <Section id="quick-start" title="Quick Start">
+          <div className="prose prose-invert max-w-none">
+            <p className="text-muted-foreground">
+              Here is what we are building — a flow with four nodes, four edges, a dotted background, the
+              zoom controls, and a minimap. The rest of the page walks through it step by step.
+            </p>
           </div>
+
+          <Example title="Quick Start" code={quickStartCode}>
+            <XyflowQuickStartDemo />
+          </Example>
         </Section>
 
         {/* Installation */}
         <Section id="installation" title="Installation">
           <div className="prose prose-invert max-w-none">
             <p className="text-muted-foreground">
-              The utility helpers ship as <code className="text-foreground">@barefootjs/xyflow</code>; the
-              JSX-native renderer components are distributed via the shadcn-style registry under{' '}
-              <code className="text-foreground">@/components/ui/xyflow</code>.
+              The renderer components ship via the shadcn-style registry. The utility helpers (signal hooks,
+              store, types, geometry helpers) live in <code className="text-foreground">@barefootjs/xyflow</code>{' '}
+              and are pulled in by the registry install.
             </p>
           </div>
 
-          <div className="mt-4 space-y-2">
-            <h4 className="text-sm font-medium text-foreground">Install the renderer components</h4>
-            <PackageManagerTabs command="barefoot add xyflow" />
-          </div>
-
-          <div className="mt-6 space-y-2">
-            <h4 className="text-sm font-medium text-foreground">Install the utility package</h4>
-            <PackageManagerTabs command="bun add @barefootjs/xyflow" />
-          </div>
+          <PackageManagerTabs command="barefoot add xyflow" />
         </Section>
 
-        {/* Quick Start */}
-        <Section id="quick-start" title="Quick Start">
+        {/* Your First Flow — progressive build */}
+        <Section id="first-flow" title="Your First Flow">
           <div className="prose prose-invert max-w-none">
             <p className="text-muted-foreground">
-              Drop a <code className="text-foreground">{'<Flow>'}</code> with the overlays you want, hand it
-              your nodes / edges signals, and you have a working canvas with pan, zoom, connection, and
-              minimap.
+              Start with an empty <code className="text-foreground">{'<Flow>'}</code>. The surrounding{' '}
+              <code className="text-foreground">{'<div>'}</code>{' '}
+              <strong>must have explicit width and height</strong> — Flow measures its container to size the
+              canvas, so a zero-sized parent renders nothing.
             </p>
           </div>
 
-          <Example title="" code={quickStartCode}>
-            <XyflowPreviewDemo />
+          <Example title="Empty canvas" code={emptyFlowCode}>
+            <XyflowEmptyDemo />
           </Example>
+        </Section>
+
+        {/* Adding Nodes */}
+        <Section id="adding-nodes" title="Adding Nodes">
+          <div className="prose prose-invert max-w-none">
+            <p className="text-muted-foreground">
+              Nodes are plain objects with <code className="text-foreground">id</code>,{' '}
+              <code className="text-foreground">position</code>, and <code className="text-foreground">data</code>.
+              Pass them as the <code className="text-foreground">nodes</code> prop and Flow renders each
+              node's <code className="text-foreground">data.label</code> inside its built-in node wrapper.
+              For custom node bodies and explicit connection handles, see the{' '}
+              <a href="/components/xyflow#custom-node" className="text-foreground underline underline-offset-4">
+                Components
+              </a>{' '}
+              page.
+            </p>
+          </div>
+
+          <Example title="Two nodes" code={nodesCode}>
+            <XyflowNodesDemo />
+          </Example>
+        </Section>
+
+        {/* Connecting Edges */}
+        <Section id="connecting-edges" title="Connecting Edges">
+          <div className="prose prose-invert max-w-none">
+            <p className="text-muted-foreground">
+              Edges are objects with <code className="text-foreground">id</code>,{' '}
+              <code className="text-foreground">source</code>, and{' '}
+              <code className="text-foreground">target</code> — the source / target ids must match a node{' '}
+              <code className="text-foreground">id</code>. Pass them as the{' '}
+              <code className="text-foreground">edges</code> prop and Flow draws each edge as a Bezier path
+              between the matching handles.
+            </p>
+          </div>
+
+          <Example title="Add an edge" code={edgesCode}>
+            <XyflowEdgesDemo />
+          </Example>
+        </Section>
+
+        {/* Adding Overlays */}
+        <Section id="adding-overlays" title="Adding Overlays">
+          <div className="prose prose-invert max-w-none">
+            <p className="text-muted-foreground">
+              Three optional overlays are mounted as children of{' '}
+              <code className="text-foreground">{'<Flow>'}</code>:
+            </p>
+            <ul className="list-disc list-inside text-muted-foreground space-y-1 mt-2">
+              <li><code className="text-foreground">{'<Background>'}</code> — dotted / lined / cross pattern that scales with zoom.</li>
+              <li><code className="text-foreground">{'<Controls>'}</code> — zoom-in / zoom-out / fit-view / lock buttons.</li>
+              <li><code className="text-foreground">{'<MiniMap>'}</code> — overview map with synced viewport rectangle; pannable / zoomable.</li>
+            </ul>
+            <p className="text-muted-foreground mt-2">
+              Order matters only for paint stacking — drop them in the order you want them layered.
+            </p>
+          </div>
+
+          <CodeBlock code={overlaysCode} />
+
+          <p className="text-sm text-muted-foreground mt-2">
+            With all three you have the Quick Start demo at the top of this page.
+          </p>
         </Section>
 
         {/* Next Steps */}
@@ -254,10 +331,21 @@ export function XyflowIntroductionPage() {
               <a href="/components/xyflow" className="text-foreground underline underline-offset-4">
                 xyflow components
               </a>{' '}
-              — full prop reference for <code className="text-foreground">Flow</code>,{' '}
+              — full prop reference for{' '}
+              <code className="text-foreground">Flow</code>,{' '}
               <code className="text-foreground">Background</code>,{' '}
               <code className="text-foreground">Controls</code>,{' '}
-              <code className="text-foreground">MiniMap</code>, and the rest.
+              <code className="text-foreground">MiniMap</code>,{' '}
+              <code className="text-foreground">Handle</code>,{' '}
+              <code className="text-foreground">NodeWrapper</code>, and{' '}
+              <code className="text-foreground">SimpleEdge</code>.
+            </li>
+            <li>
+              <a href="https://reactflow.dev/learn" className="text-foreground underline underline-offset-4">
+                xyflow / react getting started
+              </a>{' '}
+              — the upstream tutorial this section is modelled on; the engine concepts (handles,
+              connections, viewport) carry over directly.
             </li>
           </ul>
         </Section>
