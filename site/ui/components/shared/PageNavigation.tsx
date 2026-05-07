@@ -10,8 +10,9 @@ import { componentEntries } from './component-registry'
 // Component order for navigation (follows sidebar order: category-based, alphabetical within each)
 export const componentOrder = componentEntries.map(e => ({ slug: e.slug, title: e.title }))
 
-// Chart order for navigation (alphabetical)
+// Chart order for navigation (introduction first, then alphabetical)
 export const chartOrder = [
+  { slug: 'introduction', title: 'Introduction' },
   { slug: 'area-chart', title: 'Area Chart' },
   { slug: 'bar-chart', title: 'Bar Chart' },
   { slug: 'line-chart', title: 'Line Chart' },

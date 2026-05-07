@@ -82,6 +82,7 @@ import { XyflowRefPage } from './pages/components/xyflow'
 import { ComponentCatalogPage } from './pages/components/catalog'
 
 // Chart pages
+import { ChartsIntroductionPage } from './pages/charts/introduction'
 import { BarChartRefPage } from './pages/charts/bar-chart'
 import { RadialChartRefPage } from './pages/charts/radial-chart'
 import { RadarChartRefPage } from './pages/charts/radar-chart'
@@ -611,6 +612,11 @@ export function createApp() {
 
   app.get('/gallery/social/messages', (c) => {
     return c.render(<SocialMessagesPage />)
+  })
+
+  // Charts — introduction (gallery + install)
+  app.get('/charts/introduction', (c) => {
+    return c.render(<ChartsIntroductionPage />)
   })
 
   // Bar Chart reference page
