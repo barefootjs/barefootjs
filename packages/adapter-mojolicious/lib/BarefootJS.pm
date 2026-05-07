@@ -157,37 +157,40 @@ sub string ($self, $value) {
 }
 
 sub number ($self, $value) {
-    # JS `Number(v)` mirror. Non-numeric strings / undef → "NaN" so
-    # downstream `floor`/`ceil`/`round` propagate the JS NaN semantics
-    # (`Math.floor(NaN) === NaN`). Numeric strings coerce via Perl's
-    # implicit numeric context.
-    return 'NaN' unless defined $value;
+    # JS `Number(v)` mirror. Numeric coerces via Perl's implicit
+    # numeric context; non-numeric / undef yield real numeric NaN
+    # (`'nan' + 0`) so downstream arithmetic propagates correctly
+    # (`Math.floor(NaN) === NaN`). Returning the literal string
+    # "NaN" would conflate the user-passing-the-string-"NaN" case
+    # with the parse-failure case, and break NaN detection in
+    # downstream helpers.
+    return 0 + 'nan' unless defined $value;
     return $value + 0 if looks_like_number($value);
-    return 'NaN';
+    return 0 + 'nan';
 }
+
+# NaN is the only float for which `$x != $x` holds. Used as the
+# portable sentinel check in floor/ceil/round.
+sub _is_nan { my $n = shift; return $n != $n }
 
 sub floor ($self, $value) {
     my $n = $self->number($value);
-    return 'NaN' if $n eq 'NaN';
+    return $n if _is_nan($n);
     return POSIX::floor($n);
 }
 
 sub ceil ($self, $value) {
     my $n = $self->number($value);
-    return 'NaN' if $n eq 'NaN';
+    return $n if _is_nan($n);
     return POSIX::ceil($n);
 }
 
 sub round ($self, $value) {
     my $n = $self->number($value);
-    return 'NaN' if $n eq 'NaN';
-    # POSIX has no `round` (only `floor`/`ceil`). JS `Math.round`
-    # rounds half toward +Infinity (so `Math.round(-1.5) === -1`,
-    # not -2). `floor(n + 0.5)` reproduces that exact rule for both
-    # positive and negative inputs:
-    #   Math.round(1.5)   → floor(2.0)  = 2
-    #   Math.round(-1.5)  → floor(-1.0) = -1   (JS-faithful tie-break)
-    #   Math.round(-1.6)  → floor(-1.1) = -2
+    return $n if _is_nan($n);
+    # POSIX has no `round`. JS `Math.round` rounds half toward
+    # +Infinity (so `Math.round(-1.5) === -1`, not -2). `floor(n
+    # + 0.5)` reproduces that for both signs.
     return POSIX::floor($n + 0.5);
 }
 

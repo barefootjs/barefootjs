@@ -247,17 +247,6 @@ export function Foo(props: { v: string }) {
     expect(keys).toEqual(['JSON.stringify', 'Math.ceil', 'Math.floor', 'Math.round', 'Number', 'String'])
   })
 
-  test('two-tier source-of-truth keeps emit + arity in sync', () => {
-    // Mirror the Go-adapter pinning test: every public-registry key
-    // must have a matching arity entry so a registry-only addition
-    // can't silently bypass the arity gate.
-    const a = new MojoAdapter()
-    const arities = (a as unknown as { templatePrimitiveArities: Record<string, number> }).templatePrimitiveArities
-    for (const key of Object.keys(a.templatePrimitives ?? {})) {
-      expect(arities[key]).toBeGreaterThan(0)
-    }
-  })
-
   test('unregistered identifier-path callee is NOT accepted', () => {
     const a = new MojoAdapter()
     expect(a.templatePrimitives?.['customSerialize']).toBeUndefined()

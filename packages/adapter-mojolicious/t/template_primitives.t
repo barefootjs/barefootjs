@@ -33,31 +33,36 @@ subtest 'string — JS String(v) mirror' => sub {
     is $bf->string(undef), '',   'undef → "" (intentional divergence)';
 };
 
+# Real numeric NaN is the only float for which `$x != $x` holds.
+# Tests check for it directly rather than string-comparing against
+# "NaN", which stringifies platform-dependently.
+sub is_nan { my $n = shift; return $n != $n }
+
 subtest 'number — JS Number(v) mirror; NaN on parse failure' => sub {
-    is $bf->number('3.14'),      3.14,  'numeric string';
-    is $bf->number(42),          42,    'integer passthrough';
-    is $bf->number('not a num'), 'NaN', 'non-numeric → NaN';
-    is $bf->number(undef),       'NaN', 'undef → NaN';
+    is $bf->number('3.14'), 3.14, 'numeric string';
+    is $bf->number(42),     42,   'integer passthrough';
+    ok is_nan($bf->number('not a num')), 'non-numeric → NaN';
+    ok is_nan($bf->number(undef)),       'undef → NaN';
 };
 
 subtest 'floor / ceil / round — Math.* mirrors; propagate NaN' => sub {
-    is $bf->floor(3.7),    3,     '3.7 → 3';
-    is $bf->floor(-3.2),  -4,     '-3.2 → -4';
-    is $bf->floor('not'), 'NaN',  'NaN propagates';
+    is $bf->floor(3.7),    3, '3.7 → 3';
+    is $bf->floor(-3.2),  -4, '-3.2 → -4';
+    ok is_nan($bf->floor('not')), 'floor: NaN propagates';
 
-    is $bf->ceil(3.1),     4,     '3.1 → 4';
-    is $bf->ceil(-3.7),   -3,     '-3.7 → -3';
-    is $bf->ceil('not'),  'NaN',  'NaN propagates';
+    is $bf->ceil(3.1),     4, '3.1 → 4';
+    is $bf->ceil(-3.7),   -3, '-3.7 → -3';
+    ok is_nan($bf->ceil('not')), 'ceil: NaN propagates';
 
-    is $bf->round(3.5),    4,     '3.5 → 4';
-    is $bf->round(3.4),    3,     '3.4 → 3';
+    is $bf->round(3.5),    4, '3.5 → 4';
+    is $bf->round(3.4),    3, '3.4 → 3';
     # JS `Math.round` ties go toward +Infinity, NOT away from zero —
     # so -1.5 rounds to -1 (not -2). Pin both halves of the negative
     # tie-break so a future POSIX::floor swap doesn't silently
     # regress the JS-compat contract.
-    is $bf->round(-1.5),  -1,     '-1.5 → -1 (JS half-toward-+Inf, not half-away-from-zero)';
-    is $bf->round(-1.6),  -2,     '-1.6 → -2';
-    is $bf->round('not'), 'NaN',  'NaN propagates';
+    is $bf->round(-1.5),  -1, '-1.5 → -1 (JS half-toward-+Inf, not half-away-from-zero)';
+    is $bf->round(-1.6),  -2, '-1.6 → -2';
+    ok is_nan($bf->round('not')), 'round: NaN propagates';
 };
 
 done_testing;

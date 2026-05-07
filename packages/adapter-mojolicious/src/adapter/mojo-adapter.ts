@@ -22,31 +22,25 @@ import type {
   CompilerError,
   TemplatePrimitiveRegistry,
 } from '@barefootjs/jsx'
-import { BaseAdapter, type AdapterOutput, type AdapterGenerateOptions, isBooleanAttr, parseExpression } from '@barefootjs/jsx'
+import { BaseAdapter, type AdapterOutput, type AdapterGenerateOptions, isBooleanAttr, parseExpression, identifierPath, stringifyParsedExpr } from '@barefootjs/jsx'
 import type { ParsedExpr, ParsedStatement } from '@barefootjs/jsx'
 import { BF_SLOT, BF_COND } from '@barefootjs/shared'
 
-/**
- * Single source of truth for the Mojolicious adapter's
- * template-primitive surface (#1189). Each entry pairs the expected
- * arity with the emit function so adding / removing a primitive is
- * a one-line change and the two derived maps (`templatePrimitives`
- * and `templatePrimitiveArities`) can't drift out of sync. Mirrors
- * the Go adapter shape from #1188.
- */
 interface PrimitiveSpec {
   arity: number
   emit: (args: string[]) => string
 }
 
 /**
- * Identifier-path → Mojo template helper-call substitution map.
- * The emit fn returns a Perl expression (no surrounding `<%= %>`)
- * suitable for embedding inside the existing Mojo template
- * action — `bf->json($val)`, `bf->floor($val)`, etc.
+ * Single source of truth for the Mojolicious adapter's
+ * template-primitive surface. Each entry pairs the expected arity
+ * with the emit function. Adding / removing a primitive is a
+ * one-line change.
  *
- * Keys are the textual JS callee path. Args arrive already
- * Perl-rendered (via `convertExpressionToPerl` recursion) so a
+ * The emit fn returns a Perl expression (no surrounding `<%= %>`)
+ * suitable for embedding inside the Mojo template action —
+ * `bf->json($val)`, `bf->floor($val)`, etc. Args arrive already
+ * Perl-rendered via `convertExpressionToPerl` recursion, so a
  * caller passing `props.config` reaches the emit fn as `$config`.
  */
 const MOJO_TEMPLATE_PRIMITIVES: Record<string, PrimitiveSpec> = {
@@ -59,76 +53,27 @@ const MOJO_TEMPLATE_PRIMITIVES: Record<string, PrimitiveSpec> = {
 }
 
 /**
- * Extract the textual identifier path from a parsed call expression's
- * callee (`{kind:'identifier', name:'String'}` → `"String"`,
- * `{kind:'member', object:{kind:'identifier', name:'JSON'},
- * property:'stringify'}` → `"JSON.stringify"`). Returns `null` for
- * any other callee shape (call result, computed member, etc.) so
- * the registry only matches identifier paths (#1187 R1).
+ * Cheap substring pre-check: skip the (expensive) `parseExpression`
+ * call when no primitive callee path appears in the source string.
+ * The common case is "no primitive present"; building the regex
+ * once from the registry keys keeps the gate in sync as new
+ * primitives land.
  */
-function identifierPath(callee: ParsedExpr): string | null {
-  if (callee.kind === 'identifier') return callee.name
-  if (callee.kind === 'member' && !callee.computed) {
-    const head = identifierPath(callee.object)
-    return head ? `${head}.${callee.property}` : null
-  }
-  return null
-}
+const PRIMITIVE_SUBSTRING_RE = new RegExp(
+  Object.keys(MOJO_TEMPLATE_PRIMITIVES)
+    .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|')
+)
 
 /**
- * Round-trip a `ParsedExpr` back to JS source text. Used by
- * `rewriteTemplatePrimitives` so the rest of the regex-based
- * `convertExpressionToPerl` pipeline can finish processing the
- * non-primitive parts of the expression. Only covers the shapes the
- * primitive-rewrite walker can emit: call / member / binary / unary
- * / logical / conditional / identifier / literal / template-literal.
- * `unsupported` is round-tripped via `raw`.
+ * Module-scope `templatePrimitives` map derived once from the spec
+ * record. Per-instance derivation would re-build the same Map on
+ * every `new MojoAdapter()` call.
  */
-function stringifyParsedExpr(expr: ParsedExpr): string {
-  switch (expr.kind) {
-    case 'identifier':
-      return expr.name
-    case 'literal':
-      if (expr.literalType === 'string') return JSON.stringify(expr.value)
-      if (expr.literalType === 'null') return 'null'
-      return String(expr.value)
-    case 'call': {
-      const callee = stringifyParsedExpr(expr.callee)
-      const args = expr.args.map(stringifyParsedExpr).join(', ')
-      return `${callee}(${args})`
-    }
-    case 'member': {
-      const obj = stringifyParsedExpr(expr.object)
-      if (!expr.computed) return `${obj}.${expr.property}`
-      // `ParsedExpr.member.property` is a string for both numeric
-      // and string-literal keys. Numeric indices round-trip
-      // verbatim (`arr[0]`); anything else needs quoting so a
-      // string key like `obj['key']` doesn't degrade to
-      // `obj[key]` (a bare-identifier lookup with different
-      // semantics).
-      const key = /^-?\d+$/.test(expr.property)
-        ? expr.property
-        : JSON.stringify(expr.property)
-      return `${obj}[${key}]`
-    }
-    case 'binary':
-      return `${stringifyParsedExpr(expr.left)} ${expr.op} ${stringifyParsedExpr(expr.right)}`
-    case 'unary':
-      return `${expr.op}${stringifyParsedExpr(expr.argument)}`
-    case 'logical':
-      return `${stringifyParsedExpr(expr.left)} ${expr.op} ${stringifyParsedExpr(expr.right)}`
-    case 'conditional':
-      return `${stringifyParsedExpr(expr.test)} ? ${stringifyParsedExpr(expr.consequent)} : ${stringifyParsedExpr(expr.alternate)}`
-    case 'template-literal':
-      return '`' + expr.parts.map(p => p.type === 'string' ? p.value : '${' + stringifyParsedExpr(p.expr) + '}').join('') + '`'
-    case 'arrow-fn':
-      return `${expr.param} => ${stringifyParsedExpr(expr.body)}`
-    case 'higher-order':
-      return `${stringifyParsedExpr(expr.object)}.${expr.method}(${expr.param} => ${stringifyParsedExpr(expr.predicate)})`
-    case 'unsupported':
-      return expr.raw
-  }
-}
+const MOJO_PRIMITIVE_EMIT_MAP: Record<string, (args: string[]) => string> =
+  Object.fromEntries(
+    Object.entries(MOJO_TEMPLATE_PRIMITIVES).map(([k, v]) => [k, v.emit])
+  )
 
 export interface MojoAdapterOptions {
   /** Base path for client JS files (default: '/static/components/') */
@@ -145,32 +90,17 @@ export class MojoAdapter extends BaseAdapter {
 
   /**
    * Identifier-path callees the Mojo runtime can render in template
-   * scope (#1189). The relocate pass consults this map to mark
-   * matching calls as template-safe so the surrounding expression
-   * stays inlinable; the SSR template emitter substitutes the JS
-   * call with the registered Perl helper invocation.
+   * scope. The relocate pass consults this map to mark matching
+   * calls as template-safe so the surrounding expression stays
+   * inlinable; the SSR template emitter substitutes the JS call
+   * with the registered Perl helper invocation.
    *
-   * Public because the `TemplateAdapter` interface contract requires
-   * the relocate pass to read this for boolean acceptance. The arity
-   * map below is implementation detail (private) — same asymmetry
-   * the Go adapter applies (#1188).
+   * The per-callee arity is read directly off `MOJO_TEMPLATE_PRIMITIVES`
+   * at substitution time, so this exposed shape stays as the
+   * `TemplateAdapter` interface expects (`emit`-only) without
+   * carrying a parallel arity map.
    */
-  templatePrimitives: TemplatePrimitiveRegistry =
-    Object.fromEntries(
-      Object.entries(MOJO_TEMPLATE_PRIMITIVES).map(([k, v]) => [k, v.emit])
-    )
-
-  /**
-   * Expected arg count per primitive. Consulted before invoking the
-   * registered emit fn so a 0-arg or wrong-arity call doesn't
-   * silently produce invalid Perl. Derived from the same
-   * `MOJO_TEMPLATE_PRIMITIVES` source so it can't drift from
-   * `templatePrimitives`.
-   */
-  private readonly templatePrimitiveArities: Record<string, number> =
-    Object.fromEntries(
-      Object.entries(MOJO_TEMPLATE_PRIMITIVES).map(([k, v]) => [k, v.arity])
-    )
+  templatePrimitives: TemplatePrimitiveRegistry = MOJO_PRIMITIVE_EMIT_MAP
 
   private componentName: string = ''
   private options: Required<MojoAdapterOptions>
@@ -877,6 +807,12 @@ export class MojoAdapter extends BaseAdapter {
    * Go adapter applies in #1188.
    */
   private rewriteTemplatePrimitives(expr: string): string {
+    // Common case: no registered primitive substring — skip the
+    // TS parser entirely. `parseExpression` invokes
+    // `ts.createSourceFile`, which is the dominant compile-hot-path
+    // cost added by this PR.
+    if (!PRIMITIVE_SUBSTRING_RE.test(expr)) return expr
+
     const parsed = parseExpression(expr)
     if (parsed.kind === 'unsupported') return expr
 
@@ -884,41 +820,31 @@ export class MojoAdapter extends BaseAdapter {
     const walk = (n: ParsedExpr): ParsedExpr => {
       if (n.kind === 'call') {
         const path = identifierPath(n.callee)
-        if (path && this.templatePrimitives[path]) {
-          const expected = this.templatePrimitiveArities[path]
-          if (expected !== undefined && n.args.length !== expected) {
+        const spec = path ? MOJO_TEMPLATE_PRIMITIVES[path] : undefined
+        if (path && spec) {
+          if (n.args.length !== spec.arity) {
             this.errors.push({
               code: 'BF101',
               severity: 'error',
-              message: `templatePrimitive '${path}' expects ${expected} arg(s), got ${n.args.length}`,
+              message: `templatePrimitive '${path}' expects ${spec.arity} arg(s), got ${n.args.length}`,
               loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
               suggestion: {
-                message: `Call '${path}' with exactly ${expected} argument(s), or wrap the JSX expression in /* @client */ to defer evaluation.`,
+                message: `Call '${path}' with exactly ${spec.arity} argument(s), or wrap the JSX expression in /* @client */ to defer evaluation.`,
               },
             })
             return { kind: 'call', callee: walk(n.callee), args: n.args.map(walk) }
           }
-          // Recursively rewrite args first so a nested primitive
-          // (e.g. `Math.floor(Number(props.x))`) gets the inner
-          // substitution before we render the outer.
-          const renderedArgs = n.args.map(a => {
-            const sub = walk(a)
-            return this.convertExpressionToPerl(stringifyParsedExpr(sub))
-          })
+          // Render each arg through the AST-aware sub-pipeline:
+          // walk for nested primitive substitution, then pass the
+          // resulting AST node directly to convertExpressionToPerl
+          // via stringification. The substring pre-check above
+          // guards against re-parsing strings that don't carry a
+          // primitive, so the recursive cost stays bounded.
+          const renderedArgs = n.args.map(a => this.convertExpressionToPerl(stringifyParsedExpr(walk(a))))
           mutated = true
-          // Encode the Perl substitution as a synthetic identifier
-          // node so it round-trips through `stringifyParsedExpr`
-          // unchanged. We disable the regex transforms further
-          // downstream by wrapping in a sentinel marker the pipeline
-          // doesn't touch — but in practice the resulting string
-          // (`bf->X(...)`) doesn't trigger any of the existing
-          // transforms (no `\b[a-z]\w*\(\)` empty-call shape, no
-          // bare-prop access, no template literals).
-          return { kind: 'identifier', name: this.templatePrimitives[path](renderedArgs) }
+          return { kind: 'identifier', name: spec.emit(renderedArgs) }
         }
       }
-      // Recurse into children — only the call/member/binary/etc
-      // shapes that compose into other expressions.
       switch (n.kind) {
         case 'call':
           return { kind: 'call', callee: walk(n.callee), args: n.args.map(walk) }
