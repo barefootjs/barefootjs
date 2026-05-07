@@ -73,6 +73,7 @@ export const navSections: NavSection[] = [
         key: 'charts',
         title: 'Charts',
         links: [
+          { title: 'Introduction', href: '/charts/introduction' },
           { title: 'Area Chart', href: '/charts/area-chart' },
           { title: 'Bar Chart', href: '/charts/bar-chart' },
           { title: 'Line Chart', href: '/charts/line-chart' },
