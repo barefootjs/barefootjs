@@ -1,12 +1,8 @@
-use strict;
-use warnings;
-use feature 'signatures';
-no warnings 'experimental::signatures';
+use Test2::V0;
 
 # JS-compat helper coverage (#1189). Mirrors the Go runtime test
 # surface so cross-adapter regressions stay symmetric.
 
-use Test::More;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
@@ -18,46 +14,39 @@ use BarefootJS;
 # the package is enough for these unit tests.
 my $bf = bless { c => undef, config => {} }, 'BarefootJS';
 
-# ---------------------------------------------------------------------------
-# json — mirrors JS JSON.stringify
-# ---------------------------------------------------------------------------
+subtest 'json — mirrors JS JSON.stringify' => sub {
+    is $bf->json({a => 1}),  '{"a":1}', 'hash';
+    is $bf->json([1, 2, 3]), '[1,2,3]', 'array';
+    is $bf->json('hi'),      '"hi"',    'string';
+    is $bf->json(undef),     'null',    'undef → null (JS parity)';
+};
 
-is $bf->json({a => 1}),     '{"a":1}',  'json: hash';
-is $bf->json([1, 2, 3]),    '[1,2,3]',  'json: array';
-is $bf->json('hi'),         '"hi"',     'json: string';
-is $bf->json(undef),        'null',     'json: undef → null (JS parity)';
+subtest 'string — JS String(v) mirror' => sub {
+    is $bf->string(42),    '42', 'int';
+    is $bf->string('hi'),  'hi', 'string passthrough';
+    # Documented divergence from JS String(null) === "null".
+    is $bf->string(undef), '',   'undef → "" (intentional divergence)';
+};
 
-# ---------------------------------------------------------------------------
-# string — JS String(v) mirror
-# ---------------------------------------------------------------------------
+subtest 'number — JS Number(v) mirror; NaN on parse failure' => sub {
+    is $bf->number('3.14'),      3.14,  'numeric string';
+    is $bf->number(42),          42,    'integer passthrough';
+    is $bf->number('not a num'), 'NaN', 'non-numeric → NaN';
+    is $bf->number(undef),       'NaN', 'undef → NaN';
+};
 
-is $bf->string(42),    '42',   'string: int';
-is $bf->string('hi'),  'hi',   'string: string passthrough';
-is $bf->string(undef), '',     'string: undef → "" (intentional divergence from JS "null"; documented)';
+subtest 'floor / ceil / round — Math.* mirrors; propagate NaN' => sub {
+    is $bf->floor(3.7),    3,     '3.7 → 3';
+    is $bf->floor(-3.2),  -4,     '-3.2 → -4';
+    is $bf->floor('not'), 'NaN',  'NaN propagates';
 
-# ---------------------------------------------------------------------------
-# number — JS Number(v) mirror; NaN on parse failure
-# ---------------------------------------------------------------------------
+    is $bf->ceil(3.1),     4,     '3.1 → 4';
+    is $bf->ceil(-3.7),   -3,     '-3.7 → -3';
+    is $bf->ceil('not'),  'NaN',  'NaN propagates';
 
-is $bf->number('3.14'),       3.14, 'number: numeric string';
-is $bf->number(42),           42,   'number: integer passthrough';
-is $bf->number('not a num'), 'NaN', 'number: non-numeric → NaN';
-is $bf->number(undef),        'NaN', 'number: undef → NaN';
-
-# ---------------------------------------------------------------------------
-# floor / ceil / round — Math.* mirrors; propagate NaN
-# ---------------------------------------------------------------------------
-
-is $bf->floor(3.7),       3,    'floor: 3.7 → 3';
-is $bf->floor(-3.2),     -4,    'floor: -3.2 → -4';
-is $bf->floor('not'),    'NaN', 'floor: NaN propagates';
-
-is $bf->ceil(3.1),        4,    'ceil: 3.1 → 4';
-is $bf->ceil(-3.7),      -3,    'ceil: -3.7 → -3';
-is $bf->ceil('not'),     'NaN', 'ceil: NaN propagates';
-
-is $bf->round(3.5),       4,    'round: 3.5 → 4';
-is $bf->round(3.4),       3,    'round: 3.4 → 3';
-is $bf->round('not'),    'NaN', 'round: NaN propagates';
+    is $bf->round(3.5),    4,     '3.5 → 4';
+    is $bf->round(3.4),    3,     '3.4 → 3';
+    is $bf->round('not'), 'NaN',  'NaN propagates';
+};
 
 done_testing;
