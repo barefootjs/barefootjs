@@ -226,13 +226,13 @@ function injectDefaultStyles() {
 // components, so attribute-driven CSS is the load-bearing path).
 const DEFAULT_STYLES = `
 .bf-flow__node {
-  padding: 6px 14px;
-  border: 1px solid var(--border, #1a192b);
+  padding: 10px 24px;
+  border: 2px solid var(--foreground, #1a192b);
   border-radius: 6px;
   background-color: var(--card, #fff);
   color: var(--card-foreground, #222);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   text-align: center;
   cursor: grab;
   user-select: none;

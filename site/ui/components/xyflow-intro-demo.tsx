@@ -3,30 +3,27 @@
  * xyflow Introduction Demos
  *
  * Standalone demos for the xyflow Introduction page. Kept in a dedicated
- * file (rather than reusing site/ui/components/xyflow-demo.tsx) so the
- * Introduction's bundle stays small and isolated from unrelated demos.
+ * file so the Introduction's bundle stays isolated from xyflow-demo.tsx
+ * (whose XyflowCustomNodeDemo carries `renderNode` callback JSX the
+ * compiler does not transform).
  *
- * The demos rely on Flow's default node renderer: each node renders its
- * `data.label` inside the framework's `bf-flow__node` wrapper. Custom
- * node bodies via `<NodeWrapper>` children would double-mount with the
- * auto loop, and the `renderNode` callback contains JSX the compiler
- * does not transform — both paths are out of scope for an Introduction.
+ * The demos rely on Flow's default node renderer (DefaultNodeBody),
+ * which mounts target=Top / source=Bottom handles so edges flow
+ * top-down — the same convention as xyflow/react's quick start.
+ *
+ * MiniMap is intentionally omitted on the Introduction page; it is
+ * documented on the Components reference page.
  */
 
-import {
-  Background,
-  Controls,
-  Flow,
-  MiniMap,
-} from '@/components/ui/xyflow'
+import { Background, Controls, Flow } from '@/components/ui/xyflow'
 
-// Positions are biased to the top-left so the MiniMap (bottom-right by
-// default) does not occlude the nodes inside the 420px-tall preview.
+// Positions are spread wide enough that Flow's fit-view-on-init pass
+// settles around scale ~1 instead of zooming in / out aggressively.
 const fourNodes = [
-  { id: '1', position: { x: 40, y: 60 }, data: { label: 'Input' } },
-  { id: '2', position: { x: 220, y: 20 }, data: { label: 'Transform' } },
-  { id: '3', position: { x: 220, y: 140 }, data: { label: 'Validate' } },
-  { id: '4', position: { x: 420, y: 80 }, data: { label: 'Output' } },
+  { id: '1', position: { x: 250, y: 30 },  data: { label: 'Input' } },
+  { id: '2', position: { x: 100, y: 180 }, data: { label: 'Transform' } },
+  { id: '3', position: { x: 450, y: 180 }, data: { label: 'Validate' } },
+  { id: '4', position: { x: 250, y: 330 }, data: { label: 'Output' } },
 ]
 
 const fourEdges = [
@@ -37,14 +34,14 @@ const fourEdges = [
 ]
 
 const twoNodes = [
-  { id: 'a', position: { x: 80, y: 80 }, data: { label: 'Hello' } },
-  { id: 'b', position: { x: 320, y: 80 }, data: { label: 'World' } },
+  { id: 'a', position: { x: 80, y: 30 },   data: { label: 'Hello' } },
+  { id: 'b', position: { x: 280, y: 150 }, data: { label: 'World' } },
 ]
 
 const oneEdge = [{ id: 'a-b', source: 'a', target: 'b' }]
 
 /**
- * Full Quick Start — nodes + edges + Background + Controls + MiniMap.
+ * Full Quick Start — nodes + edges + Background + Controls.
  */
 export function XyflowQuickStartDemo() {
   return (
@@ -52,7 +49,6 @@ export function XyflowQuickStartDemo() {
       <Flow nodes={fourNodes} edges={fourEdges}>
         <Background variant="dots" gap={20} />
         <Controls />
-        <MiniMap pannable zoomable />
       </Flow>
     </div>
   )

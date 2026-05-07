@@ -82,14 +82,13 @@ import {
   Flow,
   Background,
   Controls,
-  MiniMap,
 } from "@/components/ui/xyflow"
 
 const nodes = [
-  { id: "1", position: { x: 40,  y: 60 },  data: { label: "Input" } },
-  { id: "2", position: { x: 220, y: 20 },  data: { label: "Transform" } },
-  { id: "3", position: { x: 220, y: 140 }, data: { label: "Validate" } },
-  { id: "4", position: { x: 420, y: 80 },  data: { label: "Output" } },
+  { id: "1", position: { x: 250, y: 30 },  data: { label: "Input" } },
+  { id: "2", position: { x: 100, y: 180 }, data: { label: "Transform" } },
+  { id: "3", position: { x: 450, y: 180 }, data: { label: "Validate" } },
+  { id: "4", position: { x: 250, y: 330 }, data: { label: "Output" } },
 ]
 const edges = [
   { id: "e1-2", source: "1", target: "2" },
@@ -104,7 +103,6 @@ export function MyFlow() {
       <Flow nodes={nodes} edges={edges}>
         <Background variant="dots" gap={20} />
         <Controls />
-        <MiniMap pannable zoomable />
       </Flow>
     </div>
   )
@@ -125,8 +123,8 @@ export function MyFlow() {
 const nodesCode = `import { Flow, Background } from "@/components/ui/xyflow"
 
 const nodes = [
-  { id: "a", position: { x: 80, y: 80 },  data: { label: "Hello" } },
-  { id: "b", position: { x: 320, y: 80 }, data: { label: "World" } },
+  { id: "a", position: { x: 80, y: 30 },   data: { label: "Hello" } },
+  { id: "b", position: { x: 280, y: 150 }, data: { label: "World" } },
 ]
 
 export function MyFlow() {
@@ -151,7 +149,6 @@ const edges = [
 const overlaysCode = `<Flow nodes={nodes} edges={edges}>
   <Background variant="dots" gap={20} />
   <Controls />
-  <MiniMap pannable zoomable />
 </Flow>`
 
 export function XyflowIntroductionPage() {
@@ -208,7 +205,6 @@ export function XyflowIntroductionPage() {
               <li>Drag-to-connect handles with snapping and connection validation</li>
               <li>Fit-view, zoom-to-node, and a coordinate transform shared across overlays</li>
               <li>Selection rectangles, multi-select, and keyboard nudging</li>
-              <li>Minimap with synced viewport and node coloring</li>
               <li>Custom HTML node bodies that participate in edge routing and resizing</li>
             </ul>
             <p className="text-muted-foreground mt-2">
@@ -222,8 +218,8 @@ export function XyflowIntroductionPage() {
         <Section id="quick-start" title="Quick Start">
           <div className="prose prose-invert max-w-none">
             <p className="text-muted-foreground">
-              Here is what we are building — a flow with four nodes, four edges, a dotted background, the
-              zoom controls, and a minimap. The rest of the page walks through it step by step.
+              Here is what we are building — a flow with four nodes, four edges, a dotted background, and
+              the zoom controls. The rest of the page walks through it step by step.
             </p>
           </div>
 
@@ -304,16 +300,17 @@ export function XyflowIntroductionPage() {
         <Section id="adding-overlays" title="Adding Overlays">
           <div className="prose prose-invert max-w-none">
             <p className="text-muted-foreground">
-              Three optional overlays are mounted as children of{' '}
+              Two optional overlays are mounted as children of{' '}
               <code className="text-foreground">{'<Flow>'}</code>:
             </p>
             <ul className="list-disc list-inside text-muted-foreground space-y-1 mt-2">
               <li><code className="text-foreground">{'<Background>'}</code> — dotted / lined / cross pattern that scales with zoom.</li>
               <li><code className="text-foreground">{'<Controls>'}</code> — zoom-in / zoom-out / fit-view / lock buttons.</li>
-              <li><code className="text-foreground">{'<MiniMap>'}</code> — overview map with synced viewport rectangle; pannable / zoomable.</li>
             </ul>
             <p className="text-muted-foreground mt-2">
-              Order matters only for paint stacking — drop them in the order you want them layered.
+              A pannable / zoomable <code className="text-foreground">{'<MiniMap>'}</code> is also available — see the{' '}
+              <a href="/components/xyflow" className="text-foreground underline underline-offset-4">Components</a>{' '}
+              page for its full API.
             </p>
           </div>
 

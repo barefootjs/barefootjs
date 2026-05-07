@@ -803,9 +803,9 @@ export interface FlowComponentProps<
 function DefaultNodeBody(props: { nodeId: string; label: string }) {
   return (
     <>
-      <Handle type="target" position={Position.Left} nodeId={props.nodeId} />
+      <Handle type="target" position={Position.Top} nodeId={props.nodeId} />
       {props.label}
-      <Handle type="source" position={Position.Right} nodeId={props.nodeId} />
+      <Handle type="source" position={Position.Bottom} nodeId={props.nodeId} />
     </>
   )
 }
