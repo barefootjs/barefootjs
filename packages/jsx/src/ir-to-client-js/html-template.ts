@@ -36,6 +36,14 @@ const VOID_ELEMENTS = new Set([
   'input', 'link', 'meta', 'param', 'source', 'track', 'wbr',
 ])
 
+function childrenPropEntry(
+  children: IRNode[],
+  recurse: (n: IRNode) => string,
+): string | null {
+  if (children.length === 0) return null
+  return `children: \`${children.map(recurse).join('')}\``
+}
+
 /**
  * Sentinel returned by the CSR template's `transformExpr` when the expression
  * references an init-body-only name (#1128). Equality with this sentinel is
@@ -166,11 +174,8 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
           return `${quotePropName(p.name)}: ${p.value}`
         })
         .filter((entry): entry is string => entry !== null)
-      // Include children as a prop for renderChild() template rendering
-      if (node.children.length > 0) {
-        const childHtml = node.children.map(recurse).join('')
-        propsEntries.push(`children: \`${childHtml}\``)
-      }
+      const childrenEntry = childrenPropEntry(node.children, recurse)
+      if (childrenEntry) propsEntries.push(childrenEntry)
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
       const keyArg = keyProp ? `, ${keyProp.value}` : ''
@@ -575,6 +580,8 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
           return `${quotePropName(p.name)}: ${valueStr ? transformExpr(valueStr, p.templateValue) : JSON.stringify(p.value)}`
         })
         .filter((entry): entry is string => entry !== null)
+      const childrenEntry = childrenPropEntry(node.children, recurse)
+      if (childrenEntry) propsEntries.push(childrenEntry)
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
       const keyArg = keyProp ? `, ${transformExpr(keyProp.value, keyProp.templateValue)}` : ''
@@ -903,6 +910,8 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
           return `${quotePropName(p.name)}: ${transformed}`
         })
         .filter((entry): entry is string => entry !== null)
+      const childrenEntry = childrenPropEntry(node.children, recurse)
+      if (childrenEntry) propsEntries.push(childrenEntry)
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
       const keyArg = keyProp ? `, ${transformExpr(keyProp.value, keyProp.templateValue)}` : ''
