@@ -38,6 +38,23 @@ interface NestedComponentInfo extends IRLoopChildComponent {
   isDynamic: boolean
 }
 
+interface StaticChildInstance {
+  name: string
+  slotId: string
+  props: IRProp[]
+  fieldName: string
+  /** Concatenated text content from JSX children (e.g. `+1` for
+   *  `<Button>+1</Button>`). Null when children include any non-text
+   *  node — the HTML path below covers those. */
+  childrenText: string | null
+  /** Rendered Go-template HTML fragment for JSX children that include
+   *  any non-text node (e.g. `<Card><span>x</span></Card>`). Forwarded
+   *  to the child via `Children: template.HTML(...)` so the child's
+   *  `{{or .Children ""}}` skips re-escaping. Null when children are
+   *  text-only or absent. */
+  childrenHtml: string | null
+}
+
 export interface GoTemplateAdapterOptions {
   /** Go package name for generated types (default: 'components') */
   packageName?: string
@@ -150,6 +167,10 @@ export class GoTemplateAdapter extends BaseAdapter {
   private localTypeNames: Set<string> = new Set()
   /** Local type aliases mapping type name to base type (e.g., Filter → 'string') */
   private localTypeAliases: Map<string, string> = new Map()
+
+  /** Set during type generation when any emit references
+   *  `template.HTML(...)`; toggles the `"html/template"` import. */
+  private usesHtmlTemplate: boolean = false
 
   constructor(options: GoTemplateAdapterOptions = {}) {
     super()
@@ -329,15 +350,8 @@ export class GoTemplateAdapter extends BaseAdapter {
   }
 
   generateTypes(ir: ComponentIR): string | null {
+    this.usesHtmlTemplate = false
     const lines: string[] = []
-    lines.push(`package ${this.options.packageName}`)
-    lines.push('')
-    lines.push('import (')
-    lines.push('\t"math/rand"')
-    lines.push('')
-    lines.push('\tbf "github.com/barefootjs/runtime/bf"')
-    lines.push(')')
-    lines.push('')
 
     const componentName = ir.metadata.componentName
 
@@ -382,7 +396,21 @@ export class GoTemplateAdapter extends BaseAdapter {
     // Generate NewXxxProps function
     this.generateNewPropsFunction(lines, ir, componentName, nestedComponents)
 
-    return lines.join('\n')
+    // Imports come at the top, but `usesHtmlTemplate` is only known
+    // after the body has been generated. Compose package + imports +
+    // body once everything has been collected.
+    const header: string[] = []
+    header.push(`package ${this.options.packageName}`)
+    header.push('')
+    header.push('import (')
+    if (this.usesHtmlTemplate) header.push('\t"html/template"')
+    header.push('\t"math/rand"')
+    header.push('')
+    header.push('\tbf "github.com/barefootjs/runtime/bf"')
+    header.push(')')
+    header.push('')
+
+    return [...header, ...lines].join('\n')
   }
 
   /**
@@ -706,15 +734,21 @@ export class GoTemplateAdapter extends BaseAdapter {
           }
         }
       }
-      // Pass through plain-text JSX children as the slot's `Children`
-      // input so e.g. `<Button>+1</Button>` actually renders "+1" at
-      // SSR time. JSON.stringify produces a Go-compatible double-quoted
-      // string and avoids `goLiteral`'s number-detection branch (which
-      // would silently emit `-1` as an int for `<Button>-1</Button>`).
-      // Non-text children (nested elements, expressions) need a richer
-      // codegen path that isn't wired up yet.
+      // Pass through JSX children as the child slot's `Children` input.
+      // Two paths:
+      //   1. Plain text (`<Button>+1</Button>`) → quote with JSON.stringify
+      //      to dodge `goLiteral`'s number-detection branch (which would
+      //      silently emit `-1` as an int for `<Button>-1</Button>`).
+      //   2. Mixed/HTML (`<Card><span>x</span></Card>`) → wrap in
+      //      `template.HTML(...)` so html/template skips re-escaping the
+      //      angle brackets at render time. The fragment is rendered up
+      //      front via the adapter so any nested template directives are
+      //      already in their final Go-template form.
       if (child.childrenText !== null) {
         lines.push(`\t\t\tChildren: ${JSON.stringify(child.childrenText)},`)
+      } else if (child.childrenHtml !== null) {
+        this.usesHtmlTemplate = true
+        lines.push(`\t\t\tChildren: template.HTML(${JSON.stringify(child.childrenHtml)}),`)
       }
       lines.push(`\t\t}),`)
     }
@@ -784,25 +818,8 @@ export class GoTemplateAdapter extends BaseAdapter {
    * - props: Component props
    * - fieldName: Go field name (e.g., "ReactiveChildSlot6")
    */
-  private collectStaticChildInstances(node: IRNode): Array<{
-    name: string
-    slotId: string
-    props: IRProp[]
-    fieldName: string
-    /** Concatenated text content from JSX children (e.g. `+1` for
-     *  `<Button>+1</Button>`). Null when children are non-text or
-     *  absent — those need a richer codegen path that isn't wired up
-     *  yet, and we just don't pass anything for `Children` in that
-     *  case. */
-    childrenText: string | null
-  }> {
-    const result: Array<{
-      name: string
-      slotId: string
-      props: IRProp[]
-      fieldName: string
-      childrenText: string | null
-    }> = []
+  private collectStaticChildInstances(node: IRNode): Array<StaticChildInstance> {
+    const result: StaticChildInstance[] = []
     this.collectStaticChildInstancesRecursive(node, result, false)
     return result
   }
@@ -821,9 +838,20 @@ export class GoTemplateAdapter extends BaseAdapter {
     return out
   }
 
+  /**
+   * Render JSX children to a Go-template-ready HTML fragment when
+   * children include any non-text node. Returns null when children
+   * are absent or are pure text (handled by the simpler text path).
+   */
+  private extractHtmlChildren(children: IRNode[]): string | null {
+    if (children.length === 0) return null
+    if (children.every(c => c.type === 'text')) return null
+    return this.renderChildren(children)
+  }
+
   private collectStaticChildInstancesRecursive(
     node: IRNode,
-    result: Array<{ name: string; slotId: string; props: IRProp[]; fieldName: string; childrenText: string | null }>,
+    result: StaticChildInstance[],
     inLoop: boolean
   ): void {
     if (node.type === 'component') {
@@ -838,6 +866,7 @@ export class GoTemplateAdapter extends BaseAdapter {
           props: comp.props,
           fieldName: `${comp.name}${suffix}`,
           childrenText: this.extractTextChildren(comp.children),
+          childrenHtml: this.extractHtmlChildren(comp.children),
         })
       }
       // Recurse into Portal's children to find nested components
