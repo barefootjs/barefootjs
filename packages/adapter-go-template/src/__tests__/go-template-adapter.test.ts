@@ -685,28 +685,36 @@ export function Tagged(props: { className?: string }) {
       }
     })
 
-    test('Math.floor end-to-end via go run produces the expected rendered HTML', async () => {
+    test('Math.floor(Number(...)) end-to-end via go run produces the expected rendered HTML', async () => {
       // The other tests assert template emission strings; this one
       // closes the loop by actually running `go run` against the
       // generated template + Go runtime helpers, so a regression in
-      // the Go-side `Floor`/`Number` funcs surfaces here. Skipped
-      // automatically on hosts without Go (the test-render harness
-      // throws GoNotAvailableError, which we treat as test skip).
+      // the Go-side `Floor`/`Number` funcs surfaces here. Also
+      // exercises chained-primitive composition (`bf_floor
+      // (bf_number .Score)`) which the inline-direct emit path
+      // produces for nested calls.
+      //
+      // The prop is typed `string` rather than `number` because
+      // generateTypes maps TS `number` to Go `int`, and an `int`
+      // field can't hold the fractional value we need to actually
+      // exercise floor's rounding behaviour. Coercing through
+      // `Number(props.score)` keeps the Go field as `string` and
+      // shifts the float arithmetic into the runtime helpers.
+      // Skipped on hosts without Go ≥ 1.25 (existing harness
+      // GoNotAvailableError path).
       try {
         const html = await renderGoTemplateComponent({
           source: `
 'use client'
-export function Foo(props: { score: number }) {
-  return <div data-rounded={Math.floor(props.score)}>hi</div>
+export function Foo(props: { score: string }) {
+  return <div data-rounded={Math.floor(Number(props.score))}>hi</div>
 }
           `,
           adapter: new GoTemplateAdapter(),
-          props: { score: 3.7 },
+          props: { score: '3.7' },
         })
-        // 3.7 floored is 3. Go's float→string rendering is "3" for
-        // whole-number floats coming back from math.Floor, but the
-        // template path interpolates the float64 via `%v` which
-        // formats as "3" for integer-valued floats.
+        // Math.floor(Number("3.7")) === 3. Go float64 with integer
+        // value formats as "3" via %v.
         expect(html).toContain('data-rounded="3"')
       } catch (err) {
         if (err instanceof GoNotAvailableError) {
