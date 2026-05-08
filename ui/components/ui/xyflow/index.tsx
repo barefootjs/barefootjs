@@ -137,8 +137,12 @@ export function SimpleEdge(props: SimpleEdgeProps) {
     )
   }
 
+  // Wrap both paths in a <g> so the edge is a single SVG element. Flow's
+  // edge loop relies on mapArray, which assumes one DOM element per key —
+  // returning a Fragment of two <path>s shifts hit-area / visible pairing
+  // by one on every subsequent edge after the first hydration pass.
   return (
-    <>
+    <g data-edge-id={props.edgeId}>
       {/* Invisible wide hit area — pointer-events on stroke only so the
           path receives clicks but underlying SVG remains transparent. */}
       <path
@@ -157,7 +161,7 @@ export function SimpleEdge(props: SimpleEdgeProps) {
         fill="none"
         d={pathD()}
       />
-    </>
+    </g>
   )
 }
 
