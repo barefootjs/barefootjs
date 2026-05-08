@@ -86,6 +86,27 @@ export function getLoopChildren(container: HTMLElement, markerId?: string): HTML
 }
 
 /**
+ * Like {@link getLoopChildren}, but returns every node between the loop
+ * boundary markers — Comments (per-item `<!--bf-loop-i-->` markers) and
+ * text included. The branch-clearing path needs to remove the per-item
+ * marker comments alongside elements; otherwise stale markers would
+ * accumulate when a branch swap forces mapArray to start over (#1212).
+ */
+export function getLoopNodes(container: HTMLElement, markerId?: string): Node[] {
+  const { startMarker, endMarker } = findLoopMarkers(container, markerId)
+  const nodes: Node[] = []
+  if (startMarker && endMarker) {
+    let node: Node | null = startMarker.nextSibling
+    while (node && node !== endMarker) {
+      nodes.push(node)
+      node = node.nextSibling
+    }
+    return nodes
+  }
+  return Array.from(container.childNodes)
+}
+
+/**
  * Ensure loop boundary markers exist in a container for SSR-rendered content.
  * SSR HTML doesn't include markers, so we insert them during hydration.
  * Uses itemCount to identify the last N children as loop items (rest are siblings).

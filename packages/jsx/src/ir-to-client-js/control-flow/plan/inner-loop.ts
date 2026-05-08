@@ -104,6 +104,12 @@ export interface InnerLoopReactiveEmit {
   preludeStatements: PreludeStatements
   /** Already-wrapped HTML template for one inner-loop item. */
   wrappedTemplate: string
+  /**
+   * True when the inner loop body is a multi-root JSX Fragment — drives
+   * multi-root template clone + per-item marker emission inside the inner
+   * mapArray's renderItem (#1212).
+   */
+  bodyIsMultiRoot: boolean
   /** Pre-wrapped key expression for setAttribute, or null when no key. */
   wrappedKey: string | null
   /** Inner-wrapped components for emitComponentAndEventSetup. */

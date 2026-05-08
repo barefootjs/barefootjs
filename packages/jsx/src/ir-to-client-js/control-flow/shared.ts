@@ -160,9 +160,17 @@ export function buildDepthLevels(
 }
 
 /** Emit a single addEventListener call for a child event on a given element. */
-function emitEventSetup(ls: string[], indent: string, elVar: string, ev: LoopChildEvent, loopParam?: string, loopParamBindings?: readonly LoopParamBinding[]): void {
+function emitEventSetup(
+  ls: string[],
+  indent: string,
+  elVar: string,
+  ev: LoopChildEvent,
+  loopParam?: string,
+  loopParamBindings?: readonly LoopParamBinding[],
+  bodyIsMultiRoot: boolean = false,
+): void {
   const handler = loopParam ? wrapLoopParamAsAccessor(ev.handler, loopParam, loopParamBindings) : ev.handler
-  emitListenerBlock(ls, indent, elVar, ev.childSlotId, '__e', ev.eventName, handler)
+  emitListenerBlock(ls, indent, elVar, ev.childSlotId, '__e', ev.eventName, handler, 'dom', bodyIsMultiRoot)
 }
 
 /** Build the component-finder CSS selector for SSR hydration initChild. */
@@ -208,6 +216,7 @@ export function emitComponentAndEventSetup(
   events: LoopChildEvent[],
   loopParam?: string,
   loopParamBindings?: readonly LoopParamBinding[],
+  bodyIsMultiRoot: boolean = false,
 ): void {
   const wrap = loopParam ? (expr: string) => wrapLoopParamAsAccessor(expr, loopParam, loopParamBindings) : (expr: string) => expr
   for (const comp of comps) {
@@ -235,7 +244,7 @@ export function emitComponentAndEventSetup(
     }
   }
   for (const ev of events) {
-    emitEventSetup(ls, indent, elVar, ev, loopParam, loopParamBindings)
+    emitEventSetup(ls, indent, elVar, ev, loopParam, loopParamBindings, bodyIsMultiRoot)
   }
 }
 

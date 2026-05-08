@@ -12,6 +12,7 @@ export {
   BF_SCOPE_COMMENT_PREFIX,
   BF_LOOP_START,
   BF_LOOP_END,
+  BF_LOOP_ITEM,
   loopStartMarker,
   loopEndMarker,
   BF_KEY,

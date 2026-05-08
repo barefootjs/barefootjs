@@ -187,6 +187,7 @@ function buildReactiveEmit(
     paramHead,
     preludeStatements,
     wrappedTemplate: inner.template!,
+    bodyIsMultiRoot: inner.bodyIsMultiRoot ?? false,
     wrappedKey,
     components,
     events,

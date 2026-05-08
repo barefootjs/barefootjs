@@ -177,6 +177,13 @@ export interface LoopCore {
    * same parent reconcile their own range (#1087).
    */
   markerId: string
+  /**
+   * True when the loop body's top-level shape is a multi-root Fragment
+   * (e.g. `<><path/><path/></>`). Drives per-item `<!--bf-loop-i-->`
+   * marker emission and the multi-root template-clone code path so each
+   * key tracks all of its DOM nodes (#1212).
+   */
+  bodyIsMultiRoot?: boolean
 }
 
 /** Loop info extracted from a conditional branch for reactive reconciliation. */

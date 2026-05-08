@@ -262,3 +262,35 @@ export function emitTemplateCloneLines(template: string, indent: string): string
     `${indent}return __tpl.content.firstElementChild.cloneNode(true)`,
   ]
 }
+
+/**
+ * Multi-root template clone for loop bodies that emit a JSX Fragment with
+ * two or more sibling elements (#1212). Initialises both `varEl` (the
+ * primary, first root) and `varExtras` (an array of cloned sibling roots).
+ * The runtime's `mapArray` reads the extras stash off `varEl.__bfExtras`
+ * to keep all siblings of an item paired with its key.
+ *
+ * Single-root callers must keep using `emitTemplateCloneLines`; this
+ * helper assumes the template literal carries `>= 2` top-level elements.
+ */
+export function emitMultiRootTemplateCloneLines(
+  template: string,
+  indent: string,
+  varEl: string,
+  varExtras: string,
+): string[] {
+  const isSvg = templateRootIsSvg(template)
+  // Wrap in `<svg>` so the parser walks into SVG foreign content; we then
+  // descend one level to pick up the per-item roots.
+  const innerHtmlExpr = isSvg ? `\`<svg>${template}</svg>\`` : `\`${template}\``
+  // `parent` is the element whose direct children are the per-item roots
+  // (the `<svg>` wrap for SVG, the template's content for HTML).
+  const parentExpr = isSvg ? `__tpl.content.firstElementChild` : `__tpl.content`
+  return [
+    `${indent}const __tpl = document.createElement('template')`,
+    `${indent}__tpl.innerHTML = ${innerHtmlExpr}`,
+    `${indent}${varEl} = ${parentExpr}.firstElementChild.cloneNode(true)`,
+    `${indent}${varExtras} = []`,
+    `${indent}{ let __sib = ${parentExpr}.firstElementChild.nextElementSibling; while (__sib) { ${varExtras}.push(__sib.cloneNode(true)); __sib = __sib.nextElementSibling } }`,
+  ]
+}

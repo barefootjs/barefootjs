@@ -429,6 +429,15 @@ export interface IRLoop {
   clientOnly?: boolean
 
   /**
+   * True when the loop body's top-level shape is a JSX Fragment carrying
+   * two or more sibling elements (or any non-fragment children whose count
+   * exceeds one). Drives per-item marker emission and multi-root template
+   * cloning in the client JS / SSR (#1212). Single-root bodies set this to
+   * false (the common case) and keep their existing emission verbatim.
+   */
+  bodyIsMultiRoot?: boolean
+
+  /**
    * Raw JS of pre-return statements in block body .map() callback.
    * Example: `items.map(item => { const label = item.name.toUpperCase(); return <li>{label}</li> })`
    * stores "const label = item.name.toUpperCase();" as mapPreamble.

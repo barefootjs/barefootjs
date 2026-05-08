@@ -647,7 +647,17 @@ export class HonoAdapter extends JsxAdapter {
     // used directly as an arrow body — `(x) => {…}` is parsed as a block
     // statement and the function returns undefined. Wrap with a fragment so
     // the body is unambiguously a JSX expression.
-    const safeChildren = children.startsWith('{') ? `<>${children}</>` : children
+    let safeChildren = children.startsWith('{') ? `<>${children}</>` : children
+    // Multi-root Fragment items (#1212): prepend a per-item start marker so
+    // mapArray can pair each key with all of its DOM nodes. Wrap the body
+    // in a Fragment so the prefix and the existing children share an arrow
+    // expression body.
+    if (loop.bodyIsMultiRoot) {
+      // Per-item start marker: BF_LOOP_ITEM ('bf-loop-i'). Hardcoded
+      // literal here to match the adapter's existing convention of
+      // emitting comment-marker strings directly.
+      safeChildren = `<>{bfComment('bf-loop-i')}${children}</>`
+    }
     if (preamble) {
       mapExpr = `{${loop.array}.map((${loop.param}${paramAnnotation}${indexParam}) => { ${preamble} return ${safeChildren} })}`
     } else {

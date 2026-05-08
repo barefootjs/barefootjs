@@ -26,6 +26,7 @@ import { fixture as filterSortChain } from './filter-sort-chain'
 import { fixture as mapNested } from './map-nested'
 import { fixture as mapDynamicClass } from './map-dynamic-class'
 import { fixture as siblingMaps } from './sibling-maps'
+import { fixture as fragmentLoopChildren } from './fragment-loop-children'
 // Priority 5: Elements and attributes
 import { fixture as voidElements } from './void-elements'
 import { fixture as dynamicAttributes } from './dynamic-attributes'
@@ -90,6 +91,7 @@ export const jsxFixtures: JSXFixture[] = [
   mapNested,
   mapDynamicClass,
   siblingMaps,
+  fragmentLoopChildren,
   // Priority 5: Elements and attributes
   voidElements,
   dynamicAttributes,

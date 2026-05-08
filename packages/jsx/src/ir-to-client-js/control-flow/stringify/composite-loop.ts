@@ -33,7 +33,7 @@
 import { emitComponentAndEventSetup } from '../shared'
 import { stringifyInnerLoops } from './inner-loop'
 import { stringifyReactiveEffects } from './reactive-effects'
-import { emitTemplateCloneLines } from './template-parse'
+import { emitTemplateCloneLines, emitMultiRootTemplateCloneLines } from './template-parse'
 import type { CompositeLoopPlan } from '../plan/types'
 
 export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan): void {
@@ -56,6 +56,7 @@ export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan)
     branchClearChildren,
     topIndent,
     bodyIndent: rawBodyIndent,
+    bodyIsMultiRoot,
   } = plan
 
   // When wrapping the mapArray in createDisposableEffect (branch case), the
@@ -67,7 +68,10 @@ export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan)
   if (branchClearChildren) {
     // Clear template-generated children so mapArray creates fresh elements
     // with properly initialized components via createComponent in renderItem.
-    lines.push(`${topIndent}if (${containerVar}) getLoopChildren(${containerVar}, '${markerId}').forEach(__el => __el.remove())`)
+    // Multi-root items also have per-item `<!--bf-loop-i-->` Comments to
+    // remove, so use `getLoopNodes` (Elements + Comments) for that case.
+    const clearFn = bodyIsMultiRoot ? 'getLoopNodes' : 'getLoopChildren'
+    lines.push(`${topIndent}if (${containerVar}) ${clearFn}(${containerVar}, '${markerId}').forEach(__el => __el.remove())`)
     // Wrap the mapArray call in createDisposableEffect so the inner
     // createEffects (mapArray's own + per-item child effects) are released
     // when the surrounding branch swaps away (observation O-2). The branch
@@ -92,16 +96,29 @@ export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan)
   // the template — both shapes accept the same mode-independent setup
   // (upsertChild resolves SSR vs CSR per-component at runtime, inner-loop
   // mapArrays are mode-independent by definition).
-  lines.push(`${bodyIndent}const __el = __existing ?? (() => {`)
-  for (const ln of emitTemplateCloneLines(template, innerIndent)) lines.push(ln)
-  lines.push(`${bodyIndent}})()`)
-  emitComponentAndEventSetup(lines, bodyIndent, '__el', compsArr, eventsArr, loopParam, loopParamBindings)
+  if (bodyIsMultiRoot) {
+    // Multi-root Fragment item: clone the primary root + collect each
+    // sibling root into `__extras`, then stash on `__el.__bfExtras` so
+    // mapArray pairs all of them with the item's key (#1212).
+    lines.push(`${bodyIndent}let __el, __extras`)
+    lines.push(`${bodyIndent}if (__existing) {`)
+    lines.push(`${innerIndent}__el = __existing`)
+    lines.push(`${bodyIndent}} else {`)
+    for (const ln of emitMultiRootTemplateCloneLines(template, innerIndent, '__el', '__extras')) lines.push(ln)
+    lines.push(`${innerIndent}__el.__bfExtras = __extras`)
+    lines.push(`${bodyIndent}}`)
+  } else {
+    lines.push(`${bodyIndent}const __el = __existing ?? (() => {`)
+    for (const ln of emitTemplateCloneLines(template, innerIndent)) lines.push(ln)
+    lines.push(`${bodyIndent}})()`)
+  }
+  emitComponentAndEventSetup(lines, bodyIndent, '__el', compsArr, eventsArr, loopParam, loopParamBindings, bodyIsMultiRoot)
   if (innerLoops.length > 0) {
     stringifyInnerLoops(lines, innerLoops, bodyIndent)
   }
 
   if (reactiveEffects) {
-    stringifyReactiveEffects(lines, reactiveEffects, { indent: bodyIndent, elVar: '__el' })
+    stringifyReactiveEffects(lines, reactiveEffects, { indent: bodyIndent, elVar: '__el', bodyIsMultiRoot })
   }
 
   lines.push(`${bodyIndent}return __el`)

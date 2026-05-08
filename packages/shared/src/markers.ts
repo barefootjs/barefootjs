@@ -62,6 +62,17 @@ export const BF_LOOP_START = 'bf-loop'
 /** Loop boundary end prefix: comments are `<!--bf-/loop:<markerId>-->`. */
 export const BF_LOOP_END = 'bf-/loop'
 
+/**
+ * Per-item start marker inside a loop range: `<!--bf-loop-i-->`.
+ *
+ * Emitted by the compiler only when the loop body is multi-root (a JSX
+ * Fragment with two or more top-level elements). Each item's range runs
+ * from this marker until the next `<!--bf-loop-i-->` or the loop end
+ * marker. mapArray uses these to pair an item's key with all of its DOM
+ * nodes (#1212).
+ */
+export const BF_LOOP_ITEM = 'bf-loop-i'
+
 /** Build the start-marker comment value for a loop. */
 export function loopStartMarker(markerId: string): string {
   return `${BF_LOOP_START}:${markerId}`

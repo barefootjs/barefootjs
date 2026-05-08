@@ -13,7 +13,7 @@
 import { stringifyCompositeLoop } from './composite-loop'
 import { stringifyEventDelegation } from './event-delegation'
 import { stringifyReactiveEffects } from './reactive-effects'
-import { emitTemplateCloneInline } from './template-parse'
+import { emitTemplateCloneInline, emitMultiRootTemplateCloneLines } from './template-parse'
 import type {
   BranchLoopPlan,
   BranchPlainLoopPlan,
@@ -54,6 +54,7 @@ function emitPlain(lines: string[], plan: BranchPlainLoopPlan): void {
     template,
     reactiveEffects,
     eventDelegation,
+    bodyIsMultiRoot,
   } = plan
 
   const unwrapInline = paramUnwrap ? `${paramUnwrap} ` : ''
@@ -64,8 +65,8 @@ function emitPlain(lines: string[], plan: BranchPlainLoopPlan): void {
   // both the effect and its dependency subscriptions (observation O-2).
   lines.push(`      __disposers.push(createDisposableEffect(() => {`)
 
-  if (reactiveEffects === null) {
-    // Simple case: single-line renderItem.
+  if (reactiveEffects === null && !bodyIsMultiRoot) {
+    // Simple case: single-line renderItem (single root, no reactive effects).
     const cloneExpr = emitTemplateCloneInline(template)
     if (mapPreambleWrapped) {
       lines.push(`        if (${containerVar}) mapArray(() => ${arrayExpr}, ${containerVar}, ${keyFn}, (${paramHead}, ${indexParam}, __existing) => { ${unwrapInline}if (__existing) return __existing; ${mapPreambleWrapped}; ${cloneExpr} }, '${markerId}')`)
@@ -73,7 +74,7 @@ function emitPlain(lines: string[], plan: BranchPlainLoopPlan): void {
       lines.push(`        if (${containerVar}) mapArray(() => ${arrayExpr}, ${containerVar}, ${keyFn}, (${paramHead}, ${indexParam}, __existing) => { ${unwrapInline}if (__existing) return __existing; ${cloneExpr} }, '${markerId}')`)
     }
   } else {
-    // Multi-line renderItem with fine-grained effects.
+    // Multi-line renderItem (reactive effects and/or multi-root).
     lines.push(`        if (${containerVar}) mapArray(() => ${arrayExpr}, ${containerVar}, ${keyFn}, (${paramHead}, ${indexParam}, __existing) => {`)
     if (paramUnwrap) {
       lines.push(`          ${paramUnwrap}`)
@@ -81,9 +82,21 @@ function emitPlain(lines: string[], plan: BranchPlainLoopPlan): void {
     if (mapPreambleWrapped) {
       lines.push(`          ${mapPreambleWrapped}`)
     }
-    const cloneExpr = emitTemplateCloneInline(template)
-    lines.push(`          const __el = __existing ?? (() => { ${cloneExpr} })()`)
-    stringifyReactiveEffects(lines, reactiveEffects, { indent: '          ', elVar: '__el' })
+    if (bodyIsMultiRoot) {
+      lines.push(`          let __el, __extras`)
+      lines.push(`          if (__existing) {`)
+      lines.push(`            __el = __existing`)
+      lines.push(`          } else {`)
+      for (const ln of emitMultiRootTemplateCloneLines(template, '            ', '__el', '__extras')) lines.push(ln)
+      lines.push(`            __el.__bfExtras = __extras`)
+      lines.push(`          }`)
+    } else {
+      const cloneExpr = emitTemplateCloneInline(template)
+      lines.push(`          const __el = __existing ?? (() => { ${cloneExpr} })()`)
+    }
+    if (reactiveEffects !== null) {
+      stringifyReactiveEffects(lines, reactiveEffects, { indent: '          ', elVar: '__el', bodyIsMultiRoot })
+    }
     lines.push(`          return __el`)
     lines.push(`        }, '${markerId}')`)
   }

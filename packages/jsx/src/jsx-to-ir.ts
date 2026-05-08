@@ -1948,6 +1948,24 @@ function checkLoopKey(
   if (ts.isJsxSelfClosingElement(body)) { checkOpening(body); return }
 }
 
+/**
+ * True when a loop body's top-level shape resolves to two or more sibling
+ * elements — either directly or through a top-level Fragment that flattens
+ * to multiple roots. mapArray's per-key DOM tracking assumes one root per
+ * item; multi-root bodies (e.g. `<><path/><path/></>`) need per-item
+ * boundary markers and multi-root template cloning (#1212).
+ */
+function loopBodyIsMultiRoot(children: IRNode[]): boolean {
+  const real = children.filter(
+    (c) => !(c.type === 'text' && typeof c.value === 'string' && !c.value.trim())
+  )
+  if (real.length === 0) return false
+  if (real.length > 1) return true
+  const only = real[0]
+  if (only.type !== 'fragment') return false
+  return loopBodyIsMultiRoot(only.children)
+}
+
 function transformMapCall(
   node: ts.CallExpression,
   ctx: TransformContext,
@@ -2279,6 +2297,8 @@ function transformMapCall(
     }
   }
 
+  const bodyIsMultiRoot = loopBodyIsMultiRoot(children)
+
   // Determine if array is static (prop) or dynamic (signal/memo).
   // Static arrays don't need reconcileList — SSR elements are hydrated
   // directly. Signal / memo arrays need reconcileList for dynamic DOM
@@ -2333,6 +2353,7 @@ function transformMapCall(
     isStaticArray,
     callsReactiveGetters: callsReactive || undefined,
     hasFunctionCalls: hasCalls || undefined,
+    bodyIsMultiRoot: bodyIsMultiRoot || undefined,
     childComponent,
     nestedComponents,
     filterPredicate,

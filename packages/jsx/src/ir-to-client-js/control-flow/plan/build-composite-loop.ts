@@ -65,6 +65,7 @@ export function buildTopLevelCompositePlan(elem: TopLevelLoop): CompositeLoopPla
     branchClearChildren: false,
     topIndent: '  ',
     bodyIndent: '    ',
+    bodyIsMultiRoot: elem.bodyIsMultiRoot ?? false,
   }
 }
 
@@ -113,6 +114,7 @@ export function buildBranchCompositePlan(loop: BranchLoop, cv: string): Composit
     branchClearChildren: true,
     topIndent: '      ',
     bodyIndent: '        ',
+    bodyIsMultiRoot: loop.bodyIsMultiRoot ?? false,
   }
 }
 
