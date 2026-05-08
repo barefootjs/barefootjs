@@ -6,6 +6,7 @@
  */
 
 import { XyflowNodesDemo } from '@/components/xyflow-intro-demo'
+import { XyflowCustomBodyDemo, XyflowCustomHandlesDemo } from '@/components/xyflow-demo'
 import {
   PageHeader,
   Section,
@@ -172,7 +173,9 @@ export function XyflowNodesPage() {
             </p>
           </div>
 
-          <CodeBlock code={customNodeCode} />
+          <Example title="Source / Pipeline / Sink" code={customNodeCode}>
+            <XyflowCustomBodyDemo />
+          </Example>
         </Section>
 
         <Section id="custom-handles" title="Custom Handles">
@@ -188,7 +191,9 @@ export function XyflowNodesPage() {
             </p>
           </div>
 
-          <CodeBlock code={customHandlesCode} />
+          <Example title="Three-way fan-out" code={customHandlesCode}>
+            <XyflowCustomHandlesDemo />
+          </Example>
         </Section>
       </div>
       <TableOfContents items={tocItems} />

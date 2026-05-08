@@ -22,6 +22,125 @@ import {
   Flow,
   MiniMap,
 } from '@/components/ui/xyflow'
+import { Position } from '@barefootjs/xyflow'
+
+// Static-handle markup helper: produces the same DOM signature as the
+// JSX `<Handle>` (class names + data-* attributes) so static node
+// previews still register handle bounds for the connection layer.
+function handleHTML(opts: {
+  type: 'source' | 'target'
+  position: Position
+  nodeId: string
+  id?: string
+}): string {
+  const modifier = opts.type === 'source' ? 'bf-flow__handle--source' : 'bf-flow__handle--target'
+  const idAttr = opts.id ? ` data-handleid="${opts.id}"` : ''
+  return (
+    `<div class="bf-flow__handle ${modifier} ${opts.type}"` +
+    ` data-handle-type="${opts.type}"` +
+    ` data-handlepos="${opts.position}"` +
+    ` data-handle-position="${opts.position}"` +
+    ` data-node-id="${opts.nodeId}"${idAttr}></div>`
+  )
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// Custom-body / custom-handle previews.
+//
+// These demos return an HTML *string* from `renderNode`. The barefoot
+// compiler does not transform JSX nested inside arrow-function
+// callbacks, so the conventional `renderNode={(n) => <div/>}` shape
+// emits raw JSX into the client bundle and parsing fails, taking down
+// every other demo in the same bundle. A function-call shape
+// (`(n) => MyNode(n)`) compiles cleanly but the generated
+// `insert(...)` branch template embeds the result into a template
+// literal — a live HTMLElement stringifies to
+// `[object HTMLDivElement]` and breaks hydration. A string slots in
+// safely on both sides; the trade-off is that the node body loses
+// signal-driven reactivity, which is fine for static docs previews.
+const customBodyNodes = [
+  { id: 'src', position: { x:  80, y: 100 }, data: { label: 'Source' } },
+  { id: 'mid', position: { x: 320, y:  80 }, data: { label: 'Pipeline' } },
+  { id: 'dst', position: { x: 560, y: 120 }, data: { label: 'Sink' } },
+]
+const customBodyEdges = [
+  { id: 'src-mid', source: 'src', target: 'mid' },
+  { id: 'mid-dst', source: 'mid', target: 'dst' },
+]
+
+function pillBodyHTML(n: { id: string; data: { label?: string } }): string {
+  return (
+    `<div class="rounded-md border bg-card px-3 py-2 text-sm shadow-sm">` +
+    handleHTML({ type: 'target', position: Position.Left, nodeId: n.id }) +
+    escapeHtml(n.data.label ?? n.id) +
+    handleHTML({ type: 'source', position: Position.Right, nodeId: n.id }) +
+    `</div>`
+  )
+}
+
+export function XyflowCustomBodyDemo() {
+  return (
+    <div className="w-full h-[280px] rounded-lg border bg-background overflow-hidden">
+      <Flow
+        nodes={customBodyNodes}
+        edges={customBodyEdges}
+        // biome-ignore lint/suspicious/noExplicitAny: returning a string (not Child) so the SSR + hydrate template-literal embedding stays clean.
+        renderNode={((n: { id: string; data: { label?: string } }) => pillBodyHTML(n)) as any}
+      >
+        <Background variant="dots" gap={30} />
+      </Flow>
+    </div>
+  )
+}
+
+const fanNodes = [
+  { id: 'fan', position: { x:  80, y: 120 }, data: { label: 'Router' } },
+  { id: 'a',   position: { x: 360, y:  30 }, data: { label: 'A' } },
+  { id: 'b',   position: { x: 360, y: 140 }, data: { label: 'B' } },
+  { id: 'c',   position: { x: 360, y: 240 }, data: { label: 'C' } },
+]
+const fanEdges = [
+  { id: 'fan-a', source: 'fan', sourceHandle: 'top',    target: 'a' },
+  { id: 'fan-b', source: 'fan', sourceHandle: 'right',  target: 'b' },
+  { id: 'fan-c', source: 'fan', sourceHandle: 'bottom', target: 'c' },
+]
+
+function fanBodyHTML(n: { id: string; data: { label?: string } }): string {
+  if (n.id === 'fan') {
+    return (
+      `<div class="rounded-md border bg-card px-3 py-2 text-sm font-medium shadow-sm">` +
+      handleHTML({ type: 'source', position: Position.Top,    nodeId: n.id, id: 'top' }) +
+      handleHTML({ type: 'source', position: Position.Right,  nodeId: n.id, id: 'right' }) +
+      handleHTML({ type: 'source', position: Position.Bottom, nodeId: n.id, id: 'bottom' }) +
+      escapeHtml(n.data.label ?? n.id) +
+      `</div>`
+    )
+  }
+  return (
+    `<div class="rounded-md border bg-card px-3 py-2 text-sm shadow-sm">` +
+    handleHTML({ type: 'target', position: Position.Left, nodeId: n.id }) +
+    escapeHtml(n.data.label ?? n.id) +
+    `</div>`
+  )
+}
+
+export function XyflowCustomHandlesDemo() {
+  return (
+    <div className="w-full h-[320px] rounded-lg border bg-background overflow-hidden">
+      <Flow
+        nodes={fanNodes}
+        edges={fanEdges}
+        // biome-ignore lint/suspicious/noExplicitAny: see XyflowCustomBodyDemo above for the rationale.
+        renderNode={((n: { id: string; data: { label?: string } }) => fanBodyHTML(n)) as any}
+      >
+        <Background variant="dots" gap={30} />
+      </Flow>
+    </div>
+  )
+}
 
 const initialNodes = [
   { id: '1', position: { x: 100, y: 100 }, data: { label: 'Input' } },

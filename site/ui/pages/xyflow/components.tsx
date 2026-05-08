@@ -8,6 +8,7 @@
 import {
   XyflowBackgroundVariantsDemo,
   XyflowPreviewDemo,
+  XyflowCustomBodyDemo,
 } from '@/components/xyflow-demo'
 import {
   PageHeader,
@@ -312,6 +313,8 @@ export function XyflowComponentsPage() {
               side so edges can target a specific connection point.
             </p>
           </div>
+
+          <XyflowCustomBodyDemo />
 
           <PropsTable props={handleProps} />
         </Section>
