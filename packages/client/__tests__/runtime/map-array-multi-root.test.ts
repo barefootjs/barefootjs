@@ -9,6 +9,8 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 import { createSignal, createRoot } from '../../src/reactive'
 import { mapArray } from '../../src/runtime/map-array'
+import { qsaItem, upsertChildItem } from '../../src/runtime/qsa-item'
+import { registerComponent } from '../../src/runtime/registry'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
 beforeAll(() => {
@@ -134,6 +136,64 @@ describe('mapArray multi-root (#1212)', () => {
     expect(paths[3].getAttribute('data-id')).toBe('b')
     expect(paths[4].getAttribute('data-hit-id')).toBe('a')
     expect(paths[5].getAttribute('data-id')).toBe('a')
+  })
+
+  test('qsaItem stops at the loop end marker for the last item', () => {
+    // The last item has no following bf-loop-i marker, but it does have
+    // a bf-/loop:* end marker. qsaItem must not walk past that into a
+    // following sibling — otherwise it would silently bind to elements
+    // outside the loop range.
+    const container = makeContainer(
+      `<!--bf-loop:l0--><!--bf-loop-i--><path data-hit-id="a"></path><path data-id="a"></path><!--bf-/loop:l0--><div bf="trap"></div>`,
+    )
+    const primary = container.querySelector('[data-hit-id="a"]')!
+    // 'trap' lives outside the loop end marker — must not be reachable.
+    const found = qsaItem(primary, '[bf="trap"]')
+    expect(found).toBeNull()
+  })
+
+  test('qsaItem stops at the next item start marker', () => {
+    const container = makeContainer(
+      `<!--bf-loop:l0--><!--bf-loop-i--><path data-hit-id="a"></path><!--bf-loop-i--><path data-hit-id="b" bf="b-slot"></path><!--bf-/loop:l0-->`,
+    )
+    const primaryA = container.querySelector('[data-hit-id="a"]')!
+    // 'b-slot' lives in the next item — must not be reachable from item 'a'.
+    const found = qsaItem(primaryA, '[bf="b-slot"]')
+    expect(found).toBeNull()
+  })
+
+  test('qsaItem reaches __bfExtras during CSR-time setup (extras still detached)', () => {
+    // Simulates the renderItem body before mapArray inserts the new
+    // item into the DOM. __el and an extra are both detached; the extra
+    // is reachable only via __el.__bfExtras.
+    const primary = document.createElement('path')
+    primary.setAttribute('data-hit-id', 'a')
+    const extra = document.createElement('path')
+    extra.setAttribute('data-id', 'a')
+    extra.setAttribute('bf', 'visible')
+    ;(primary as unknown as { __bfExtras: HTMLElement[] }).__bfExtras = [extra]
+
+    const found = qsaItem(primary, '[bf="visible"]')
+    expect(found).toBe(extra)
+  })
+
+  test('upsertChildItem finds component scope on a sibling root', () => {
+    // Simulates a multi-root loop body where the second root carries a
+    // child component scope. upsertChild(primary, ...) misses it;
+    // upsertChildItem walks the extras stash and finds it.
+    let initCalls = 0
+    registerComponent('SibChild', () => {
+      initCalls++
+    })
+
+    const primary = document.createElement('div')
+    const extra = document.createElement('div')
+    extra.setAttribute('bf-s', '~SibChild_abc')
+    ;(primary as unknown as { __bfExtras: HTMLElement[] }).__bfExtras = [extra]
+
+    const result = upsertChildItem(primary, 'SibChild', null, {})
+    expect(result).toBe(extra)
+    expect(initCalls).toBe(1)
   })
 
   test('legacy single-root SSR (no bf-loop-i markers) still hydrates correctly', () => {

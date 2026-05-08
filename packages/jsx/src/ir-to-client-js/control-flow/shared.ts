@@ -219,6 +219,10 @@ export function emitComponentAndEventSetup(
   bodyIsMultiRoot: boolean = false,
 ): void {
   const wrap = loopParam ? (expr: string) => wrapLoopParamAsAccessor(expr, loopParam, loopParamBindings) : (expr: string) => expr
+  // Multi-root loop bodies (#1212) must search the item's sibling roots
+  // and the pre-insertion `__bfExtras` stash; `upsertChildItem` wraps the
+  // single-root `upsertChild` semantics in that walk.
+  const upsertFn = bodyIsMultiRoot ? 'upsertChildItem' : 'upsertChild'
   for (const comp of comps) {
     const propsExpr = buildComponentPropsExpr(comp, loopParam, loopParamBindings)
     // Check if children are text-equivalent and reference the loop param — if so,
@@ -234,7 +238,7 @@ export function emitComponentAndEventSetup(
     const slotIdLit = comp.slotId ? `'${comp.slotId}'` : 'null'
     const keyProp = comp.props.find(p => p.name === 'key')
     const keyArg = keyProp ? `, ${wrap(keyProp.value)}` : ''
-    const upsertCall = `upsertChild(${elVar}, '${nameForRegistryRef(comp.name)}', ${slotIdLit}, ${propsExpr}${keyArg})`
+    const upsertCall = `${upsertFn}(${elVar}, '${nameForRegistryRef(comp.name)}', ${slotIdLit}, ${propsExpr}${keyArg})`
 
     if (childrenRefsLoop) {
       const wrappedChildren = wrap(rawChildrenExpr!)
