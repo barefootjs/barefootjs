@@ -31,6 +31,7 @@ import {
   createEffect,
   createMemo,
   createSignal,
+  onCleanup,
   untrack,
   useContext,
 } from '@barefootjs/client'
@@ -56,6 +57,7 @@ import {
   BF_FLOW_MINIMAP_MASK,
   BF_FLOW_NODE,
   BF_FLOW_NODE_CHILD,
+  BF_FLOW_NODE_CUSTOM,
   BF_FLOW_NODE_GROUP,
   BF_FLOW_NODE_SELECTED,
   BF_FLOW_NODES,
@@ -136,8 +138,12 @@ export function SimpleEdge(props: SimpleEdgeProps) {
     )
   }
 
+  // Wrap both paths in a <g> so the edge is a single SVG element. Flow's
+  // edge loop relies on mapArray, which assumes one DOM element per key —
+  // returning a Fragment of two <path>s shifts hit-area / visible pairing
+  // by one on every subsequent edge after the first hydration pass.
   return (
-    <>
+    <g data-edge-id={props.edgeId}>
       {/* Invisible wide hit area — pointer-events on stroke only so the
           path receives clicks but underlying SVG remains transparent. */}
       <path
@@ -156,7 +162,7 @@ export function SimpleEdge(props: SimpleEdgeProps) {
         fill="none"
         d={pathD()}
       />
-    </>
+    </g>
   )
 }
 
@@ -174,6 +180,13 @@ export interface NodeWrapperProps {
    * passes the imperative drag/measure/handle-bounds machinery here.
    */
   ref?: (element: HTMLElement) => void
+  /**
+   * When true, append the `bf-flow__node--custom` modifier so the
+   * default card styling (padding / border / background) is stripped
+   * — the children render as the entire node visual. Set automatically
+   * by Flow when `renderNode` / `nodeTypes` is provided.
+   */
+  custom?: boolean
 }
 
 export function NodeWrapper(props: NodeWrapperProps) {
@@ -201,11 +214,12 @@ export function NodeWrapper(props: NodeWrapperProps) {
   const className = createMemo(() => {
     const n = node()
     const base = `${BF_FLOW_NODE} nopan`
-    if (!store || !n) return base
+    if (!store || !n) return props.custom ? `${base} ${BF_FLOW_NODE_CUSTOM}` : base
     const isParent = store.parentLookup().has(props.nodeId)
     const isChild = !!n.internals.userNode.parentId
     const selected = !!n.selected
     let cls = base
+    if (props.custom) cls += ` ${BF_FLOW_NODE_CUSTOM}`
     if (isParent) cls += ` ${BF_FLOW_NODE_GROUP}`
     if (isChild) cls += ` ${BF_FLOW_NODE_CHILD}`
     if (selected) cls += ` ${BF_FLOW_NODE_SELECTED}`
@@ -217,9 +231,46 @@ export function NodeWrapper(props: NodeWrapperProps) {
       `position: absolute; transform-origin: 0 0; pointer-events: all; transform: ${transform()}; z-index: ${zIndex()};`,
   )
 
+  // Per-node measurement. Without it, `internal.measured.width/height`
+  // stay empty and `computeEdgePosition`'s fallback (sourceNode.measured.
+  // width ?? 150) makes edges land on a 150×40 phantom — visibly off
+  // when the real node is, say, 87×46. Observe the rendered element and
+  // push offsetWidth/offsetHeight onto both the live internal node and
+  // the userNode so `nodesInitialized`'s measure-preservation path
+  // survives drag-induced setNodes calls.
+  function attachNodeMeasure(el: HTMLElement) {
+    if (!store) {
+      props.ref?.(el)
+      return
+    }
+    const measure = () => {
+      const w = el.offsetWidth
+      const h = el.offsetHeight
+      if (!w || !h) return
+      const internal = store.nodeLookup().get(props.nodeId)
+      if (!internal) return
+      const prev = internal.measured ?? { width: 0, height: 0 }
+      if (prev.width === w && prev.height === h) return
+      internal.measured = { width: w, height: h }
+      const userNode = internal.internals?.userNode as
+        | (NodeBase & { measured?: { width: number; height: number } })
+        | undefined
+      if (userNode) userNode.measured = { width: w, height: h }
+      // Bump the position epoch so the global edge-recompute effect
+      // in `attachFlowSubsystems` walks the SVG and pushes the new
+      // `d` strings on every connected edge.
+      store.triggerPositionUpdate()
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    onCleanup(() => ro.disconnect())
+    props.ref?.(el)
+  }
+
   return (
     <div
-      ref={props.ref}
+      ref={attachNodeMeasure}
       className={className()}
       style={style()}
       data-id={props.nodeId}
@@ -333,7 +384,11 @@ export function Background(props: BackgroundProps) {
   const variant = createMemo(() => props.variant ?? 'dots')
   const gap = createMemo(() => props.gap ?? 20)
   const size = createMemo(() => props.size ?? 1)
-  const color = createMemo(() => props.color ?? '#ddd')
+  // Theme-aware default. `var(--border)` resolves to a near-white grey
+  // in light mode and to a 10%-alpha white in dark mode, so the pattern
+  // reads as a subtle texture rather than the high-contrast pop dots
+  // the literal `#ddd` produced against a dark canvas.
+  const color = createMemo(() => props.color ?? 'var(--border, #ddd)')
   const lineWidth = createMemo(() => props.lineWidth ?? 1)
   const offset = createMemo(() => props.offset ?? 0)
 
@@ -449,7 +504,7 @@ const PATH_LOCK = 'M21.333 10.667H19.81V7.619C19.81 3.429 16.38 0 12.19 0 8 0 4.
 const PATH_UNLOCK = 'M21.333 10.667H19.81V7.619C19.81 3.429 16.38 0 12.19 0c-4.114 1.828-1.37 2.133.305 2.438 1.676.305 4.42 2.59 4.42 5.181v3.048H3.047A3.056 3.056 0 000 13.714v15.238A3.056 3.056 0 003.048 32h18.285a3.056 3.056 0 003.048-3.048V13.714a3.056 3.056 0 00-3.048-3.047zM12.19 24.533a3.056 3.056 0 01-3.047-3.047 3.056 3.056 0 013.047-3.048 3.056 3.056 0 013.048 3.048 3.056 3.056 0 01-3.048 3.047z'
 
 const BUTTON_STYLE =
-  'display: flex; justify-content: center; align-items: center; height: 26px; width: 26px; padding: 4px; border: none; border-bottom: 1px solid #eee; background: #fefefe; cursor: pointer; user-select: none; color: inherit;'
+  'display: flex; justify-content: center; align-items: center; height: 26px; width: 26px; padding: 4px; border: none; border-bottom: 1px solid var(--border, #eee); background: var(--card, #fefefe); cursor: pointer; user-select: none; color: var(--card-foreground, inherit);'
 const ICON_WRAPPER_STYLE = 'display: flex; align-items: center; justify-content: center;'
 const ICON_SVG_STYLE = 'width: 100%; max-width: 12px; max-height: 12px; fill: currentColor;'
 
@@ -620,7 +675,7 @@ export function MiniMap(props: MiniMapComponentProps) {
 
   const containerStyle = createMemo(
     () =>
-      `position: absolute; z-index: 5; overflow: hidden; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); background-color: #fff; ${miniMapPositionStyle(position())}`,
+      `position: absolute; z-index: 5; overflow: hidden; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); background-color: var(--card, #fff); ${miniMapPositionStyle(position())}`,
   )
 
   // Geometry memo. Re-runs when nodeLookup, viewport, dimensions, or
@@ -787,12 +842,28 @@ export interface FlowComponentProps<
 }
 
 /**
- * Dev-only one-shot warning for the case where neither `renderNode` nor
- * `nodeTypes` is provided. The default fallback (`String(label ?? id)`) is
- * useful for trivial demos but silently swallows configuration mistakes
- * on real graphs — emit once so the misconfiguration shows up in console.
+ * Default node body used when neither `renderNode` nor `nodeTypes` is
+ * provided. The `<NodeWrapper>` itself carries the `.bf-flow__node`
+ * class whose default CSS (in `@barefootjs/xyflow`'s injected
+ * stylesheet) already paints the card surface, so this component just
+ * adds the label content and the source/target handles. Without these
+ * handles, `@xyflow/system`'s strict edge resolution can't lock onto
+ * connection points and `computeEdgePosition` falls back to a
+ * Bottom→Top center line — fine vertically, but it produces curling
+ * beziers on the typical left-to-right flow.
+ *
+ * Consumers can still opt out with `renderNode` / `nodeTypes` for full
+ * customization (those paths take precedence in <Flow>'s renderer).
  */
-let __renderConfigWarned = false
+function DefaultNodeBody(props: { nodeId: string; label: string }) {
+  return (
+    <>
+      <Handle type="target" position={Position.Top} nodeId={props.nodeId} />
+      {props.label}
+      <Handle type="source" position={Position.Bottom} nodeId={props.nodeId} />
+    </>
+  )
+}
 
 /**
  * Per-node bridge for the `nodeTypes` map dispatch path.
@@ -948,15 +1019,11 @@ export function Flow<
 
   // The dispatch JSX has to live at the top-level of Flow's JSX return
   // (the barefoot compiler doesn't transform JSX nested inside helper
-  // arrow functions), so we resolve to a flag here and key off it below.
-  // Bridge-vs-renderNode branching reads `props.renderNode` /
-  // `props.nodeTypes` per node, which is what we want.
-  if (!props.renderNode && !props.nodeTypes && !__renderConfigWarned) {
-    __renderConfigWarned = true
-    console.warn(
-      '[bf/xyflow] <Flow> received neither `renderNode` nor `nodeTypes`; nodes will fall back to `String(data.label ?? id)`. Pass one of the two to render real node bodies.',
-    )
-  }
+  // arrow functions). Bridge-vs-renderNode branching reads
+  // `props.renderNode` / `props.nodeTypes` per node, which is what we
+  // want. When neither is provided we mount `<DefaultNodeBody>`, which
+  // gives nodes a styled card with left/right handles so edges can
+  // resolve through `@xyflow/system`'s strict path.
 
   // Pan/zoom transform memo. Re-runs only when viewport changes.
   const viewportTransform = createMemo(() => {
@@ -988,7 +1055,7 @@ export function Flow<
       >
         <div
           className={`${BF_FLOW_VIEWPORT} ${XYFLOW_VIEWPORT}`}
-          style={`position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: 0 0; transform: ${viewportTransform()};`}
+          style={`position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: 0 0; z-index: 1; transform: ${viewportTransform()};`}
         >
           <svg
             className={BF_FLOW_EDGES}
@@ -1000,7 +1067,7 @@ export function Flow<
           </svg>
           <div className={BF_FLOW_NODES} style="position: absolute; top: 0; left: 0;">
             {visibleNodes().map((node: NodeType) => (
-              <NodeWrapper key={node.id} nodeId={node.id}>
+              <NodeWrapper key={node.id} nodeId={node.id} custom={!!(props.renderNode || props.nodeTypes)}>
                 {props.renderNode ? (
                   props.renderNode(node)
                 ) : props.nodeTypes ? (
@@ -1009,7 +1076,10 @@ export function Flow<
                     nodeTypes={props.nodeTypes as Record<string, (this: HTMLElement, props: unknown) => void>}
                   />
                 ) : (
-                  String((node.data as { label?: unknown })?.label ?? node.id)
+                  <DefaultNodeBody
+                    nodeId={node.id}
+                    label={String((node.data as { label?: unknown })?.label ?? node.id)}
+                  />
                 )}
               </NodeWrapper>
             ))}

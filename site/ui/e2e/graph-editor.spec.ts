@@ -5,7 +5,11 @@ test.describe('Graph Editor Block', () => {
     page.on('pageerror', error => {
       console.log('Page error:', error.message)
     })
-    await page.goto('/components/graph-editor')
+    await page.goto('/xyflow/introduction')
+    // The demo lives below the page header / overview on /xyflow/introduction.
+    // page.mouse uses viewport coords, so the canvas needs to be on-screen
+    // before any drag-based test samples a boundingBox.
+    await page.locator('[bf-s^="GraphEditorDemo_"]:not([data-slot])').first().scrollIntoViewIfNeeded()
   })
 
   const section = (page: any) =>

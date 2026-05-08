@@ -18,6 +18,9 @@ export const BF_FLOW_NODE = 'bf-flow__node'
 export const BF_FLOW_NODE_GROUP = 'bf-flow__node--group'
 export const BF_FLOW_NODE_CHILD = 'bf-flow__node--child'
 export const BF_FLOW_NODE_SELECTED = 'bf-flow__node--selected'
+// Strips the default node card styling (padding / border / background)
+// so a `renderNode` / `nodeTypes` body provides its own visual.
+export const BF_FLOW_NODE_CUSTOM = 'bf-flow__node--custom'
 
 export const BF_FLOW_EDGE = 'bf-flow__edge'
 export const BF_FLOW_EDGE_SELECTED = 'bf-flow__edge--selected'

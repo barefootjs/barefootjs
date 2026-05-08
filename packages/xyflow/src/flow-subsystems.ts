@@ -16,10 +16,11 @@
 // `injectDefaultStyles` runs idempotently on first call, so multiple
 // `<Flow>` instances on the same page share one `<style id="bf-flow-styles">`.
 
-import { onCleanup, untrack } from '@barefootjs/client'
+import { createEffect, onCleanup, untrack } from '@barefootjs/client'
 import { PanOnScrollMode, XYPanZoom } from '@xyflow/system'
 import type { Transform, Viewport } from '@xyflow/system'
 import { INFINITE_EXTENT } from './constants'
+import { computeEdgePosition, getEdgePath } from './edge-path'
 import { setupKeyboardHandlers, setupSelectionRectangle } from './selection'
 import type { FlowProps, InternalFlowStore, NodeBase, EdgeBase } from './types'
 
@@ -194,6 +195,141 @@ export function attachFlowSubsystems<
     el.removeEventListener('mousemove', onMouseMove)
   })
 
+  // Delegated single-node drag. The cutover-step C4 XYDrag integration
+  // will eventually replace this with multi-select / snap / extent
+  // support, but a Flow that does not let users move nodes is a poor
+  // default — wire a minimal pointer-paced handler so the JSX renderer
+  // is interactive out of the box.
+  let dragState: {
+    nodeId: string
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startNodeX: number
+    startNodeY: number
+    captureEl: HTMLElement
+  } | null = null
+
+  const onNodePointerDown = (event: PointerEvent) => {
+    if (event.button !== 0) return
+    if (!untrack(store.nodesDraggable)) return
+    const target = event.target as HTMLElement | null
+    if (!target) return
+    if (target.closest('.bf-flow__handle')) return
+    if (target.closest('.nodrag')) return
+    const nodeEl = target.closest<HTMLElement>('.bf-flow__node')
+    if (!nodeEl || !el.contains(nodeEl)) return
+    const nodeId = nodeEl.dataset.id
+    if (!nodeId) return
+    const internal = untrack(store.nodeLookup).get(nodeId)
+    if (!internal) return
+
+    event.stopPropagation()
+
+    dragState = {
+      nodeId,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startNodeX: internal.position.x,
+      startNodeY: internal.position.y,
+      captureEl: nodeEl,
+    }
+    nodeEl.setPointerCapture?.(event.pointerId)
+    store.setDragging(true)
+  }
+  // Push the new position straight onto the nodes signal so JSX
+  // consumers (NodeWrapper's `transform` memo, edge path memos) see a
+  // fresh node object each frame. `updateNodePositions` alone only
+  // mutates the `internals.positionAbsolute` reference and bumps
+  // `positionEpoch`, but barefoot signals dedupe on Object.is — the
+  // downstream `transform` memo therefore wouldn't re-render.
+  const writeDragPosition = (nodeId: string, x: number, y: number, isDragging: boolean) => {
+    const currentNodes = untrack(store.nodes)
+    let changed = false
+    const next = currentNodes.map((n) => {
+      if (n.id !== nodeId) return n
+      const prev = n.position
+      if (prev.x === x && prev.y === y) return n
+      changed = true
+      return { ...n, position: { x, y } }
+    })
+    if (changed) store.setNodes(next)
+    store.setDragging(isDragging)
+  }
+
+  const onNodePointerMove = (event: PointerEvent) => {
+    if (!dragState || event.pointerId !== dragState.pointerId) return
+    const zoom = untrack(store.viewport).zoom || 1
+    const dx = (event.clientX - dragState.startClientX) / zoom
+    const dy = (event.clientY - dragState.startClientY) / zoom
+    const nextX = dragState.startNodeX + dx
+    const nextY = dragState.startNodeY + dy
+    writeDragPosition(dragState.nodeId, nextX, nextY, true)
+  }
+  const onNodePointerUp = (event: PointerEvent) => {
+    if (!dragState || event.pointerId !== dragState.pointerId) return
+    const captureEl = dragState.captureEl
+    captureEl.releasePointerCapture?.(event.pointerId)
+    const finalNodeId = dragState.nodeId
+    dragState = null
+    // Final commit clears the dragging flag without changing the
+    // position; reuse writeDragPosition for the same code path.
+    const lookup = untrack(store.nodeLookup)
+    const internal = lookup.get(finalNodeId)
+    if (internal) {
+      writeDragPosition(finalNodeId, internal.position.x, internal.position.y, false)
+    } else {
+      store.setDragging(false)
+    }
+  }
+  el.addEventListener('pointerdown', onNodePointerDown)
+  el.addEventListener('pointermove', onNodePointerMove)
+  el.addEventListener('pointerup', onNodePointerUp)
+  el.addEventListener('pointercancel', onNodePointerUp)
+  onCleanup(() => {
+    el.removeEventListener('pointerdown', onNodePointerDown)
+    el.removeEventListener('pointermove', onNodePointerMove)
+    el.removeEventListener('pointerup', onNodePointerUp)
+    el.removeEventListener('pointercancel', onNodePointerUp)
+  })
+
+  // Edge path keep-in-sync. The SimpleEdge component owns a memo over
+  // `pathD()` that should re-run on `positionEpoch()` / `nodes()`
+  // changes, but barefoot's signal dedupe (Object.is on the cached
+  // string) plus the fact that node measurement and drag mutate
+  // `internal.measured` / `internal.positionAbsolute` *in place*
+  // (without producing a fresh wrapper object the lookup signal
+  // notices) means the edge's `d` attribute can stick at its first
+  // computed value. Walk the SVG edges from a top-level effect that
+  // tracks `positionEpoch` + `nodes` / `edges` and write `d`
+  // directly — this is the load-bearing path for both initial measure
+  // and drag.
+  createEffect(() => {
+    store.positionEpoch()
+    const currentEdges = store.edges()
+    store.nodes()
+    const lookup = store.nodeLookup()
+    const edgesSvg = el.querySelector('.bf-flow__edges')
+    if (!edgesSvg) return
+    for (const edge of currentEdges) {
+      const sourceNode = lookup.get(edge.source)
+      const targetNode = lookup.get(edge.target)
+      if (!sourceNode || !targetNode) continue
+      const pos = computeEdgePosition(edge, sourceNode, targetNode)
+      if (!pos) continue
+      const result = getEdgePath(edge, pos)
+      if (!result) continue
+      const d = result[0]
+      const paths = edgesSvg.querySelectorAll<SVGPathElement>(
+        `path[data-id="${edge.id}"], path[data-hit-id="${edge.id}"]`,
+      )
+      for (const p of paths) {
+        if (p.getAttribute('d') !== d) p.setAttribute('d', d)
+      }
+    }
+  })
+
   // onInit lifecycle callback fires once the subsystems are wired and
   // the store is ready. Mirrors initFlow's existing semantics.
   if (typeof props.onInit === 'function') {
@@ -216,14 +352,23 @@ function injectDefaultStyles() {
   document.head.appendChild(style)
 }
 
+// Default styles use design-system CSS variables (with hard-coded
+// fallbacks for environments that don't define them, e.g. raw <Flow>
+// usage outside a themed shell). Handle placement is driven by the
+// `data-handlepos` attribute the JSX <Handle> already emits, so the
+// `position` prop drives where each handle sits regardless of whether
+// the inline style on the element ever lands (the barefoot compiler
+// currently strips dynamic-string `style={memo()}` props on JSX
+// components, so attribute-driven CSS is the load-bearing path).
 const DEFAULT_STYLES = `
 .bf-flow__node {
-  padding: 10px;
-  border: 1px solid #1a192b;
-  border-radius: 5px;
-  background-color: #fff;
-  font-size: 12px;
-  color: #222;
+  padding: 10px 24px;
+  border: 2px solid var(--foreground, #1a192b);
+  border-radius: 6px;
+  background-color: var(--card, #fff);
+  color: var(--card-foreground, #222);
+  font-size: 14px;
+  font-weight: 600;
   text-align: center;
   cursor: grab;
   user-select: none;
@@ -231,26 +376,35 @@ const DEFAULT_STYLES = `
 }
 .bf-flow__node--custom { border: none; background: transparent; padding: 0; border-radius: 0; }
 .bf-flow__node--custom.bf-flow__node--selected { box-shadow: none; }
-.bf-flow__node--selected { box-shadow: 0 0 0 0.5px #1a192b; }
+.bf-flow__node--selected { box-shadow: 0 0 0 1px var(--ring, #1a192b); }
 .bf-flow__handle {
-  width: 6px; height: 6px; border-radius: 50%; background-color: #1a192b;
-  position: absolute; left: 50%; transform: translateX(-50%);
-  cursor: crosshair; pointer-events: all;
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background-color: var(--primary, #1a192b);
+  cursor: crosshair;
+  pointer-events: all;
+  z-index: 1;
 }
-.bf-flow__handle:hover { width: 10px; height: 10px; transform: translateX(-50%); }
-.bf-flow__handle--target { top: -3px; }
-.bf-flow__handle--target:hover { top: -5px; }
-.bf-flow__handle--source { bottom: -3px; }
-.bf-flow__handle--source:hover { bottom: -5px; }
-.bf-flow__handle.valid { background-color: #22c55e; border-color: #16a34a; width: 10px; height: 10px; }
-.bf-flow__handle.invalid { background-color: #ef4444; border-color: #dc2626; width: 10px; height: 10px; }
-.bf-flow__edge { fill: none; stroke: #b1b1b7; stroke-width: 1; pointer-events: none; }
-.bf-flow__edge--selected { stroke: #555; stroke-width: 2; }
+/* Negative offset compensates for the node's 2px border:
+   .bf-flow__node uses border-box, but absolutely-positioned children
+   resolve against the padding box, so top/left:0 lands inside the
+   border. Pulling each side by -2px snaps the handle's transform-
+   centred dot to the visible outer edge of the node. */
+.bf-flow__handle[data-handlepos="top"]    { top: -2px;    left: 50%; transform: translate(-50%, -50%); }
+.bf-flow__handle[data-handlepos="bottom"] { bottom: -2px; left: 50%; transform: translate(-50%, 50%); }
+.bf-flow__handle[data-handlepos="left"]   { left: -2px;   top: 50%;  transform: translate(-50%, -50%); }
+.bf-flow__handle[data-handlepos="right"]  { right: -2px;  top: 50%;  transform: translate(50%, -50%); }
+.bf-flow__handle:hover { width: 10px; height: 10px; }
+.bf-flow__handle.valid   { background-color: #22c55e; }
+.bf-flow__handle.invalid { background-color: #ef4444; }
+.bf-flow__edge { fill: none; stroke: var(--muted-foreground, #b1b1b7); stroke-width: 1.5; pointer-events: none; }
+.bf-flow__edge--selected { stroke: var(--foreground, #555); stroke-width: 2; }
 .bf-flow__edge--animated { stroke-dasharray: 5; animation: bf-dashdraw 0.5s linear infinite; }
 @keyframes bf-dashdraw { from { stroke-dashoffset: 10; } }
 .bf-flow__edge-reconnect { fill: transparent; stroke: transparent; cursor: move; pointer-events: all; }
 path.bf-flow__edge.bf-flow__edge--reconnect-hover { stroke: var(--text-primary, #222); }
-.bf-flow__controls-button:hover { background: #f4f4f4 !important; }
+.bf-flow__controls-button:hover { background: var(--accent, #f4f4f4) !important; }
 .bf-flow__controls-button:last-child { border-bottom: none !important; }
 .bf-flow__edge-label {
   position: absolute; top: 0; left: 0; background: #fff;

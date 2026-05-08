@@ -66,7 +66,6 @@ import { FormBuilderRefPage } from './pages/components/form-builder'
 import { PivotTableRefPage } from './pages/components/pivot-table'
 import { DashboardBuilderRefPage } from './pages/components/dashboard-builder'
 import { StateMachinePlaygroundRefPage } from './pages/components/state-machine-playground'
-import { GraphEditorRefPage } from './pages/components/graph-editor'
 import { ThemeCustomizerRefPage } from './pages/components/theme-customizer'
 import { InfiniteScrollRefPage } from './pages/components/infinite-scroll'
 import { ToastQueueRefPage } from './pages/components/toast-queue'
@@ -78,7 +77,10 @@ import { KbdRefPage } from './pages/components/kbd'
 import { NativeSelectRefPage } from './pages/components/native-select'
 import { SpinnerRefPage } from './pages/components/spinner'
 import { TypographyRefPage } from './pages/components/typography'
-import { XyflowRefPage } from './pages/components/xyflow'
+import { XyflowIntroductionPage } from './pages/xyflow/introduction'
+import { XyflowNodesPage } from './pages/xyflow/nodes'
+import { XyflowEdgesPage } from './pages/xyflow/edges'
+import { XyflowComponentsPage } from './pages/xyflow/components'
 import { ComponentCatalogPage } from './pages/components/catalog'
 
 // Chart pages
@@ -323,9 +325,20 @@ export function createApp() {
     return c.render(<TypographyRefPage />)
   })
 
-  // xyflow reference page
-  app.get('/components/xyflow', (c) => {
-    return c.render(<XyflowRefPage />)
+  // xyflow — Introduction, Nodes, Edges, Components. The previous
+  // /components/xyflow reference page is retired; its API tables now
+  // live at /xyflow/components.
+  app.get('/xyflow/introduction', (c) => {
+    return c.render(<XyflowIntroductionPage />)
+  })
+  app.get('/xyflow/nodes', (c) => {
+    return c.render(<XyflowNodesPage />)
+  })
+  app.get('/xyflow/edges', (c) => {
+    return c.render(<XyflowEdgesPage />)
+  })
+  app.get('/xyflow/components', (c) => {
+    return c.render(<XyflowComponentsPage />)
   })
 
   // Switch reference page
@@ -499,11 +512,6 @@ export function createApp() {
   // State Machine Playground block page
   app.get('/components/state-machine-playground', (c) => {
     return c.render(<StateMachinePlaygroundRefPage />)
-  })
-
-  // Graph / DAG Editor block page (Phase 9 Block #135)
-  app.get('/components/graph-editor', (c) => {
-    return c.render(<GraphEditorRefPage />)
   })
 
   // Theme Customizer block page
