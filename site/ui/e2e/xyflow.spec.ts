@@ -147,11 +147,39 @@ test.describe('xyflow Reference Page', () => {
   })
 
   // ------------------------------------------------------------
-  // Custom-node-body coverage (renderNode / nodeTypes) is intentionally
-  // absent: the docs page only ships code samples for that path because
-  // the barefoot compiler does not transform JSX nested inside
-  // arrow-function callbacks, so a `renderNode={(n) => <div/>}` demo
-  // would emit raw JSX into the client bundle and crash the parser.
+  // Custom-node-body coverage. The compiler (#1211) hoists inline
+  // JSX-returning arrows like `renderNode={(n) => <PillNode .../>}`
+  // into synthesized client components, and the runtime (#1213) splices
+  // the live HTMLElement returns into the branch template via
+  // `__bfSlot` instead of stringifying them to "[object HTMLDivElement]".
+  // ------------------------------------------------------------
+  test.describe('renderNode JSX-callback (#1213)', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/xyflow/nodes')
+    })
+
+    test('pill bodies hydrate without [object HTMLDivElement]', async ({ page }) => {
+      const container = firstScope(page, '[bf-s^="XyflowCustomBodyDemo_"]:not([data-slot])')
+      await expect(container).toBeAttached()
+      const text = await container.innerText()
+      expect(text).not.toContain('[object')
+    })
+
+    test('pill nodes carry both source and target handles', async ({ page }) => {
+      const container = firstScope(page, '[bf-s^="XyflowCustomBodyDemo_"]:not([data-slot])')
+      await expect(container.locator('.bf-flow__node')).toHaveCount(3)
+      await expect(container.locator('.bf-flow__handle--source')).toHaveCount(3)
+      await expect(container.locator('.bf-flow__handle--target')).toHaveCount(3)
+    })
+
+    test('fan router exposes top/right/bottom handles', async ({ page }) => {
+      const container = firstScope(page, '[bf-s^="XyflowCustomHandlesDemo_"]:not([data-slot])')
+      await expect(container.locator('[data-handleid="top"]')).toBeAttached()
+      await expect(container.locator('[data-handleid="right"]')).toBeAttached()
+      await expect(container.locator('[data-handleid="bottom"]')).toBeAttached()
+    })
+  })
+
   // ------------------------------------------------------------
   // Pan / zoom / drag / connection-drag interactivity is gated on the
   // pointer-paced subsystem attach implemented in cutover step C4.

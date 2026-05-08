@@ -150,13 +150,17 @@ function stringifyLoopChildConditional(
   indent: string,
 ): void {
   const armIndent = `${indent}    `
+  // Body-form arrows wire `__bfSlot` captures into the runtime so live
+  // `Node` returns from Child-position interpolations are spliced into
+  // the parsed fragment instead of being stringified by the surrounding
+  // template literal (#1213).
   lines.push(`${indent}insert(${cond.scopeVar}, '${cond.slotId}', () => ${cond.wrappedCondition}, {`)
-  lines.push(`${indent}  template: () => \`${cond.whenTrueTemplateHtml}\`,`)
+  lines.push(`${indent}  template: () => { const __slots = []; return { html: \`${cond.whenTrueTemplateHtml}\`, slots: __slots } },`)
   lines.push(`${indent}  bindEvents: (__branchScope) => {`)
   stringifyLoopChildArm(lines, cond.whenTrueArm, armIndent)
   lines.push(`${indent}  }`)
   lines.push(`${indent}}, {`)
-  lines.push(`${indent}  template: () => \`${cond.whenFalseTemplateHtml}\`,`)
+  lines.push(`${indent}  template: () => { const __slots = []; return { html: \`${cond.whenFalseTemplateHtml}\`, slots: __slots } },`)
   lines.push(`${indent}  bindEvents: (__branchScope) => {`)
   stringifyLoopChildArm(lines, cond.whenFalseArm, armIndent)
   lines.push(`${indent}  }`)

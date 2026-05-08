@@ -79,7 +79,8 @@ export { styleToCss } from './style'
 export { findScope, find, $, $c, $t, qsa } from './query'
 export { hydrate, rehydrateAll, flushHydration } from './hydrate'
 export { registerComponent, getComponentInit, initChild, upsertChild } from './registry'
-export { insert, type BranchConfig } from './insert'
+export { insert, type BranchConfig, type BranchTemplateResult } from './insert'
+export { __bfSlot } from './branch-slot'
 export { updateClientMarker } from './client-marker'
 
 // Hydration state

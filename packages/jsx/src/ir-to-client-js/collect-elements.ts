@@ -850,11 +850,16 @@ function buildConditionalMetadata(
   // Use loopDepth=-1 so the first loop encountered inside the branch emits
   // data-key (depth 0) for its items, matching the mapArray item template
   // and event dispatcher convention. Matches irToComponentTemplate/generateCsrTemplate.
+  // `__slots` is the closure-scoped accumulator emitted by
+  // `stringifyInsert` for each branch's `template()` body (#1213).
+  // Forwarding it here makes Child-position expression interpolations
+  // route Element/Node returns through `__bfSlot` instead of being
+  // stringified by the surrounding template literal.
   return {
     slotId: node.slotId!,
     condition: node.condition,
-    whenTrueHtml: irToHtmlTemplate(node.whenTrue, restNames, -1),
-    whenFalseHtml: irToHtmlTemplate(node.whenFalse, restNames, -1),
+    whenTrueHtml: irToHtmlTemplate(node.whenTrue, restNames, -1, undefined, '__slots'),
+    whenFalseHtml: irToHtmlTemplate(node.whenFalse, restNames, -1, undefined, '__slots'),
     whenTrue: summarizeBranch(node.whenTrue, ctx, siblingOffsets),
     whenFalse: summarizeBranch(node.whenFalse, ctx, siblingOffsets),
   }
@@ -962,8 +967,12 @@ export function collectLoopChildConditionals(
       const loopParamsForCond = loopParam
         ? [{ param: loopParam, bindings: loopParamBindings }]
         : undefined
-      const whenTrueHtml = irToHtmlTemplate(n.whenTrue, undefined, 0, loopParamsForCond)
-      const whenFalseHtml = irToHtmlTemplate(n.whenFalse, undefined, 0, loopParamsForCond)
+      // `__slots` matches the closure variable emitted by
+      // `stringifyLoopChildConditional` — Child-position interpolations
+      // get wrapped in `__bfSlot(EXPR, __slots)` so live `Node` returns
+      // survive the splice (#1213).
+      const whenTrueHtml = irToHtmlTemplate(n.whenTrue, undefined, 0, loopParamsForCond, '__slots')
+      const whenFalseHtml = irToHtmlTemplate(n.whenFalse, undefined, 0, loopParamsForCond, '__slots')
       conditionals.push({
         slotId: n.slotId,
         condition: expanded,
