@@ -68,6 +68,7 @@ export function buildBranchLoopPlan(loop: BranchLoop): BranchLoopPlan {
         })
       : null,
     eventDelegation: buildBranchLoopDelegationPlan(loop, cv),
+    bodyIsMultiRoot: loop.bodyIsMultiRoot ?? false,
   }
   return plan
 }

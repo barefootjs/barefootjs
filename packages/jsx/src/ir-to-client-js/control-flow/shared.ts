@@ -160,9 +160,17 @@ export function buildDepthLevels(
 }
 
 /** Emit a single addEventListener call for a child event on a given element. */
-function emitEventSetup(ls: string[], indent: string, elVar: string, ev: LoopChildEvent, loopParam?: string, loopParamBindings?: readonly LoopParamBinding[]): void {
+function emitEventSetup(
+  ls: string[],
+  indent: string,
+  elVar: string,
+  ev: LoopChildEvent,
+  loopParam?: string,
+  loopParamBindings?: readonly LoopParamBinding[],
+  bodyIsMultiRoot: boolean = false,
+): void {
   const handler = loopParam ? wrapLoopParamAsAccessor(ev.handler, loopParam, loopParamBindings) : ev.handler
-  emitListenerBlock(ls, indent, elVar, ev.childSlotId, '__e', ev.eventName, handler)
+  emitListenerBlock(ls, indent, elVar, ev.childSlotId, '__e', ev.eventName, handler, 'dom', bodyIsMultiRoot)
 }
 
 /** Build the component-finder CSS selector for SSR hydration initChild. */
@@ -208,8 +216,13 @@ export function emitComponentAndEventSetup(
   events: LoopChildEvent[],
   loopParam?: string,
   loopParamBindings?: readonly LoopParamBinding[],
+  bodyIsMultiRoot: boolean = false,
 ): void {
   const wrap = loopParam ? (expr: string) => wrapLoopParamAsAccessor(expr, loopParam, loopParamBindings) : (expr: string) => expr
+  // Multi-root loop bodies (#1212) must search the item's sibling roots
+  // and the pre-insertion `__bfExtras` stash; `upsertChildItem` wraps the
+  // single-root `upsertChild` semantics in that walk.
+  const upsertFn = bodyIsMultiRoot ? 'upsertChildItem' : 'upsertChild'
   for (const comp of comps) {
     const propsExpr = buildComponentPropsExpr(comp, loopParam, loopParamBindings)
     // Check if children are text-equivalent and reference the loop param — if so,
@@ -225,7 +238,7 @@ export function emitComponentAndEventSetup(
     const slotIdLit = comp.slotId ? `'${comp.slotId}'` : 'null'
     const keyProp = comp.props.find(p => p.name === 'key')
     const keyArg = keyProp ? `, ${wrap(keyProp.value)}` : ''
-    const upsertCall = `upsertChild(${elVar}, '${nameForRegistryRef(comp.name)}', ${slotIdLit}, ${propsExpr}${keyArg})`
+    const upsertCall = `${upsertFn}(${elVar}, '${nameForRegistryRef(comp.name)}', ${slotIdLit}, ${propsExpr}${keyArg})`
 
     if (childrenRefsLoop) {
       const wrappedChildren = wrap(rawChildrenExpr!)
@@ -235,7 +248,7 @@ export function emitComponentAndEventSetup(
     }
   }
   for (const ev of events) {
-    emitEventSetup(ls, indent, elVar, ev, loopParam, loopParamBindings)
+    emitEventSetup(ls, indent, elVar, ev, loopParam, loopParamBindings, bodyIsMultiRoot)
   }
 }
 

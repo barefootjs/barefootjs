@@ -2639,10 +2639,13 @@ export class GoTemplateAdapter extends BaseAdapter {
         filterCond = 'true'
       }
 
-      return `{{bfComment "loop:${loop.markerId}"}}{{range $${index}, $${param} := ${goArray}}}{{if ${filterCond}}}${children}{{end}}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
+      // Per-item start marker for multi-root Fragment items (#1212).
+      const itemMarker = loop.bodyIsMultiRoot ? `{{bfComment "bf-loop-i"}}` : ''
+      return `{{bfComment "loop:${loop.markerId}"}}{{range $${index}, $${param} := ${goArray}}}{{if ${filterCond}}}${itemMarker}${children}{{end}}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
     }
 
-    return `{{bfComment "loop:${loop.markerId}"}}{{range $${index}, $${param} := ${goArray}}}${children}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
+    const itemMarker = loop.bodyIsMultiRoot ? `{{bfComment "bf-loop-i"}}` : ''
+    return `{{bfComment "loop:${loop.markerId}"}}{{range $${index}, $${param} := ${goArray}}}${itemMarker}${children}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
   }
 
   /**

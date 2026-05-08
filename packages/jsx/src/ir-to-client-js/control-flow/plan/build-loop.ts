@@ -43,6 +43,7 @@ export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
     mapPreambleWrapped: elem.mapPreamble ? wrap(elem.mapPreamble) : '',
     template: elem.template,
     reactiveEffects: hasReactive ? buildLoopReactiveEffectsPlan(elem) : null,
+    bodyIsMultiRoot: elem.bodyIsMultiRoot ?? false,
   }
 }
 

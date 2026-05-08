@@ -54,7 +54,8 @@ export {
 
 // List reconciliation
 export { reconcileList, type RenderItemFn } from './list'
-export { reconcileElements, getLoopChildren } from './reconcile-elements'
+export { reconcileElements, getLoopChildren, getLoopNodes } from './reconcile-elements'
+export { qsaItem, upsertChildItem } from './qsa-item'
 export { mapArray } from './map-array'
 
 // Template registry

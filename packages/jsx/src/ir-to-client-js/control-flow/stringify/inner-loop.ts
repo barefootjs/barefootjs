@@ -32,6 +32,7 @@
 
 import { keyAttrName } from '../../utils'
 import { emitComponentAndEventSetup } from '../shared'
+import { emitMultiRootTemplateCloneLines } from './template-parse'
 import type {
   InnerLoopPlan,
   InnerLoopsPlan,
@@ -65,7 +66,21 @@ function emitReactive(lines: string[], inner: InnerLoopPlan, indent: string): vo
   for (const stmt of emit.preludeStatements) {
     lines.push(`${indent}  ${stmt}`)
   }
-  lines.push(`${indent}  let __innerEl${uid} = __existing ?? (() => { const __t = document.createElement('template'); __t.innerHTML = \`${emit.wrappedTemplate}\`; return __t.content.firstElementChild.cloneNode(true) })()`)
+  if (emit.bodyIsMultiRoot) {
+    // Multi-root inner loop body (Fragment with sibling roots, #1212).
+    // Capture each cloned sibling alongside the primary, and stash on
+    // `.__bfExtras` so the outer mapArray pairs all of them with the key.
+    const innerIndent = `${indent}  `
+    lines.push(`${indent}  let __innerEl${uid}, __innerExtras${uid}`)
+    lines.push(`${indent}  if (__existing) {`)
+    lines.push(`${innerIndent}  __innerEl${uid} = __existing`)
+    lines.push(`${indent}  } else {`)
+    for (const ln of emitMultiRootTemplateCloneLines(emit.wrappedTemplate, `${innerIndent}  `, `__innerEl${uid}`, `__innerExtras${uid}`)) lines.push(ln)
+    lines.push(`${innerIndent}  __innerEl${uid}.__bfExtras = __innerExtras${uid}`)
+    lines.push(`${indent}  }`)
+  } else {
+    lines.push(`${indent}  let __innerEl${uid} = __existing ?? (() => { const __t = document.createElement('template'); __t.innerHTML = \`${emit.wrappedTemplate}\`; return __t.content.firstElementChild.cloneNode(true) })()`)
+  }
   if (emit.wrappedKey) {
     lines.push(`${indent}  __innerEl${uid}.setAttribute('${keyAttrName(inner.keyDepth)}', String(${emit.wrappedKey}))`)
   }

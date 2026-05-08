@@ -9,14 +9,44 @@
  * Unified CSR/SSR: renderItem receives an optional existing element.
  * For SSR hydration, the existing DOM element is passed so renderItem
  * can initialize it (initChild) instead of creating a new one (createComponent).
+ *
+ * Multi-root items (#1212): when the loop body is a JSX Fragment with two
+ * or more sibling elements, the compiler emits a `<!--bf-loop-i-->`
+ * comment before each item's roots. This module partitions the loop range
+ * by those markers so one logical item — the (startMarker, primaryEl,
+ * extras...) triple — moves, mounts, and unmounts as a single unit.
+ * Single-root loops continue to flow through the legacy path verbatim.
  */
 
 import { createSignal, createEffect, createRoot } from '@barefootjs/client/reactive'
 import { hydratedScopes } from './hydration-state'
-import { BF_KEY, BF_LOOP_START, BF_LOOP_END, loopStartMarker, loopEndMarker } from '@barefootjs/shared'
+import {
+  BF_KEY,
+  BF_LOOP_START,
+  BF_LOOP_END,
+  BF_LOOP_ITEM,
+  loopStartMarker,
+  loopEndMarker,
+} from '@barefootjs/shared'
 
 type ItemScope<T> = {
-  element: HTMLElement
+  /**
+   * `<!--bf-loop-i-->` Comment that anchors a multi-root item. `null` for
+   * single-root items — keeps the common path mutation-equivalent to the
+   * legacy implementation.
+   */
+  startMarker: Comment | null
+  /**
+   * The first real Element of the item — what `renderItem` returned and
+   * what reactive effects, event delegation, and `qsa` lookups operate
+   * on. Always present; multi-root items also carry `extras`.
+   */
+  primaryEl: HTMLElement
+  /**
+   * Additional sibling root elements for multi-root items (Fragment with
+   * two or more peers). Empty for single-root items.
+   */
+  extras: HTMLElement[]
   dispose: () => void
   setItem: (v: T) => void
 }
@@ -64,41 +94,114 @@ function findLoopMarkers(
   return { start: null, end: null }
 }
 
-/** Get element nodes between markers. */
-function elementsBetween(start: Comment, end: Comment): HTMLElement[] {
-  const els: HTMLElement[] = []
+/**
+ * Partition the nodes between loop boundary markers into one entry per
+ * logical item. When `<!--bf-loop-i-->` markers are present, each marker
+ * opens a new item range and the following Element nodes become its
+ * `primaryEl` (first) and `extras` (subsequent). When no per-item markers
+ * are present (single-root loops, the common case), each Element forms
+ * its own range with `startMarker: null` and `extras: []` — preserving
+ * legacy behavior verbatim.
+ */
+function findItemRanges(start: Comment, end: Comment): Array<{
+  startMarker: Comment | null
+  primaryEl: HTMLElement
+  extras: HTMLElement[]
+}> {
+  const ranges: Array<{
+    startMarker: Comment | null
+    primaryEl: HTMLElement | null
+    extras: HTMLElement[]
+  }> = []
+  let current: { startMarker: Comment | null; primaryEl: HTMLElement | null; extras: HTMLElement[] } | null = null
+  let sawItemMarker = false
   let node: Node | null = start.nextSibling
   while (node && node !== end) {
-    if (node.nodeType === Node.ELEMENT_NODE) els.push(node as HTMLElement)
+    if (node.nodeType === Node.COMMENT_NODE && (node as Comment).nodeValue === BF_LOOP_ITEM) {
+      sawItemMarker = true
+      current = { startMarker: node as Comment, primaryEl: null, extras: [] }
+      ranges.push(current)
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement
+      if (sawItemMarker) {
+        if (!current!.primaryEl) current!.primaryEl = el
+        else current!.extras.push(el)
+      } else {
+        ranges.push({ startMarker: null, primaryEl: el, extras: [] })
+      }
+    }
     node = node.nextSibling
   }
-  return els
+  return ranges.filter(
+    (r): r is { startMarker: Comment | null; primaryEl: HTMLElement; extras: HTMLElement[] } =>
+      r.primaryEl !== null,
+  )
+}
+
+/**
+ * Insert a scope's nodes into the container in their canonical order
+ * (startMarker → primaryEl → extras). Idempotent — `insertBefore` on a
+ * node already at the target position is a no-op.
+ */
+function insertScope<T>(scope: ItemScope<T>, container: HTMLElement, anchor: Node | null): void {
+  if (scope.startMarker) container.insertBefore(scope.startMarker, anchor)
+  container.insertBefore(scope.primaryEl, anchor)
+  for (const ex of scope.extras) container.insertBefore(ex, anchor)
+}
+
+/** Detach all of a scope's nodes from the DOM. */
+function removeScope<T>(scope: ItemScope<T>): void {
+  if (scope.startMarker?.parentNode) scope.startMarker.remove()
+  if (scope.primaryEl.parentNode) scope.primaryEl.remove()
+  for (const ex of scope.extras) {
+    if (ex.parentNode) ex.remove()
+  }
 }
 
 /**
  * Create an item in its own reactive scope with a per-item signal.
  * renderItem receives a signal accessor for the item, so fine-grained
  * effects can re-run when the item signal is updated via setItem().
+ *
+ * Multi-root handling: on CSR the emitted renderItem stashes any extra
+ * sibling roots on the returned element via a `__bfExtras` property that
+ * we read-and-delete here. On hydration the caller passes `existingExtras`
+ * + `existingStart` collected from the SSR partition.
  */
 function createItemScope<T>(
   item: T,
   index: number,
   renderItem: (item: () => T, index: number, existing?: HTMLElement) => HTMLElement,
-  existing?: HTMLElement,
+  existingPrimary?: HTMLElement,
+  existingExtras?: HTMLElement[],
+  existingStart?: Comment | null,
 ): ItemScope<T> {
-  let element!: HTMLElement
+  let primaryEl!: HTMLElement
   let dispose!: () => void
   let setItem!: (v: T) => void
+  let extras: HTMLElement[] = []
+  let startMarker: Comment | null = null
 
   createRoot((d) => {
     dispose = d
     const [itemAccessor, itemSetter] = createSignal(item)
     setItem = itemSetter
-    element = renderItem(itemAccessor, index, existing)
+    primaryEl = renderItem(itemAccessor, index, existingPrimary)
+    if (existingPrimary) {
+      extras = existingExtras ?? []
+      startMarker = existingStart ?? null
+    } else {
+      const stashed = (primaryEl as unknown as { __bfExtras?: HTMLElement[] }).__bfExtras
+      if (stashed && stashed.length > 0) {
+        extras = stashed
+        startMarker = document.createComment(BF_LOOP_ITEM)
+      }
+      delete (primaryEl as unknown as { __bfExtras?: HTMLElement[] }).__bfExtras
+    }
     return undefined
   })
 
-  return { element, dispose, setItem }
+  return { startMarker, primaryEl, extras, dispose, setItem }
 }
 
 /**
@@ -134,36 +237,45 @@ export function mapArray<T>(
     // --- First run: hydrate SSR-rendered children ---
     if (!hydrated) {
       hydrated = true
-      const existingChildren = startMarker
-        ? elementsBetween(startMarker, endMarker!)
-        : Array.from(container.children) as HTMLElement[]
+      const existingRanges = startMarker
+        ? findItemRanges(startMarker, endMarker!)
+        : Array.from(container.children).map(
+            (el) => ({ startMarker: null, primaryEl: el as HTMLElement, extras: [] as HTMLElement[] }),
+          )
 
       // SSR elements need initialization when they haven't been adopted into scopes yet.
       // Check both: elements without data-key (legacy) OR elements with data-key but no scopes
       // (component loops render data-key in SSR template but haven't been hydrated).
-      const needsHydration = existingChildren.length > 0
-        && (!existingChildren[0]?.hasAttribute('data-key') || scopes.size === 0)
+      const needsHydration = existingRanges.length > 0
+        && (!existingRanges[0]?.primaryEl.hasAttribute('data-key') || scopes.size === 0)
       if (needsHydration) {
         // Hydrate in place: tag keys, create per-item scopes with renderItem(existing)
-        for (let i = 0; i < existingChildren.length && i < items.length; i++) {
-          const child = existingChildren[i]
+        for (let i = 0; i < existingRanges.length && i < items.length; i++) {
+          const range = existingRanges[i]
           const item = items[i]
           const key = getKey ? getKey(item, i) : String(i)
-          child.setAttribute(BF_KEY, key)
+          range.primaryEl.setAttribute(BF_KEY, key)
 
-          const scope = createItemScope(item, i, renderItem, child)
+          const scope = createItemScope(
+            item,
+            i,
+            renderItem,
+            range.primaryEl,
+            range.extras,
+            range.startMarker,
+          )
           scopes.set(key, scope)
-          hydratedScopes.add(child)
+          hydratedScopes.add(range.primaryEl)
         }
 
         // If SSR had fewer items than current array, create remaining (CSR)
-        for (let i = existingChildren.length; i < items.length; i++) {
+        for (let i = existingRanges.length; i < items.length; i++) {
           const item = items[i]
           const key = getKey ? getKey(item, i) : String(i)
           const scope = createItemScope(item, i, renderItem)
-          if (!scope.element.dataset.key) scope.element.setAttribute(BF_KEY, key)
+          if (!scope.primaryEl.dataset.key) scope.primaryEl.setAttribute(BF_KEY, key)
           scopes.set(key, scope)
-          container.insertBefore(scope.element, anchor)
+          insertScope(scope, container, anchor)
         }
         return  // Hydration complete — effects handle future updates
       }
@@ -171,14 +283,18 @@ export function mapArray<T>(
 
     // --- Adopt any existing keyed elements not yet in scopes ---
     if (scopes.size === 0) {
-      const loopChildren = startMarker
-        ? elementsBetween(startMarker, endMarker!)
-        : Array.from(container.children) as HTMLElement[]
-      for (const child of loopChildren) {
-        const existingKey = (child as HTMLElement).dataset?.key
+      const loopRanges = startMarker
+        ? findItemRanges(startMarker, endMarker!)
+        : Array.from(container.children).map(
+            (el) => ({ startMarker: null, primaryEl: el as HTMLElement, extras: [] as HTMLElement[] }),
+          )
+      for (const range of loopRanges) {
+        const existingKey = range.primaryEl.dataset?.key
         if (existingKey && !scopes.has(existingKey)) {
           scopes.set(existingKey, {
-            element: child as HTMLElement,
+            startMarker: range.startMarker,
+            primaryEl: range.primaryEl,
+            extras: range.extras,
             dispose: () => {},
             setItem: () => {},
           })
@@ -188,7 +304,7 @@ export function mapArray<T>(
 
     // --- Key-based diff ---
     const newKeys = new Set<string>()
-    const desiredOrder: { key: string; element: HTMLElement }[] = []
+    const desiredOrder: ItemScope<T>[] = []
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
@@ -200,13 +316,13 @@ export function mapArray<T>(
         // Same key: update per-item signal — fine-grained effects handle DOM updates.
         // Element is preserved (no dispose, no re-render).
         existing.setItem(item)
-        desiredOrder.push({ key, element: existing.element })
+        desiredOrder.push(existing)
       } else {
         // New item: create in isolated scope
         const scope = createItemScope(item, i, renderItem)
-        if (!scope.element.dataset.key) scope.element.setAttribute(BF_KEY, key)
+        if (!scope.primaryEl.dataset.key) scope.primaryEl.setAttribute(BF_KEY, key)
         scopes.set(key, scope)
-        desiredOrder.push({ key, element: scope.element })
+        desiredOrder.push(scope)
       }
     }
 
@@ -214,25 +330,34 @@ export function mapArray<T>(
     for (const [key, scope] of scopes) {
       if (!newKeys.has(key)) {
         scope.dispose()
-        if (scope.element.parentNode) scope.element.remove()
+        removeScope(scope)
         scopes.delete(key)
       }
     }
 
     // Reconcile DOM order: skip insertBefore entirely when order is unchanged.
     // Moving elements via insertBefore causes detach/reattach which makes
-    // focused inputs lose focus (controlled input flicker).
+    // focused inputs lose focus (controlled input flicker). Each scope can
+    // span multiple nodes (startMarker + primaryEl + extras), so the walk
+    // consumes the full range when a primaryEl matches.
     let inOrder = true
     let checkNode: Node | null = startMarker ? startMarker.nextSibling : container.firstChild
-    for (const { element } of desiredOrder) {
-      // Skip non-element nodes (comments, text)
+    for (const scope of desiredOrder) {
+      // Skip non-element nodes (comments, text) when looking for the primary element.
       while (checkNode && checkNode.nodeType !== Node.ELEMENT_NODE) checkNode = checkNode.nextSibling
-      if (checkNode !== element) { inOrder = false; break }
+      if (checkNode !== scope.primaryEl) { inOrder = false; break }
+      // Advance past the rest of the scope's extras.
       checkNode = checkNode.nextSibling
+      for (let i = 0; i < scope.extras.length; i++) {
+        while (checkNode && checkNode.nodeType !== Node.ELEMENT_NODE) checkNode = checkNode.nextSibling
+        if (checkNode !== scope.extras[i]) { inOrder = false; break }
+        checkNode = checkNode.nextSibling
+      }
+      if (!inOrder) break
     }
     if (!inOrder) {
-      for (const { element } of desiredOrder) {
-        container.insertBefore(element, anchor)
+      for (const scope of desiredOrder) {
+        insertScope(scope, container, anchor)
       }
     }
   })

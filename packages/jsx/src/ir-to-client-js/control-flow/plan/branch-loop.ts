@@ -59,6 +59,11 @@ export interface BranchPlainLoopPlan {
   reactiveEffects: ReactiveEffectsPlan | null
   /** Event-delegation plan for branch-scoped event listeners. */
   eventDelegation: EventDelegationPlan
+  /**
+   * True when the loop body is a multi-root JSX Fragment — forces the
+   * multi-line renderItem with multi-root template clone (#1212).
+   */
+  bodyIsMultiRoot: boolean
 }
 
 export interface BranchCompositeLoopPlan {

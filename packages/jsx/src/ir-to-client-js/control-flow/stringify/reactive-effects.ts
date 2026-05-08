@@ -32,6 +32,14 @@ export interface StringifyReactiveEffectsOptions {
    * into the qsa() / $t() / insert() call shapes.
    */
   elVar: string
+  /**
+   * When true, the loop body is a multi-root JSX Fragment (#1212) and the
+   * reactive attribute slots may live on sibling roots of `elVar`, not
+   * descendants. Switches the slot lookup from `qsa` (root-or-descendant
+   * scoped to one element) to `qsaItem` (walks past `elVar` and its
+   * `<!--bf-loop-i-->`-bounded siblings). Optional — defaults to `false`.
+   */
+  bodyIsMultiRoot?: boolean
 }
 
 export function stringifyReactiveEffects(
@@ -39,12 +47,13 @@ export function stringifyReactiveEffects(
   plan: ReactiveEffectsPlan,
   opts: StringifyReactiveEffectsOptions,
 ): void {
-  const { indent, elVar } = opts
+  const { indent, elVar, bodyIsMultiRoot } = opts
+  const lookup = bodyIsMultiRoot ? 'qsaItem' : 'qsa'
 
   // 1. Reactive attribute effects (one qsa per slot, then per-attr createEffect).
   for (const slot of plan.attrSlots) {
     const varName = `__ra_${varSlotId(slot.slotId)}`
-    lines.push(`${indent}{ const ${varName} = qsa(${elVar}, '[bf="${slot.slotId}"]')`)
+    lines.push(`${indent}{ const ${varName} = ${lookup}(${elVar}, '[bf="${slot.slotId}"]')`)
     lines.push(`${indent}if (${varName}) {`)
     for (const attr of slot.attrs) {
       lines.push(`${indent}  createEffect(() => {`)

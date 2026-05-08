@@ -41,6 +41,11 @@ export function emitListenerLine(
  * Emit a `{ qsa lookup; if (elem) addEventListener; }` block on
  * (potentially) multiple lines. Used inside loop renderItem bodies
  * where the element variable doesn't already exist in scope.
+ *
+ * When `bodyIsMultiRoot` is true, the slot may live on a sibling root of
+ * `scopeVar` rather than as a descendant — the lookup uses `qsaItem` so
+ * the walk crosses past `scopeVar` into its `<!--bf-loop-i-->`-bounded
+ * siblings (#1212).
  */
 export function emitListenerBlock(
   lines: string[],
@@ -51,8 +56,10 @@ export function emitListenerBlock(
   eventName: string,
   handler: string,
   mode: EventNameMode = 'dom',
+  bodyIsMultiRoot: boolean = false,
 ): void {
   const wrapped = wrapHandlerInBlock(handler)
   const name = mode === 'dom' ? toDomEventName(eventName) : eventName
-  lines.push(`${indent}{ const ${elementLocal} = qsa(${scopeVar}, '[bf="${slotId}"]'); if (${elementLocal}) ${elementLocal}.addEventListener('${name}', ${wrapped}) }`)
+  const lookup = bodyIsMultiRoot ? 'qsaItem' : 'qsa'
+  lines.push(`${indent}{ const ${elementLocal} = ${lookup}(${scopeVar}, '[bf="${slotId}"]'); if (${elementLocal}) ${elementLocal}.addEventListener('${name}', ${wrapped}) }`)
 }

@@ -27,7 +27,7 @@
 import { varSlotId } from '../../utils'
 import { emitAttrUpdate } from '../../emit-reactive'
 import { stringifyReactiveEffects } from './reactive-effects'
-import { emitTemplateCloneInline } from './template-parse'
+import { emitTemplateCloneInline, emitMultiRootTemplateCloneLines } from './template-parse'
 import type { PlainLoopPlan, StaticLoopPlan } from '../plan/types'
 
 export function stringifyPlainLoop(
@@ -46,10 +46,11 @@ export function stringifyPlainLoop(
     mapPreambleWrapped,
     template,
     reactiveEffects,
+    bodyIsMultiRoot,
   } = plan
 
-  if (reactiveEffects === null) {
-    // Single-line renderItem (no reactive effects).
+  if (reactiveEffects === null && !bodyIsMultiRoot) {
+    // Single-line renderItem (no reactive effects, single root).
     const unwrapInline = paramUnwrap ? `${paramUnwrap} ` : ''
     const preamble = mapPreambleWrapped ? `${mapPreambleWrapped}; ` : ''
     const cloneExpr = emitTemplateCloneInline(template)
@@ -59,14 +60,27 @@ export function stringifyPlainLoop(
     return
   }
 
-  // Multi-line renderItem (reactive effects present).
+  // Multi-line renderItem (reactive effects present and/or multi-root).
   lines.push(`${topIndent}mapArray(() => ${arrayExpr}, ${containerVar}, ${keyFn}, (${paramHead}, ${indexParam}, __existing) => {`)
   const bodyIndent = topIndent + '  '
   if (paramUnwrap) lines.push(`${bodyIndent}${paramUnwrap}`)
   if (mapPreambleWrapped) lines.push(`${bodyIndent}${mapPreambleWrapped}`)
-  const cloneExpr = emitTemplateCloneInline(template)
-  lines.push(`${bodyIndent}const __el = __existing ?? (() => { ${cloneExpr} })()`)
-  stringifyReactiveEffects(lines, reactiveEffects, { indent: bodyIndent, elVar: '__el' })
+  if (bodyIsMultiRoot) {
+    const innerIndent = bodyIndent + '  '
+    lines.push(`${bodyIndent}let __el, __extras`)
+    lines.push(`${bodyIndent}if (__existing) {`)
+    lines.push(`${innerIndent}__el = __existing`)
+    lines.push(`${bodyIndent}} else {`)
+    for (const ln of emitMultiRootTemplateCloneLines(template, innerIndent, '__el', '__extras')) lines.push(ln)
+    lines.push(`${innerIndent}__el.__bfExtras = __extras`)
+    lines.push(`${bodyIndent}}`)
+  } else {
+    const cloneExpr = emitTemplateCloneInline(template)
+    lines.push(`${bodyIndent}const __el = __existing ?? (() => { ${cloneExpr} })()`)
+  }
+  if (reactiveEffects !== null) {
+    stringifyReactiveEffects(lines, reactiveEffects, { indent: bodyIndent, elVar: '__el', bodyIsMultiRoot })
+  }
   lines.push(`${bodyIndent}return __el`)
   lines.push(`${topIndent}}, '${markerId}')`)
 }

@@ -54,6 +54,12 @@ export interface PlainLoopPlan {
    * is already made.
    */
   reactiveEffects: ReactiveEffectsPlan | null
+  /**
+   * True when the loop body is a multi-root JSX Fragment. Forces the
+   * multi-line renderItem layout, multi-root template clone, per-item
+   * `<!--bf-loop-i-->` marker emission, and `qsaItem` slot lookups (#1212).
+   */
+  bodyIsMultiRoot: boolean
 }
 
 /**
@@ -166,6 +172,14 @@ export interface CompositeLoopPlan {
   topIndent: string
   /** Indent of the lines inside the renderItem body. */
   bodyIndent: string
+  /**
+   * True when the loop body is a multi-root JSX Fragment. Forces the
+   * multi-root template clone path and per-item `<!--bf-loop-i-->` marker
+   * emission, and switches reactive-attr / event / insert lookups from
+   * `qsa(__el, ...)` to `qsaItem(__el, ...)` so they walk past `__el`'s
+   * siblings within the same item (#1212).
+   */
+  bodyIsMultiRoot: boolean
 }
 
 /**
