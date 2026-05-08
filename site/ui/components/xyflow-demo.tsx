@@ -71,9 +71,18 @@ const customBodyEdges = [
   { id: 'mid-dst', source: 'mid', target: 'dst' },
 ]
 
+// Per-id colour palette so each Source / Pipeline / Sink is visually
+// distinct from the others *and* from Flow's default node body.
+const customBodyTone: Record<string, string> = {
+  src: 'bg-emerald-500 text-white border-emerald-600',
+  mid: 'bg-amber-500  text-white border-amber-600',
+  dst: 'bg-sky-500    text-white border-sky-600',
+}
+
 function pillBodyHTML(n: { id: string; data: { label?: string } }): string {
+  const tone = customBodyTone[n.id] ?? 'bg-card text-foreground border'
   return (
-    `<div class="rounded-md border bg-card px-3 py-2 text-sm shadow-sm">` +
+    `<div class="rounded-full border-2 px-5 py-2 text-sm font-semibold shadow-md ${tone}">` +
     handleHTML({ type: 'target', position: Position.Left, nodeId: n.id }) +
     escapeHtml(n.data.label ?? n.id) +
     handleHTML({ type: 'source', position: Position.Right, nodeId: n.id }) +
@@ -111,7 +120,7 @@ const fanEdges = [
 function fanBodyHTML(n: { id: string; data: { label?: string } }): string {
   if (n.id === 'fan') {
     return (
-      `<div class="rounded-md border bg-card px-3 py-2 text-sm font-medium shadow-sm">` +
+      `<div class="rounded-full border-2 border-violet-600 bg-violet-500 text-white px-5 py-2 text-sm font-semibold shadow-md">` +
       handleHTML({ type: 'source', position: Position.Top,    nodeId: n.id, id: 'top' }) +
       handleHTML({ type: 'source', position: Position.Right,  nodeId: n.id, id: 'right' }) +
       handleHTML({ type: 'source', position: Position.Bottom, nodeId: n.id, id: 'bottom' }) +
@@ -120,7 +129,7 @@ function fanBodyHTML(n: { id: string; data: { label?: string } }): string {
     )
   }
   return (
-    `<div class="rounded-md border bg-card px-3 py-2 text-sm shadow-sm">` +
+    `<div class="rounded-full border-2 border-slate-400 bg-white text-slate-800 px-4 py-1.5 text-sm font-medium shadow-sm">` +
     handleHTML({ type: 'target', position: Position.Left, nodeId: n.id }) +
     escapeHtml(n.data.label ?? n.id) +
     `</div>`

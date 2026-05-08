@@ -52,8 +52,18 @@ export function MyFlow() {
 
 const customNodeCode = `"use client"
 
-import { Background, Controls, Flow, Handle } from "@/components/ui/xyflow"
+import { Background, Flow, Handle } from "@/components/ui/xyflow"
 import { Position } from "@barefootjs/xyflow"
+
+// Per-id colour palette so each node looks distinct from the others
+// and from Flow's default body. Flow strips the default card styling
+// (padding / border / background) automatically when \`renderNode\` is
+// provided so the body below paints the entire node visual.
+const tone = {
+  src: "bg-emerald-500 text-white border-emerald-600",
+  mid: "bg-amber-500   text-white border-amber-600",
+  dst: "bg-sky-500     text-white border-sky-600",
+}
 
 const nodes = [
   { id: "src", position: { x:  80, y: 100 }, data: { label: "Source" } },
@@ -71,15 +81,14 @@ export function MyFlow() {
       nodes={nodes}
       edges={edges}
       renderNode={(n) => (
-        <div className="rounded-md border bg-card px-3 py-2 text-sm shadow-sm">
-          {n.data.label}
+        <div className={\`rounded-full border-2 px-5 py-2 text-sm font-semibold shadow-md \${tone[n.id]}\`}>
           <Handle type="target" position={Position.Left}  nodeId={n.id} />
+          {n.data.label}
           <Handle type="source" position={Position.Right} nodeId={n.id} />
         </div>
       )}
     >
-      <Background variant="cross" gap={28} />
-      <Controls showInteractive={false} />
+      <Background variant="dots" gap={30} />
     </Flow>
   )
 }`
@@ -103,16 +112,16 @@ const edges = [
   edges={edges}
   renderNode={(n) =>
     n.id === "fan" ? (
-      <div className="rounded-md border bg-card px-3 py-2 text-sm font-medium">
-        {n.data.label}
+      <div className="rounded-full border-2 border-violet-600 bg-violet-500 text-white px-5 py-2 text-sm font-semibold shadow-md">
         <Handle type="source" position={Position.Top}    nodeId={n.id} id="top"    />
         <Handle type="source" position={Position.Right}  nodeId={n.id} id="right"  />
         <Handle type="source" position={Position.Bottom} nodeId={n.id} id="bottom" />
+        {n.data.label}
       </div>
     ) : (
-      <div className="rounded-md border bg-card px-3 py-2 text-sm">
-        {n.data.label}
+      <div className="rounded-full border-2 border-slate-400 bg-white text-slate-800 px-4 py-1.5 text-sm font-medium shadow-sm">
         <Handle type="target" position={Position.Left} nodeId={n.id} />
+        {n.data.label}
       </div>
     )
   }

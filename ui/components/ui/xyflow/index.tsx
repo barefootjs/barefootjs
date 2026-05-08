@@ -57,6 +57,7 @@ import {
   BF_FLOW_MINIMAP_MASK,
   BF_FLOW_NODE,
   BF_FLOW_NODE_CHILD,
+  BF_FLOW_NODE_CUSTOM,
   BF_FLOW_NODE_GROUP,
   BF_FLOW_NODE_SELECTED,
   BF_FLOW_NODES,
@@ -179,6 +180,13 @@ export interface NodeWrapperProps {
    * passes the imperative drag/measure/handle-bounds machinery here.
    */
   ref?: (element: HTMLElement) => void
+  /**
+   * When true, append the `bf-flow__node--custom` modifier so the
+   * default card styling (padding / border / background) is stripped
+   * — the children render as the entire node visual. Set automatically
+   * by Flow when `renderNode` / `nodeTypes` is provided.
+   */
+  custom?: boolean
 }
 
 export function NodeWrapper(props: NodeWrapperProps) {
@@ -206,11 +214,12 @@ export function NodeWrapper(props: NodeWrapperProps) {
   const className = createMemo(() => {
     const n = node()
     const base = `${BF_FLOW_NODE} nopan`
-    if (!store || !n) return base
+    if (!store || !n) return props.custom ? `${base} ${BF_FLOW_NODE_CUSTOM}` : base
     const isParent = store.parentLookup().has(props.nodeId)
     const isChild = !!n.internals.userNode.parentId
     const selected = !!n.selected
     let cls = base
+    if (props.custom) cls += ` ${BF_FLOW_NODE_CUSTOM}`
     if (isParent) cls += ` ${BF_FLOW_NODE_GROUP}`
     if (isChild) cls += ` ${BF_FLOW_NODE_CHILD}`
     if (selected) cls += ` ${BF_FLOW_NODE_SELECTED}`
@@ -1058,7 +1067,7 @@ export function Flow<
           </svg>
           <div className={BF_FLOW_NODES} style="position: absolute; top: 0; left: 0;">
             {visibleNodes().map((node: NodeType) => (
-              <NodeWrapper key={node.id} nodeId={node.id}>
+              <NodeWrapper key={node.id} nodeId={node.id} custom={!!(props.renderNode || props.nodeTypes)}>
                 {props.renderNode ? (
                   props.renderNode(node)
                 ) : props.nodeTypes ? (
