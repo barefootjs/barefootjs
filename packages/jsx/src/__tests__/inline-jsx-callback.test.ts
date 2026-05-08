@@ -175,6 +175,84 @@ describe('inline JSX in arrow callback (#1211)', () => {
     expect(result.errors.filter(e => e.code === 'BF080')).toEqual([])
   })
 
+  test('nested inline JSX-returning arrows are hoisted via fixpoint iteration', () => {
+    // The outer renderNode arrow returns JSX that itself contains a
+    // <Wrapper render={(x) => <Inner/>}> — the inner arrow must also
+    // be lifted, otherwise its raw JSX leaks into the synthesized
+    // outer component's body.
+    const source = `
+      'use client'
+      import { Flow } from '@/components/ui/xyflow'
+      import { Wrapper } from '@/components/ui/wrapper'
+
+      export function Demo() {
+        return (
+          <Flow
+            nodes={[]}
+            edges={[]}
+            renderNode={(n) => (
+              <Wrapper render={(x) => <em>{x.id}</em>}>
+                {n.data.label}
+              </Wrapper>
+            )}
+          />
+        )
+      }
+    `
+    const js = clientJs(source)
+    expect(js).not.toMatch(/=>\s*<em\b/)
+    expect(js).not.toMatch(/=>\s*\(\s*<em\b/)
+    expect(js).toMatch(/hydrate\(\s*['"]BFInlineJsxCallback1(?:__|['"])/)
+    expect(js).toMatch(/hydrate\(\s*['"]BFInlineJsxCallback2(?:__|['"])/)
+  })
+
+  test('locally-declared destructure / function / class bindings are not flagged as captures', () => {
+    const source = `
+      'use client'
+      import { Flow } from '@/components/ui/xyflow'
+
+      export function Demo() {
+        return (
+          <Flow
+            nodes={[]}
+            edges={[]}
+            renderNode={(n) => {
+              const { id, data } = n
+              function fmt(s: string) { return s.toUpperCase() }
+              class Helper { static k = 'k' }
+              return <div data-id={id} data-k={Helper.k}>{fmt(data.label)}</div>
+            }}
+          />
+        )
+      }
+    `
+    const result = compileJSX(source, 'Demo.tsx', { adapter })
+    expect(result.errors.filter(e => e.code === 'BF080')).toEqual([])
+  })
+
+  test('captures via parameter default initializer are flagged as BF080', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Flow } from '@/components/ui/xyflow'
+
+      export function Demo() {
+        const [tone, setTone] = createSignal('blue')
+        return (
+          <Flow
+            nodes={[]}
+            edges={[]}
+            renderNode={(n, t = tone()) => <div class={t}>{n.id}</div>}
+          />
+        )
+      }
+    `
+    const result = compileJSX(source, 'Demo.tsx', { adapter })
+    expect(result.errors.some(e => e.code === 'BF080')).toBe(true)
+    const bf080 = result.errors.find(e => e.code === 'BF080')!
+    expect(bf080.message).toContain('tone')
+  })
+
   test('non-use-client files are left untouched', () => {
     const source = `
       import { Flow } from '@/components/ui/xyflow'

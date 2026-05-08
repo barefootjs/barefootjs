@@ -16,6 +16,12 @@
  * shim — the same machinery that makes `<Flow renderNode={Bridge}>`
  * (where `Bridge` is a regular component) work today.
  *
+ * Nested inline arrows (an arrow whose body itself contains another
+ * inline JSX-returning arrow in JsxAttribute position) are handled by
+ * iterating the pass to a fixpoint: each iteration hoists one outer
+ * level into a new module-scope synthesized component, and the next
+ * iteration sees the inner arrow at module scope.
+ *
  * Limitations (v1):
  *   - The synthesized component cannot capture variables from the
  *     surrounding closure. Arrow params and module-scope identifiers
@@ -25,7 +31,8 @@
  */
 
 import ts from 'typescript'
-import type { CompilerError } from './types'
+import type { CompilerError, SourceLocation } from './types'
+import { ErrorCodes, createError } from './errors'
 
 export interface PreprocessResult {
   /** Source after rewriting; identical to the input when no inline arrows are found. */
@@ -37,16 +44,48 @@ export interface PreprocessResult {
 }
 
 const SYNTHETIC_PREFIX = 'BFInlineJsxCallback'
+const MAX_FIXPOINT_ITERATIONS = 16
 
 /**
- * Walk the parsed source for arrow functions in JsxAttribute initializer
- * positions whose body contains JSX. For each match, synthesize a named
- * component declaration and rewrite the call site to reference it.
+ * Run the single-pass preprocessor to a fixpoint so nested inline
+ * JSX-returning arrows are all hoisted (each iteration lifts one
+ * level of nesting to module scope).
  */
 export function preprocessInlineJsxCallbacks(
   source: string,
   filePath: string
 ): PreprocessResult {
+  const errors: CompilerError[] = []
+  const syntheticNames: string[] = []
+  let counter = 0
+  let current = source
+
+  for (let iteration = 0; iteration < MAX_FIXPOINT_ITERATIONS; iteration++) {
+    const pass = runSinglePass(current, filePath, counter)
+    errors.push(...pass.errors)
+    syntheticNames.push(...pass.syntheticNames)
+    counter = pass.counterAfter
+    if (pass.errors.length > 0 || pass.syntheticNames.length === 0) {
+      // Stop on errors (no successful rewrite to iterate on) or when
+      // the pass produced no new replacements (fixpoint reached).
+      current = pass.source
+      break
+    }
+    current = pass.source
+  }
+
+  return { source: current, errors, syntheticNames }
+}
+
+interface SinglePassResult extends PreprocessResult {
+  counterAfter: number
+}
+
+function runSinglePass(
+  source: string,
+  filePath: string,
+  startingCounter: number
+): SinglePassResult {
   const sourceFile = ts.createSourceFile(
     filePath,
     source,
@@ -65,7 +104,7 @@ export function preprocessInlineJsxCallbacks(
   // hydrate; bail out so SSR-only files keep their existing behaviour
   // (they don't have a client bundle to crash anyway).
   if (!hasUseClient) {
-    return { source, errors: [], syntheticNames: [] }
+    return { source, errors: [], syntheticNames: [], counterAfter: startingCounter }
   }
 
   const moduleScope = collectModuleScopeNames(sourceFile)
@@ -75,7 +114,7 @@ export function preprocessInlineJsxCallbacks(
   const replacements: { start: number; end: number; text: string }[] = []
   const synthesizedDecls: string[] = []
 
-  let counter = 0
+  let counter = startingCounter
 
   function nextName(): string {
     while (true) {
@@ -93,13 +132,19 @@ export function preprocessInlineJsxCallbacks(
       let expr: ts.Expression = node.initializer.expression
       while (ts.isParenthesizedExpression(expr)) expr = expr.expression
       if (ts.isArrowFunction(expr) && arrowBodyContainsJsx(expr)) {
-        handleInlineArrow(expr)
+        const handled = handleInlineArrow(expr)
+        if (handled) {
+          // Don't dive into the arrow's body in this pass — the next
+          // fixpoint iteration will see the synthesized component at
+          // module scope and process any nested inline arrows there.
+          return
+        }
       }
     }
     ts.forEachChild(node, visit)
   }
 
-  function handleInlineArrow(arrow: ts.ArrowFunction): void {
+  function handleInlineArrow(arrow: ts.ArrowFunction): boolean {
     const paramNames = collectArrowParamNames(arrow)
     const free = collectFreeIdentifiers(arrow)
     const captures: string[] = []
@@ -111,22 +156,14 @@ export function preprocessInlineJsxCallbacks(
     if (captures.length > 0) {
       const start = sourceFile.getLineAndCharacterOfPosition(arrow.getStart(sourceFile))
       const end = sourceFile.getLineAndCharacterOfPosition(arrow.getEnd())
-      errors.push({
-        code: 'BF080',
-        severity: 'error',
-        message:
-          `Inline JSX-returning arrow function captures non-module identifier(s): ` +
-          `${captures.sort().join(', ')}. ` +
-          `Extract the callback into a top-level '\\'use client\\'' component (e.g. ` +
-          `\`function MyNode(n) { return <div/> }\` then \`renderNode={MyNode}\`) ` +
-          `or pass captured values via component props.`,
-        loc: {
-          file: filePath,
-          start: { line: start.line + 1, column: start.character },
-          end: { line: end.line + 1, column: end.character },
-        },
-      })
-      return
+      const loc: SourceLocation = {
+        file: filePath,
+        start: { line: start.line + 1, column: start.character },
+        end: { line: end.line + 1, column: end.character },
+      }
+      const baseMessage = errorMessageForCapture(captures)
+      errors.push(createError(ErrorCodes.INLINE_JSX_CALLBACK_CAPTURE, loc, { message: baseMessage }))
+      return false
     }
 
     const name = nextName()
@@ -142,12 +179,13 @@ export function preprocessInlineJsxCallbacks(
     // is callable as `${name}(node)` so the holding parent's runtime
     // (e.g. Flow's `props.renderNode(node)`) keeps working unchanged.
     replacements.push({ start: arrowStart, end: arrowEnd, text: name })
+    return true
   }
 
   ts.forEachChild(sourceFile, visit)
 
   if (replacements.length === 0) {
-    return { source, errors, syntheticNames }
+    return { source, errors, syntheticNames, counterAfter: counter }
   }
 
   // Apply replacements in reverse order so earlier offsets stay valid.
@@ -164,7 +202,17 @@ export function preprocessInlineJsxCallbacks(
   const trailing = rewritten.endsWith('\n') ? '' : '\n'
   rewritten = `${rewritten}${trailing}\n${synthesizedDecls.join('\n\n')}\n`
 
-  return { source: rewritten, errors, syntheticNames }
+  return { source: rewritten, errors, syntheticNames, counterAfter: counter }
+}
+
+function errorMessageForCapture(captures: string[]): string {
+  return (
+    `Inline JSX-returning arrow function captures non-module identifier(s): ` +
+    `${captures.sort().join(', ')}. ` +
+    `Extract the callback into a top-level '\\'use client\\'' component (e.g. ` +
+    `\`function MyNode(n) { return <div/> }\` then \`renderNode={MyNode}\`) ` +
+    `or pass captured values via component props.`
+  )
 }
 
 function arrowBodyContainsJsx(arrow: ts.ArrowFunction): boolean {
@@ -203,41 +251,57 @@ function isJsxLike(expr: ts.Expression): boolean {
 
 function collectArrowParamNames(arrow: ts.ArrowFunction): Set<string> {
   const names = new Set<string>()
-  function visitName(name: ts.BindingName): void {
-    if (ts.isIdentifier(name)) {
-      names.add(name.text)
-    } else if (ts.isObjectBindingPattern(name)) {
-      name.elements.forEach(el => visitName(el.name))
-    } else if (ts.isArrayBindingPattern(name)) {
-      name.elements.forEach(el => {
-        if (!ts.isOmittedExpression(el)) visitName(el.name)
-      })
-    }
-  }
-  for (const p of arrow.parameters) visitName(p.name)
+  for (const p of arrow.parameters) collectBindingNames(p.name, names)
   return names
 }
 
+function collectBindingNames(name: ts.BindingName, out: Set<string> | string[]): void {
+  const push = Array.isArray(out)
+    ? (n: string) => out.push(n)
+    : (n: string) => out.add(n)
+  if (ts.isIdentifier(name)) {
+    push(name.text)
+  } else if (ts.isObjectBindingPattern(name)) {
+    name.elements.forEach(el => collectBindingNames(el.name, out))
+  } else if (ts.isArrayBindingPattern(name)) {
+    name.elements.forEach(el => {
+      if (!ts.isOmittedExpression(el)) collectBindingNames(el.name, out)
+    })
+  }
+}
+
 /**
- * Collect identifiers referenced inside the arrow's body (or its
- * parameter type annotations) that are not bound by the arrow's own
- * parameters or by any nested binding within the body. Mirrors the
- * spirit of `extractFreeIdentifiersFromNode` in analyzer.ts but runs
- * before the analyzer is wired up.
+ * Collect identifiers referenced inside the arrow's body or its
+ * parameter default-initializers that are not bound by the arrow's
+ * own parameters or by any nested binding within the body.
+ *
+ * Tracked binding forms inside the body:
+ *   - VariableDeclaration with identifier OR destructure pattern name
+ *   - FunctionDeclaration / ClassDeclaration
+ *   - Catch clause variable
+ *   - Inner arrow / function expression / function declaration parameters
  */
 function collectFreeIdentifiers(arrow: ts.ArrowFunction): Set<string> {
   const ids = new Set<string>()
   const bound: string[] = []
 
-  function pushBindings(name: ts.BindingName): void {
-    if (ts.isIdentifier(name)) bound.push(name.text)
-    else if (ts.isObjectBindingPattern(name)) name.elements.forEach(e => pushBindings(e.name))
-    else if (ts.isArrayBindingPattern(name)) name.elements.forEach(e => {
-      if (!ts.isOmittedExpression(e)) pushBindings(e.name)
-    })
+  // Arrow parameter names — bound for the entire walk.
+  for (const p of arrow.parameters) {
+    const names: string[] = []
+    collectBindingNames(p.name, names)
+    bound.push(...names)
   }
 
-  for (const p of arrow.parameters) pushBindings(p.name)
+  function pushBindings(name: ts.BindingName): string[] {
+    const names: string[] = []
+    collectBindingNames(name, names)
+    bound.push(...names)
+    return names
+  }
+
+  function popN(n: number): void {
+    for (let i = 0; i < n; i++) bound.pop()
+  }
 
   function isBound(name: string): boolean {
     return bound.includes(name)
@@ -249,13 +313,27 @@ function collectFreeIdentifiers(arrow: ts.ArrowFunction): Set<string> {
       if (parent && ts.isPropertyAccessExpression(parent) && parent.name === node) return
       if (parent && ts.isPropertyAssignment(parent) && parent.name === node) return
       if (parent && ts.isPropertySignature(parent) && parent.name === node) return
+      if (parent && ts.isPropertyDeclaration(parent) && parent.name === node) return
+      if (parent && ts.isMethodDeclaration(parent) && parent.name === node) return
+      if (parent && ts.isMethodSignature(parent) && parent.name === node) return
+      if (parent && ts.isGetAccessorDeclaration(parent) && parent.name === node) return
+      if (parent && ts.isSetAccessorDeclaration(parent) && parent.name === node) return
+      if (parent && ts.isEnumMember(parent) && parent.name === node) return
+      if (parent && ts.isBindingElement(parent) && parent.propertyName === node) return
+      if (parent && ts.isShorthandPropertyAssignment(parent) && parent.name === node) {
+        // Shorthand `{ foo }` — `foo` IS a value reference; treat as a free id.
+        if (!isBound(node.text)) ids.add(node.text)
+        return
+      }
       if (parent && ts.isParameter(parent) && parent.name === node) return
       if (parent && ts.isVariableDeclaration(parent) && parent.name === node) return
+      if (parent && ts.isFunctionDeclaration(parent) && parent.name === node) return
+      if (parent && ts.isClassDeclaration(parent) && parent.name === node) return
       if (parent && ts.isJsxAttribute(parent) && parent.name === node) return
       if (parent && ts.isJsxOpeningElement(parent) && parent.tagName === node) {
-        // JSX intrinsic like <div> uses an Identifier as tagName whose
-        // first letter determines intrinsic vs component. Lowercase
-        // tags resolve at the runtime as strings, not identifiers.
+        // Lowercase tag names are intrinsic HTML elements (the runtime
+        // resolves them as strings). Uppercase tags are component refs
+        // and DO read from the surrounding scope.
         if (/^[a-z]/.test(node.text)) return
       }
       if (parent && ts.isJsxClosingElement(parent) && parent.tagName === node) {
@@ -265,32 +343,72 @@ function collectFreeIdentifiers(arrow: ts.ArrowFunction): Set<string> {
       ids.add(node.text)
       return
     }
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
-      bound.push(node.name.text)
-      ts.forEachChild(node, visit)
-      const idx = bound.lastIndexOf(node.name.text)
-      if (idx >= 0) bound.splice(idx, 1)
+
+    if (ts.isVariableDeclaration(node)) {
+      const declared = pushBindings(node.name)
+      if (node.initializer) visit(node.initializer)
+      // Bindings stay in scope for sibling declarations and the rest
+      // of the enclosing block; rely on the outer block-scope unbind.
+      // Don't pop here — popping happens at block end.
+      // To avoid leaking out of the parent scope we record the count
+      // at block entry and pop on exit; see Block handling below.
+      // Re-push consumed names: this branch already pushed them.
+      ;(declared)
       return
     }
-    if (ts.isArrowFunction(node) || ts.isFunctionExpression(node) || ts.isFunctionDeclaration(node)) {
-      const innerBound: string[] = []
-      for (const p of node.parameters) {
-        const params: string[] = []
-        ;(function collect(name: ts.BindingName): void {
-          if (ts.isIdentifier(name)) params.push(name.text)
-          else if (ts.isObjectBindingPattern(name)) name.elements.forEach(e => collect(e.name))
-          else if (ts.isArrayBindingPattern(name)) name.elements.forEach(e => {
-            if (!ts.isOmittedExpression(e)) collect(e.name)
-          })
-        })(p.name)
-        innerBound.push(...params)
-      }
-      bound.push(...innerBound)
-      ts.forEachChild(node, visit)
-      for (let i = 0; i < innerBound.length; i++) bound.pop()
+
+    if (ts.isFunctionDeclaration(node)) {
+      if (node.name) bound.push(node.name.text)
+      visitInsideNewScope(node)
+      // Function name stays bound in the enclosing block; popped on block exit.
       return
     }
+
+    if (ts.isClassDeclaration(node)) {
+      if (node.name) bound.push(node.name.text)
+      // Visit class members for free identifiers inside method bodies.
+      ts.forEachChild(node, visit)
+      return
+    }
+
+    if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
+      visitInsideNewScope(node)
+      return
+    }
+
+    if (ts.isCatchClause(node)) {
+      const before = bound.length
+      if (node.variableDeclaration) pushBindings(node.variableDeclaration.name)
+      ts.forEachChild(node, visit)
+      popN(bound.length - before)
+      return
+    }
+
+    if (ts.isBlock(node)) {
+      const before = bound.length
+      ts.forEachChild(node, visit)
+      popN(bound.length - before)
+      return
+    }
+
     ts.forEachChild(node, visit)
+  }
+
+  function visitInsideNewScope(fn: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration): void {
+    const before = bound.length
+    for (const p of fn.parameters) {
+      pushBindings(p.name)
+      if (p.initializer) visit(p.initializer)
+    }
+    if (fn.body) visit(fn.body)
+    popN(bound.length - before)
+  }
+
+  // Walk the arrow's parameter default-initializers (e.g.
+  // `(n = tone()) => ...`) at the OUTER scope so refs there count as
+  // free relative to the synthesized module-scope component.
+  for (const p of arrow.parameters) {
+    if (p.initializer) visit(p.initializer)
   }
 
   visit(arrow.body)
@@ -308,19 +426,11 @@ function collectFreeIdentifiers(arrow: ts.ArrowFunction): Set<string> {
 function collectModuleScopeNames(sourceFile: ts.SourceFile): Set<string> {
   const names = new Set<string>()
 
-  function pushBinding(name: ts.BindingName): void {
-    if (ts.isIdentifier(name)) names.add(name.text)
-    else if (ts.isObjectBindingPattern(name)) name.elements.forEach(e => pushBinding(e.name))
-    else if (ts.isArrayBindingPattern(name)) name.elements.forEach(e => {
-      if (!ts.isOmittedExpression(e)) pushBinding(e.name)
-    })
-  }
-
   for (const stmt of sourceFile.statements) {
     if (ts.isFunctionDeclaration(stmt) && stmt.name) names.add(stmt.name.text)
     else if (ts.isClassDeclaration(stmt) && stmt.name) names.add(stmt.name.text)
     else if (ts.isVariableStatement(stmt)) {
-      for (const decl of stmt.declarationList.declarations) pushBinding(decl.name)
+      for (const decl of stmt.declarationList.declarations) collectBindingNames(decl.name, names)
     } else if (ts.isImportDeclaration(stmt) && stmt.importClause) {
       const ic = stmt.importClause
       if (ic.name) names.add(ic.name.text)
@@ -340,7 +450,9 @@ function collectModuleScopeNames(sourceFile: ts.SourceFile): Set<string> {
  * Build the synthesized component declaration source. Preserves the
  * arrow's original parameter syntax (including type annotations) and
  * its body verbatim — relying on the host file's TypeScript context
- * for any imported types referenced in the annotations.
+ * for any imported types referenced in the annotations. Nested inline
+ * JSX-returning arrows in the body are rewritten on the next fixpoint
+ * iteration once the synthesized component reaches module scope.
  */
 function buildSyntheticDeclaration(
   name: string,
