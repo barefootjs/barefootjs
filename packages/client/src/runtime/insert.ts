@@ -12,12 +12,27 @@ import { setParentScopeId, parseHTML } from './component'
 import { BF_COND, BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
 
 /**
+ * Result returned by a branch's `template()` when the template captures
+ * live DOM nodes via `__bfSlot` (#1213). `html` carries the marker-bearing
+ * HTML string; `slots[N]` is the actual `Node` referenced by the
+ * `<!--bf-slot:N-->` placeholder at the same index.
+ */
+export interface BranchTemplateResult {
+  html: string
+  slots: Node[]
+}
+
+/**
  * Branch configuration for conditional rendering.
  * Contains template and event binding functions for each branch.
  */
 export interface BranchConfig {
-  /** HTML template function for this branch */
-  template: () => string
+  /**
+   * HTML template function for this branch. Returns either a plain HTML
+   * string (legacy) or a `{ html, slots }` pair for templates that
+   * captured live `Node` values via `__bfSlot` (#1213).
+   */
+  template: () => string | BranchTemplateResult
 
   /**
    * Bind events and reactive effects to elements within the branch.
@@ -27,6 +42,12 @@ export interface BranchConfig {
    *          Used to dispose reactive effects scoped to this branch.
    */
   bindEvents: (scope: Element) => (() => void) | void
+}
+
+const EMPTY_SLOTS: Node[] = []
+
+function normalizeTemplate(value: string | BranchTemplateResult): BranchTemplateResult {
+  return typeof value === 'string' ? { html: value, slots: EMPTY_SLOTS } : value
 }
 
 
@@ -66,16 +87,16 @@ export function insert(
   // (e.g., selectedMail().subject when the branch is for the non-null case).
   let isFragmentCond = false
   try {
-    const sampleTrue = whenTrue.template()
-    isFragmentCond = sampleTrue.includes(`<!--bf-cond-start:${id}-->`)
+    const sampleTrue = normalizeTemplate(whenTrue.template())
+    isFragmentCond = sampleTrue.html.includes(`<!--bf-cond-start:${id}-->`)
   } catch (err) {
     // Template may throw TypeError for nullable access (e.g., selectedMail().subject)
     if (!(err instanceof TypeError)) throw err
   }
   if (!isFragmentCond) {
     try {
-      const sampleFalse = whenFalse.template()
-      isFragmentCond = sampleFalse.includes(`<!--bf-cond-start:${id}-->`)
+      const sampleFalse = normalizeTemplate(whenFalse.template())
+      isFragmentCond = sampleFalse.html.includes(`<!--bf-cond-start:${id}-->`)
     } catch (err) {
       if (!(err instanceof TypeError)) throw err
     }
@@ -110,13 +131,13 @@ export function insert(
       // If the existing element doesn't match the expected branch,
       // we need to swap the DOM first (e.g., SSR rendered whenFalse but now we need whenTrue)
       setParentScopeId(parentScopeId)
-      let html: string
-      try { html = branch.template() } finally { setParentScopeId(null) }
+      let result: BranchTemplateResult
+      try { result = normalizeTemplate(branch.template()) } finally { setParentScopeId(null) }
       const existingEl = find(scope, `[${BF_COND}="${id}"]`)
       if (existingEl) {
         // Compare full opening tag signatures to detect branch mismatch.
         // Tag-name-only comparison fails when both branches use the same tag (e.g., <div>).
-        const expectedSig = getTemplateRootSignature(html)
+        const expectedSig = getTemplateRootSignature(result.html)
         const existingSig = existingEl.outerHTML.match(/^<[^>]+>/)?.[0] ?? null
 
         if (isFragmentCond) {
@@ -124,20 +145,26 @@ export function insert(
           // CSR composite loops inline-evaluate conditionals into bf-c elements,
           // but insert() manages them as fragment conditionals (comment markers).
           // Replace the bf-c element with the fragment template content.
-          updateFragmentConditional(scope, id, html)
+          updateFragmentConditional(scope, id, result)
         } else if (expectedSig && existingSig && expectedSig !== existingSig) {
           // DOM doesn't match expected branch - need to swap
-          updateElementConditional(scope, id, html)
+          updateElementConditional(scope, id, result)
+        } else if (result.slots.length > 0) {
+          // Branch template captured live nodes via __bfSlot (#1213). The
+          // SSR DOM rendered Hono-stringified HTML, but the client now needs
+          // the live signal-bound nodes installed. Force a swap so the
+          // existing element is replaced with the slot-spliced template.
+          updateElementConditional(scope, id, result)
         }
       } else if (isFragmentCond) {
         // For @client fragment conditionals, SSR renders only comment markers.
         // We need to insert the actual content on first run.
-        updateFragmentConditional(scope, id, html)
+        updateFragmentConditional(scope, id, result)
       }
 
       // Bind events to the (possibly updated) SSR element
-      const result = branch.bindEvents(scope)
-      branchCleanup = typeof result === 'function' ? result : null
+      const cleanup = branch.bindEvents(scope)
+      branchCleanup = typeof cleanup === 'function' ? cleanup : null
 
       // Auto-focus on first run too (for components created via createComponent with editing=true)
       autoFocusConditionalElement(scope, id)
@@ -159,17 +186,17 @@ export function insert(
 
     // Branch changed: swap DOM and bind events
     setParentScopeId(parentScopeId)
-    let html: string
-    try { html = branch.template() } finally { setParentScopeId(null) }
+    let result: BranchTemplateResult
+    try { result = normalizeTemplate(branch.template()) } finally { setParentScopeId(null) }
     if (isFragmentCond) {
-      updateFragmentConditional(scope, id, html)
+      updateFragmentConditional(scope, id, result)
     } else {
-      updateElementConditional(scope, id, html)
+      updateElementConditional(scope, id, result)
     }
 
     // Bind events to the newly inserted element
-    const result = branch.bindEvents(scope)
-      branchCleanup = typeof result === 'function' ? result : null
+    const cleanup = branch.bindEvents(scope)
+    branchCleanup = typeof cleanup === 'function' ? cleanup : null
 
     // Auto-focus elements with autofocus attribute (for dynamically created elements)
     autoFocusConditionalElement(scope, id)
@@ -211,9 +238,37 @@ function getTemplateRootSignature(template: string): string | null {
 }
 
 /**
+ * Replace `<!--bf-slot:N-->` placeholder comments inside a parsed fragment
+ * with the live `Node` from `slots[N]` (#1213). Walks every comment in
+ * the fragment and substitutes by identity (no clone) so event bindings
+ * and signal effects on the slot node remain intact.
+ *
+ * Returns the same fragment for chaining.
+ */
+function spliceSlots(fragment: DocumentFragment, slots: Node[]): DocumentFragment {
+  if (slots.length === 0) return fragment
+  const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_COMMENT)
+  const replacements: Array<[Comment, Node]> = []
+  while (walker.nextNode()) {
+    const c = walker.currentNode as Comment
+    const m = c.nodeValue?.match(/^bf-slot:(\d+)$/)
+    if (m) {
+      const idx = Number(m[1])
+      const node = slots[idx]
+      if (node) replacements.push([c, node])
+    }
+  }
+  for (const [marker, node] of replacements) {
+    marker.parentNode?.replaceChild(node, marker)
+  }
+  return fragment
+}
+
+/**
  * Update fragment conditional (content between comment markers)
  */
-function updateFragmentConditional(scope: Element, id: string, html: string): void {
+function updateFragmentConditional(scope: Element, id: string, result: BranchTemplateResult): void {
+  const { html, slots } = result
   // Find start comment marker
   const startMarker = `bf-cond-start:${id}`
   let startComment: Comment | null = null
@@ -245,16 +300,20 @@ function updateFragmentConditional(scope: Element, id: string, html: string): vo
     const insertParent = (startComment.parentNode instanceof Element)
       ? startComment.parentNode
       : null
-    const fragment = parseHTML(html, insertParent)
-    const newNodes: Node[] = []
+    const fragment = spliceSlots(parseHTML(html, insertParent), slots)
+    // Move parsed nodes by identity rather than cloning. A slot Node
+    // nested inside an element wrapper (e.g. `<div>${__bfSlot(...)}</div>`)
+    // would otherwise be cloned along with its parent, dropping event
+    // listeners and reactive effects (#1213). The parsed fragment is
+    // freshly built per call, so consuming it by reference is safe.
     let child = fragment.firstChild
     while (child) {
+      const next: ChildNode | null = child.nextSibling
       if (!(child.nodeType === 8 && child.nodeValue?.startsWith('bf-cond-'))) {
-        newNodes.push(child.cloneNode(true))
+        startComment!.parentNode?.insertBefore(child, endComment)
       }
-      child = child.nextSibling
+      child = next
     }
-    newNodes.forEach(n => startComment!.parentNode?.insertBefore(n, endComment))
   } else if (condEl) {
     // Single element: replace with new content. The replacement's
     // namespace is determined by the parent of the element being
@@ -262,17 +321,26 @@ function updateFragmentConditional(scope: Element, id: string, html: string): vo
     const insertParent = (condEl.parentNode instanceof Element)
       ? condEl.parentNode
       : null
-    const parsed = parseHTML(html, insertParent)
+    const parsed = spliceSlots(parseHTML(html, insertParent), slots)
     const firstChild = parsed.firstChild
 
     if (firstChild?.nodeType === 8 && firstChild?.nodeValue === `bf-cond-start:${id}`) {
-      // Switching from element to fragment
+      // Switching from element to fragment. Move parsed nodes by
+      // identity (see fragment branch above) so nested slot nodes keep
+      // their event/effect bindings (#1213).
       const parent = condEl.parentNode
-      const nodes = Array.from(parsed.childNodes).map(n => n.cloneNode(true))
-      nodes.forEach(n => parent?.insertBefore(n, condEl))
+      let n: ChildNode | null = parsed.firstChild
+      while (n) {
+        const next: ChildNode | null = n.nextSibling
+        parent?.insertBefore(n, condEl)
+        n = next
+      }
       condEl.remove()
     } else if (firstChild) {
-      condEl.replaceWith(firstChild.cloneNode(true))
+      // Replace the existing conditional element with the parsed root
+      // by reference; cloning would re-clone any slot nodes nested
+      // inside `firstChild` and break identity preservation (#1213).
+      condEl.replaceWith(firstChild)
     }
   }
 }
@@ -280,15 +348,20 @@ function updateFragmentConditional(scope: Element, id: string, html: string): vo
 /**
  * Update element conditional (single element with bf-c)
  */
-function updateElementConditional(scope: Element, id: string, html: string): void {
+function updateElementConditional(scope: Element, id: string, result: BranchTemplateResult): void {
   const condEl = scope.querySelector(`[${BF_COND}="${id}"]`)
   if (!condEl) return
 
+  const { html, slots } = result
   const insertParent = (condEl.parentNode instanceof Element)
     ? condEl.parentNode
     : null
-  const newEl = parseHTML(html, insertParent).firstChild
+  const fragment = spliceSlots(parseHTML(html, insertParent), slots)
+  const newEl = fragment.firstChild
   if (newEl) {
-    condEl.replaceWith(newEl.cloneNode(true))
+    // Move `newEl` into the DOM by identity. The fragment is discarded
+    // after this call, so cloning would only serve to break identity
+    // for any slot nodes nested inside `newEl` (#1213).
+    condEl.replaceWith(newEl)
   }
 }

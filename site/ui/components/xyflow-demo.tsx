@@ -4,13 +4,12 @@
  * Renders the JSX-native `<Flow>` graph editor with the four overlays
  * (`<Background>` / `<Controls>` / `<MiniMap>`).
  *
- * The custom-body / custom-handle demos below still return HTML strings
- * from `renderNode` rather than inline JSX. This file predates the
- * compiler fix in #1211 (which now hoists inline `(n) => <div/>`
- * arrows into synthesized client components); the string-returning
- * helpers are kept as-is to preserve the existing visual snapshots
- * until a follow-up rewrites them in inline JSX with end-to-end
- * verification.
+ * The custom-body / custom-handle demos below return live JSX from
+ * `renderNode`. This relies on the compiler fix in #1211 (inline
+ * `(n) => <div/>` arrows hoisted into synthesized client components)
+ * and the runtime fix in #1213 (live `Node` returns spliced into
+ * branch templates via `__bfSlot` instead of being stringified by
+ * the surrounding template literal).
  */
 
 "use client"
@@ -19,42 +18,11 @@ import {
   Background,
   Controls,
   Flow,
+  Handle,
   MiniMap,
 } from '@/components/ui/xyflow'
 import { Position } from '@barefootjs/xyflow'
 
-// Static-handle markup helper: produces the same DOM signature as the
-// JSX `<Handle>` (class names + data-* attributes) so static node
-// previews still register handle bounds for the connection layer.
-function handleHTML(opts: {
-  type: 'source' | 'target'
-  position: Position
-  nodeId: string
-  id?: string
-}): string {
-  const modifier = opts.type === 'source' ? 'bf-flow__handle--source' : 'bf-flow__handle--target'
-  const idAttr = opts.id ? ` data-handleid="${opts.id}"` : ''
-  return (
-    `<div class="bf-flow__handle ${modifier} ${opts.type}"` +
-    ` data-handle-type="${opts.type}"` +
-    ` data-handlepos="${opts.position}"` +
-    ` data-handle-position="${opts.position}"` +
-    ` data-node-id="${opts.nodeId}"${idAttr}></div>`
-  )
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-// Custom-body / custom-handle previews.
-//
-// These demos return an HTML *string* from `renderNode` (the
-// `pillBodyHTML` / `fanBodyHTML` helpers below). The compiler fix in
-// #1211 makes the conventional `renderNode={(n) => <div/>}` shape
-// compile cleanly, but the string-return shape is kept here to preserve
-// the existing visual snapshots; a follow-up will migrate these demos
-// to inline JSX once the new path has bake-in time.
 const customBodyNodes = [
   { id: 'src', position: { x:  80, y: 100 }, data: { label: 'Source' } },
   { id: 'mid', position: { x: 320, y:  80 }, data: { label: 'Pipeline' } },
@@ -73,14 +41,16 @@ const customBodyTone: Record<string, string> = {
   dst: 'bg-sky-500    text-white border-sky-600',
 }
 
-function pillBodyHTML(n: { id: string; data: { label?: string } }): string {
-  const tone = customBodyTone[n.id] ?? 'bg-card text-foreground border'
+function PillNode(props: { id: string }) {
+  const node = customBodyNodes.find((n) => n.id === props.id)
+  const label = node?.data?.label ?? props.id
+  const tone = customBodyTone[props.id] ?? 'bg-card text-foreground border'
   return (
-    `<div class="rounded-full border-2 px-5 py-2 text-sm font-semibold shadow-md ${tone}">` +
-    handleHTML({ type: 'target', position: Position.Left, nodeId: n.id }) +
-    escapeHtml(n.data.label ?? n.id) +
-    handleHTML({ type: 'source', position: Position.Right, nodeId: n.id }) +
-    `</div>`
+    <div className={`rounded-full border-2 px-5 py-2 text-sm font-semibold shadow-md ${tone}`}>
+      <Handle type="target" position={Position.Left} nodeId={props.id} />
+      {label}
+      <Handle type="source" position={Position.Right} nodeId={props.id} />
+    </div>
   )
 }
 
@@ -90,8 +60,7 @@ export function XyflowCustomBodyDemo() {
       <Flow
         nodes={customBodyNodes}
         edges={customBodyEdges}
-        // biome-ignore lint/suspicious/noExplicitAny: returning a string (not Child) so the SSR + hydrate template-literal embedding stays clean.
-        renderNode={((n: { id: string; data: { label?: string } }) => pillBodyHTML(n)) as any}
+        renderNode={(n) => <PillNode id={n.id} />}
       >
         <Background variant="dots" gap={30} />
       </Flow>
@@ -111,22 +80,24 @@ const fanEdges = [
   { id: 'fan-c', source: 'fan', sourceHandle: 'bottom', target: 'c' },
 ]
 
-function fanBodyHTML(n: { id: string; data: { label?: string } }): string {
-  if (n.id === 'fan') {
+function FanNode(props: { id: string }) {
+  const node = fanNodes.find((n) => n.id === props.id)
+  const label = node?.data?.label ?? props.id
+  if (props.id === 'fan') {
     return (
-      `<div class="rounded-full border-2 border-violet-600 bg-violet-500 text-white px-5 py-2 text-sm font-semibold shadow-md">` +
-      handleHTML({ type: 'source', position: Position.Top,    nodeId: n.id, id: 'top' }) +
-      handleHTML({ type: 'source', position: Position.Right,  nodeId: n.id, id: 'right' }) +
-      handleHTML({ type: 'source', position: Position.Bottom, nodeId: n.id, id: 'bottom' }) +
-      escapeHtml(n.data.label ?? n.id) +
-      `</div>`
+      <div className="rounded-full border-2 border-violet-600 bg-violet-500 text-white px-5 py-2 text-sm font-semibold shadow-md">
+        <Handle type="source" position={Position.Top} nodeId={props.id} id="top" />
+        <Handle type="source" position={Position.Right} nodeId={props.id} id="right" />
+        <Handle type="source" position={Position.Bottom} nodeId={props.id} id="bottom" />
+        {label}
+      </div>
     )
   }
   return (
-    `<div class="rounded-full border-2 border-slate-400 bg-white text-slate-800 px-4 py-1.5 text-sm font-medium shadow-sm">` +
-    handleHTML({ type: 'target', position: Position.Left, nodeId: n.id }) +
-    escapeHtml(n.data.label ?? n.id) +
-    `</div>`
+    <div className="rounded-full border-2 border-slate-400 bg-white text-slate-800 px-4 py-1.5 text-sm font-medium shadow-sm">
+      <Handle type="target" position={Position.Left} nodeId={props.id} />
+      {label}
+    </div>
   )
 }
 
@@ -136,8 +107,7 @@ export function XyflowCustomHandlesDemo() {
       <Flow
         nodes={fanNodes}
         edges={fanEdges}
-        // biome-ignore lint/suspicious/noExplicitAny: see XyflowCustomBodyDemo above for the rationale.
-        renderNode={((n: { id: string; data: { label?: string } }) => fanBodyHTML(n)) as any}
+        renderNode={(n) => <FanNode id={n.id} />}
       >
         <Background variant="dots" gap={30} />
       </Flow>

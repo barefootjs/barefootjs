@@ -84,10 +84,17 @@ function templateAttrExpr(attrName: string, valExpr: string, attr: { presenceOrU
 /** Convert an IR node tree to an HTML template string (for conditionals/loops).
  *  @param loopDepth - Current nesting depth inside inner loops. 0 = outer loop level.
  *    When > 0, `key` attributes are converted to `data-key-{depth}` instead of `data-key`.
+ *  @param branchSlotsVar - When set, Child-position expression interpolations
+ *    are wrapped with `__bfSlot(EXPR, <branchSlotsVar>)` so the runtime can
+ *    splice live `Node` returns into the parsed fragment instead of
+ *    stringifying them via the template literal (#1213).
  */
-export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, loopDepth = 0, loopParams?: ReadonlyArray<string | LoopParamSpec>): string {
-  const recurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth, loopParams)
+export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, loopDepth = 0, loopParams?: ReadonlyArray<string | LoopParamSpec>, branchSlotsVar?: string): string {
+  const recurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth, loopParams, branchSlotsVar)
   const wrapExpr = (expr: string) => wrapExprWithLoopParams(expr, loopParams)
+  const wrapInterpolation = (expr: string): string => branchSlotsVar
+    ? `__bfSlot(${expr}, ${branchSlotsVar})`
+    : expr
 
   switch (node.type) {
     case 'element': {
@@ -134,9 +141,9 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
     case 'expression':
       if (node.expr === 'null' || node.expr === 'undefined') return ''
       if (node.slotId) {
-        return `<!--bf:${node.slotId}-->\${${wrapExpr(node.expr)}}<!--/-->`
+        return `<!--bf:${node.slotId}-->\${${wrapInterpolation(wrapExpr(node.expr))}}<!--/-->`
       }
-      return `\${${wrapExpr(node.expr)}}`
+      return `\${${wrapInterpolation(wrapExpr(node.expr))}}`
 
     case 'conditional': {
       const trueBranch = recurse(node.whenTrue)
@@ -189,7 +196,7 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
       // Increment loopDepth so inner key attrs become data-key-N
       // Forward loopParams so expressions referencing outer/inner loop params
       // get wrapped as signal accessors (e.g., task.title → task().title).
-      const innerRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth + 1, loopParams)
+      const innerRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth + 1, loopParams, branchSlotsVar)
       const childTemplate = node.children.map(innerRecurse).join('')
       const indexParam = node.index ? `, ${node.index}` : ''
       const wrappedArray = wrapExpr(node.array)

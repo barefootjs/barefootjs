@@ -96,13 +96,15 @@ function emitOuterConditional(
 ): void {
   const armIndent = `${indent}    `
 
+  // Body-form arrows so live `Node` returns from Child-position
+  // interpolations route through `__bfSlot` and survive the splice (#1213).
   lines.push(`${indent}insert(${elVar}, '${cond.slotId}', () => ${cond.wrappedCondition}, {`)
-  lines.push(`${indent}  template: () => \`${cond.whenTrueTemplateHtml}\`,`)
+  lines.push(`${indent}  template: () => { const __slots = []; return { html: \`${cond.whenTrueTemplateHtml}\`, slots: __slots } },`)
   lines.push(`${indent}  bindEvents: (__branchScope) => {`)
   emitArmBody(lines, cond.whenTrueArm, armIndent)
   lines.push(`${indent}  }`)
   lines.push(`${indent}}, {`)
-  lines.push(`${indent}  template: () => \`${cond.whenFalseTemplateHtml}\`,`)
+  lines.push(`${indent}  template: () => { const __slots = []; return { html: \`${cond.whenFalseTemplateHtml}\`, slots: __slots } },`)
   lines.push(`${indent}  bindEvents: (__branchScope) => {`)
   emitArmBody(lines, cond.whenFalseArm, armIndent)
   lines.push(`${indent}  }`)

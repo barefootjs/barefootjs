@@ -65,7 +65,12 @@ function emitArm(
   armIndent: string,
   bodyIndent: string,
 ): void {
-  lines.push(`${armIndent}template: () => \`${arm.templateHtml}\`,`)
+  // `__slots` accumulates live `Node` returns captured by `__bfSlot` so
+  // the `insert()` runtime can splice them into the parsed fragment
+  // instead of letting the template literal stringify them (#1213).
+  // The collector in `collect-elements.ts` injects `__bfSlot(EXPR, __slots)`
+  // wrappers around Child-position interpolations under this var name.
+  lines.push(`${armIndent}template: () => { const __slots = []; return { html: \`${arm.templateHtml}\`, slots: __slots } },`)
   lines.push(`${armIndent}bindEvents: (__branchScope) => {`)
   emitArmBody(lines, arm.body, mode, bodyIndent)
   lines.push(`${armIndent}}`)

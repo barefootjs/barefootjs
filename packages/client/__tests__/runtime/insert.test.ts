@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { insert } from '../../src/runtime/insert'
+import { __bfSlot } from '../../src/runtime/branch-slot'
 import { createSignal } from '../../src/reactive'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
@@ -153,6 +154,194 @@ describe('insert', () => {
       // Toggle back to false → "Verify"
       setShow(false)
       expect(button.textContent).toBe('Verify')
+    })
+
+    test('inserts live HTMLElement returned via template slots (#1213)', () => {
+      // Reproduces the bug from #1213: a `renderNode={(n) => SomeComp(n)}`
+      // callback returns a live HTMLElement. The branch template captures
+      // it via __bfSlot; insert() must splice the actual node by identity
+      // rather than letting the template literal stringify it.
+      document.body.innerHTML = `
+        <div bf-s="Test_1">
+          <!--bf-cond-start:c1--><span>placeholder</span><!--bf-cond-end:c1-->
+        </div>
+      `
+      const scope = document.querySelector('[bf-s]')!
+      const live = document.createElement('div')
+      live.id = 'live-marker'
+      live.textContent = 'live content'
+      const [show] = createSignal(true)
+
+      insert(
+        scope,
+        'c1',
+        show,
+        {
+          template: () => {
+            const slots: Node[] = []
+            return {
+              html: `<!--bf-cond-start:c1-->${__bfSlot(live, slots)}<!--bf-cond-end:c1-->`,
+              slots,
+            }
+          },
+          bindEvents: () => {},
+        },
+        {
+          template: () => `<!--bf-cond-start:c1--><!--bf-cond-end:c1-->`,
+          bindEvents: () => {},
+        },
+      )
+
+      // The live node should be in the DOM by identity (not cloned, not
+      // stringified to "[object HTMLDivElement]").
+      const found = scope.querySelector('#live-marker')
+      expect(found).toBe(live)
+      expect(scope.textContent).not.toContain('[object')
+      expect(scope.textContent).not.toContain('placeholder')
+    })
+
+    test('preserves identity for slot nodes nested inside an element wrapper (#1213)', () => {
+      // Catches a regression where the runtime would `cloneNode(true)` the
+      // parsed wrapper element, cloning the slot Node along with it and
+      // dropping its event listeners / signal effects. The fix moves
+      // parsed nodes by reference instead of cloning.
+      document.body.innerHTML = `
+        <div bf-s="Test_1">
+          <!--bf-cond-start:c1--><span>placeholder</span><!--bf-cond-end:c1-->
+        </div>
+      `
+      const scope = document.querySelector('[bf-s]')!
+      const live = document.createElement('button')
+      live.id = 'nested-live'
+      live.textContent = 'click'
+      let clicks = 0
+      live.addEventListener('click', () => { clicks++ })
+      const [show] = createSignal(true)
+
+      insert(
+        scope,
+        'c1',
+        show,
+        {
+          template: () => {
+            const slots: Node[] = []
+            return {
+              html: `<!--bf-cond-start:c1--><div class="wrapper">${__bfSlot(live, slots)}</div><!--bf-cond-end:c1-->`,
+              slots,
+            }
+          },
+          bindEvents: () => {},
+        },
+        {
+          template: () => `<!--bf-cond-start:c1--><!--bf-cond-end:c1-->`,
+          bindEvents: () => {},
+        },
+      )
+
+      const found = scope.querySelector('#nested-live')
+      expect(found).toBe(live)
+      expect((found as HTMLElement | null)?.parentElement?.className).toBe('wrapper')
+
+      // Identity preservation should keep the original event listener
+      // attached. Cloning would have detached it.
+      ;(found as HTMLElement).click()
+      expect(clicks).toBe(1)
+    })
+
+    test('preserves identity for slot nodes inside element conditional root (#1213)', () => {
+      // First-run hydration with `slots.length > 0` forces a swap via
+      // `updateElementConditional`. The replaced element has the slot
+      // node nested inside it; identity must survive.
+      document.body.innerHTML = `
+        <div bf-s="Test_1">
+          <div bf-c="c1">stale</div>
+        </div>
+      `
+      const scope = document.querySelector('[bf-s]')!
+      const live = document.createElement('button')
+      live.id = 'el-cond-live'
+      live.textContent = 'live'
+      let clicks = 0
+      live.addEventListener('click', () => { clicks++ })
+      const [show] = createSignal(true)
+
+      insert(
+        scope,
+        'c1',
+        show,
+        {
+          template: () => {
+            const slots: Node[] = []
+            return {
+              html: `<div bf-c="c1" class="root">${__bfSlot(live, slots)}</div>`,
+              slots,
+            }
+          },
+          bindEvents: () => {},
+        },
+        {
+          template: () => `<div bf-c="c1"></div>`,
+          bindEvents: () => {},
+        },
+      )
+
+      const found = scope.querySelector('#el-cond-live')
+      expect(found).toBe(live)
+      expect((found as HTMLElement | null)?.parentElement?.className).toBe('root')
+      ;(found as HTMLElement).click()
+      expect(clicks).toBe(1)
+    })
+
+    test('swaps live element on branch toggle via slots (#1213)', () => {
+      document.body.innerHTML = `
+        <div bf-s="Test_1">
+          <!--bf-cond-start:c1--><!--bf-cond-end:c1-->
+        </div>
+      `
+      const scope = document.querySelector('[bf-s]')!
+      const liveTrue = document.createElement('div')
+      liveTrue.id = 'true-marker'
+      liveTrue.textContent = 'TRUE'
+      const liveFalse = document.createElement('div')
+      liveFalse.id = 'false-marker'
+      liveFalse.textContent = 'FALSE'
+      const [show, setShow] = createSignal(true)
+
+      insert(
+        scope,
+        'c1',
+        show,
+        {
+          template: () => {
+            const slots: Node[] = []
+            return {
+              html: `<!--bf-cond-start:c1-->${__bfSlot(liveTrue, slots)}<!--bf-cond-end:c1-->`,
+              slots,
+            }
+          },
+          bindEvents: () => {},
+        },
+        {
+          template: () => {
+            const slots: Node[] = []
+            return {
+              html: `<!--bf-cond-start:c1-->${__bfSlot(liveFalse, slots)}<!--bf-cond-end:c1-->`,
+              slots,
+            }
+          },
+          bindEvents: () => {},
+        },
+      )
+
+      expect(scope.querySelector('#true-marker')).toBe(liveTrue)
+      expect(scope.querySelector('#false-marker')).toBeNull()
+
+      setShow(false)
+      expect(scope.querySelector('#false-marker')).toBe(liveFalse)
+      expect(scope.querySelector('#true-marker')).toBeNull()
+
+      setShow(true)
+      expect(scope.querySelector('#true-marker')).toBe(liveTrue)
     })
 
     test('null-to-element branch switch via comment markers', () => {
