@@ -99,12 +99,13 @@ export function buildBranchChildComponentInitsPlan(
   const { components, wrap } = args
   const inits: BranchChildComponentInit[] = []
   for (const comp of components) {
-    // JS source expression — anchored on `__scopeId` for the slotId path so
-    // a nested element whose own scope happens to end in `_${slotId}` can't
-    // cross-match (see #1220 + buildCompSelector docs). Without slotId,
-    // name-prefix is already disambiguated.
+    // Use slotId suffix match when available so two siblings of the same
+    // component type with different slotIds don't collide. The #1220
+    // cross-binding (a sibling's `_sN_sN` nested scope coincidentally
+    // matching this suffix) is filtered at runtime by `qsa` — see
+    // packages/client/src/runtime/query.ts.
     const selector = comp.slotId
-      ? `\`[bf-s$="\${__scopeId}_${comp.slotId}"]\``
+      ? `'[bf-s$="_${comp.slotId}"]'`
       : `'[bf-s^="~${comp.name}_"]'`
 
     const propsEntries = comp.props

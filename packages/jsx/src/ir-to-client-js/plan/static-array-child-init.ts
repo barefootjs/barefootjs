@@ -25,9 +25,8 @@ export type PropsExpr = string
 export interface InnerLoopComp {
   componentName: string
   /**
-   * JS source expression embedded into `__innerEl.querySelector(<here>)`.
-   * Either a template literal (slotId-anchored, interpolating `__scopeId`)
-   * or a string literal — see `buildCompSelector`.
+   * JS source expression (a single-quoted string literal) embedded into
+   * `__innerEl.querySelector(<here>)`. See `buildCompSelector`.
    */
   selector: string
   /** Pre-built props object expression. */
@@ -41,9 +40,9 @@ export interface SingleCompInitPlan {
   containerVar: string
   componentName: string
   /**
-   * JS source expression embedded into `containerVar.querySelectorAll(<here>)`.
-   * Combined slotId-anchored suffix match (`__scopeId` interpolated at
-   * runtime) OR name-prefix match.
+   * JS source expression (single-quoted string literal) embedded into
+   * `containerVar.querySelectorAll(<here>)`. Combines slotId-suffix match
+   * with name-prefix match.
    */
   childSelector: string
   /** Array expression as written in user code. */
@@ -69,8 +68,8 @@ export interface OuterNestedInitPlan {
   containerVar: string
   componentName: string
   /**
-   * JS source expression embedded into `__iterEl.querySelector(<here>)`.
-   * See `buildCompSelector`.
+   * JS source expression (single-quoted string literal) embedded into
+   * `__iterEl.querySelector(<here>)`. See `buildCompSelector`.
    */
   selector: string
   arrayExpr: string

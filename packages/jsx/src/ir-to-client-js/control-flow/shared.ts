@@ -176,26 +176,21 @@ function emitEventSetup(
 /**
  * Build the component-finder selector for SSR hydration initChild.
  *
- * Returns a JS source EXPRESSION (not a raw CSS string). Callers embed the
- * result verbatim in generated code — e.g. `qsa(__el, ${buildCompSelector(c)})`
- * — without an extra `'...'` wrapper.
+ * Returns a JS source EXPRESSION (a single-quoted string literal) embedded
+ * verbatim into generated code, e.g. `qsa(__el, ${buildCompSelector(c)})`.
  *
- * With `slotId`: returns a template-literal expression that interpolates
- * `__scopeId` at runtime. The bf-s of an inlined child is
- * `~${parentScopeId}_${slotId}` or `${parentScopeId}_${slotId}` (per
- * `hono-adapter.ts`'s scope emission), so anchoring the suffix to
- * `${__scopeId}_${slotId}` matches both shapes precisely. A bare
- * `[bf-s$="_${slotId}"]` was loose enough that any nested element whose own
- * scope happened to end in `_${slotId}` would cross-match — see #1220 for
- * the synthesized BFInlineJsxCallback collision that motivated the change.
+ * With `slotId`: the suffix selector `[bf-s$="_${slotId}"]` matches both
+ * the parent-anchored shape (`~${parentScopeId}_${slotId}`) and the
+ * random-anchored shape (`~${name}_<rand>_${slotId}`). The #1220
+ * cross-binding (a synthesized child's deeper `_sN_sN` shape
+ * coincidentally matching this suffix) is filtered at runtime by `qsa` —
+ * see `packages/client/src/runtime/query.ts`.
  *
- * Without `slotId`: returns a single-quoted string literal expression. The
- * name-prefixed selector is already disambiguated by component name and
- * never subject to the suffix collision, so no `__scopeId` anchor is needed.
+ * Without `slotId`: name-prefix selector — already unambiguous by name.
  */
 export function buildCompSelector(comp: { slotId?: string | null; name: string }): string {
   return comp.slotId
-    ? `\`[bf-s$="\${__scopeId}_${comp.slotId}"]\``
+    ? `'[bf-s$="_${comp.slotId}"]'`
     : `'[bf-s^="~${comp.name}_"], [bf-s^="${comp.name}_"]'`
 }
 
@@ -253,12 +248,8 @@ export function emitComponentAndEventSetup(
 
     const slotIdLit = comp.slotId ? `'${comp.slotId}'` : 'null'
     const keyProp = comp.props.find(p => p.name === 'key')
-    const keyExpr = keyProp ? wrap(keyProp.value) : 'undefined'
-    // `__scopeId` is the calling component's runtime scope id — passed so
-    // upsertChild/upsertChildItem can build a parent-scope-anchored SSR
-    // selector and avoid #1220's cross-binding (a sibling component's
-    // shared `_sN` suffix accidentally matching an unrelated nested scope).
-    const upsertCall = `${upsertFn}(${elVar}, '${nameForRegistryRef(comp.name)}', ${slotIdLit}, ${propsExpr}, ${keyExpr}, __scopeId)`
+    const keyArg = keyProp ? `, ${wrap(keyProp.value)}` : ''
+    const upsertCall = `${upsertFn}(${elVar}, '${nameForRegistryRef(comp.name)}', ${slotIdLit}, ${propsExpr}${keyArg})`
 
     if (childrenRefsLoop) {
       const wrappedChildren = wrap(rawChildrenExpr!)

@@ -31,6 +31,9 @@ import { BF_LOOP_ITEM, BF_LOOP_START, BF_LOOP_END } from '@barefootjs/shared'
 import { initChild } from './registry'
 import { createComponent } from './component'
 
+/** See `registry.ts::NESTED_SLOT_SUFFIX` — same #1220 cross-binding skip. */
+const NESTED_SLOT_SUFFIX = /_s\d+_s\d+$/
+
 /** Iterate the elements that belong to an item — primary, in-tree siblings within bounds, then any pre-insertion extras stash. */
 function* itemRootElements(primaryEl: Element): Iterable<Element> {
   yield primaryEl
@@ -89,9 +92,9 @@ export function qsaItem(primaryEl: Element | null, selector: string): Element | 
  * also matches when a sibling root *is* the component scope element
  * itself, not just a parent of it.
  *
- * `parentScopeId` mirrors `upsertChild` — anchors the SSR suffix selector
- * to the calling component's scope id so sibling components sharing a
- * `_sN` suffix can't cross-match (#1220).
+ * Mirrors `upsertChild`'s #1220 collision skip: slotId-suffix candidates
+ * with a deeper `_sN_sN` shape (a synthesized child's nested scope path)
+ * are ignored so `initChild` doesn't fire on the wrong element.
  */
 export function upsertChildItem(
   primaryEl: Element,
@@ -99,18 +102,27 @@ export function upsertChildItem(
   slotId: string | null,
   props: Record<string, unknown>,
   key?: string | number,
-  parentScopeId?: string,
 ): HTMLElement | null {
-  // See `upsertChild` for the combined selector rationale — slotId-
-  // anchored suffix matches inlined-stateless children, name-prefix
-  // matches stateful children with their own random scope.
-  const namePrefixSelector = `[bf-s^="~${name}_"], [bf-s^="${name}_"]`
-  const ssrSelector = slotId
-    ? (parentScopeId
-        ? `[bf-s$="${parentScopeId}_${slotId}"], ${namePrefixSelector}`
-        : `[bf-s$="_${slotId}"], ${namePrefixSelector}`)
-    : namePrefixSelector
-  const ssr = qsaItem(primaryEl, ssrSelector) as HTMLElement | null
+  let ssr: HTMLElement | null = null
+  if (slotId) {
+    for (const root of itemRootElements(primaryEl)) {
+      const candidates = root.matches(`[bf-s$="_${slotId}"]`)
+        ? [root, ...Array.from(root.querySelectorAll(`[bf-s$="_${slotId}"]`))]
+        : Array.from(root.querySelectorAll(`[bf-s$="_${slotId}"]`))
+      for (const candidate of candidates) {
+        const bfs = candidate.getAttribute('bf-s') || ''
+        if (NESTED_SLOT_SUFFIX.test(bfs)) continue
+        ssr = candidate as HTMLElement
+        break
+      }
+      if (ssr) break
+    }
+    if (!ssr) {
+      ssr = qsaItem(primaryEl, `[bf-s^="~${name}_"], [bf-s^="${name}_"]`) as HTMLElement | null
+    }
+  } else {
+    ssr = qsaItem(primaryEl, `[bf-s^="~${name}_"], [bf-s^="${name}_"]`) as HTMLElement | null
+  }
   if (ssr) {
     initChild(name, ssr, props)
     return ssr

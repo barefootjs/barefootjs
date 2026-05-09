@@ -69,16 +69,15 @@ function buildSingleCompPlan(
   childComponent: IRLoopChildComponent,
 ): SingleCompInitPlan {
   const { name, props, slotId } = childComponent
-  // JS source expression — embedded verbatim into the generated code (no
-  // surrounding `'...'` quoting). Combines a parent-scope-anchored suffix
-  // selector (for inlined stateless components whose bf-s is
-  // `~${parentScopeId}_${slotId}` / `${parentScopeId}_${slotId}` — see
-  // hono-adapter scope emission) with the name-prefix selector (for
-  // stateful components whose bf-s is `${name}_${random}`). Anchoring on
-  // `__scopeId` prevents the cross-binding documented in #1220.
+  // JS source expression embedded verbatim into the generated code.
+  // Combines slotId suffix match (for inlined stateless components whose
+  // bf-s is `~${parentScopeId}_${slotId}`) with name-prefix match (for
+  // stateful components whose bf-s is `${name}_${random}`). Cross-binding
+  // protection (#1220 — synthesized children with `_sN_sN` shape) is
+  // applied at runtime by `qsa` — see packages/client/src/runtime/query.ts.
   const namePrefixSelector = `[bf-s^="~${name}_"], [bf-s^="${name}_"]`
   const childSelector = slotId
-    ? `\`[bf-s$="\${__scopeId}_${slotId}"], ${namePrefixSelector}\``
+    ? `'[bf-s$="_${slotId}"], ${namePrefixSelector}'`
     : `'${namePrefixSelector}'`
 
   return {

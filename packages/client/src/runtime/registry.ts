@@ -17,6 +17,16 @@ import type { InitFn } from './types'
 const componentRegistry = new Map<string, InitFn>()
 
 /**
+ * Recognises bf-s values whose final segment is a nested-slot path
+ * (`…_sM_sN`). These show up when a synthesized component (e.g.
+ * `BFInlineJsxCallback`) renders descendants whose own internal scope
+ * happens to end in `_sN`, coincidentally matching a sibling slot's
+ * loose suffix selector. The slotId-suffix lookup in `upsertChild`
+ * skips them so the wrong `initChild` never fires (#1220).
+ */
+const NESTED_SLOT_SUFFIX = /_s\d+_s\d+$/
+
+/**
  * Queue of pending child initializations waiting for components to register.
  * Key: component name, Value: array of pending init requests
  */
@@ -118,9 +128,11 @@ export function initChild(
  * CSR shape at runtime in one place — so the compiler doesn't need a
  * `mode: 'csr' | 'ssr'` argument for child component emission.
  *
- *   1. SSR: a `[bf-s$="${parentScopeId}_<slotId>"]` (or `[bf-s^="<name>_"]`
- *      when slotId is null) element exists. Initialise it via initChild
- *      and return it.
+ *   1. SSR: a `[bf-s$="_<slotId>"]` (or `[bf-s^="<name>_"]` when slotId is
+ *      null) element exists. Initialise it via initChild and return it.
+ *      The slotId-suffix path is filtered (#1220) to skip elements whose
+ *      bf-s has a deeper `_sN_sN` shape — those belong to a synthesized
+ *      child's nested scope and only collide by coincidence.
  *   2. CSR: a `[data-bf-ph="<slotId|name>"]` placeholder exists. Replace it
  *      with `createComponent(name, props, key)` and return the new element.
  *   3. Neither matches (already initialised on a previous reconcile pass) —
@@ -128,13 +140,6 @@ export function initChild(
  *
  * The returned element is the live component scope element — callers can
  * use it for follow-up effects (e.g. a children-textContent createEffect).
- *
- * `parentScopeId` is the calling component's runtime `__scopeId`. When
- * supplied alongside a `slotId` we anchor the SSR selector to it so a
- * sibling component sharing the same `_sN` suffix can't be matched (see
- * #1220 for the synthesized BFInlineJsxCallback collision). Falls back to
- * the legacy loose suffix selector when omitted, preserving behaviour for
- * older compiler output and external callers.
  */
 export function upsertChild(
   parent: Element,
@@ -142,22 +147,25 @@ export function upsertChild(
   slotId: string | null,
   props: Record<string, unknown>,
   key?: string | number,
-  parentScopeId?: string,
 ): HTMLElement | null {
-  // SSR: scope element is already in the tree. Combine the slotId-anchored
-  // suffix selector (precise — matches inlined-stateless children whose
-  // bf-s ends with `${parentScopeId}_${slotId}`) with the name-prefix
-  // selector (matches stateful children whose bf-s is `${name}_<random>`,
-  // independent of the parent's scope path) so a single querySelector
-  // covers both shapes. Without `parentScopeId` we fall back to the
-  // legacy loose suffix to keep external/unmigrated callers working.
-  const namePrefixSelector = `[bf-s^="~${name}_"], [bf-s^="${name}_"]`
-  const ssrSelector = slotId
-    ? (parentScopeId
-        ? `[bf-s$="${parentScopeId}_${slotId}"], ${namePrefixSelector}`
-        : `[bf-s$="_${slotId}"], ${namePrefixSelector}`)
-    : namePrefixSelector
-  const ssr = parent.querySelector(ssrSelector) as HTMLElement | null
+  // SSR: scope element is already in the tree.
+  let ssr: HTMLElement | null = null
+  if (slotId) {
+    const candidates = parent.querySelectorAll(`[bf-s$="_${slotId}"]`)
+    for (const candidate of candidates) {
+      const bfs = candidate.getAttribute(BF_SCOPE) || ''
+      // #1220: skip cross-binding to a synthesized child's nested scope
+      // path (e.g. `~BFInlineJsxCallback_<hash>_sM_${slotId}`).
+      if (NESTED_SLOT_SUFFIX.test(bfs)) continue
+      ssr = candidate as HTMLElement
+      break
+    }
+    if (!ssr) {
+      ssr = parent.querySelector(`[bf-s^="~${name}_"], [bf-s^="${name}_"]`) as HTMLElement | null
+    }
+  } else {
+    ssr = parent.querySelector(`[bf-s^="~${name}_"], [bf-s^="${name}_"]`) as HTMLElement | null
+  }
   if (ssr) {
     initChild(name, ssr, props)
     return ssr

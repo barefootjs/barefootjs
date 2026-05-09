@@ -318,9 +318,30 @@ function findInPortals(scopeId: string, selector: string): Element | null {
  */
 export function qsa(el: Element | null, selector: string): Element | null {
   if (!el) return null
+  // #1220 cross-binding skip: when looking up a child component scope by
+  // the loose slot-suffix selector `[bf-s$="_<slotId>"]`, walk all
+  // candidates and skip those whose bf-s ends in a deeper `_sN_sN` path
+  // — those belong to a synthesized child's nested scope (e.g.
+  // `~BFInlineJsxCallback_<hash>_sM_<slotId>`) and only collide with the
+  // searched slot id by coincidence.
+  const slotMatch = selector.match(/^\[bf-s\$="_(s\d+)"\]$/)
+  if (slotMatch) {
+    const slotId = slotMatch[1]
+    const selfBfs = el.getAttribute('bf-s')
+    if (selfBfs && selfBfs.endsWith(`_${slotId}`) && !NESTED_SLOT_SUFFIX.test(selfBfs)) {
+      return el
+    }
+    for (const candidate of el.querySelectorAll(selector)) {
+      const bfs = candidate.getAttribute('bf-s') || ''
+      if (!NESTED_SLOT_SUFFIX.test(bfs)) return candidate
+    }
+    return null
+  }
   if (el.matches(selector)) return el
   return el.querySelector(selector)
 }
+
+const NESTED_SLOT_SUFFIX = /_s\d+_s\d+$/
 
 /**
  * Find elements within a scope by slot IDs.
