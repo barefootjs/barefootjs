@@ -9,7 +9,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { $ } from 'bun'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { TestAdapter } from '../adapters/test-adapter'
@@ -299,14 +299,14 @@ describe('inline JSX in arrow callback with options.program (#1217)', () => {
   let tmpDir: string
 
   beforeAll(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'bfjs-1217-'))
+    tmpDir = join(tmpdir(), `bfjs-1217-${crypto.randomUUID()}`)
   })
 
-  afterAll(() => {
-    rmSync(tmpDir, { recursive: true, force: true })
+  afterAll(async () => {
+    await $`rm -rf ${tmpDir}`.quiet()
   })
 
-  test('preserves the BFInlineJsxCallback rewrite when a shared program is supplied', () => {
+  test('preserves the BFInlineJsxCallback rewrite when a shared program is supplied', async () => {
     const source = `'use client'
 import { Flow } from '@/components/ui/xyflow'
 
@@ -321,7 +321,7 @@ export function Demo() {
 }
 `
     const filePath = join(tmpDir, 'demo-single.tsx')
-    writeFileSync(filePath, source, 'utf8')
+    await Bun.write(filePath, source)
     const program = createProgramForCorpus([filePath])
     const js = clientJsWithProgram(source, filePath, program)
 
@@ -334,7 +334,7 @@ export function Demo() {
     expect(js).toContain('BFInlineJsxCallback1')
   })
 
-  test('multi-component file rewrites the inline arrow with and without a shared program', () => {
+  test('multi-component file rewrites the inline arrow with and without a shared program', async () => {
     const source = `'use client'
 import { Flow } from '@/components/ui/xyflow'
 
@@ -353,7 +353,7 @@ export function Demo() {
 }
 `
     const filePath = join(tmpDir, 'demo-multi.tsx')
-    writeFileSync(filePath, source, 'utf8')
+    await Bun.write(filePath, source)
 
     // Path A — no shared program (compileMultipleComponents builds its own).
     const noProgramJs = clientJs(source, filePath)
