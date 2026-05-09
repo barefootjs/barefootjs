@@ -101,10 +101,15 @@ export function upsertChildItem(
   key?: string | number,
   parentScopeId?: string,
 ): HTMLElement | null {
-  // SSR: scope element is already in the tree.
+  // See `upsertChild` for the combined selector rationale — slotId-
+  // anchored suffix matches inlined-stateless children, name-prefix
+  // matches stateful children with their own random scope.
+  const namePrefixSelector = `[bf-s^="~${name}_"], [bf-s^="${name}_"]`
   const ssrSelector = slotId
-    ? (parentScopeId ? `[bf-s$="${parentScopeId}_${slotId}"]` : `[bf-s$="_${slotId}"]`)
-    : `[bf-s^="~${name}_"], [bf-s^="${name}_"]`
+    ? (parentScopeId
+        ? `[bf-s$="${parentScopeId}_${slotId}"], ${namePrefixSelector}`
+        : `[bf-s$="_${slotId}"], ${namePrefixSelector}`)
+    : namePrefixSelector
   const ssr = qsaItem(primaryEl, ssrSelector) as HTMLElement | null
   if (ssr) {
     initChild(name, ssr, props)

@@ -144,10 +144,19 @@ export function upsertChild(
   key?: string | number,
   parentScopeId?: string,
 ): HTMLElement | null {
-  // SSR: scope element is already in the tree.
+  // SSR: scope element is already in the tree. Combine the slotId-anchored
+  // suffix selector (precise — matches inlined-stateless children whose
+  // bf-s ends with `${parentScopeId}_${slotId}`) with the name-prefix
+  // selector (matches stateful children whose bf-s is `${name}_<random>`,
+  // independent of the parent's scope path) so a single querySelector
+  // covers both shapes. Without `parentScopeId` we fall back to the
+  // legacy loose suffix to keep external/unmigrated callers working.
+  const namePrefixSelector = `[bf-s^="~${name}_"], [bf-s^="${name}_"]`
   const ssrSelector = slotId
-    ? (parentScopeId ? `[bf-s$="${parentScopeId}_${slotId}"]` : `[bf-s$="_${slotId}"]`)
-    : `[bf-s^="~${name}_"], [bf-s^="${name}_"]`
+    ? (parentScopeId
+        ? `[bf-s$="${parentScopeId}_${slotId}"], ${namePrefixSelector}`
+        : `[bf-s$="_${slotId}"], ${namePrefixSelector}`)
+    : namePrefixSelector
   const ssr = parent.querySelector(ssrSelector) as HTMLElement | null
   if (ssr) {
     initChild(name, ssr, props)
