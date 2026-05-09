@@ -52,6 +52,17 @@ import type { ComponentDef } from './types'
  */
 const registeredDefs = new Map<string, ComponentDef>()
 
+/**
+ * Look up a registered component definition by name. Used by the CSR
+ * `createComponent` path to honour `comment: true` (transparent
+ * wrapper) components — without the def lookup, those components
+ * overwrite the inner element's `bf-s` and break child-scope
+ * resolution at hydration.
+ */
+export function getRegisteredDef(name: string): ComponentDef | undefined {
+  return registeredDefs.get(name)
+}
+
 let microtaskScheduled = false
 let rafScheduled = false
 
