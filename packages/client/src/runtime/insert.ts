@@ -301,20 +301,19 @@ function updateFragmentConditional(scope: Element, id: string, result: BranchTem
       ? startComment.parentNode
       : null
     const fragment = spliceSlots(parseHTML(html, insertParent), slots)
-    // Live slot nodes were installed by identity in `spliceSlots`. Move
-    // them out of the fragment by reference rather than cloning so event
-    // listeners and reactive bindings survive the splice.
-    const slotSet = slots.length > 0 ? new Set<Node>(slots) : null
-    const newNodes: Node[] = []
+    // Move parsed nodes by identity rather than cloning. A slot Node
+    // nested inside an element wrapper (e.g. `<div>${__bfSlot(...)}</div>`)
+    // would otherwise be cloned along with its parent, dropping event
+    // listeners and reactive effects (#1213). The parsed fragment is
+    // freshly built per call, so consuming it by reference is safe.
     let child = fragment.firstChild
     while (child) {
       const next: ChildNode | null = child.nextSibling
       if (!(child.nodeType === 8 && child.nodeValue?.startsWith('bf-cond-'))) {
-        newNodes.push(slotSet?.has(child) ? child : child.cloneNode(true))
+        startComment!.parentNode?.insertBefore(child, endComment)
       }
       child = next
     }
-    newNodes.forEach(n => startComment!.parentNode?.insertBefore(n, endComment))
   } else if (condEl) {
     // Single element: replace with new content. The replacement's
     // namespace is determined by the parent of the element being
@@ -326,21 +325,22 @@ function updateFragmentConditional(scope: Element, id: string, result: BranchTem
     const firstChild = parsed.firstChild
 
     if (firstChild?.nodeType === 8 && firstChild?.nodeValue === `bf-cond-start:${id}`) {
-      // Switching from element to fragment
+      // Switching from element to fragment. Move parsed nodes by
+      // identity (see fragment branch above) so nested slot nodes keep
+      // their event/effect bindings (#1213).
       const parent = condEl.parentNode
-      const slotSet = slots.length > 0 ? new Set<Node>(slots) : null
-      const nodes: Node[] = []
       let n: ChildNode | null = parsed.firstChild
       while (n) {
         const next: ChildNode | null = n.nextSibling
-        nodes.push(slotSet?.has(n) ? n : n.cloneNode(true))
+        parent?.insertBefore(n, condEl)
         n = next
       }
-      nodes.forEach(node => parent?.insertBefore(node, condEl))
       condEl.remove()
     } else if (firstChild) {
-      const slotSet = slots.length > 0 ? new Set<Node>(slots) : null
-      condEl.replaceWith(slotSet?.has(firstChild) ? firstChild : firstChild.cloneNode(true))
+      // Replace the existing conditional element with the parsed root
+      // by reference; cloning would re-clone any slot nodes nested
+      // inside `firstChild` and break identity preservation (#1213).
+      condEl.replaceWith(firstChild)
     }
   }
 }
@@ -359,7 +359,9 @@ function updateElementConditional(scope: Element, id: string, result: BranchTemp
   const fragment = spliceSlots(parseHTML(html, insertParent), slots)
   const newEl = fragment.firstChild
   if (newEl) {
-    const slotSet = slots.length > 0 ? new Set<Node>(slots) : null
-    condEl.replaceWith(slotSet?.has(newEl) ? newEl : newEl.cloneNode(true))
+    // Move `newEl` into the DOM by identity. The fragment is discarded
+    // after this call, so cloning would only serve to break identity
+    // for any slot nodes nested inside `newEl` (#1213).
+    condEl.replaceWith(newEl)
   }
 }
