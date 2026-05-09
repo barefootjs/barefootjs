@@ -77,7 +77,7 @@ export { styleToCss } from './style'
 
 // Runtime helpers
 export { findScope, find, $, $c, $t, qsa, qsaChildScope, qsaChildScopes } from './query'
-export { hydrate, rehydrateAll, flushHydration } from './hydrate'
+export { hydrate, rehydrateAll, flushHydration, getRegisteredDef } from './hydrate'
 export { registerComponent, getComponentInit, initChild, upsertChild } from './registry'
 export { insert, type BranchConfig, type BranchTemplateResult } from './insert'
 export { __bfSlot } from './branch-slot'

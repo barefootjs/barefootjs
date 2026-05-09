@@ -7,6 +7,7 @@
 
 import { getTemplate } from './template'
 import { getComponentInit } from './registry'
+import { getRegisteredDef } from './hydrate'
 import { hydratedScopes } from './hydration-state'
 import { untrack } from '@barefootjs/client/reactive'
 import { setCurrentScope } from './context'
@@ -120,9 +121,29 @@ export function createComponent(
     return createPlaceholder(name, key)
   }
 
-  // 6. Set scope ID and key attributes
-  const scopeId = `${name}_${generateId()}`
-  element.setAttribute(BF_SCOPE, scopeId)
+  // 6. Set scope ID and key attributes.
+  //
+  // `comment: true` components (synthesized inline-JSX-callback wrappers
+  // from #1211, etc.) render as transparent shells: the template body
+  // is `${renderChild('Inner', ...)}` with no enclosing element of
+  // their own, so the parsed `firstChild` is actually the Inner
+  // component's root with its `~Inner_..._s0` scope marker. Overwriting
+  // that `bf-s` here strands `$c(__scope, 's0')` lookups in the
+  // wrapper's init — `_s0` resolves to null, the Inner's `initChild`
+  // call bails, and the Inner's body never runs.
+  //
+  // For comment-mode components we leave the original child-prefixed
+  // `bf-s` in place; `$cSingle`'s self-match fallback
+  // (`scope.matches('[bf-s$="_s0"]')`) then returns the scope element
+  // itself, so the wrapper's `initChild('Inner', _s0, ...)` mounts the
+  // Inner correctly. The `key` attribute still goes on for list
+  // reconciliation.
+  const def = getRegisteredDef(name)
+  const isCommentWrapper = def?.comment === true
+  if (!isCommentWrapper) {
+    const scopeId = `${name}_${generateId()}`
+    element.setAttribute(BF_SCOPE, scopeId)
+  }
   if (key !== undefined) {
     element.setAttribute(BF_KEY, String(key))
   }
