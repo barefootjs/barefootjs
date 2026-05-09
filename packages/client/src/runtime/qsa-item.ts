@@ -27,7 +27,7 @@
  *      them into the DOM.
  */
 
-import { BF_LOOP_ITEM, BF_LOOP_START, BF_LOOP_END } from '@barefootjs/shared'
+import { BF_LOOP_ITEM, BF_LOOP_START, BF_LOOP_END, BF_SCOPE } from '@barefootjs/shared'
 import { initChild } from './registry'
 import { createComponent } from './component'
 
@@ -110,7 +110,7 @@ export function upsertChildItem(
         ? [root, ...Array.from(root.querySelectorAll(`[bf-s$="_${slotId}"]`))]
         : Array.from(root.querySelectorAll(`[bf-s$="_${slotId}"]`))
       for (const candidate of candidates) {
-        const bfs = candidate.getAttribute('bf-s') || ''
+        const bfs = candidate.getAttribute(BF_SCOPE) || ''
         if (NESTED_SLOT_SUFFIX.test(bfs)) continue
         ssr = candidate as HTMLElement
         break
