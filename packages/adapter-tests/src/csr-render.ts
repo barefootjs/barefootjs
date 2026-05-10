@@ -130,9 +130,13 @@ function renderChild(name, props, key, suffix) {
     ? 'test_' + suffix
     : '~' + name + '_' + Math.random().toString(36).slice(2, 8)
   const keyAttr = key !== undefined ? ' data-key="' + key + '"' : ''
-  if (!template) return '<div bf-s="' + scopeId + '"' + keyAttr + '>[' + name + ']</div>'
+  // Slot-relationship markers (bf-parent/bf-mount) — mirrors the production
+  // runtime renderChild in @barefootjs/client/runtime so CSR conformance
+  // output asserts the same shape SSR emits.
+  const slotAttrs = suffix ? ' bf-parent="test" bf-mount="' + suffix + '"' : ''
+  if (!template) return '<div bf-s="' + scopeId + '"' + slotAttrs + keyAttr + '>[' + name + ']</div>'
   const html = template(props).trim()
-  return html.replace(/^(<\\w+)/, '$1 bf-s="' + scopeId + '"' + keyAttr)
+  return html.replace(/^(<\\w+)/, '$1 bf-s="' + scopeId + '"' + slotAttrs + keyAttr)
 }
 
 // Noop stubs for init-phase functions (not needed for template evaluation)
