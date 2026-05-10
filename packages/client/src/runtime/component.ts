@@ -11,7 +11,7 @@ import { getRegisteredDef } from './hydrate'
 import { hydratedScopes } from './hydration-state'
 import { untrack } from '@barefootjs/client/reactive'
 import { setCurrentScope } from './context'
-import { BF_SCOPE, BF_KEY } from '@barefootjs/shared'
+import { BF_SCOPE, BF_KEY, BF_PARENT, BF_MOUNT } from '@barefootjs/shared'
 import type { ComponentDef } from './types'
 
 // Parent scope ID context for renderChild() inside insert() branch templates.
@@ -59,10 +59,18 @@ const propsMap = new WeakMap<HTMLElement, Record<string, unknown>>()
  * Create a component instance from a string name (SSR mode, uses registry)
  * or from a ComponentDef (CSR mode, no registry needed).
  */
+export interface CreateComponentSlotInfo {
+  /** Parent component scope id (without the `~` child prefix) */
+  parent: string
+  /** Slot id where this component is mounted in its parent */
+  mount: string
+}
+
 export function createComponent(
   nameOrDef: string | ComponentDef,
   props: Record<string, unknown>,
-  key?: string | number
+  key?: string | number,
+  slot?: CreateComponentSlotInfo,
 ): HTMLElement {
   // ComponentDef mode: use def directly instead of registry lookup
   if (typeof nameOrDef !== 'string') {
@@ -141,8 +149,18 @@ export function createComponent(
   const def = getRegisteredDef(name)
   const isCommentWrapper = def?.comment === true
   if (!isCommentWrapper) {
-    const scopeId = `${name}_${generateId()}`
+    // Mark with `~` child prefix when this component is being mounted as a
+    // child (slot info present) so initChild's re-entry guard kicks in. The
+    // SSR-rendered scopes carry the same prefix; without it on freshly-
+    // created CSR components, every reconcile would re-run init() and
+    // multiply effects, producing the recursive-component duplication bug.
+    const childPrefix = slot ? '~' : ''
+    const scopeId = `${childPrefix}${name}_${generateId()}`
     element.setAttribute(BF_SCOPE, scopeId)
+  }
+  if (slot) {
+    element.setAttribute(BF_PARENT, slot.parent)
+    element.setAttribute(BF_MOUNT, slot.mount)
   }
   if (key !== undefined) {
     element.setAttribute(BF_KEY, String(key))
@@ -249,11 +267,20 @@ export function renderChild(
     ? _parentScopeId
     : `${name}_${generateId()}`
   const keyAttr = key !== undefined ? ` ${BF_KEY}="${key}"` : ''
+  // Slot-relationship markers: bf-parent (parent's scope id, no `~`) and
+  // bf-mount (slot id within parent). upsertChild uses these to find the
+  // SSR scope without relying on bf-s suffix matching, which can't tell
+  // direct children apart from descendants for self-referential recursive
+  // components. Only emit when both pieces are known — top-level renders
+  // without parent context skip them.
+  const slotAttrs = (_parentScopeId && slotSuffix)
+    ? ` ${BF_PARENT}="${_parentScopeId}" ${BF_MOUNT}="${slotSuffix}"`
+    : ''
 
   if (!templateFn) {
     // Fallback: empty placeholder (for components without registered templates)
     // Use ~ prefix to mark as child component (prevents hydrate() re-initialization)
-    return `<div bf-s="~${scopePrefix}${suffix}"${keyAttr}></div>`
+    return `<div bf-s="~${scopePrefix}${suffix}"${slotAttrs}${keyAttr}></div>`
   }
 
   const html = templateFn(props).trim()
@@ -267,7 +294,7 @@ export function renderChild(
   if (!firstElMatch) return html
   const insertPos = html.indexOf(firstElMatch[0])
   return html.slice(0, insertPos) +
-    html.slice(insertPos).replace(/^(<\w+)/, `$1 bf-s="~${scopePrefix}${suffix}"${keyAttr}`)
+    html.slice(insertPos).replace(/^(<\w+)/, `$1 bf-s="~${scopePrefix}${suffix}"${slotAttrs}${keyAttr}`)
 }
 
 /**

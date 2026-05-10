@@ -71,7 +71,7 @@ export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan)
     // Multi-root items also have per-item `<!--bf-loop-i-->` Comments to
     // remove, so use `getLoopNodes` (Elements + Comments) for that case.
     const clearFn = bodyIsMultiRoot ? 'getLoopNodes' : 'getLoopChildren'
-    lines.push(`${topIndent}if (${containerVar}) ${clearFn}(${containerVar}, '${markerId}').forEach(__el => __el.remove())`)
+    lines.push(`${topIndent}if (${containerVar} && !__bfFirstRun) ${clearFn}(${containerVar}, '${markerId}').forEach(__el => __el.remove())`)
     // Wrap the mapArray call in createDisposableEffect so the inner
     // createEffects (mapArray's own + per-item child effects) are released
     // when the surrounding branch swaps away (observation O-2). The branch
