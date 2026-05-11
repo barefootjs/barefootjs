@@ -210,11 +210,90 @@ console.log('still works')
       Broken: { clientJs: 'components/Broken-111.js', markedTemplate: 'components/Broken.tsx' },
     }
 
-    await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+    const { errors } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
 
     const result = await Bun.file(resolve(COMPONENTS_DIR, 'Broken-111.js')).text()
     expect(result).not.toContain('nonexistent')
     expect(result).toContain("console.log('still works')")
+    // Dropped binding is unused — no BF053 expected.
+    expect(errors).toHaveLength(0)
+  })
+
+  // Coverage: namespace import (`import * as ns from '.tsx'`) gets stripped,
+  // and `ns.foo()` survives → BF053 must fire on the namespace binding.
+  // The reference is placed deliberately on line 3 of the input so we can
+  // assert that `loc` reports a non-placeholder position in the
+  // post-strip bundle (line 2 after the single import line is removed).
+  test('errors when stripped namespace binding is referenced', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'NsClient.tsx'), `'use client'
+export function Foo() { return <div /> }
+`)
+    const clientJs = `import * as ns from './NsClient'
+const greeting = 'hi'
+ns.Foo()
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'NsParent-aaa.js'), clientJs)
+    const manifest = {
+      NsParent: { clientJs: 'components/NsParent-aaa.js', markedTemplate: 'components/NsParent.tsx' },
+    }
+
+    const { errors } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0].code).toBe('BF053')
+    expect(errors[0].message).toContain('ns')
+    expect(errors[0].message).toContain('./NsClient')
+    // Position points at the post-strip bundle: the import line is gone,
+    // `const greeting = 'hi'` is now line 1, and `ns.Foo()` lands on
+    // line 2. That's the dev-facing location the error should navigate to.
+    expect(errors[0].loc.start.line).toBe(2)
+    expect(errors[0].loc.start.column).toBe(0)
+  })
+
+  // Coverage: default import (`import D from '.tsx'`) gets stripped,
+  // and `D()` survives → BF053 must fire on the default binding.
+  test('errors when stripped default binding is referenced', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'DefClient.tsx'), `'use client'
+export default function DefClient() { return <div /> }
+`)
+    const clientJs = `import DefClient from './DefClient'
+DefClient()
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'DefParent-aaa.js'), clientJs)
+    const manifest = {
+      DefParent: { clientJs: 'components/DefParent-aaa.js', markedTemplate: 'components/DefParent.tsx' },
+    }
+
+    const { errors } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0].code).toBe('BF053')
+    expect(errors[0].message).toContain('DefClient')
+  })
+
+  // Coverage: a `missing`-strip whose binding survives reference. Distinct
+  // message from the `.tsx` case — the remediation is "fix the path", not
+  // "render as JSX from 'use client' parent". Locks the per-kind wording
+  // added for #1227 review feedback #1.
+  test('errors with missing-path-specific wording when unresolved binding is referenced', async () => {
+    const clientJs = `import { stillUsed } from './nonexistent'
+stillUsed()
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'Dangling-aaa.js'), clientJs)
+    const manifest = {
+      Dangling: { clientJs: 'components/Dangling-aaa.js', markedTemplate: 'components/Dangling.tsx' },
+    }
+
+    const { errors } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0].code).toBe('BF053')
+    expect(errors[0].message).toContain('stillUsed')
+    expect(errors[0].message).toContain('./nonexistent')
+    // Per-kind diagnostic — missing strip is about path resolution,
+    // not 'use client' boundary.
+    expect(errors[0].message).toContain('could not be resolved')
+    expect(errors[0].message).not.toContain('use client')
   })
 
   test('recursively inlines transitive .ts imports', async () => {
