@@ -59,6 +59,23 @@ const propsMap = new WeakMap<HTMLElement, Record<string, unknown>>()
  * Create a component instance from a string name (SSR mode, uses registry)
  * or from a ComponentDef (CSR mode, no registry needed).
  */
+/**
+ * Slot-relationship metadata stamped onto a freshly-created component.
+ *
+ * Passing `slot` carries two coupled meanings; the API treats them as one
+ * because they are always correlated in practice:
+ *   1. The new component is mounted as a CHILD inside another component's
+ *      scope (so its bf-s gets the `~` child prefix and `initChild`'s
+ *      re-entry guard kicks in on subsequent reconciles).
+ *   2. The new component records `bf-parent` / `bf-mount` so future
+ *      `upsertChild` lookups can locate it via the slot-relationship
+ *      markers.
+ *
+ * Top-level CSR mounts (e.g. user-code calling `createComponent` outside
+ * any parent component) intentionally pass no `slot` — they own their
+ * own hydration lifecycle and `initChild` should be free to re-bind
+ * fresh callback closures on every reconcile call.
+ */
 export interface CreateComponentSlotInfo {
   /** Parent component scope id (without the `~` child prefix) */
   parent: string

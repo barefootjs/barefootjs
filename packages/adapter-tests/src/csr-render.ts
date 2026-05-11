@@ -133,6 +133,15 @@ function renderChild(name, props, key, suffix) {
   // Slot-relationship markers (bf-parent/bf-mount) — mirrors the production
   // runtime renderChild in @barefootjs/client/runtime so CSR conformance
   // output asserts the same shape SSR emits.
+  //
+  // Mock-only constraint: \`bf-parent="test"\` is hardcoded because this
+  // stub doesn't carry through the real \`_parentScopeId\` chain. The
+  // outer fixture root is always given bf-s="test", so children always
+  // get bf-parent="test". Both \`normalizeHTML\` (cross-adapter) and the
+  // CSR conformance test strip these attributes before comparison, so
+  // the hardcoded value is invisible to assertions today. If a future
+  // CSR test wants to assert on the bf-parent value itself, this mock
+  // needs to be rewritten to track the actual parent scope at call time.
   const slotAttrs = suffix ? ' bf-parent="test" bf-mount="' + suffix + '"' : ''
   if (!template) return '<div bf-s="' + scopeId + '"' + slotAttrs + keyAttr + '>[' + name + ']</div>'
   const html = template(props).trim()

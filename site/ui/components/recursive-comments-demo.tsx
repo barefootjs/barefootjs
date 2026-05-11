@@ -145,7 +145,7 @@ const initialComments: Comment[] = [
     text: 'Quick repro request: collapse a node that has unsaved edit text in a descendant, then expand. Where does the text go?',
     time: '6h ago',
     timestamp: Date.now() - 21600000,
-    reactions: [{ emoji: '🤔' as unknown as string, count: 2, reacted: false }],
+    reactions: [{ emoji: '🤔', count: 2, reacted: false }],
     replies: [
       {
         id: 21,

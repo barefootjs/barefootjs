@@ -27,49 +27,10 @@
  *      them into the DOM.
  */
 
-import { BF_LOOP_ITEM, BF_LOOP_START, BF_LOOP_END, BF_SCOPE, BF_CHILD_PREFIX, BF_PARENT, BF_MOUNT } from '@barefootjs/shared'
+import { BF_LOOP_ITEM, BF_LOOP_START, BF_LOOP_END } from '@barefootjs/shared'
 import { initChild } from './registry'
 import { createComponent } from './component'
-
-/** See `registry.ts::NESTED_SLOT_SUFFIX` — legacy #1220 cross-binding skip. */
-const NESTED_SLOT_SUFFIX = /_s\d+_s\d+$/
-
-/** Find the SSR scope element for `slotId` within an item root, preferring
- *  `bf-parent`/`bf-mount` markers and falling back to the legacy bf-s
- *  suffix lookup for templates that haven't migrated. Mirrors
- *  `registry.ts::findSsrScopeBySlot` for the multi-root loop-body case. */
-function findInRoot(root: Element, name: string, slotId: string, anchorScope?: Element | null): HTMLElement | null {
-  const ancestor = anchorScope ?? root.closest(`[${BF_SCOPE}]`)
-  const ancestorBfs = ancestor?.getAttribute(BF_SCOPE) ?? ''
-  const parentBfs = ancestorBfs.startsWith(BF_CHILD_PREFIX)
-    ? ancestorBfs.slice(1)
-    : ancestorBfs
-
-  if (parentBfs) {
-    const escaped = (CSS as { escape?: (s: string) => string }).escape
-      ? CSS.escape(parentBfs)
-      : parentBfs.replace(/"/g, '\\"')
-    const selector = `[${BF_PARENT}="${escaped}"][${BF_MOUNT}="${slotId}"]`
-    if (root.matches(selector)) return root as HTMLElement
-    const direct = root.querySelector(selector) as HTMLElement | null
-    if (direct) return direct
-  }
-
-  const candidates = root.matches(`[${BF_SCOPE}$="_${slotId}"]`)
-    ? [root, ...Array.from(root.querySelectorAll(`[${BF_SCOPE}$="_${slotId}"]`))]
-    : Array.from(root.querySelectorAll(`[${BF_SCOPE}$="_${slotId}"]`))
-  for (const candidate of candidates) {
-    const bfs = candidate.getAttribute(BF_SCOPE) || ''
-    if (NESTED_SLOT_SUFFIX.test(bfs)) continue
-    return candidate as HTMLElement
-  }
-
-  // Last-resort fallback: component-name prefix search.
-  if (root.matches(`[${BF_SCOPE}^="~${name}_"], [${BF_SCOPE}^="${name}_"]`)) {
-    return root as HTMLElement
-  }
-  return root.querySelector(`[${BF_SCOPE}^="~${name}_"], [${BF_SCOPE}^="${name}_"]`) as HTMLElement | null
-}
+import { findSsrScopeBySlotIn, buildSlotInfo } from './slot-resolver'
 
 /** Iterate the elements that belong to an item — primary, in-tree siblings within bounds, then any pre-insertion extras stash. */
 function* itemRootElements(primaryEl: Element): Iterable<Element> {
@@ -144,7 +105,7 @@ export function upsertChildItem(
   let ssr: HTMLElement | null = null
   if (slotId) {
     for (const root of itemRootElements(primaryEl)) {
-      const found = findInRoot(root, name, slotId, anchorScope)
+      const found = findSsrScopeBySlotIn(root, name, slotId, anchorScope, /* selfMatch */ true)
       if (found) { ssr = found; break }
     }
   } else {
@@ -164,21 +125,4 @@ export function upsertChildItem(
     return comp
   }
   return null
-}
-
-/** See `registry.ts::slotInfoFor` — same logic applied within a loop item's
- *  primary root, so freshly-mounted components inside a multi-root loop body
- *  also gain the slot-relationship markers. */
-function buildSlotInfo(
-  primaryEl: Element,
-  slotId: string,
-  anchorScope?: Element | null,
-): { parent: string; mount: string } | undefined {
-  const ancestor = anchorScope ?? primaryEl.closest(`[${BF_SCOPE}]`)
-  const ancestorBfs = ancestor?.getAttribute(BF_SCOPE) ?? ''
-  const parentBfs = ancestorBfs.startsWith(BF_CHILD_PREFIX)
-    ? ancestorBfs.slice(1)
-    : ancestorBfs
-  if (!parentBfs) return undefined
-  return { parent: parentBfs, mount: slotId }
 }

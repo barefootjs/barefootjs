@@ -5,26 +5,17 @@
  * Each component registers its init function so parents can initialize children with props.
  */
 
-import { BF_SCOPE, BF_CHILD_PREFIX, BF_PARENT, BF_MOUNT } from '@barefootjs/shared'
+import { BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
 import { hydratedScopes } from './hydration-state'
 import { setCurrentScope } from './context'
 import { createComponent } from './component'
+import { findSsrScopeBySlotIn, buildSlotInfo } from './slot-resolver'
 import type { InitFn } from './types'
 
 /**
  * Component registry for parent-child communication.
  */
 const componentRegistry = new Map<string, InitFn>()
-
-/**
- * Recognises bf-s values whose final segment is a nested-slot path
- * (`…_sM_sN`). These show up when a synthesized component (e.g.
- * `BFInlineJsxCallback`) renders descendants whose own internal scope
- * happens to end in `_sN`, coincidentally matching a sibling slot's
- * loose suffix selector. The slotId-suffix lookup in `upsertChild`
- * skips them so the wrong `initChild` never fires (#1220).
- */
-const NESTED_SLOT_SUFFIX = /_s\d+_s\d+$/
 
 /**
  * Queue of pending child initializations waiting for components to register.
@@ -123,69 +114,6 @@ export function initChild(
   hydratedScopes.add(childScope)
 }
 
-/** Resolve the parent component scope id (without the `~` child prefix)
- *  for a slot lookup. Prefers the explicit `anchorScope` because the
- *  immediate `parent` element may be a freshly-created detached fragment
- *  whose `closest()` returns null. */
-function parentScopeOf(parent: Element, anchorScope?: Element | null): string {
-  const ancestor = anchorScope ?? parent.closest(`[${BF_SCOPE}]`)
-  if (!ancestor) return ''
-  const bfs = ancestor.getAttribute(BF_SCOPE) ?? ''
-  return bfs.startsWith(BF_CHILD_PREFIX) ? bfs.slice(1) : bfs
-}
-
-/**
- * Find the SSR scope element for a child component at `slotId` inside
- * `parent`, using `bf-parent`/`bf-mount` markers. This replaces the
- * earlier bf-s suffix lookup, which couldn't tell direct children apart
- * from descendants once recursive components were introduced — every
- * depth's bf-s ended in the same slot id and `NESTED_SLOT_SUFFIX`
- * filtered them all out.
- *
- * Strategy:
- *   1. Walk up from `parent` to find the closest `[bf-s]` ancestor — that
- *      is the parent component's scope. Strip the `~` child prefix to get
- *      the value used in `bf-parent`.
- *   2. Inside `parent`, find the descendant whose `bf-parent` and
- *      `bf-mount` match. There can be at most one such direct child for
- *      a given (parent scope, slot) pair.
- *
- * Falls back to the legacy `bf-s$="_<slotId>"` + `NESTED_SLOT_SUFFIX`
- * filter for SSR output produced before bf-parent/bf-mount were added.
- */
-function findSsrScopeBySlot(
-  parent: Element,
-  name: string,
-  slotId: string,
-  anchorScope?: Element | null,
-): HTMLElement | null {
-  const parentBfs = parentScopeOf(parent, anchorScope)
-
-  // Primary lookup via slot-relationship markers.
-  if (parentBfs) {
-    const escaped = (CSS as { escape?: (s: string) => string }).escape
-      ? CSS.escape(parentBfs)
-      : parentBfs.replace(/"/g, '\\"')
-    const direct = parent.querySelector(
-      `[${BF_PARENT}="${escaped}"][${BF_MOUNT}="${slotId}"]`,
-    ) as HTMLElement | null
-    if (direct) return direct
-  }
-
-  // Legacy fallback: bf-s suffix lookup with #1220 nested-slot filter.
-  const candidates = parent.querySelectorAll(`[${BF_SCOPE}$="_${slotId}"]`)
-  for (const candidate of candidates) {
-    const bfs = candidate.getAttribute(BF_SCOPE) || ''
-    if (NESTED_SLOT_SUFFIX.test(bfs)) continue
-    return candidate as HTMLElement
-  }
-
-  // Last-resort fallback: component-name prefix search.
-  return parent.querySelector(
-    `[${BF_SCOPE}^="~${name}_"], [${BF_SCOPE}^="${name}_"]`,
-  ) as HTMLElement | null
-}
-
 /**
  * Upsert a child component at a slot inside `parent`. Resolves the SSR vs
  * CSR shape at runtime in one place — so the compiler doesn't need a
@@ -212,7 +140,7 @@ export function upsertChild(
   // SSR: scope element is already in the tree.
   let ssr: HTMLElement | null = null
   if (slotId) {
-    ssr = findSsrScopeBySlot(parent, name, slotId, anchorScope)
+    ssr = findSsrScopeBySlotIn(parent, name, slotId, anchorScope, /* selfMatch */ false)
   } else {
     ssr = parent.querySelector(`[${BF_SCOPE}^="~${name}_"], [${BF_SCOPE}^="${name}_"]`) as HTMLElement | null
   }
@@ -224,26 +152,10 @@ export function upsertChild(
   const phId = slotId ?? name
   const ph = parent.querySelector(`[data-bf-ph="${phId}"]`) as HTMLElement | null
   if (ph) {
-    const slot = slotId ? slotInfoFor(parent, slotId, anchorScope) : undefined
+    const slot = slotId ? buildSlotInfo(parent, slotId, anchorScope) : undefined
     const comp = createComponent(name, props, key, slot)
     ph.replaceWith(comp)
     return comp
   }
   return null
-}
-
-/** Build the bf-parent / bf-mount metadata for a fresh component about to be
- *  mounted at `slotId` inside `parent`. createComponent stamps these onto the
- *  new element so subsequent upsertChild lookups can find it via the
- *  slot-relationship markers. `anchorScope` is preferred over walking up
- *  from `parent` because the loop-item parent may be a freshly-created
- *  detached fragment whose `closest()` returns null. */
-function slotInfoFor(
-  parent: Element,
-  slotId: string,
-  anchorScope?: Element | null,
-): { parent: string; mount: string } | undefined {
-  const parentBfs = parentScopeOf(parent, anchorScope)
-  if (!parentBfs) return undefined
-  return { parent: parentBfs, mount: slotId }
 }
