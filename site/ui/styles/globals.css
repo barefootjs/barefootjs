@@ -150,3 +150,11 @@ html.theme-transition *::after {
 [data-slot="card"]:hover [data-card-hover-action] {
   opacity: 1;
 }
+
+/* Async validation status text — color is driven by the `--err` CSS
+   variable set inline from `errorLevel()` in the validation demo. The
+   variable holds the hue (0..360); the rest is fixed. */
+.async-validation-msg {
+  color: hsl(var(--err, 210) 70% 45%);
+  transition: color 150ms ease;
+}
