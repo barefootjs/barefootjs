@@ -14,6 +14,7 @@
 
 "use client"
 
+import { createSignal, createEffect, onCleanup } from '@barefootjs/client'
 import {
   Background,
   Controls,
@@ -213,6 +214,71 @@ export function XyflowAnimatedEdgesDemo() {
       <Flow nodes={animatedEdgesNodes} edges={animatedEdgesEdges}>
         <Background variant="dots" gap={30} />
       </Flow>
+    </div>
+  )
+}
+
+/**
+ * Flow Animation demo — rAF-driven reactive `stroke-dashoffset` on a
+ * standalone `<path>` element.
+ *
+ * Pairs with the pie-chart "Animated" demo (#135 Concrete Additions)
+ * but exercises a CONTINUOUS rAF loop (the dashoffset keeps decreasing
+ * every frame for the duration of the toggle) instead of a one-shot
+ * easing. Toggling off stops the loop via `cancelAnimationFrame` in
+ * `onCleanup`, leaving the dashoffset at its last value.
+ */
+const FLOW_PATH = 'M 40 60 C 140 60 160 120 280 120 S 380 60 480 60'
+
+export function XyflowFlowAnimateDemo() {
+  const [animating, setAnimating] = createSignal(false)
+  const [offset, setOffset] = createSignal(0)
+
+  createEffect(() => {
+    if (!animating()) return
+    let frame = 0
+    let last = performance.now()
+    const tick = (now: number) => {
+      const dt = now - last
+      last = now
+      setOffset((prev: number) => (prev - dt * 0.04) % 16)
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    onCleanup(() => cancelAnimationFrame(frame))
+  })
+
+  return (
+    <div className="w-full space-y-3" data-flow-animate>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          data-flow-animate-toggle
+          className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-medium h-8 px-3 hover:bg-primary/90"
+          onClick={() => setAnimating(!animating())}
+        >
+          {animating() ? 'Stop' : 'Animate flow'}
+        </button>
+        <span className="text-xs text-muted-foreground">
+          stroke-dashoffset is driven by requestAnimationFrame
+        </span>
+      </div>
+      <div className="w-full h-[180px] rounded-lg border bg-background overflow-hidden">
+        <svg viewBox="0 0 520 180" style="width:100%;height:100%;display:block">
+          <path
+            d={FLOW_PATH}
+            fill="none"
+            stroke="var(--primary)"
+            stroke-width="3"
+            stroke-dasharray="8 8"
+            stroke-dashoffset={String(offset())}
+            stroke-linecap="round"
+            data-flow-path
+          />
+          <circle cx="40" cy="60" r="6" fill="var(--primary)" />
+          <circle cx="480" cy="60" r="6" fill="var(--primary)" />
+        </svg>
+      </div>
     </div>
   )
 }

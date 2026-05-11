@@ -202,6 +202,42 @@ test.describe('xyflow Reference Page', () => {
     })
   })
 
+  test.describe('rAF Flow Animation (#135)', () => {
+    test('toggling on advances `stroke-dashoffset` via requestAnimationFrame', async ({ page }) => {
+      // The pair: animate toggle + reactive `stroke-dashoffset`. Until
+      // the user clicks, the path is static; clicking starts a
+      // `createEffect`-owned rAF loop that re-evaluates the offset every
+      // frame. Toggling off must drop it back to a stable value (the
+      // cleanup callback releases the frame handle).
+      await page.goto('/xyflow/edges')
+      const demo = page.locator('[data-flow-animate]')
+      const path = demo.locator('[data-flow-path]')
+      const toggle = demo.locator('[data-flow-animate-toggle]')
+
+      await expect(path).toHaveAttribute('stroke-dashoffset', '0')
+
+      await toggle.click()
+
+      // The rAF loop should produce a stream of distinct dashoffset
+      // values. Polling for "moved off zero" is enough to prove the
+      // effect is firing.
+      await expect
+        .poll(
+          async () => Number(await path.getAttribute('stroke-dashoffset')),
+          { timeout: 1500 },
+        )
+        .not.toBe(0)
+
+      // Stop the animation — the offset should freeze (cleanup
+      // released the frame handle, so no more rAF tick fires).
+      await toggle.click()
+      const stopped = await path.getAttribute('stroke-dashoffset')
+      await page.waitForTimeout(120)
+      const after = await path.getAttribute('stroke-dashoffset')
+      expect(after).toBe(stopped)
+    })
+  })
+
   test.describe.skip('Edge Reconnection (re-enable in cutover step C4)', () => {
     test('reconnect handles update edge endpoints', async () => {
       // Filled in once the reconnect overlay wiring ships from
