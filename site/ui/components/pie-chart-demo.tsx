@@ -6,8 +6,9 @@
  * Uses JSX component API with @barefootjs/chart.
  */
 
-import { createSignal } from '@barefootjs/client'
+import { createSignal, createEffect, onCleanup } from '@barefootjs/client'
 import type { ChartConfig } from '@barefootjs/chart'
+import { buildPieSlices } from '@barefootjs/chart'
 import {
   ChartContainer,
   PieChart,
@@ -132,6 +133,101 @@ export function PieChartInteractiveDemo() {
           <Pie dataKey={metric()} nameKey="status" innerRadius={0.3} paddingAngle={2} />
         </PieChart>
       </ChartContainer>
+    </div>
+  )
+}
+
+/**
+ * Animated demo — rAF-driven reactive SVG attributes.
+ *
+ * Each `<path>` slice has reactive `stroke-dasharray` / `stroke-dashoffset`
+ * driven by a progress signal that climbs 0 → 1 via requestAnimationFrame
+ * each time the "Animate" toggle is enabled. Exercises three compiler
+ * paths in one demo:
+ *
+ *   1. SVG presentation attribute reactive binding (`stroke-dasharray` /
+ *      `stroke-dashoffset`) inside a `.map()` body.
+ *   2. `requestAnimationFrame` loop owned by a `createEffect`, with
+ *      `cancelAnimationFrame` in `onCleanup` so toggling off mid-flight
+ *      releases the frame handle.
+ *   3. High-frequency signal updates (one tick per animation frame) driving
+ *      DOM attribute writes without intervening user input.
+ */
+const ANIMATED_DURATION_MS = 1200
+const ANIMATED_DASH_LENGTH = 800
+
+export function PieChartAnimatedDemo() {
+  const [animating, setAnimating] = createSignal(false)
+  const [progress, setProgress] = createSignal(1)
+
+  const slices = buildPieSlices(
+    chartData,
+    'tasks',
+    'status',
+    chartConfig,
+    400,
+    400,
+    0.3,
+    0.85,
+    2,
+  )
+
+  createEffect(() => {
+    if (!animating()) return
+
+    setProgress(0)
+    const start = performance.now()
+    let frame = 0
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ANIMATED_DURATION_MS)
+      setProgress(t)
+      if (t < 1) {
+        frame = requestAnimationFrame(tick)
+      } else {
+        setAnimating(false)
+      }
+    }
+    frame = requestAnimationFrame(tick)
+    onCleanup(() => cancelAnimationFrame(frame))
+  })
+
+  return (
+    <div className="w-full space-y-4">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          data-anim-toggle
+          className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-medium h-8 px-3 hover:bg-primary/90"
+          onClick={() => setAnimating(true)}
+          disabled={animating()}
+        >
+          {animating() ? 'Animating…' : 'Animate'}
+        </button>
+        <span className="text-xs text-muted-foreground">
+          stroke-dashoffset is driven by requestAnimationFrame
+        </span>
+      </div>
+      <svg
+        viewBox="0 0 400 400"
+        style="width:100%;max-width:400px;height:auto;display:block;margin:0 auto"
+      >
+        <g transform="translate(200,200)">
+          {slices.map((s) => (
+            <path
+              key={s.name}
+              d={s.d}
+              fill={s.fill}
+              stroke="hsl(0 0% 100% / 0.85)"
+              stroke-width="2"
+              stroke-dasharray={String(ANIMATED_DASH_LENGTH)}
+              stroke-dashoffset={String(ANIMATED_DASH_LENGTH * (1 - progress()))}
+              data-name={s.name}
+              data-value={String(s.value)}
+              data-anim-path
+            />
+          ))}
+        </g>
+      </svg>
     </div>
   )
 }

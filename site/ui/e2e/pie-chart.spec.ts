@@ -91,6 +91,49 @@ test.describe('Pie Chart Reference Page', () => {
     })
   })
 
+  test.describe('Animated', () => {
+    const scope = '[bf-s^="PieChartAnimatedDemo_"]:not([data-slot])'
+
+    test('renders 4 slices with reactive stroke attributes', async ({ page }) => {
+      const container = page.locator(scope)
+      const paths = container.locator('path[data-anim-path]')
+      await expect(paths).toHaveCount(4)
+      // Initial progress is 1, so dashoffset starts at 0 (fully drawn).
+      await expect(paths.first()).toHaveAttribute('stroke-dashoffset', '0')
+      await expect(paths.first()).toHaveAttribute('stroke-dasharray', '800')
+    })
+
+    test('rAF loop drives stroke-dashoffset 800 → 0 on toggle', async ({ page }) => {
+      const container = page.locator(scope)
+      const toggle = container.locator('[data-anim-toggle]')
+      const firstPath = container.locator('path[data-anim-path]').first()
+
+      // Sanity: starts fully drawn.
+      await expect(firstPath).toHaveAttribute('stroke-dashoffset', '0')
+
+      await toggle.click()
+
+      // The rAF tick should have pushed dashoffset away from 0 by the time
+      // the next frame paints. Poll briefly to catch the mid-animation value.
+      await expect
+        .poll(
+          async () => Number(await firstPath.getAttribute('stroke-dashoffset')),
+          { timeout: 1000 },
+        )
+        .toBeGreaterThan(0)
+
+      // After the animation duration completes, it returns to 0 and the
+      // toggle becomes available again (effect cleanup released the frame).
+      await expect
+        .poll(
+          async () => Number(await firstPath.getAttribute('stroke-dashoffset')),
+          { timeout: 3000 },
+        )
+        .toBe(0)
+      await expect(toggle).toBeEnabled()
+    })
+  })
+
   test.describe('Tooltip', () => {
     test('tooltip appears on slice hover', async ({ page }) => {
       const container = page.locator('[bf-s^="PieChartPreviewDemo_"]:not([data-slot])')
