@@ -87,6 +87,15 @@ export interface AnalyzerContext {
   namedExports: NamedExportInfo[]
   localFunctions: FunctionInfo[]
   localConstants: ConstantInfo[]
+  /**
+   * Names declared via TypeScript ambient declarations at module scope
+   * (`declare var X`, `declare global { var X; let Y; const Z; function fn() }`).
+   * These bindings are not emitted by the compiler — they are runtime
+   * contracts the author is asserting — but they ARE in scope for BF052,
+   * which would otherwise false-positive on writes / reads of ambient
+   * globals.
+   */
+  ambientGlobals: Set<string>
   typeDefinitions: TypeDefinition[]
   /** Maps constant names to their JSX initializer AST nodes (#547) */
   jsxConstants: Map<string, ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment>
@@ -182,6 +191,7 @@ export function createAnalyzerContext(
     namedExports: [],
     localFunctions: [],
     localConstants: [],
+    ambientGlobals: new Set(),
     typeDefinitions: [],
     jsxConstants: new Map(),
     jsxFunctions: new Map(),

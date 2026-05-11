@@ -353,3 +353,114 @@ describe('Init statements crossing the init/sub-init boundary (#1228)', () => {
     expect(bf052Errors[0].message.toLowerCase()).not.toContain('local')
   })
 })
+
+describe('TS ambient declarations are in scope for BF052', () => {
+  // `declare var X` / `declare global { var X }` are TypeScript's way of
+  // asserting that a binding exists at runtime. BF052 must trust those
+  // assertions — otherwise legitimate writes to ambient globals would
+  // false-fire the "no declaration in scope" diagnostic and force users
+  // to rewrite as `(globalThis as any).X = ...` just to silence the
+  // analyzer.
+
+  test('write to a name declared via `declare var X` does not emit BF052', () => {
+    const source = `
+      'use client'
+      declare var myConfig: { flag: boolean }
+
+      export function Comp(props: { flag: boolean }) {
+        myConfig = { flag: props.flag }
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('write to a name declared via `declare global { var X }` does not emit BF052', () => {
+    const source = `
+      'use client'
+      declare global {
+        var myController: { active: boolean }
+      }
+
+      export function Comp(props: { active: boolean }) {
+        myController = { active: props.active }
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('`declare global` accepts var / let / const / function and all are in scope', () => {
+    const source = `
+      'use client'
+      declare global {
+        var ambientVar: number
+        let ambientLet: string
+        const ambientConst: boolean
+        function ambientFn(): void
+      }
+
+      export function Comp() {
+        ambientVar = 1
+        ambientLet = 'x'
+        // Writing to a 'const' is a TS error at the assignment site, but
+        // BF052 only sees the analyzer's resolved-name set; this test
+        // confirms the name is recognized regardless of const-ness.
+        ambientConst = true
+        ambientFn = () => {}
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.filter(e => e.code === 'BF052')
+    expect(bf052).toHaveLength(0)
+  })
+
+  test('truly undeclared name still emits BF052 even alongside ambient declarations', () => {
+    // Mix ambient + undeclared in the same file: ambient names are silent,
+    // genuinely-undeclared names still fire. Guards against the resolver
+    // becoming a blanket suppressor.
+    const source = `
+      'use client'
+      declare global { var known: number }
+
+      export function Comp(props: { v: number }) {
+        known = props.v
+        unknown = props.v
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.filter(e => e.code === 'BF052')
+    expect(bf052).toHaveLength(1)
+    expect(bf052[0].message.toLowerCase()).toContain('unknown')
+    expect(bf052[0].message.toLowerCase()).not.toContain("'known'")
+  })
+
+  test('property-access writes (window.X = ...) are not flagged regardless', () => {
+    // Independent of ambient handling: the BF052 walker has always
+    // skipped PropertyAccess writes because they don't create implicit
+    // globals. This is the recommended pattern for runtime-injected
+    // globals (no ambient declaration needed).
+    const source = `
+      'use client'
+
+      export function Comp(props: { v: number }) {
+        ;(window as any).myThing = props.v
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+})
