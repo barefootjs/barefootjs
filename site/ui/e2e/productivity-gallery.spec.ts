@@ -103,6 +103,31 @@ test.describe('Gallery: Productivity app', () => {
       await expect(page.locator('[data-productivity-sidebar] .productivity-unread-count')).toHaveText(String(initialUnread))
     })
 
+    test('board drag-preview CSS var flips on pointerdown of a nested task card', async ({ page }) => {
+      // Locks down the per-item reactive `style={{'--drag-opacity':
+      // draggingTaskId() === task.id ? '0.4' : '1'}}` binding on the
+      // root element of a NESTED `tasks.map()` body. Before #135 the
+      // inner-loop renderItem never emitted a `createEffect` for the
+      // root's `style` attribute, so the variable stayed at the SSR
+      // value and the card never faded.
+      await page.goto('/gallery/productivity/board')
+
+      const card = page.locator('[data-task-id="1"]')
+      await expect(card).toBeVisible()
+      await expect(card).toHaveAttribute('data-task-dragging', 'false')
+      await expect(card).toHaveAttribute('style', /--drag-opacity\s*:\s*1/)
+
+      // pointerdown — same card flips to dragging state.
+      await card.dispatchEvent('pointerdown')
+      await expect(card).toHaveAttribute('data-task-dragging', 'true')
+      await expect(card).toHaveAttribute('style', /--drag-opacity\s*:\s*0\.4/)
+
+      // Releasing the pointer brings the card back to the idle state.
+      await card.dispatchEvent('pointerup')
+      await expect(card).toHaveAttribute('data-task-dragging', 'false')
+      await expect(card).toHaveAttribute('style', /--drag-opacity\s*:\s*1/)
+    })
+
     test('reading a mail reduces the unread badge count', async ({ page }) => {
       await page.goto('/gallery/productivity/mail')
 

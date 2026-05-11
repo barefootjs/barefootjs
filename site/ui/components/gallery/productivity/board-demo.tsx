@@ -72,6 +72,17 @@ export function ProductivityBoardDemo() {
     columns().reduce((sum, col) => sum + col.tasks.length, 0)
   )
 
+  // Drag-preview state — the id of the task currently being held down
+  // (pointerdown without a release yet). Drives a single reactive
+  // `style` attribute on each task card root so the active card fades
+  // via the `--drag-opacity` CSS variable without re-keying or
+  // re-mounting. Exercises a single-attribute reactive `style` binding
+  // on a `.map()` root, the compiler path adjacent to the outstanding
+  // Dashboard Builder reactive-className-on-.map()-root bug.
+  const [draggingTaskId, setDraggingTaskId] = createSignal<number | null>(null)
+  const startDragPreview = (taskId: number) => setDraggingTaskId(taskId)
+  const endDragPreview = () => setDraggingTaskId(null)
+
   const showToast = (message: string) => {
     setToastMessage(message)
     setToastOpen(true)
@@ -158,7 +169,19 @@ export function ProductivityBoardDemo() {
 
             <div className="space-y-2">
               {col.tasks.map(task => (
-                <div key={task.id} className="task-card rounded-xl border bg-card p-3 space-y-2 shadow-sm">
+                <div
+                  key={task.id}
+                  className="task-card rounded-xl border bg-card p-3 space-y-2 shadow-sm transition-opacity"
+                  style={{
+                    '--drag-opacity': draggingTaskId() === task.id ? '0.4' : '1',
+                    opacity: 'var(--drag-opacity)',
+                  }}
+                  data-task-id={String(task.id)}
+                  data-task-dragging={draggingTaskId() === task.id ? 'true' : 'false'}
+                  onPointerDown={() => startDragPreview(task.id)}
+                  onPointerUp={endDragPreview}
+                  onPointerLeave={endDragPreview}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <p className="task-title text-sm font-medium">{task.title}</p>
                     <Button

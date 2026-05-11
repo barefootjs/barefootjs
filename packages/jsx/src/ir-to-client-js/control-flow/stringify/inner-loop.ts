@@ -108,6 +108,21 @@ function emitReactive(lines: string[], inner: InnerLoopPlan, indent: string): vo
       lines.push(`${indent}  if (__rt) createEffect(() => { __rt.textContent = String(${text.wrappedExpression}) }) }`)
     }
   }
+  // Reactive attribute effects: emit one `createEffect` per attribute
+  // binding so a signal change updates the inner-loop element's DOM
+  // attribute in place (mirrors `collectLoopChildReactiveAttrs` for
+  // top-level loops).
+  for (const attr of emit.reactiveAttrs) {
+    const targetVar = `__ta_${attr.slotId.replace(/[^a-zA-Z0-9]/g, '_')}`
+    lines.push(`${indent}  { const ${targetVar} = qsa(__innerEl${uid}, '[bf="${attr.slotId}"]')`)
+    if (attr.isStyleObject) {
+      lines.push(`${indent}  if (${targetVar}) createEffect(() => { const __v = styleToCss(${attr.wrappedExpression}); if (__v != null) ${targetVar}.setAttribute('style', __v); else ${targetVar}.removeAttribute('style') }) }`)
+    } else if (attr.isBoolean) {
+      lines.push(`${indent}  if (${targetVar}) createEffect(() => { if (${attr.wrappedExpression}) ${targetVar}.setAttribute('${attr.attrName}', ''); else ${targetVar}.removeAttribute('${attr.attrName}') }) }`)
+    } else {
+      lines.push(`${indent}  if (${targetVar}) createEffect(() => { const __v = ${attr.wrappedExpression}; if (__v != null) ${targetVar}.setAttribute('${attr.attrName}', String(__v)); else ${targetVar}.removeAttribute('${attr.attrName}') }) }`)
+    }
+  }
   lines.push(`${indent}  return __innerEl${uid}`)
   lines.push(`${indent}}, '${inner.markerId}') }`)
 }
