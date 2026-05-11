@@ -14,7 +14,7 @@
 
 "use client"
 
-import { createSignal, createEffect, onCleanup } from '@barefootjs/client'
+import { createSignal, createEffect, onCleanup, createContext, useContext } from '@barefootjs/client'
 import {
   Background,
   Controls,
@@ -215,6 +215,115 @@ export function XyflowAnimatedEdgesDemo() {
         <Background variant="dots" gap={30} />
       </Flow>
     </div>
+  )
+}
+
+/**
+ * Highlight Depth demo — per-node `--node-glow` CSS custom property
+ * driven by a depth signal.
+ *
+ * A slider controls a `depthLimit` signal (0..4). Each node has a
+ * pre-configured `nodeDepth` (its distance from the root). When the
+ * slider's value is at or above the node's depth, the node gets a
+ * visible glow whose intensity is `style={{'--node-glow': intensity}}`.
+ * Otherwise the node fades.
+ *
+ * Exercises the CSS-var × `.map()` × per-node binding path inside a
+ * `renderNode` callback that's invoked once per node by `<Flow>`.
+ */
+const highlightDepthNodes = [
+  { id: 'root', position: { x:  80, y: 130 }, data: { label: 'Root', depth: 0 } },
+  { id: 'l1',   position: { x: 280, y:  60 }, data: { label: 'Tier 1', depth: 1 } },
+  { id: 'l1b',  position: { x: 280, y: 200 }, data: { label: 'Tier 1', depth: 1 } },
+  { id: 'l2',   position: { x: 480, y:  30 }, data: { label: 'Tier 2', depth: 2 } },
+  { id: 'l2b',  position: { x: 480, y: 130 }, data: { label: 'Tier 2', depth: 2 } },
+  { id: 'l2c',  position: { x: 480, y: 230 }, data: { label: 'Tier 2', depth: 2 } },
+]
+const highlightDepthEdges = [
+  { id: 'root-l1',  source: 'root', target: 'l1' },
+  { id: 'root-l1b', source: 'root', target: 'l1b' },
+  { id: 'l1-l2',    source: 'l1',   target: 'l2' },
+  { id: 'l1-l2b',   source: 'l1',   target: 'l2b' },
+  { id: 'l1b-l2c',  source: 'l1b',  target: 'l2c' },
+]
+
+// Module-scope lookup so the inline `renderNode` callback can read each
+// node's depth inside the template lambda — BF052 forbids referencing
+// init-body locals from the template position, so the Record stays at
+// module scope and the callback only reads `props.id`.
+const highlightDepthMap: Record<string, { label: string; depth: number }> = {
+  root: { label: 'Root',   depth: 0 },
+  l1:   { label: 'Tier 1', depth: 1 },
+  l1b:  { label: 'Tier 1', depth: 1 },
+  l2:   { label: 'Tier 2', depth: 2 },
+  l2b:  { label: 'Tier 2', depth: 2 },
+  l2c:  { label: 'Tier 2', depth: 2 },
+}
+
+// Context bridges the depth signal across the renderNode boundary.
+// `<Flow renderNode>` callbacks can't capture init-body locals (the
+// callback's body is lifted to a synthesized module-level component),
+// so we publish the value via a Context the wrapper sets up.
+const HighlightDepthContext = createContext<{ depth: () => number }>({ depth: () => 0 })
+
+function HighlightDepthNodeBody(props: { id: string }) {
+  const ctx = useContext(HighlightDepthContext)
+  const intensity = () => {
+    const nodeDepth = highlightDepthMap[props.id]?.depth ?? 0
+    return ctx.depth() >= nodeDepth
+      ? Math.max(0, 1 - (ctx.depth() - nodeDepth) * 0.25).toFixed(2)
+      : '0'
+  }
+  return (
+    <div
+      className="xyflow-depth-node rounded-md border-2 border-primary bg-card px-4 py-2 text-sm font-medium shadow-sm transition-[opacity,box-shadow]"
+      style={{
+        '--node-glow': intensity(),
+        opacity: 'calc(0.3 + 0.7 * var(--node-glow))',
+        boxShadow: '0 0 calc(12px * var(--node-glow)) hsl(var(--primary, 0deg) / var(--node-glow))',
+      }}
+      data-depth-node={props.id}
+      data-node-depth={String(highlightDepthMap[props.id]?.depth ?? 0)}
+    >
+      <Handle type="target" position={Position.Left} nodeId={props.id} />
+      {highlightDepthMap[props.id]?.label ?? props.id}
+      <Handle type="source" position={Position.Right} nodeId={props.id} />
+    </div>
+  )
+}
+
+export function XyflowHighlightDepthDemo() {
+  const [depth, setDepth] = createSignal(2)
+
+  return (
+    <HighlightDepthContext.Provider value={{ depth }}>
+      <div className="w-full space-y-3" data-highlight-depth-demo>
+        <label className="flex items-center gap-3 text-sm">
+          <span className="text-muted-foreground w-32">Highlight depth</span>
+          <input
+            type="range"
+            min="0"
+            max="4"
+            value={String(depth())}
+            onInput={(e: Event) => setDepth(Number((e.target as HTMLInputElement).value))}
+            data-highlight-depth-slider
+            className="flex-1 accent-primary"
+          />
+          <span className="w-8 text-right font-mono" data-highlight-depth-value>
+            {depth()}
+          </span>
+        </label>
+        <div className="w-full h-[280px] rounded-lg border bg-background overflow-hidden">
+          <Flow
+            nodes={highlightDepthNodes}
+            edges={highlightDepthEdges}
+            renderNode={(n) => <HighlightDepthNodeBody id={n.id} />}
+          >
+            <Background variant="dots" gap={30} />
+          </Flow>
+        </div>
+      </div>
+    </HighlightDepthContext.Provider>
   )
 }
 

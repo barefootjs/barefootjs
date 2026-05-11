@@ -202,6 +202,49 @@ test.describe('xyflow Reference Page', () => {
     })
   })
 
+  test.describe('Highlight Depth (#135 stretch)', () => {
+    test('slider moves through depth values; each node carries its own `--node-glow`', async ({ page }) => {
+      // CSS-var × .map() × per-node binding inside a `renderNode`
+      // callback that's invoked once per node. Each rendered node
+      // publishes its own `--node-glow` inline style and the slider
+      // signal flows through a Context so the callback doesn't
+      // capture an init-scope local (which the JSX compiler forbids).
+      await page.goto('/xyflow/nodes')
+
+      const demo = page.locator('[data-highlight-depth-demo]')
+      const slider = demo.locator('[data-highlight-depth-slider]')
+      const root = demo.locator('[data-depth-node="root"]')
+      const l2 = demo.locator('[data-depth-node="l2"]')
+
+      await expect(demo).toBeVisible()
+      // Initial slider = 2. Intensity = max(0, 1 - (slider - nodeDepth) * 0.25).
+      // root (nodeDepth=0) → 1 - 2*0.25 = 0.50.
+      // l2   (nodeDepth=2) → 1 - 0*0.25 = 1.00.
+      await expect(root).toHaveAttribute('style', /--node-glow\s*:\s*0\.50/)
+      await expect(l2).toHaveAttribute('style', /--node-glow\s*:\s*1\.00/)
+
+      // Slide to 0 — root climbs to full glow, tier-2 fades to 0.
+      await slider.evaluate((el) => {
+        const input = el as HTMLInputElement
+        input.value = '0'
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      await expect(root).toHaveAttribute('style', /--node-glow\s*:\s*1\.00/)
+      await expect(l2).toHaveAttribute('style', /--node-glow\s*:\s*0(?:\.00)?(?:[;\s]|$)/)
+
+      // Slide to 4 — every node is past its depth, intensity decays.
+      await slider.evaluate((el) => {
+        const input = el as HTMLInputElement
+        input.value = '4'
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      // root: 1 - 4*0.25 = 0
+      // l2:   1 - 2*0.25 = 0.50
+      await expect(root).toHaveAttribute('style', /--node-glow\s*:\s*0(?:\.00)?(?:[;\s]|$)/)
+      await expect(l2).toHaveAttribute('style', /--node-glow\s*:\s*0\.50/)
+    })
+  })
+
   test.describe('rAF Flow Animation (#135)', () => {
     test('toggling on advances `stroke-dashoffset` via requestAnimationFrame', async ({ page }) => {
       // The pair: animate toggle + reactive `stroke-dashoffset`. Until
