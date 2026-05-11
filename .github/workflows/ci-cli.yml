@@ -34,8 +34,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
 
       - name: Embed adapter runtime sources
         run: bun run --filter '@barefootjs/cli' embed-runtimes

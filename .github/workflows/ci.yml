@@ -50,8 +50,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
 
       - name: Run unit tests
         run: bun test packages/client packages/jsx packages/test packages/adapter-tests
@@ -72,8 +72,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
 
       - name: Run UI component IR tests
         run: bun test ui/components/
@@ -99,8 +99,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/form' build
           bun run --filter '@barefootjs/chart' build
           bun run --filter '@barefootjs/xyflow' build

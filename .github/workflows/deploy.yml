@@ -58,8 +58,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
 
       - name: Build site
         run: cd site/core && bun run build
@@ -95,8 +95,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/hono' build
           bun run --filter '@barefootjs/form' build
           bun run --filter '@barefootjs/chart' build
@@ -141,8 +141,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/hono' build
 
       - name: Build integration
@@ -179,8 +179,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/go-template' build
 
       - name: Build integration
@@ -220,8 +220,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/mojolicious' build
 
       - name: Build integration
