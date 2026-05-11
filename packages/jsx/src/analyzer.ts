@@ -1608,6 +1608,22 @@ function collectFunction(
 ): void {
   if (!node.name) return
 
+  // Skip bodyless FunctionDeclarations:
+  //   - TS ambient signatures: `declare function fn(): void` at top level
+  //     or `function fn(): void` inside `declare global { ... }` /
+  //     `declare module 'x' { ... }`
+  //   - TS overload signatures: the bodyless sibling declarations of a
+  //     function that has a real implementation (e.g.
+  //       `function helper(x: string): string`
+  //       `function helper(x: number): number`
+  //       `function helper(x: any): any { return x }`
+  //     — only the last has a body)
+  // Emitting these as helpers produced `var X = X ?? function() ` (no body),
+  // a runtime SyntaxError. Ambient names are tracked separately via
+  // collectAmbientGlobals; overload signatures are merged into the
+  // implementation by the JS engine and don't need their own emission.
+  if (!node.body) return
+
   const name = node.name.text
   const params: ParamInfo[] = node.parameters.map((p) => ({
     name: p.name.getText(ctx.sourceFile),

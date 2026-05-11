@@ -464,3 +464,84 @@ describe('TS ambient declarations are in scope for BF052', () => {
     expect(bf052).toBeUndefined()
   })
 })
+
+describe('Bodyless FunctionDeclarations are not emitted as helpers', () => {
+  // Regression: `collectFunction` previously pushed every FunctionDeclaration
+  // (including ambient signatures and TS overload signatures, which have
+  // no body) into `ctx.localFunctions`. Emission then rendered them as
+  // `var X = X ?? function() ` — a runtime SyntaxError that blew up
+  // hydration. The bodyful counterpart (where one exists) was emitted
+  // correctly afterward, but earlier siblings produced invalid JS.
+
+  test('top-level `declare function fn()` does not produce a bodyless helper', () => {
+    const source = `
+      'use client'
+      declare function topAmbientFn(): void
+
+      export function Comp() {
+        topAmbientFn()
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!.content
+    // No `function() ` (no body) emission. The name is tracked as ambient
+    // and consumed only by BF052's resolved-name set.
+    expect(clientJs).not.toMatch(/var\s+topAmbientFn\s*=\s*topAmbientFn\s*\?\?\s*function/)
+    expect(clientJs).not.toContain('function() ')
+    // The call site survives.
+    expect(clientJs).toContain('topAmbientFn()')
+  })
+
+  test('`declare global { function fn() }` does not produce a bodyless helper', () => {
+    const source = `
+      'use client'
+      declare global {
+        function ambientFn(): void
+      }
+
+      export function Comp() {
+        ambientFn()
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!.content
+    expect(clientJs).not.toMatch(/var\s+ambientFn\s*=\s*ambientFn\s*\?\?\s*function/)
+    expect(clientJs).not.toContain('function() ')
+    expect(clientJs).toContain('ambientFn()')
+  })
+
+  test('TS overload signatures emit only the implementation, not the signatures', () => {
+    const source = `
+      'use client'
+
+      function helper(x: string): string
+      function helper(x: number): number
+      function helper(x: any): any { return x }
+
+      export function Comp() {
+        helper(1)
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!.content
+    // Exactly one helper declaration — the bodyful implementation.
+    const helperDecls = clientJs.match(/var\s+helper\s*=/g) ?? []
+    expect(helperDecls).toHaveLength(1)
+    // And the body is preserved.
+    expect(clientJs).toContain('return x')
+    // No bodyless `function(x) ` artifact.
+    expect(clientJs).not.toMatch(/function\(x\)\s*$/m)
+  })
+})
