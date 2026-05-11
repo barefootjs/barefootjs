@@ -32,6 +32,8 @@ export type { EdgePathTuple } from './edge-path'
 // node resizer needs raw dimension math.
 export { attachFlowSubsystems, clampDragPositionToParent } from './flow-subsystems'
 export { attachConnectionHandler, attachReconnectionHandler } from './connection'
+export { dispatchNodeType } from './node-type-dispatch'
+export type { NodeInitFn } from './node-type-dispatch'
 export { initNodeResizer, ResizeControlVariant } from './node-resizer'
 export type {
   NodeResizerOptions,
