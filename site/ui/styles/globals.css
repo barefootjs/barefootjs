@@ -158,3 +158,16 @@ html.theme-transition *::after {
   color: hsl(var(--err, 210) 70% 45%);
   transition: color 150ms ease;
 }
+
+/* Per-source stat card accent — color is driven by the `--stat-c` CSS
+   variable set inline from `sourceColors[source]` in the admin
+   analytics demo. Replaces the previous class swap variant so the
+   visual treatment is data-driven (one inline style attribute per
+   card) instead of branching on a static utility-class lookup. */
+.source-stat-card {
+  border-left: 3px solid var(--stat-c, var(--border));
+}
+.source-stat-card [data-source-share] {
+  color: var(--stat-c, var(--muted-foreground));
+  font-weight: 600;
+}
