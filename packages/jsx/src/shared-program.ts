@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Shared ts.Program construction for whole-corpus builds.
  *

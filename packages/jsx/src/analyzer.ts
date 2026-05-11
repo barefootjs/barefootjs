@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * BarefootJS Compiler - Single-Pass Analyzer
  *
