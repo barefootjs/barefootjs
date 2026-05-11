@@ -131,5 +131,47 @@ test.describe('Recursive Comments Block', () => {
       const firstRoot = s.locator('.recursive-comments-roots > li').first()
       await expect(firstRoot.locator('[data-depth="0"] .comment-text').first()).toHaveText('A brand-new thread')
     })
+
+    test('replying twice to a CSR-created top-level comment does not duplicate the second reply', async ({ page }) => {
+      // Regression: replying twice to a freshly-posted root comment used
+      // to duplicate the second reply because branch-template signal
+      // reads in insert() leaked into the surrounding effect, spawning
+      // a duplicate inner mapArray instance per signal change.
+      const s = section(page)
+
+      await s.locator('.recursive-comments-input').fill('test1')
+      await s.locator('.recursive-comments-post').click()
+      // Anchor test1 by its auto-assigned id; locator must not depend
+      // on DOM ordering once the tree grows.
+      const firstRoot = s.locator('.recursive-comments-roots > li').first()
+      const test1Id = await firstRoot.locator('[data-comment-id]').first().getAttribute('data-comment-id')
+      expect(test1Id).toBeTruthy()
+      const test1 = s.locator(`[data-comment-id="${test1Id}"]`)
+      await expect(test1).toHaveCount(1)
+
+      // `.first()` inside `subject`: a CommentNode's own controls render
+      // before its `.comment-children` block, so document order picks
+      // the self control even after descendants exist.
+      const replyTo = async (subject: ReturnType<typeof s.locator>, text: string) => {
+        await subject.locator('.comment-toggle-form').first().click()
+        const ta = subject.locator('.comment-reply-textarea').first()
+        await expect(ta).toBeVisible()
+        await ta.fill(text)
+        await subject.locator('.comment-post-reply-btn').first().click()
+        await expect(
+          s.locator('.comment-text').filter({ hasText: new RegExp(`^${text}$`) }),
+        ).toHaveCount(1)
+      }
+
+      await replyTo(test1, 'test2')
+      await replyTo(test1, 'test3')
+
+      // Exact-match on individual `.comment-text` so a duplicate cannot
+      // hide behind ancestor `hasText` (which matches any subtree).
+      await expect(s.locator('.comment-text').filter({ hasText: /^test3$/ })).toHaveCount(1)
+      await expect(s.locator('.comment-text').filter({ hasText: /^test2$/ })).toHaveCount(1)
+      await expect(s.locator('.comment-text').filter({ hasText: /^test1$/ })).toHaveCount(1)
+      await expect(s.locator('.recursive-comments-total')).toHaveText('11')
+    })
   })
 })

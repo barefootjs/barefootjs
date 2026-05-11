@@ -6,7 +6,7 @@
  * handles event binding for both branches.
  */
 
-import { createEffect } from '@barefootjs/client/reactive'
+import { createEffect, untrack } from '@barefootjs/client/reactive'
 import { find } from './query'
 import { setParentScopeId, parseHTML } from './component'
 import { BF_COND, BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
@@ -30,7 +30,28 @@ export interface BranchConfig {
   /**
    * HTML template function for this branch. Returns either a plain HTML
    * string (legacy) or a `{ html, slots }` pair for templates that
-   * captured live `Node` values via `__bfSlot` (#1213).
+   * captured live `Node` values via `__bfSlot`.
+   *
+   * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   *  INVARIANT — TEMPLATES RUN WITH REACTIVITY UNTRACKED.
+   * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   *
+   * Every call site goes through `evalBranchTemplate()` in this file,
+   * which wraps the invocation in `untrack()`. Signal reads inside
+   * the template are therefore NOT registered as effect dependencies.
+   *
+   * Consequences for authors of new branch shapes:
+   *
+   *  - `template()` must produce a function of state-at-call-time only.
+   *    Any reactive portion of the rendered fragment is wired up
+   *    afterwards by `bindEvents()` (events + per-binding effects) and
+   *    `__bfSlot` (live-Node splicing for slot-captured signals).
+   *
+   *  - A template such as `() => signalA() ? '<a>' : '<b>'` is a BUG:
+   *    later changes to `signalA` will not re-evaluate the template,
+   *    because the read was performed without tracking. Branch
+   *    selection belongs in the `conditionFn` argument of `insert()`,
+   *    not inside the template body.
    */
   template: () => string | BranchTemplateResult
 
@@ -48,6 +69,22 @@ const EMPTY_SLOTS: Node[] = []
 
 function normalizeTemplate(value: string | BranchTemplateResult): BranchTemplateResult {
   return typeof value === 'string' ? { html: value, slots: EMPTY_SLOTS } : value
+}
+
+/**
+ * Single chokepoint for every `branch.template()` call in this module —
+ * routes the invocation through `untrack()` so the contract on
+ * `BranchConfig.template` cannot be locally bypassed.
+ *
+ * Reads inside the template would otherwise be attributed to whatever
+ * effect is the active Listener when `insert()` runs, causing duplicate
+ * inner constructs (notably duplicate `mapArray` instances) when an
+ * outer effect re-runs and re-invokes `insert()`.
+ *
+ * New `template()` call sites: route through here, never call directly.
+ */
+function evalBranchTemplate(branch: BranchConfig): BranchTemplateResult {
+  return untrack(() => normalizeTemplate(branch.template()))
 }
 
 
@@ -83,11 +120,11 @@ export function insert(
 
   // Check if either branch uses fragment conditional (comment markers).
   // Both branches need to be checked because SSR may render either branch.
-  // Use try/catch because template evaluation may access nullable expressions
-  // (e.g., selectedMail().subject when the branch is for the non-null case).
+  // try/catch absorbs TypeError from nullable access during the probe
+  // (e.g. `selectedMail().subject` when the branch is for the non-null case).
   let isFragmentCond = false
   try {
-    const sampleTrue = normalizeTemplate(whenTrue.template())
+    const sampleTrue = evalBranchTemplate(whenTrue)
     isFragmentCond = sampleTrue.html.includes(`<!--bf-cond-start:${id}-->`)
   } catch (err) {
     // Template may throw TypeError for nullable access (e.g., selectedMail().subject)
@@ -95,7 +132,7 @@ export function insert(
   }
   if (!isFragmentCond) {
     try {
-      const sampleFalse = normalizeTemplate(whenFalse.template())
+      const sampleFalse = evalBranchTemplate(whenFalse)
       isFragmentCond = sampleFalse.html.includes(`<!--bf-cond-start:${id}-->`)
     } catch (err) {
       if (!(err instanceof TypeError)) throw err
@@ -127,12 +164,11 @@ export function insert(
     const branch = currCond ? whenTrue : whenFalse
 
     if (isFirstRun) {
-      // Hydration mode: check if existing DOM matches expected branch
-      // If the existing element doesn't match the expected branch,
-      // we need to swap the DOM first (e.g., SSR rendered whenFalse but now we need whenTrue)
+      // Hydration mode: check if existing DOM matches expected branch.
+      // If not, swap first (e.g., SSR rendered whenFalse but now we need whenTrue).
       setParentScopeId(parentScopeId)
       let result: BranchTemplateResult
-      try { result = normalizeTemplate(branch.template()) } finally { setParentScopeId(null) }
+      try { result = evalBranchTemplate(branch) } finally { setParentScopeId(null) }
       const existingEl = find(scope, `[${BF_COND}="${id}"]`)
       if (existingEl) {
         // Compare full opening tag signatures to detect branch mismatch.
@@ -191,10 +227,10 @@ export function insert(
       branchCleanup = null
     }
 
-    // Branch changed: swap DOM and bind events
+    // Branch changed: swap DOM and bind events.
     setParentScopeId(parentScopeId)
     let result: BranchTemplateResult
-    try { result = normalizeTemplate(branch.template()) } finally { setParentScopeId(null) }
+    try { result = evalBranchTemplate(branch) } finally { setParentScopeId(null) }
     if (isFragmentCond) {
       updateFragmentConditional(scope, id, result)
     } else {

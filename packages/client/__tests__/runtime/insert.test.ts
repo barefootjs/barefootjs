@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { insert } from '../../src/runtime/insert'
 import { __bfSlot } from '../../src/runtime/branch-slot'
-import { createSignal } from '../../src/reactive'
+import { createSignal, createEffect } from '../../src/reactive'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 
 beforeAll(() => {
@@ -373,6 +373,95 @@ describe('insert', () => {
       // Set back to false → element removed
       setShow(false)
       expect(scope.querySelector('p')).toBeNull()
+    })
+  })
+
+  // Contract documented on `BranchConfig.template` in insert.ts.
+  describe('template purity contract', () => {
+    test('isFragmentCond probe does not leak signal reads to a surrounding effect', () => {
+      document.body.innerHTML = `
+        <div bf-s="Test_1">
+          <span bf-c="c1">Initial</span>
+        </div>
+      `
+      const scope = document.querySelector('[bf-s]')!
+      const [show] = createSignal(true)
+      const [count, setCount] = createSignal(0)
+
+      let outerRuns = 0
+      createEffect(() => {
+        outerRuns++
+        insert(
+          scope,
+          'c1',
+          show,
+          // The probe walks BOTH branches on insert() entry, so a read in
+          // either template would leak — putting it in the inactive
+          // branch isolates the probe path from the first-run path below.
+          { template: () => '<span bf-c="c1">Visible</span>', bindEvents: () => {} },
+          { template: () => `<span bf-c="c1">${count()}</span>`, bindEvents: () => {} }
+        )
+      })
+
+      expect(outerRuns).toBe(1)
+      setCount(5)
+      setCount(6)
+      expect(outerRuns).toBe(1)
+    })
+
+    test('first-run template evaluation inside insert\'s own effect does not leak', () => {
+      document.body.innerHTML = `
+        <div bf-s="Test_1">
+          <span bf-c="c1">Initial</span>
+        </div>
+      `
+      const scope = document.querySelector('[bf-s]')!
+      const [show] = createSignal(true)
+      const [count, setCount] = createSignal(0)
+
+      let outerRuns = 0
+      createEffect(() => {
+        outerRuns++
+        insert(
+          scope,
+          'c1',
+          show,
+          { template: () => `<span bf-c="c1">${count()}</span>`, bindEvents: () => {} },
+          { template: () => '<span bf-c="c1">Hidden</span>', bindEvents: () => {} }
+        )
+      })
+
+      expect(outerRuns).toBe(1)
+      setCount(42)
+      expect(outerRuns).toBe(1)
+    })
+
+    test('branch-swap template evaluation does not leak', () => {
+      document.body.innerHTML = `
+        <div bf-s="Test_1">
+          <span bf-c="c1">Initial</span>
+        </div>
+      `
+      const scope = document.querySelector('[bf-s]')!
+      const [show, setShow] = createSignal(false)
+      const [count, setCount] = createSignal(0)
+
+      let outerRuns = 0
+      createEffect(() => {
+        outerRuns++
+        insert(
+          scope,
+          'c1',
+          show,
+          { template: () => `<span bf-c="c1">on:${count()}</span>`, bindEvents: () => {} },
+          { template: () => `<span bf-c="c1">off:${count()}</span>`, bindEvents: () => {} }
+        )
+      })
+
+      expect(outerRuns).toBe(1)
+      setShow(true)
+      setCount(99)
+      expect(outerRuns).toBe(1)
     })
   })
 })
