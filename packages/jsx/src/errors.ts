@@ -168,6 +168,21 @@ export function createError(
     suggestion?: ErrorSuggestion
   }
 ): CompilerError {
+  // Guard against silent failure when a stale build of this package is
+  // loaded by a consumer: if `code` is `undefined` (typically because a
+  // newer source-level ErrorCodes entry isn't present in the compiled
+  // artifact), every error this consumer creates would otherwise carry
+  // `code: undefined` and pass through downstream `errors[i].code ===
+  // 'BFxxx'` checks as `undefined` — a runtime ReferenceError waiting to
+  // happen. Fail loud at the construction site instead.
+  if (code === undefined || !(code in errorMessages)) {
+    throw new Error(
+      `createError: unknown error code ${JSON.stringify(code)}. ` +
+        `This usually means a consumer is loading a stale build of @barefootjs/jsx ` +
+        `that predates the ErrorCodes entry, or the code was renamed without ` +
+        `updating callers.`,
+    )
+  }
   return {
     code,
     severity: options?.severity ?? 'error',
