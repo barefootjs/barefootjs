@@ -6,7 +6,7 @@
  * handles event binding for both branches.
  */
 
-import { createEffect } from '@barefootjs/client/reactive'
+import { createEffect, untrack } from '@barefootjs/client/reactive'
 import { find } from './query'
 import { setParentScopeId, parseHTML } from './component'
 import { BF_COND, BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
@@ -85,9 +85,18 @@ export function insert(
   // Both branches need to be checked because SSR may render either branch.
   // Use try/catch because template evaluation may access nullable expressions
   // (e.g., selectedMail().subject when the branch is for the non-null case).
+  //
+  // The template() calls are wrapped in untrack() because a branch template
+  // may read signals (e.g. `_p.item.replies` when expanding a list) while
+  // `insert()` itself may be invoked from inside a surrounding effect
+  // (e.g. a `createDisposableEffect` set up by a parent branch's
+  // bindEvents). Without untrack, those reads would be attributed to the
+  // outer effect, causing it to re-run on every list update and spawn
+  // duplicate `mapArray` instances inside this conditional — the recursive
+  // CommentNode duplication observed in #1224 follow-up.
   let isFragmentCond = false
   try {
-    const sampleTrue = normalizeTemplate(whenTrue.template())
+    const sampleTrue = untrack(() => normalizeTemplate(whenTrue.template()))
     isFragmentCond = sampleTrue.html.includes(`<!--bf-cond-start:${id}-->`)
   } catch (err) {
     // Template may throw TypeError for nullable access (e.g., selectedMail().subject)
@@ -95,7 +104,7 @@ export function insert(
   }
   if (!isFragmentCond) {
     try {
-      const sampleFalse = normalizeTemplate(whenFalse.template())
+      const sampleFalse = untrack(() => normalizeTemplate(whenFalse.template()))
       isFragmentCond = sampleFalse.html.includes(`<!--bf-cond-start:${id}-->`)
     } catch (err) {
       if (!(err instanceof TypeError)) throw err
@@ -130,9 +139,12 @@ export function insert(
       // Hydration mode: check if existing DOM matches expected branch
       // If the existing element doesn't match the expected branch,
       // we need to swap the DOM first (e.g., SSR rendered whenFalse but now we need whenTrue)
+      // untrack the template() call: signal reads inside the template should
+      // not leak into this createEffect's dependency set — only conditionFn()
+      // governs when we re-run.
       setParentScopeId(parentScopeId)
       let result: BranchTemplateResult
-      try { result = normalizeTemplate(branch.template()) } finally { setParentScopeId(null) }
+      try { result = untrack(() => normalizeTemplate(branch.template())) } finally { setParentScopeId(null) }
       const existingEl = find(scope, `[${BF_COND}="${id}"]`)
       if (existingEl) {
         // Compare full opening tag signatures to detect branch mismatch.
@@ -191,10 +203,11 @@ export function insert(
       branchCleanup = null
     }
 
-    // Branch changed: swap DOM and bind events
+    // Branch changed: swap DOM and bind events.
+    // untrack the template() call (see isFirstRun branch above for rationale).
     setParentScopeId(parentScopeId)
     let result: BranchTemplateResult
-    try { result = normalizeTemplate(branch.template()) } finally { setParentScopeId(null) }
+    try { result = untrack(() => normalizeTemplate(branch.template())) } finally { setParentScopeId(null) }
     if (isFragmentCond) {
       updateFragmentConditional(scope, id, result)
     } else {

@@ -131,5 +131,33 @@ test.describe('Recursive Comments Block', () => {
       const firstRoot = s.locator('.recursive-comments-roots > li').first()
       await expect(firstRoot.locator('[data-depth="0"] .comment-text').first()).toHaveText('A brand-new thread')
     })
+
+    test('replying twice to a CSR-created top-level comment does not duplicate the second reply', async ({ page }) => {
+      // Regression for the post-#1224 follow-up bug: posting test1 (CSR root),
+      // replying test2, then replying test3 produced two test3 nodes because
+      // `insert()` was leaking its template() reads into the surrounding
+      // createDisposableEffect, spawning a duplicate inner mapArray instance
+      // on every parent-signal change.
+      const s = section(page)
+      await s.locator('.recursive-comments-input').fill('test1')
+      await s.locator('.recursive-comments-post').click()
+      const test1 = s.locator('.recursive-comments-roots > li').first()
+      await expect(test1.locator('[data-depth="0"] .comment-text').first()).toHaveText('test1')
+
+      await test1.locator('.comment-toggle-form').first().click()
+      await test1.locator('.comment-reply-textarea').first().fill('test2')
+      await test1.locator('.comment-post-reply-btn').first().click()
+      await expect(test1.locator('.comment-text', { hasText: 'test2' })).toHaveCount(1)
+
+      await test1.locator('.comment-toggle-form').first().click()
+      await test1.locator('.comment-reply-textarea').first().fill('test3')
+      await test1.locator('.comment-post-reply-btn').first().click()
+
+      // The bug rendered test3 twice; the rest of the tree must also remain
+      // singular so we don't regress in a way the count check would miss.
+      await expect(test1.locator('.comment-text', { hasText: 'test3' })).toHaveCount(1)
+      await expect(test1.locator('.comment-text', { hasText: 'test2' })).toHaveCount(1)
+      await expect(test1.locator('.comment-text', { hasText: 'test1' })).toHaveCount(1)
+    })
   })
 })
