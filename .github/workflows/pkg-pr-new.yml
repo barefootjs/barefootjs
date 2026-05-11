@@ -38,8 +38,8 @@ jobs:
       # consumed by the others, so build them first.
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/form' build
           bun run --filter '@barefootjs/chart' build
           bun run --filter '@barefootjs/xyflow' build

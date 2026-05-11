@@ -43,8 +43,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/go-template' build
 
       - name: Pre-warm Go build cache
@@ -75,8 +75,8 @@ jobs:
 
       - name: Build packages
         run: |
-          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/jsx' build
+          bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/go-template' build
 
       - name: Build integrations/echo
