@@ -373,6 +373,17 @@ function visit(
     }
   }
 
+  // Module-level ambient declarations (TS `declare var X` / `declare let X`
+  // / `declare const X` / `declare global { ... }`). These are runtime
+  // contracts the author is asserting — TS believes them, and BF052 must
+  // too, otherwise legitimate writes to ambient globals would false-fire
+  // the "no declaration in scope" diagnostic. Detected before the regular
+  // module-level constant path because `declare` statements have no
+  // initializer and would otherwise be silently ignored there.
+  if (!ctx.componentNode) {
+    collectAmbientGlobals(node, ctx)
+  }
+
   // Module-level constants (outside component)
   if (ts.isVariableStatement(node) && !ctx.componentNode) {
     const isExported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
@@ -1289,6 +1300,24 @@ function extractAssignedIdentifiersFromNode(node: ts.Node): Set<string> {
   }
 
   function visit(n: ts.Node): void {
+    // Stop at the init / sub-init boundary (#1228): assignments inside
+    // nested function literals (event-listener callbacks, setTimeout
+    // arrows, returned closures, ...) do not execute at init time, so
+    // they are not init-statement assignments and BF052 must not flag
+    // them. The entry node passed in is always a ts.Statement from
+    // collectInitStatement, never a function literal, so this guard
+    // only trips on descent.
+    if (
+      ts.isArrowFunction(n) ||
+      ts.isFunctionExpression(n) ||
+      ts.isFunctionDeclaration(n) ||
+      ts.isMethodDeclaration(n) ||
+      ts.isGetAccessorDeclaration(n) ||
+      ts.isSetAccessorDeclaration(n) ||
+      ts.isConstructorDeclaration(n)
+    ) {
+      return
+    }
     if (ts.isBinaryExpression(n)) {
       const op = n.operatorToken.kind
       if (
@@ -1342,6 +1371,58 @@ const CLIENT_EXPORTS = new Set([
   'createContext', 'useContext', 'provideContext',
   'createPortal', 'isSSRPortal', 'findSiblingSlot', 'cleanupPortalPlaceholder',
 ])
+
+/**
+ * Collect names introduced by TypeScript ambient declarations at module
+ * scope into `ctx.ambientGlobals`. Handles:
+ *   - `declare var X: T` / `declare let X: T` / `declare const X: T`
+ *   - `declare function fn(): T`
+ *   - `declare global { var X; let Y; const Z; function fn() }`
+ *
+ * These declarations have no runtime emission — the author is asserting
+ * that the binding exists at runtime (e.g., set up by another script tag,
+ * a build-time inject, or a sibling `.d.ts`). For BF052 the only thing
+ * that matters is whether the name is "in scope" from the compiler's
+ * point of view; ambient declarations satisfy that.
+ *
+ * Type-only inner statements (`type`, `interface`) inside `declare global`
+ * are skipped — they never produce a value binding to write to.
+ */
+function collectAmbientGlobals(node: ts.Node, ctx: AnalyzerContext): void {
+  // `declare var X` / `declare let X` / `declare const X` at top level
+  if (ts.isVariableStatement(node)) {
+    const isDeclare = node.modifiers?.some(m => m.kind === ts.SyntaxKind.DeclareKeyword) ?? false
+    if (!isDeclare) return
+    for (const decl of node.declarationList.declarations) {
+      if (ts.isIdentifier(decl.name)) ctx.ambientGlobals.add(decl.name.text)
+    }
+    return
+  }
+
+  // `declare function fn()` at top level
+  if (ts.isFunctionDeclaration(node) && node.name) {
+    const isDeclare = node.modifiers?.some(m => m.kind === ts.SyntaxKind.DeclareKeyword) ?? false
+    if (isDeclare) ctx.ambientGlobals.add(node.name.text)
+    return
+  }
+
+  // `declare global { ... }` — recurse into the module block
+  if (ts.isModuleDeclaration(node)) {
+    const isGlobalAugmentation = (node.flags & ts.NodeFlags.GlobalAugmentation) !== 0
+    if (!isGlobalAugmentation) return
+    if (!node.body || !ts.isModuleBlock(node.body)) return
+    for (const inner of node.body.statements) {
+      if (ts.isVariableStatement(inner)) {
+        for (const decl of inner.declarationList.declarations) {
+          if (ts.isIdentifier(decl.name)) ctx.ambientGlobals.add(decl.name.text)
+        }
+      } else if (ts.isFunctionDeclaration(inner) && inner.name) {
+        ctx.ambientGlobals.add(inner.name.text)
+      }
+      // type / interface statements introduce no value binding — skip.
+    }
+  }
+}
 
 function collectImport(node: ts.ImportDeclaration, ctx: AnalyzerContext): void {
   const source = (node.moduleSpecifier as ts.StringLiteral).text
@@ -1526,6 +1607,22 @@ function collectFunction(
   isExported: boolean = false
 ): void {
   if (!node.name) return
+
+  // Skip bodyless FunctionDeclarations:
+  //   - TS ambient signatures: `declare function fn(): void` at top level
+  //     or `function fn(): void` inside `declare global { ... }` /
+  //     `declare module 'x' { ... }`
+  //   - TS overload signatures: the bodyless sibling declarations of a
+  //     function that has a real implementation (e.g.
+  //       `function helper(x: string): string`
+  //       `function helper(x: number): number`
+  //       `function helper(x: any): any { return x }`
+  //     — only the last has a body)
+  // Emitting these as helpers produced `var X = X ?? function() ` (no body),
+  // a runtime SyntaxError. Ambient names are tracked separately via
+  // collectAmbientGlobals; overload signatures are merged into the
+  // implementation by the JS engine and don't need their own emission.
+  if (!node.body) return
 
   const name = node.name.text
   const params: ParamInfo[] = node.parameters.map((p) => ({
@@ -2292,6 +2389,9 @@ function collectResolvedNames(ctx: AnalyzerContext): Set<string> {
       names.add(spec.alias ?? spec.name)
     }
   }
+  // TS ambient declarations (`declare var X`, `declare global { var X }`)
+  // — runtime contracts the author has asserted. See collectAmbientGlobals.
+  for (const name of ctx.ambientGlobals) names.add(name)
   return names
 }
 

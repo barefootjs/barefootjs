@@ -243,3 +243,305 @@ describe('Init statements referencing module-scope declarations (#933)', () => {
     expect(bf052!.message.toLowerCase()).toContain('unknownglobal')
   })
 })
+
+describe('Init statements crossing the init/sub-init boundary (#1228)', () => {
+  // Regression: the BF052 walker recursed into nested function literals
+  // (event-listener callbacks, setTimeout arrows, returned closures) and
+  // flagged inner assignments as if they were init-time writes — even when
+  // the LHS was a `let` declared inside the same nested arrow. Per
+  // spec/compiler.md, nested function bodies are sub-init scope and do
+  // not run at init time, so BF052 must stop at the boundary.
+
+  test('let inside an addEventListener callback does not emit BF052', () => {
+    const source = `
+      'use client'
+
+      export function MyComponent(this: HTMLElement, props: { id: string }) {
+        const wrapper = document.createElement('div')
+
+        wrapper.addEventListener('mousedown', (e) => {
+          const startX = e.clientX
+          let moved = false
+          const onMove = (ev: MouseEvent) => {
+            if (moved) return
+            if (Math.hypot(ev.clientX - startX, 0) > 3) {
+              moved = true
+            }
+          }
+          window.addEventListener('mousemove', onMove)
+        })
+
+        this.appendChild(wrapper)
+      }
+    `
+
+    const result = compileJSX(source, 'MyComponent.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('let inside a setTimeout callback with inner arrow assignment does not emit BF052', () => {
+    const source = `
+      'use client'
+
+      export function Retrying(this: HTMLElement) {
+        setTimeout(() => {
+          let attempts = 0
+          const retry = () => {
+            attempts = attempts + 1
+            if (attempts < 3) retry()
+          }
+          retry()
+        }, 0)
+      }
+    `
+
+    const result = compileJSX(source, 'Retrying.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('multiple nested function literals in one init statement do not emit BF052', () => {
+    // Mirrors the desk IssueCardNode shape: several let/assign pairs
+    // scattered across event-listener callbacks and inner closures.
+    const source = `
+      'use client'
+
+      export function Card(this: HTMLElement) {
+        this.addEventListener('mousedown', (e) => {
+          let moved = false
+          let cancelled = false
+          const onMove = () => {
+            moved = true
+          }
+          const onUp = () => {
+            cancelled = true
+            moved = false
+          }
+          window.addEventListener('mousemove', onMove)
+          window.addEventListener('mouseup', onUp)
+        })
+      }
+    `
+
+    const result = compileJSX(source, 'Card.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('top-level assignment to undeclared name still emits BF052 (boundary preserved)', () => {
+    // Counter-test: the #1228 fix must not over-suppress. A bare
+    // assignment at the top level of the component body — outside any
+    // function literal — still runs at init time and must be flagged.
+    const source = `
+      'use client'
+
+      export function Stray(props: { v?: string }) {
+        strayGlobal = props.v
+        this.addEventListener('click', () => {
+          let local = 0
+          local = local + 1
+        })
+      }
+    `
+
+    const result = compileJSX(source, 'Stray.tsx', { adapter })
+    const bf052Errors = result.errors.filter(e => e.code === 'BF052')
+    expect(bf052Errors).toHaveLength(1)
+    expect(bf052Errors[0].message.toLowerCase()).toContain('strayglobal')
+    // And critically NOT 'local' from inside the click callback.
+    expect(bf052Errors[0].message.toLowerCase()).not.toContain('local')
+  })
+})
+
+describe('TS ambient declarations are in scope for BF052', () => {
+  // `declare var X` / `declare global { var X }` are TypeScript's way of
+  // asserting that a binding exists at runtime. BF052 must trust those
+  // assertions — otherwise legitimate writes to ambient globals would
+  // false-fire the "no declaration in scope" diagnostic and force users
+  // to rewrite as `(globalThis as any).X = ...` just to silence the
+  // analyzer.
+
+  test('write to a name declared via `declare var X` does not emit BF052', () => {
+    const source = `
+      'use client'
+      declare var myConfig: { flag: boolean }
+
+      export function Comp(props: { flag: boolean }) {
+        myConfig = { flag: props.flag }
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('write to a name declared via `declare global { var X }` does not emit BF052', () => {
+    const source = `
+      'use client'
+      declare global {
+        var myController: { active: boolean }
+      }
+
+      export function Comp(props: { active: boolean }) {
+        myController = { active: props.active }
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('`declare global` accepts var / let / const / function and all are in scope', () => {
+    const source = `
+      'use client'
+      declare global {
+        var ambientVar: number
+        let ambientLet: string
+        const ambientConst: boolean
+        function ambientFn(): void
+      }
+
+      export function Comp() {
+        ambientVar = 1
+        ambientLet = 'x'
+        // Writing to a 'const' is a TS error at the assignment site, but
+        // BF052 only sees the analyzer's resolved-name set; this test
+        // confirms the name is recognized regardless of const-ness.
+        ambientConst = true
+        ambientFn = () => {}
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.filter(e => e.code === 'BF052')
+    expect(bf052).toHaveLength(0)
+  })
+
+  test('truly undeclared name still emits BF052 even alongside ambient declarations', () => {
+    // Mix ambient + undeclared in the same file: ambient names are silent,
+    // genuinely-undeclared names still fire. Guards against the resolver
+    // becoming a blanket suppressor.
+    const source = `
+      'use client'
+      declare global { var known: number }
+
+      export function Comp(props: { v: number }) {
+        known = props.v
+        unknown = props.v
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.filter(e => e.code === 'BF052')
+    expect(bf052).toHaveLength(1)
+    expect(bf052[0].message.toLowerCase()).toContain('unknown')
+    expect(bf052[0].message.toLowerCase()).not.toContain("'known'")
+  })
+
+  test('property-access writes (window.X = ...) are not flagged regardless', () => {
+    // Independent of ambient handling: the BF052 walker has always
+    // skipped PropertyAccess writes because they don't create implicit
+    // globals. This is the recommended pattern for runtime-injected
+    // globals (no ambient declaration needed).
+    const source = `
+      'use client'
+
+      export function Comp(props: { v: number }) {
+        ;(window as any).myThing = props.v
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+})
+
+describe('Bodyless FunctionDeclarations are not emitted as helpers', () => {
+  // Regression: `collectFunction` previously pushed every FunctionDeclaration
+  // (including ambient signatures and TS overload signatures, which have
+  // no body) into `ctx.localFunctions`. Emission then rendered them as
+  // `var X = X ?? function() ` — a runtime SyntaxError that blew up
+  // hydration. The bodyful counterpart (where one exists) was emitted
+  // correctly afterward, but earlier siblings produced invalid JS.
+
+  test('top-level `declare function fn()` does not produce a bodyless helper', () => {
+    const source = `
+      'use client'
+      declare function topAmbientFn(): void
+
+      export function Comp() {
+        topAmbientFn()
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!.content
+    // No `function() ` (no body) emission. The name is tracked as ambient
+    // and consumed only by BF052's resolved-name set.
+    expect(clientJs).not.toMatch(/var\s+topAmbientFn\s*=\s*topAmbientFn\s*\?\?\s*function/)
+    expect(clientJs).not.toContain('function() ')
+    // The call site survives.
+    expect(clientJs).toContain('topAmbientFn()')
+  })
+
+  test('`declare global { function fn() }` does not produce a bodyless helper', () => {
+    const source = `
+      'use client'
+      declare global {
+        function ambientFn(): void
+      }
+
+      export function Comp() {
+        ambientFn()
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!.content
+    expect(clientJs).not.toMatch(/var\s+ambientFn\s*=\s*ambientFn\s*\?\?\s*function/)
+    expect(clientJs).not.toContain('function() ')
+    expect(clientJs).toContain('ambientFn()')
+  })
+
+  test('TS overload signatures emit only the implementation, not the signatures', () => {
+    const source = `
+      'use client'
+
+      function helper(x: string): string
+      function helper(x: number): number
+      function helper(x: any): any { return x }
+
+      export function Comp() {
+        helper(1)
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!.content
+    // Exactly one helper declaration — the bodyful implementation.
+    const helperDecls = clientJs.match(/var\s+helper\s*=/g) ?? []
+    expect(helperDecls).toHaveLength(1)
+    // And the body is preserved.
+    expect(clientJs).toContain('return x')
+    // No bodyless `function(x) ` artifact.
+    expect(clientJs).not.toMatch(/function\(x\)\s*$/m)
+  })
+})
