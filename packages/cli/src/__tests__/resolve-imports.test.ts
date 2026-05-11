@@ -49,13 +49,13 @@ console.log(highlight('hello'))
     expect(result).toContain("from '@barefootjs/client'")
   })
 
-  test('strips .tsx server component import', async () => {
-    writeFileSync(resolve(COMPONENTS_DIR, 'ServerComp.tsx'), `
-export function ServerComp() {
-  return <div>server only</div>
+  test('strips .tsx client component import when binding is unused', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'ClientComp.tsx'), `'use client'
+export function ClientComp() {
+  return <div>client only</div>
 }
 `)
-    const clientJs = `import { ServerComp } from './ServerComp'
+    const clientJs = `import { ClientComp } from './ClientComp'
 import { createSignal } from '@barefootjs/client'
 console.log('client code')
 `
@@ -65,12 +65,75 @@ console.log('client code')
       Parent: { clientJs: 'components/Parent-abc123.js', markedTemplate: 'components/Parent.tsx' },
     }
 
-    await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+    const { errors } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
 
     const result = await Bun.file(resolve(COMPONENTS_DIR, 'Parent-abc123.js')).text()
-    expect(result).not.toContain('ServerComp')
+    expect(result).not.toContain('ClientComp')
     expect(result).toContain("from '@barefootjs/client'")
     expect(result).toContain("console.log('client code')")
+    // No dangling reference → no diagnostic.
+    expect(errors).toHaveLength(0)
+  })
+
+  // Regression: bf#1227 — a `.ts` helper (no `'use client'`) inlined into a
+  // client bundle imports a sibling `'use client'` `.tsx` AND calls it. The
+  // strip used to be silent (`console.log` only, build exit 0), so the
+  // bundle shipped with a dangling identifier and crashed at runtime with
+  // `ReferenceError: DraftTitleEditor is not defined`. After the fix the
+  // strip is detected via a post-assembly identifier scan and surfaced as
+  // BF053, so the build exits non-zero.
+  test('errors when stripped .tsx binding is still referenced (bf#1227)', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'DraftTitleEditor.tsx'), `'use client'
+export function DraftTitleEditor() { return <textarea /> }
+`)
+    writeFileSync(resolve(COMPONENTS_DIR, 'IssueCardNode.ts'), `
+import { DraftTitleEditor } from './DraftTitleEditor'
+export function IssueCardNode() {
+  return DraftTitleEditor({ initialTitle: '' })
+}
+`)
+    const clientJs = `import { IssueCardNode } from './IssueCardNode'
+IssueCardNode()
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'DeskCanvas-aaa.js'), clientJs)
+    const manifest = {
+      DeskCanvas: {
+        clientJs: 'components/DeskCanvas-aaa.js',
+        markedTemplate: 'components/DeskCanvas.tsx',
+      },
+    }
+
+    const { errors } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0].code).toBe('BF053')
+    expect(errors[0].severity).toBe('error')
+    // The error must name the binding so the developer can find the call.
+    expect(errors[0].message).toContain('DraftTitleEditor')
+    // And the import path so they can find the source file.
+    expect(errors[0].message).toContain('./DraftTitleEditor')
+    // And the bundle so they know which entry to investigate.
+    expect(errors[0].loc.file).toBe('components/DeskCanvas-aaa.js')
+  })
+
+  // Sanity: stripping is fine when the import was for types-only or
+  // side-effects and no value reference survives. Locks the fix to the
+  // dangling-reference case so we don't over-trigger BF053.
+  test('does not error when stripped .tsx binding is unused at the call site', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'TypesOnly.tsx'), `'use client'
+export function TypesOnly() { return <div /> }
+`)
+    const clientJs = `import { TypesOnly } from './TypesOnly'
+console.log('client code')
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'Quiet-bbb.js'), clientJs)
+    const manifest = {
+      Quiet: { clientJs: 'components/Quiet-bbb.js', markedTemplate: 'components/Quiet.tsx' },
+    }
+
+    const { errors } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    expect(errors).toHaveLength(0)
   })
 
   test('deduplicates same module imported by two client JS files', async () => {
