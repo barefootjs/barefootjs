@@ -179,6 +179,7 @@ function buildReactiveEmit(
       wrappedExpression: wrapped,
       isStyleObject,
       isBoolean: isBooleanAttr(attr.attrName),
+      presenceOrUndefined: !!attr.presenceOrUndefined,
     }
   })
 

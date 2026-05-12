@@ -61,6 +61,15 @@ export interface InnerLoopReactiveAttr {
   isStyleObject: boolean
   /** True for boolean DOM attributes (`disabled`, `checked`, ...). */
   isBoolean: boolean
+  /**
+   * True for `attr={expr || undefined}` patterns where the compiler
+   * stripped the `|| undefined` and now stores the bare expression.
+   * The emitter must use a truthy check (not `!= null`) — otherwise a
+   * concrete `false` value writes `data-attr="false"` instead of
+   * removing the attribute. Surfaced by the calendar demo's
+   * `data-outside={day.isOutside || undefined}` on a nested map root.
+   */
+  presenceOrUndefined: boolean
 }
 
 /**

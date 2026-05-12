@@ -101,6 +101,51 @@ describe('reactive attributes inside a nested .map() body (#135)', () => {
     expect(content).toContain('active()')
   })
 
+  test('`attr={expr || undefined}` uses truthy check, not `!= null`', () => {
+    // Regression for the calendar break: `data-outside={day.isOutside ||
+    // undefined}` is normalised by jsx-to-ir to bare `day.isOutside` +
+    // `presenceOrUndefined: true`. Without the dedicated emit shape,
+    // the generic `__v != null` branch fires for `false` and writes
+    // `data-outside="false"`, which then trips Playwright selectors
+    // like `:not([data-outside])`.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      type Cell = { id: number; isOff: boolean; label: string }
+      type Row = { id: string; cells: Cell[] }
+
+      export function Grid() {
+        const [hover, setHover] = createSignal<number | null>(null)
+        const [rows] = createSignal<Row[]>([])
+        return (
+          <div>
+            {rows().map(r => (
+              <div key={r.id}>
+                {r.cells.map(c => (
+                  <button
+                    key={c.id}
+                    data-off={c.isOff || undefined}
+                    aria-pressed={hover() === c.id || undefined}
+                  >{c.label}</button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )
+      }
+    `
+    const result = compileJSX(source, 'Grid.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+    const content = result.files.find((f) => f.type === 'clientJs')!.content
+
+    // `data-off` uses the truthy-check shape (no `__v != null` for this
+    // attribute) so a concrete `false` removes the attribute.
+    expect(content).toMatch(/createEffect\(\(\) => \{ if \([^)]*c\(\)\.isOff[^)]*\)\s*[^.]+\.setAttribute\('data-off',\s*''\)/)
+    // aria-* keeps the explicit "true" value per WAI-ARIA.
+    expect(content).toContain("setAttribute('aria-pressed', 'true')")
+  })
+
   test('inner-loop event handler keeps working alongside reactive attrs', () => {
     // Regression guard — make sure adding the reactive-attr emission
     // didn't break the existing inner-loop event-handler emission path.

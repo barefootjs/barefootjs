@@ -119,6 +119,15 @@ function emitReactive(lines: string[], inner: InnerLoopPlan, indent: string): vo
       lines.push(`${indent}  if (${targetVar}) createEffect(() => { const __v = styleToCss(${attr.wrappedExpression}); if (__v != null) ${targetVar}.setAttribute('style', __v); else ${targetVar}.removeAttribute('style') }) }`)
     } else if (attr.isBoolean) {
       lines.push(`${indent}  if (${targetVar}) createEffect(() => { if (${attr.wrappedExpression}) ${targetVar}.setAttribute('${attr.attrName}', ''); else ${targetVar}.removeAttribute('${attr.attrName}') }) }`)
+    } else if (attr.presenceOrUndefined) {
+      // `attr={expr || undefined}` was normalised by jsx-to-ir to the
+      // bare expression + presenceOrUndefined=true. Use a truthy check
+      // so a concrete `false` value removes the attribute instead of
+      // writing `data-foo="false"`. aria-* attributes must keep an
+      // explicit "true" value per WAI-ARIA. Surfaced by calendar's
+      // `data-outside={day.isOutside || undefined}` (#135 follow-up).
+      const ariaVal = attr.attrName.startsWith('aria-') ? "'true'" : "''"
+      lines.push(`${indent}  if (${targetVar}) createEffect(() => { if (${attr.wrappedExpression}) ${targetVar}.setAttribute('${attr.attrName}', ${ariaVal}); else ${targetVar}.removeAttribute('${attr.attrName}') }) }`)
     } else {
       lines.push(`${indent}  if (${targetVar}) createEffect(() => { const __v = ${attr.wrappedExpression}; if (__v != null) ${targetVar}.setAttribute('${attr.attrName}', String(__v)); else ${targetVar}.removeAttribute('${attr.attrName}') }) }`)
     }
