@@ -102,19 +102,24 @@ describe.skipIf(!INTEGRATION)(
       // verify the contract by checking that the files actually landed
       // on disk and that package.json is well-formed.
       test.each([
+        // Adapter source files
         'server.tsx',
-        'factory.ts',
         'renderer.tsx',
         'barefoot.config.ts',
         'tsconfig.json',
         'uno.config.ts',
+        'wrangler.jsonc',
+        // The starter component the user will edit
         'components/Counter.tsx',
+        // Public assets served directly by Workers Assets
         'public/styles.css',
         'public/tokens.css',
         'public/uno.css',
-        'dist/components/manifest.json',
+        'public/components/manifest.json',
+        // Registry index + project manifest
         'meta/index.json',
         'package.json',
+        // Registry-pulled UI primitives
         'components/ui/button/index.tsx',
         'components/ui/slot/index.tsx',
         'types/index.tsx',
@@ -126,37 +131,48 @@ describe.skipIf(!INTEGRATION)(
         expect(pkg.name).toBe('demo-app')
       })
 
-      test('package.json exposes dev / build / start / watch scripts', () => {
+      test('package.json exposes dev / build / deploy / watch scripts', () => {
         expect(pkg.scripts.dev).toBeString()
         expect(pkg.scripts.build).toBeString()
-        expect(pkg.scripts.start).toBeString()
-        // `watch` is the server-less rebuild loop quoted in Step 4 of
-        // the next-step instructions.
+        // `deploy` is the Cloudflare Workers deploy step quoted in the
+        // post-scaffold "Deploy" section.
+        expect(pkg.scripts.deploy).toContain('wrangler deploy')
+        // `watch` is the server-less rebuild loop quoted in "More".
         expect(pkg.scripts.watch).toContain('barefoot build --watch')
         expect(pkg.scripts.watch).toContain('unocss --watch')
       })
     })
 
-    describe('Step 6 — Print the 5-step next-step guide', () => {
-      test('shows all five numbered steps in order', () => {
+    describe('Step 6 — Print the post-scaffold guide as 3 sections', () => {
+      test('"Get started" lists cd / install / dev with PM-aware commands', () => {
         // The detected PM is reflected in the commands quoted below,
         // not announced separately. The happy-path run had no PM
-        // signal injected, so we expect the npm command forms. EDITOR
-        // was stripped by the test harness, so step 4 falls back to a
-        // literal "$EDITOR".
-        expect(result.stdout).toContain('Next steps:')
-        expect(result.stdout).toMatch(/1\. Move into the project\n\s+cd demo-app/)
-        expect(result.stdout).toMatch(/2\. Install dependencies\n\s+npm install/)
-        expect(result.stdout).toMatch(/3\. Start the dev server\n\s+npm run dev\n\s+→ http:\/\/localhost:\d+/)
-        expect(result.stdout).toMatch(/4\. Edit components\n\s+\$EDITOR components\/Counter\.tsx/)
-        expect(result.stdout).toMatch(/5\. Build components and watch\n\s+npm run watch/)
+        // signal injected, so we expect the npm command forms.
+        expect(result.stdout).toContain('Get started:')
+        expect(result.stdout).toContain('cd demo-app')
+        expect(result.stdout).toContain('npm install')
+        expect(result.stdout).toMatch(/npm run dev\s+→ http:\/\/localhost:\d+/)
+      })
+
+      test('"More" lists editor + watch helpers', () => {
+        // EDITOR was stripped by the test harness, so the editor hint
+        // falls back to a literal "$EDITOR".
+        expect(result.stdout).toContain('More:')
+        expect(result.stdout).toContain('$EDITOR components/Counter.tsx')
+        expect(result.stdout).toContain('npm run watch')
+      })
+
+      test('"Deploy" surfaces the Cloudflare Workers target for the Hono adapter', () => {
+        expect(result.stdout).toContain('Deploy:')
+        expect(result.stdout).toContain('Cloudflare Workers')
+        expect(result.stdout).toContain('npm run deploy')
       })
 
       test('expands $EDITOR into the user\'s editor when EDITOR is set', () => {
         const cwd = mktmp()
         const r = runCreate(['demo-app'], { cwd, env: { EDITOR: 'nvim' } })
         expect(r.exitCode).toBe(0)
-        expect(r.stdout).toMatch(/4\. Edit components\n\s+nvim components\/Counter\.tsx/)
+        expect(r.stdout).toContain('nvim components/Counter.tsx')
         // The literal "$EDITOR" must not leak through when expansion succeeded.
         expect(r.stdout).not.toMatch(/\$EDITOR components/)
       })
@@ -223,11 +239,12 @@ describe.skipIf(!INTEGRATION)(
 
         expect(r.exitCode).toBe(0)
         // The detected PM isn't announced separately — we rely on the
-        // commands themselves to confirm detection picked it up. Step 1
-        // (install) and Step 4 (watch) both quote PM-aware commands.
+        // commands themselves to confirm detection picked it up. The
+        // Get-started section quotes the install + dev commands, the
+        // More section quotes the watch command.
         expect(r.stdout).toContain(install)
         expect(r.stdout).toContain(run)
-        // Step 4 quotes the same PM's `run` form (e.g. "pnpm watch" vs.
+        // "More:" quotes the PM's `run` form (e.g. "pnpm watch" vs.
         // "npm run watch") for the server-less rebuild loop.
         const watchCmd = pm === 'pnpm' || pm === 'yarn' ? `${pm} watch` : `${pm} run watch`
         expect(r.stdout).toContain(watchCmd)

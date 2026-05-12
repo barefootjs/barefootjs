@@ -8,6 +8,15 @@ import { CSR_ADAPTER } from './adapters/csr'
 import { ECHO_ADAPTER } from './adapters/echo'
 import { HONO_ADAPTER } from './adapters/hono'
 import { MOJO_ADAPTER } from './adapters/mojo'
+import type { PackageManager } from './pm'
+
+/**
+ * A package-manager-aware script value. Plain strings are emitted
+ * verbatim; functions are evaluated against the detected PM so the
+ * generated `package.json` quotes the right command (`bunx wrangler`
+ * vs. `npx wrangler` vs. `pnpm dlx wrangler` vs. `yarn dlx wrangler`).
+ */
+export type AdapterScriptValue = string | ((pm: PackageManager) => string)
 
 export interface AdapterTemplate {
   /** Human-readable name shown in CLI output. */
@@ -16,12 +25,27 @@ export interface AdapterTemplate {
   port: number
   /** Files (relative path → contents) the adapter contributes. */
   files: Record<string, string>
-  /** package.json scripts the adapter contributes. */
-  scripts: Record<string, string>
+  /**
+   * package.json scripts the adapter contributes. Values may be
+   * functions to render PM-specific commands at scaffold time.
+   */
+  scripts: Record<string, AdapterScriptValue>
   /** package.json runtime dependencies. */
   dependencies: Record<string, string>
   /** package.json dev dependencies. */
   devDependencies: Record<string, string>
+  /**
+   * Optional deploy hint surfaced as a dedicated "Deploy:" section in
+   * the post-scaffold guide. Adapters that don't have an obvious one-
+   * command deploy story (Echo, Mojolicious, CSR) leave this unset
+   * and the section is suppressed.
+   */
+  deploy?: {
+    /** Section subtitle, e.g. "Cloudflare Workers". */
+    target: string
+    /** Script key in `scripts` that runs the deploy. */
+    script: string
+  }
   /**
    * Prerequisite warnings to surface to the user before scaffolding.
    * Returning a non-empty array signals "this adapter needs tools that

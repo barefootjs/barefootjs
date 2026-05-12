@@ -206,12 +206,21 @@ async function scaffoldApp(
   // package.json — merge adapter scripts/deps with a sensible default.
   const pkgJsonPath = path.join(projectDir, 'package.json')
   const pkgName = flags.name || path.basename(projectDir).replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'barefoot-app'
+  // Resolve adapter scripts. Function values render against the
+  // detected PM so `dev` / `deploy` quote the right dlx form
+  // (`bunx wrangler` vs. `npx wrangler` vs. `pnpm dlx wrangler` etc.).
+  const pm = detectPackageManager(projectDir)
+  const resolvedAdapterScripts: Record<string, string> = {}
+  for (const [k, v] of Object.entries(adapter.scripts)) {
+    resolvedAdapterScripts[k] = typeof v === 'function' ? v(pm) : v
+  }
+
   const pkgJson = {
     name: pkgName,
     private: true,
     type: 'module',
     scripts: {
-      ...adapter.scripts,
+      ...resolvedAdapterScripts,
       // `watch` is the server-less twin of `dev`: rebuild components +
       // UnoCSS on change, but don't spin up a server. Useful when the
       // user is running their server through another tool (e.g. an
@@ -264,16 +273,31 @@ function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
   // the user's shell is still in the parent. Lead with `cd` so the
   // remaining commands work when copy-pasted in order.
   const projectName = path.basename(projectDir)
-  console.log(`\nNext steps:`)
-  console.log(`  1. Move into the project`)
-  console.log(`       cd ${projectName}`)
-  console.log(`  2. Install dependencies`)
-  console.log(`       ${cmd.install}`)
-  console.log(`  3. Start the dev server`)
-  console.log(`       ${cmd.run('dev')}`)
-  console.log(`       → http://localhost:${adapter.port}`)
-  console.log(`  4. Edit components`)
-  console.log(`       ${editor} components/Counter.tsx`)
-  console.log(`  5. Build components and watch`)
-  console.log(`       ${cmd.run('watch')}`)
+
+  console.log('')
+  console.log(`${heading('Get started:')}`)
+  console.log(`  cd ${projectName}`)
+  console.log(`  ${cmd.install}`)
+  console.log(`  ${cmd.run('dev')}        ${dim(`→ http://localhost:${adapter.port}`)}`)
+
+  if (adapter.deploy) {
+    console.log('')
+    console.log(`${heading('Deploy:')} ${dim(`(${adapter.deploy.target})`)}`)
+    console.log(`  ${cmd.run(adapter.deploy.script)}`)
+  }
+
+  console.log('')
+  console.log(`${heading('More:')}`)
+  console.log(`  ${editor} components/Counter.tsx     ${dim('# edit the starter component')}`)
+  console.log(`  ${cmd.run('watch')}                  ${dim('# rebuild on change without a server')}`)
+}
+
+// ANSI helpers for the next-steps block. All three apply only in a
+// TTY — piped output (CI, scripts) gets the plain text so logs stay
+// grep-friendly.
+function heading(s: string): string {
+  return process.stdout.isTTY ? `\x1b[1;36m${s}\x1b[0m` : s
+}
+function dim(s: string): string {
+  return process.stdout.isTTY ? `\x1b[2m${s}\x1b[0m` : s
 }
