@@ -96,11 +96,19 @@ function __bfWrap(jsx: any, scripts: string[]) {
   // Matches both exported and non-exported PascalCase components (#786).
   // Uses paren counting instead of regex to correctly handle nested
   // delimiters in destructured params (e.g. `onInput = () => {}`).
+  //
+  // The regex matches against a comment-masked copy so a docstring
+  // example like `function MyNode(this: HTMLElement, props)` is NOT
+  // misread as a real function declaration (#1236). The paren counter
+  // still walks the ORIGINAL `restOfFile` and keeps the quote-skip
+  // logic — TS parameter type annotations contain balanced strings
+  // (e.g. `"data-key"?: string`) that the skip handles correctly.
   let modifiedRest = restOfFile
+  const maskedRest = maskComments(restOfFile)
   const exportFuncPattern = /(?:export )?function ([A-Z]\w*)\s*\(/g
   const insertions: Array<{ index: number; text: string }> = []
   let efMatch: RegExpExecArray | null
-  while ((efMatch = exportFuncPattern.exec(restOfFile)) !== null) {
+  while ((efMatch = exportFuncPattern.exec(maskedRest)) !== null) {
     const openParenPos = efMatch.index + efMatch[0].length - 1
     // Count parens to find matching ')'
     let depth = 1
@@ -132,8 +140,15 @@ function __bfWrap(jsx: any, scripts: string[]) {
     modifiedRest = modifiedRest.slice(0, ins.index) + ins.text + modifiedRest.slice(ins.index)
   }
 
-  // Wrap each return (...) with __bfWrap((...), __bfInlineScripts)
-  // Process from back to front to preserve offsets
+  // Wrap each return (...) with __bfWrap((...), __bfInlineScripts).
+  //
+  // Intentionally NO comment/string masking here. JSX bodies routinely
+  // contain unbalanced apostrophes in text content (`Hey! How's it
+  // going`) which a string-aware scanner misreads as an open quote and
+  // ends up blanking everything until the next stray `'`, breaking
+  // paren counting. Plain `(` / `)` counting works for JSX returns
+  // because JSX text cannot contain literal parens — those only appear
+  // inside `{expr}` slots, which are balanced JS.
   const returnPattern = /return\s*\(/g
   const returnMatches: Array<{ index: number; length: number }> = []
   let m: RegExpExecArray | null
@@ -158,4 +173,47 @@ function __bfWrap(jsx: any, scripts: string[]) {
   }
 
   return beforeImports + existingImports + importStatement + helperFn + modifiedRest
+}
+
+/**
+ * Replace comment contents with spaces (preserving length and newlines
+ * so indices computed against the masked text are valid in the
+ * original). Used by `addScriptCollection` so its `function Foo(`
+ * regex ignores JSDoc / inline comments — a docstring example like
+ * `function MyNode(this: HTMLElement, props)` previously masqueraded
+ * as a real function declaration (#1236).
+ *
+ * Handles `//` line comments and `/* ... *\/` block comments (incl.
+ * JSDoc). String literals are intentionally NOT masked: JSX text
+ * content routinely contains unbalanced apostrophes (`How's`) that a
+ * string-aware masker would misread as an open quote, blanking the
+ * rest of the file and hiding later function declarations.
+ *
+ * Strings inside comments are handled implicitly: the whole comment
+ * (including any quotes it contains) is blanked.
+ */
+export function maskComments(s: string): string {
+  let out = ''
+  let i = 0
+  while (i < s.length) {
+    const ch = s[i]
+    const next = s[i + 1]
+    if (ch === '/' && next === '*') {
+      const end = s.indexOf('*/', i + 2)
+      const stop = end === -1 ? s.length : end + 2
+      for (let j = i; j < stop; j++) out += s[j] === '\n' ? '\n' : ' '
+      i = stop
+      continue
+    }
+    if (ch === '/' && next === '/') {
+      const end = s.indexOf('\n', i + 2)
+      const stop = end === -1 ? s.length : end
+      for (let j = i; j < stop; j++) out += ' '
+      i = stop
+      continue
+    }
+    out += ch
+    i++
+  }
+  return out
 }

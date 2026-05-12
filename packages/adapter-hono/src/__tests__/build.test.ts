@@ -53,6 +53,70 @@ export function Counter() {
     expect(result).toContain('/assets/js/Counter.client.js')
   })
 
+  test('ignores `function PascalCase(` text inside JSDoc / inline comments (#1236)', () => {
+    // A docstring example previously triggered a bogus insertion when
+    // the function-pattern regex matched inside the comment, after
+    // which the paren counter walked into the wrong `{` and corrupted
+    // a real function further down.
+    const input = `import { jsx } from 'hono/jsx'
+
+export interface MyProps {
+  /**
+   * Example imperative signature for the docs:
+   *   function MyNode(this: HTMLElement, props): void
+   */
+  nodeTypes?: Record<string, unknown>
+}
+
+// also: function FakeFromLineComment(this: any) {} should not match
+
+export function Counter(props: MyProps) {
+  return (<div>hello</div>)
+}`
+
+    const result = addScriptCollection(input, 'Counter', 'Counter.client.js')
+
+    // The real Counter must be wrapped exactly once.
+    const collectorCount = (result.match(/let __bfInlineScripts/g) || []).length
+    expect(collectorCount).toBe(1)
+
+    // And the collector must land inside Counter's body, immediately after
+    // its opening brace — the same shape the destructured-params test
+    // above verifies. If the comment matches had fired, the collector
+    // would be misplaced inside the interface or the JSDoc.
+    const counterBodyMatch = result.match(/function Counter\(props: MyProps\)\s*\{/)
+    expect(counterBodyMatch).not.toBeNull()
+    if (counterBodyMatch) {
+      const after = result.slice(result.indexOf(counterBodyMatch[0]) + counterBodyMatch[0].length)
+      expect(after.trimStart().startsWith('let __bfInlineScripts')).toBe(true)
+    }
+  })
+
+  test('still finds function declarations after JSX text with apostrophes (#1236)', () => {
+    // Defensive: an unbalanced `'` inside JSX text content (e.g.
+    // `How's it going`) used to cause an over-aggressive string-mask
+    // to blank everything until the next stray `'`, hiding later
+    // function declarations from the regex. Keep apostrophe-containing
+    // JSX text unmasked so subsequent functions still get instrumented.
+    const input = `import { jsx } from 'hono/jsx'
+
+export function Greeting() {
+  return (<div>Hey! How's it going?</div>)
+}
+
+export function Footer() {
+  return (<div>Bye</div>)
+}`
+
+    const result = addScriptCollection(input, 'page', 'page-abc.js')
+
+    // BOTH functions must be wrapped.
+    const collectorCount = (result.match(/let __bfInlineScripts/g) || []).length
+    expect(collectorCount).toBe(2)
+    expect(result).toMatch(/function Greeting\(\)\s*\{\s*\n?\s*let __bfInlineScripts/)
+    expect(result).toMatch(/function Footer\(\)\s*\{\s*\n?\s*let __bfInlineScripts/)
+  })
+
   test('handles destructured params with arrow function defaults', () => {
     const input = `import { jsx } from 'hono/jsx'
 
