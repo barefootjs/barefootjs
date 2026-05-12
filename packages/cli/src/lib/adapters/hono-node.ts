@@ -93,7 +93,9 @@ export function createApp(): Hono {
 const HONO_NODE_RENDERER_TSX = `import { jsxRenderer } from 'hono/jsx-renderer'
 import { BfImportMap, BfScripts } from '@barefootjs/hono/app'
 import { DevReload } from './dev-reload'
-import manifest from './dist/components/manifest.json'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import staticManifest from './dist/components/manifest.json'
 
 declare module 'hono' {
   interface ContextRenderer {
@@ -105,24 +107,44 @@ export interface CreateRendererOptions {
   componentsBase: string
 }
 
+const isDev = process.env.NODE_ENV !== 'production'
+const manifestPath = resolve('./dist/components/manifest.json')
+
+// In production we trust the static import — manifest.json was final
+// at build time. In dev we re-read on every request so a
+// \`barefoot build --watch\` rebuild surfaces in the very next refresh,
+// not the one after that (\`tsx watch\` doesn't reliably bounce the
+// server for JSON-only changes, which left the renderer holding a
+// stale manifest one edit behind).
+function readLiveManifest() {
+  try {
+    return JSON.parse(readFileSync(manifestPath, 'utf8'))
+  } catch {
+    return staticManifest
+  }
+}
+
 export function createRenderer({ componentsBase }: CreateRendererOptions) {
-  return jsxRenderer(({ children, title }) => (
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{title ?? 'BarefootJS app'}</title>
-        <link rel="stylesheet" href="/static/styles.css" />
-        <link rel="stylesheet" href="/static/uno.css" />
-        <BfImportMap base={componentsBase} />
-      </head>
-      <body>
-        {children}
-        <BfScripts base={componentsBase} manifest={manifest} />
-        <DevReload />
-      </body>
-    </html>
-  ))
+  return jsxRenderer(({ children, title }) => {
+    const manifest = isDev ? readLiveManifest() : staticManifest
+    return (
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>{title ?? 'BarefootJS app'}</title>
+          <link rel="stylesheet" href="/static/styles.css" />
+          <link rel="stylesheet" href="/static/uno.css" />
+          <BfImportMap base={componentsBase} />
+        </head>
+        <body>
+          {children}
+          <BfScripts base={componentsBase} manifest={manifest} />
+          <DevReload />
+        </body>
+      </html>
+    )
+  })
 }
 `
 
