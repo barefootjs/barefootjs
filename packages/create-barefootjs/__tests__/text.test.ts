@@ -37,15 +37,16 @@ describe('text()', () => {
     })
     input.write('\n')
     expect(await promise).toBe('my-app')
+    // The prompt itself is rendered while waiting for input; after the
+    // user submits, the prompt row is wiped so the caller can write
+    // its own confirmation in the same position.
     const out = rendered()
     expect(out).toContain('Target directory: (my-app)')
-    // After confirmation, the prompt line is replaced by a compact
-    // "✔ <message> *<answer>*" summary.
-    expect(out).toContain('✔ Target directory \x1b[1;32mmy-app\x1b[0m\n')
+    expect(out).toMatch(/\x1b\[1A\x1b\[2K$/)
   })
 
   test('resolves to the trimmed input when the user types a name', async () => {
-    const { input, output, rendered } = mockTtyPair()
+    const { input, output } = mockTtyPair()
     const promise = text({
       message: 'Target directory',
       defaultValue: 'my-app',
@@ -54,7 +55,6 @@ describe('text()', () => {
     })
     input.write('  acme-app  \n')
     expect(await promise).toBe('acme-app')
-    expect(rendered()).toContain('✔ Target directory \x1b[1;32macme-app\x1b[0m\n')
   })
 
   test('short-circuits to the default when stdin is not a TTY', async () => {

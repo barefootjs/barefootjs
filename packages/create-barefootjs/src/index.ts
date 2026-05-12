@@ -70,29 +70,26 @@ async function main(): Promise<void> {
     (a) => a !== positional && a !== '--yes' && a !== '-y',
   )
 
-  // Resolve the project name. Three branches the user can land in,
-  // all producing the same "✔ Target directory <bold-green>NAME</>"
-  // confirmation line so the transcript reads consistently regardless
-  // of how the value was supplied:
+  // Resolve the project name. Three branches the user can land in:
   //   - explicit positional arg → use it
   //   - --yes (no positional)  → silently accept the default
-  //   - interactive            → prompt for one (TTY-gated; text()
-  //                              falls back to the default in CI /
-  //                              piped contexts to avoid hangs and
-  //                              skips the confirmation line)
+  //   - interactive            → prompt (TTY-gated; falls back to the
+  //                              default in CI / piped contexts)
+  // All three produce the same "✔ Target directory <name>" line, so
+  // the transcript reads consistently regardless of how the value was
+  // supplied.
   let projectName: string
   if (positional) {
     projectName = positional
-    console.log(`\n✔ Target directory ${highlight(projectName)}`)
   } else if (skipPrompts) {
     projectName = DEFAULT_PROJECT_NAME
-    console.log(`\n✔ Target directory ${highlight(projectName)}`)
   } else {
     projectName = await text({
       message: 'Target directory',
       defaultValue: DEFAULT_PROJECT_NAME,
     })
   }
+  console.log(`\n✔ Target directory ${highlight(projectName)}`)
 
   const targetDir = resolve(process.cwd(), projectName)
   if (existsSync(targetDir)) {
