@@ -64,21 +64,16 @@ describe.skipIf(!INTEGRATION)(
     })
 
     describe('Step 2 — Choose an adapter (Hono by default)', () => {
-      test('non-interactive runs pick the registry default (Hono)', () => {
-        expect(result.stdout).toMatch(/Adapter:\s+Hono/)
-      })
-
       test('the chosen adapter is wired into package.json dependencies', () => {
+        // Non-interactive runs (the CLI child has no TTY) fall back to
+        // the registry default — Hono — which surfaces as both adapter
+        // packages and the runtime dep.
         expect(pkg.dependencies['@barefootjs/hono']).toBeDefined()
         expect(pkg.dependencies['hono']).toBeDefined()
       })
     })
 
     describe('Step 3 — Choose a CSS library (UnoCSS by default)', () => {
-      test('non-interactive runs pick the default CSS library (UnoCSS)', () => {
-        expect(result.stdout).toMatch(/CSS library:\s+UnoCSS/)
-      })
-
       test('UnoCSS config and generated stylesheet are present', () => {
         expect(pkg.devDependencies['unocss']).toBeDefined()
         expect(existsSync(path.join(projectDir, 'uno.config.ts'))).toBe(true)
@@ -86,16 +81,22 @@ describe.skipIf(!INTEGRATION)(
       })
     })
 
-    describe('Step 4 — Probe the BarefootJS UI registry', () => {
-      test('does not bail with a registry-unreachable error', () => {
-        // Registry probing is silent on success. We assert via the
-        // contract that scaffolding proceeded past the probe.
-        expect(result.stderr).not.toContain('cannot reach the BarefootJS UI registry')
-        expect(result.stdout).toContain('Initializing BarefootJS app')
+    describe('Step 4 — Probe the BarefootJS UI registry (with spinner)', () => {
+      test('shows the registry-check spinner and resolves it as reachable', () => {
+        // In non-TTY contexts the spinner degrades to a plain start
+        // line; on success it prints a `✔ ...reachable` finish line.
+        expect(result.stdout).toContain('Checking the BarefootJS UI registry')
+        expect(result.stdout).toContain('✔ BarefootJS UI registry reachable')
+        expect(result.stderr).not.toContain('Cannot reach the BarefootJS UI registry')
       })
     })
 
-    describe('Step 5 — Write the runnable starter file set', () => {
+    describe('Step 5 — Write the runnable starter file set (with spinner)', () => {
+      test('shows the project-creation spinner and reports a created-file count', () => {
+        expect(result.stdout).toMatch(/Creating .* project\.\.\./)
+        expect(result.stdout).toMatch(/✔ Created \d+ project files/)
+      })
+
       test.each([
         'server.tsx',
         'factory.ts',

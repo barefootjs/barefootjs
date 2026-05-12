@@ -17,6 +17,7 @@ import {
 } from '../lib/templates'
 import { detectPackageManager, commandsFor, type PackageManager } from '../lib/pm'
 import { select, SelectCancelled } from '../lib/select'
+import { startSpinner } from '../lib/spinner'
 
 interface InitFlags {
   name?: string
@@ -53,9 +54,6 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
   const adapter = ADAPTERS[adapterId]
   const cssId = await resolveCssLibrary(flags.css)
   const cssLibrary = CSS_LIBRARIES[cssId]
-  console.log(`  Adapter:     ${adapter.label}`)
-  console.log(`  CSS library: ${cssLibrary.label}`)
-  console.log()
 
   // Pre-flight: confirm the UI registry is reachable BEFORE writing
   // anything to disk. The runnable starter requires the registry's
@@ -63,11 +61,13 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
   // through a painful migration to UnoCSS + barefootjs UI later.
   // Better to fail fast and have them retry online with no partial
   // state to clean up.
+  const probeSpinner = startSpinner({ text: 'Checking the BarefootJS UI registry...' })
   try {
     await probeRegistry(DEFAULT_REGISTRY_URL)
+    probeSpinner.succeed('BarefootJS UI registry reachable')
   } catch (err) {
+    probeSpinner.fail(`Cannot reach the BarefootJS UI registry at ${DEFAULT_REGISTRY_URL}`)
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: cannot reach the BarefootJS UI registry at ${DEFAULT_REGISTRY_URL}`)
     console.error(`  ${msg}`)
     console.error(``)
     console.error(`barefoot init needs the registry to scaffold a runnable starter (Counter`)
@@ -79,9 +79,18 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
   const warnings = adapter.prereqWarnings()
   for (const w of warnings) console.warn(`  ! ${w}`)
 
-  console.log(`Initializing BarefootJS app...\n`)
+  const buildSpinner = startSpinner({
+    text: `Creating ${adapter.label.split(' ')[0]} + ${cssLibrary.label} project...`,
+  })
+  let filesCreated: number
+  try {
+    filesCreated = await scaffoldApp(projectDir, adapter, flags, ctx)
+  } catch (err) {
+    buildSpinner.fail('Failed to create project files')
+    throw err
+  }
+  buildSpinner.succeed(`Created ${filesCreated} project files`)
 
-  await scaffoldApp(projectDir, adapter, flags, ctx)
   printAppNextSteps(projectDir, adapter)
 }
 
@@ -160,7 +169,7 @@ async function scaffoldApp(
   adapter: AdapterTemplate,
   flags: InitFlags,
   _ctx: CliContext,
-): Promise<void> {
+): Promise<number> {
   // The single source of truth is `barefoot.config.ts` (written below via
   // adapter.files). It carries both `paths` (consumed by registry tooling)
   // and the build options. We mirror the same defaults here so the rest
@@ -171,16 +180,15 @@ async function scaffoldApp(
     meta: 'meta',
   }
 
+  let created = 0
+
   // Adapter-contributed files (server, components/Counter, barefoot.config.ts, etc.)
   for (const [relPath, contents] of Object.entries(adapter.files)) {
     const target = path.join(projectDir, relPath)
-    if (existsSync(target)) {
-      console.log(`  Skipped ${relPath} (already exists)`)
-      continue
-    }
+    if (existsSync(target)) continue
     mkdirSync(path.dirname(target), { recursive: true })
     writeFileSync(target, contents)
-    console.log(`  Created ${relPath}`)
+    created++
   }
 
   // meta/ — empty registry index so `barefoot search` doesn't error
@@ -191,7 +199,7 @@ async function scaffoldApp(
     path.join(metaDir, 'index.json'),
     JSON.stringify({ version: 1, generatedAt: new Date().toISOString(), components: [] }, null, 2) + '\n',
   )
-  console.log(`  Created ${paths.meta}/index.json`)
+  created++
 
   // package.json — merge adapter scripts/deps with a sensible default.
   const pkgJsonPath = path.join(projectDir, 'package.json')
@@ -207,19 +215,28 @@ async function scaffoldApp(
     dependencies: { ...adapter.dependencies },
     devDependencies: { ...adapter.devDependencies },
   }
-  if (existsSync(pkgJsonPath)) {
-    console.log('  Skipped package.json (already exists — merge deps manually)')
-  } else {
+  if (!existsSync(pkgJsonPath)) {
     writeFileSync(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + '\n')
-    console.log('  Created package.json')
+    created++
   }
 
   // Pull the registry Button. The pre-flight probe in run() already
   // verified reachability, so a failure here is unusual (transient
   // registry hiccup, malformed item, etc.) — let it propagate so the
   // user retries instead of ending up with a half-scaffolded project
-  // that points at a missing import.
-  await addFromRegistry(['button'], DEFAULT_REGISTRY_URL, projectDir, { paths }, true, true)
+  // that points at a missing import. `silent: true` so the per-file
+  // summary doesn't fight the surrounding spinner for the same line.
+  await addFromRegistry(
+    ['button'],
+    DEFAULT_REGISTRY_URL,
+    projectDir,
+    { paths },
+    true,
+    true,
+    true,
+  )
+
+  return created
 }
 
 const DEFAULT_REGISTRY_URL = 'https://ui.barefootjs.dev/r/'
