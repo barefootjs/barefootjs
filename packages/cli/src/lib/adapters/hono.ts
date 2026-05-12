@@ -71,9 +71,10 @@ export const renderer = jsxRenderer(({ children, title }) => (
 
 // Static assets (styles, tokens, generated client JS, manifest) live
 // under \`./public/\` so Workers Assets serves them automatically per
-// the binding in \`wrangler.jsonc\`. \`barefoot build\` writes its
-// per-component bundles into \`public/components/\`; \`unocss\` writes
-// \`public/uno.css\`.
+// the binding in \`wrangler.jsonc\`. \`barefoot build\` mirrors the
+// input directory layout under \`outDir\`, so \`outDir: 'public'\`
+// produces \`public/components/<file>.client.js\` — the URLs the
+// renderer references at \`/components/...\`.
 const HONO_BAREFOOT_CONFIG_TS = `import { createConfig } from '@barefootjs/hono/build'
 
 export default createConfig({
@@ -83,10 +84,11 @@ export default createConfig({
     tokens: 'tokens',
     meta: 'meta',
   },
-  // Build inputs and output. Bundles land under \`public/components/\`
-  // so Cloudflare Workers Assets can serve them directly.
+  // Build inputs and output. barefoot mirrors the input dir under
+  // \`outDir\`, so \`components/\` lands at \`public/components/\` —
+  // exactly where Workers Assets serves it from.
   components: ['components'],
-  outDir: 'public/components',
+  outDir: 'public',
   scriptBasePath: '/components/',
   adapterOptions: {
     clientJsBasePath: '/components/',
