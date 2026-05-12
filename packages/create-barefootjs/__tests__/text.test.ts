@@ -41,7 +41,11 @@ describe('text()', () => {
     // user submits, the prompt row is wiped so the caller can write
     // its own confirmation in the same position.
     const out = rendered()
-    expect(out).toContain('Target directory: (my-app)')
+    // ANSI-stripped substring is easier to read than embedding every
+    // escape sequence in the expectation. The shape we care about:
+    //   `? Target directory (my-app) `
+    const ansiStripped = out.replace(/\x1b\[[0-9;]*m/g, '')
+    expect(ansiStripped).toContain('? Target directory (my-app)')
     expect(out).toMatch(/\x1b\[1A\x1b\[2K$/)
   })
 

@@ -75,7 +75,9 @@ export async function select<T extends string = string>(args: SelectArgs<T>): Pr
     }
   }
 
-  output.write(`${args.message}\n`)
+  // Inquirer-style prompt header: yellow "?" marker + bold message.
+  //   ? Choose an adapter
+  output.write(`\x1b[33m?\x1b[0m \x1b[1m${args.message}\x1b[0m\n`)
   render(true)
 
   return new Promise<T>((resolve, reject) => {

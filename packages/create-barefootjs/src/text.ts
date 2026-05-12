@@ -35,7 +35,12 @@ export async function text(args: TextArgs): Promise<string> {
   }
 
   const rl = readline.createInterface({ input, output, terminal: true })
-  const prompt = `${args.message}: (${args.defaultValue}) `
+  // Inquirer-style prompt: yellow "?" marker, bold message, dim (default).
+  //   ? Target directory (my-app)
+  const prompt =
+    `\x1b[33m?\x1b[0m ` +
+    `\x1b[1m${args.message}\x1b[0m ` +
+    `\x1b[2m(${args.defaultValue})\x1b[0m `
 
   return new Promise<string>((resolve, reject) => {
     const onSigInt = (): void => {

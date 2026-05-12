@@ -99,6 +99,10 @@ describe('select — confirmation line', () => {
 
     expect(result).toBe('hono')
     const joined = chunks.join('')
+    // The menu header is rendered inquirer-style with a yellow "?"
+    // marker and a bold message.
+    const ansiStripped = joined.replace(/\x1b\[[0-9;]*m/g, '')
+    expect(ansiStripped).toContain('? Choose an adapter')
     // The confirmation strips the parenthetical description and
     // highlights the picked option in bold green.
     expect(joined).toContain('✔ Choose an adapter \x1b[1;32mHono\x1b[0m\n')
