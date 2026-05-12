@@ -92,7 +92,6 @@ export function createApp(): Hono {
 
 const HONO_NODE_RENDERER_TSX = `import { jsxRenderer } from 'hono/jsx-renderer'
 import { BfImportMap, BfScripts } from '@barefootjs/hono/app'
-import { BfDevReload } from '@barefootjs/hono/dev'
 import manifest from './dist/components/manifest.json'
 
 declare module 'hono' {
@@ -105,7 +104,16 @@ export interface CreateRendererOptions {
   componentsBase: string
 }
 
+// Browser-side dev-reload subscriber. Pulls SSE 'reload' events from
+// /_bf/reload (wired up in factory.ts via createDevReloader) and
+// reloads the page, preserving scrollY across the round-trip. Inline
+// rather than imported from @barefootjs/hono/dev to side-step a
+// jsxImportSource resolution quirk when tsx trans-compiles
+// node_modules .tsx files at runtime.
+const devReloadScript = "(()=>{if(window.__bfDevReload)return;window.__bfDevReload=1;try{var s=sessionStorage.getItem('__bf_devreload_scroll');if(s){sessionStorage.removeItem('__bf_devreload_scroll');var y=parseInt(s,10);if(!isNaN(y)){var restore=function(){window.scrollTo(0,y)};if(document.readyState==='loading'){addEventListener('DOMContentLoaded',restore,{once:true})}else{restore()}}}}catch(e){}var es=new EventSource('/_bf/reload');es.addEventListener('reload',function(){try{sessionStorage.setItem('__bf_devreload_scroll',String(window.scrollY))}catch(e){}location.reload()});es.addEventListener('error',function(){})})();"
+
 export function createRenderer({ componentsBase }: CreateRendererOptions) {
+  const isDev = process.env.NODE_ENV !== 'production'
   return jsxRenderer(({ children, title }) => (
     <html lang="en">
       <head>
@@ -119,7 +127,7 @@ export function createRenderer({ componentsBase }: CreateRendererOptions) {
       <body>
         {children}
         <BfScripts base={componentsBase} manifest={manifest} />
-        <BfDevReload />
+        {isDev ? <script dangerouslySetInnerHTML={{ __html: devReloadScript }} /> : null}
       </body>
     </html>
   ))
