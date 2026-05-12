@@ -274,22 +274,36 @@ function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
   // remaining commands work when copy-pasted in order.
   const projectName = path.basename(projectDir)
 
+  // Width-pad commands so the trailing hint columns (→ / #) line up
+  // within each block. We pad against the widest command in the
+  // block, not the whole guide, so each section is self-contained.
+  const padTo = (s: string, width: number): string => s + ' '.repeat(Math.max(0, width - s.length))
+
+  // Get started — install + dev. Pad `dev` so the `→ URL` hint aligns
+  // even when the PM-aware command varies in length.
+  const devCmd = cmd.run('dev')
+  const startedWidth = Math.max(devCmd.length, cmd.install.length, `cd ${projectName}`.length) + 4
   console.log('')
   console.log(`${heading('Get started:')}`)
   console.log(`  cd ${projectName}`)
   console.log(`  ${cmd.install}`)
-  console.log(`  ${cmd.run('dev')}        ${dim(`→ http://localhost:${adapter.port}`)}`)
+  console.log(`  ${padTo(devCmd, startedWidth)}${dim(`→ http://localhost:${adapter.port}`)}`)
 
   if (adapter.deploy) {
+    const deployCmd = cmd.run(adapter.deploy.script)
     console.log('')
-    console.log(`${heading('Deploy:')} ${dim(`(${adapter.deploy.target})`)}`)
-    console.log(`  ${cmd.run(adapter.deploy.script)}`)
+    console.log(`${heading('Deploy:')}`)
+    console.log(`  ${padTo(deployCmd, startedWidth)}${dim(`→ ${adapter.deploy.target}`)}`)
   }
 
+  // More — pad commands so the # comments form a clean column.
+  const editorCmd = `${editor} components/Counter.tsx`
+  const watchCmd = cmd.run('watch')
+  const moreWidth = Math.max(editorCmd.length, watchCmd.length) + 4
   console.log('')
   console.log(`${heading('More:')}`)
-  console.log(`  ${editor} components/Counter.tsx     ${dim('# edit the starter component')}`)
-  console.log(`  ${cmd.run('watch')}                  ${dim('# rebuild on change without a server')}`)
+  console.log(`  ${padTo(editorCmd, moreWidth)}${dim('# edit the starter component')}`)
+  console.log(`  ${padTo(watchCmd, moreWidth)}${dim('# rebuild on change without a server')}`)
 }
 
 // ANSI helpers for the next-steps block. All three apply only in a

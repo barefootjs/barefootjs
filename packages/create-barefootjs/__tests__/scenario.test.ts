@@ -163,9 +163,10 @@ describe.skipIf(!INTEGRATION)(
       })
 
       test('"Deploy" surfaces the Cloudflare Workers target for the Hono adapter', () => {
+        // Same shape as "Get started" — command on the left, target
+        // hint after a `→` on the right, paired by visual columns.
         expect(result.stdout).toContain('Deploy:')
-        expect(result.stdout).toContain('Cloudflare Workers')
-        expect(result.stdout).toContain('npm run deploy')
+        expect(result.stdout).toMatch(/npm run deploy\s+→ Cloudflare Workers/)
       })
 
       test('expands $EDITOR into the user\'s editor when EDITOR is set', () => {
