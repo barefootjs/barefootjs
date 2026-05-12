@@ -181,4 +181,117 @@ describe('reactive attributes inside a nested .map() body (#135)', () => {
     expect(content).toContain("addEventListener('click'")
     expect(content).toContain("setAttribute('class'")
   })
+
+  test('JS comment with apostrophe inside an inner-loop style object does not swallow loop-param refs', () => {
+    // Regression for the silently-dropped `task()` wrap (#135 board demo
+    // drag preview). The compiler routes reactive-attr expressions
+    // through `wrapLoopParamAsAccessor`, whose string-context-aware
+    // replacement walked `'`, `"`, `` ` `` — but ignored JS comments. An
+    // apostrophe in an inline `//` comment inside the `style={{…}}`
+    // object literal (e.g. `they're "holding"`) was interpreted as the
+    // start of a string literal; the scanner then read up to the next
+    // `'` (the next CSS-var key) and skipped every loop-param reference
+    // in between. Result: `task.id` stayed unwrapped, the effect closed
+    // over the loop-callback's parameter at first iteration, and the
+    // style attribute never reacted.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      type Task = { id: number }
+      type Col = { id: string; tasks: Task[] }
+
+      export function B() {
+        const [dragId, setDragId] = createSignal<number | null>(null)
+        const [cols] = createSignal<Col[]>([])
+        return (
+          <div>
+            {cols().map(col => (
+              <div key={col.id}>
+                {col.tasks.map(task => (
+                  <div
+                    key={task.id}
+                    style={{
+                      // user can tell at a glance which card they're "holding"
+                      '--drag-opacity': dragId() === task.id ? '0.4' : '1',
+                      '--drag-scale': dragId() === task.id ? '1.03' : '1',
+                    }}
+                  >{task.id}</div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )
+      }
+    `
+    const result = compileJSX(source, 'B.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+    const content = result.files.find((f) => f.type === 'clientJs')!.content
+
+    // The compiler emits the style object literally in TWO places: the
+    // outer-loop SSR template (raw `task.id`, no per-item wrap needed)
+    // and the inner-loop reactive `createEffect` (must be `task().id`
+    // to subscribe to the per-item accessor). The bug we're locking
+    // down is purely in the createEffect emission, so scope to that.
+    const effectMatch = content.match(
+      /createEffect\(\(\) => \{ const __v = styleToCss\(\{[\s\S]*?\}\); if \(__v != null\) __ta_s\d+\.setAttribute\('style'/,
+    )
+    expect(effectMatch).not.toBeNull()
+    const effectBody = effectMatch![0]
+    // Inside the createEffect, every loop-param ref to `task.id` MUST
+    // be wrapped — otherwise the closure pins to the first iteration's
+    // `task` argument and the effect never re-runs per-item.
+    expect(effectBody).not.toMatch(/\btask\.id\b/)
+    expect(effectBody.match(/task\(\)\.id/g)?.length ?? 0).toBeGreaterThanOrEqual(2)
+  })
+
+  test('block comment with quotes inside an inner-loop style object is also skipped', () => {
+    // Mirror of the line-comment regression for `/* … */` form. The same
+    // string-walker that confused `//` comments would also have missed
+    // block comments. The fix skips both forms; this test pins the
+    // block-comment branch in place.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      type Cell = { id: number }
+      type Row = { id: string; cells: Cell[] }
+
+      export function G() {
+        const [hover, setHover] = createSignal<number | null>(null)
+        const [rows] = createSignal<Row[]>([])
+        return (
+          <div>
+            {rows().map(r => (
+              <div key={r.id}>
+                {r.cells.map(c => (
+                  <div
+                    key={c.id}
+                    style={{
+                      /* note: c.id is the cell's "stable" key */
+                      '--w': hover() === c.id ? '8' : '4',
+                    }}
+                  >{c.id}</div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )
+      }
+    `
+    const result = compileJSX(source, 'G.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+    const content = result.files.find((f) => f.type === 'clientJs')!.content
+    const effectMatch = content.match(
+      /createEffect\(\(\) => \{ const __v = styleToCss\(\{[\s\S]*?\}\); if \(__v != null\) __ta_s\d+\.setAttribute\('style'/,
+    )
+    expect(effectMatch).not.toBeNull()
+    const effectBody = effectMatch![0]
+    // After the fix, `c.id` in the active expression IS wrapped to
+    // `c().id`. The `c.id` reference inside the block comment is left
+    // intact because the walker skips it — that's a side-effect of
+    // the comment-aware scan, but the strict assertion is just that
+    // the live conditional sees the wrapped accessor.
+    expect(effectBody).toContain('c().id')
+  })
 })
