@@ -191,6 +191,16 @@ function __bfWrap(jsx: any, scripts: string[]) {
  *
  * Strings inside comments are handled implicitly: the whole comment
  * (including any quotes it contains) is blanked.
+ *
+ * **Known limitation**: this function does NOT track string
+ * boundaries, so a `//` or `/*` appearing INSIDE a string literal is
+ * still treated as a comment delimiter. Example: in
+ * `const u = "https://x.y" ; export function Foo() {}` the `//` in
+ * `https://` is misread as a line comment and the rest of the line is
+ * blanked — a `function Foo()` on that same line would be hidden from
+ * the regex. SSR template output (the only caller) does not embed
+ * such cases in practice. If a future caller can produce them, swap
+ * in a real lexer rather than extending this helper.
  */
 export function maskComments(s: string): string {
   let out = ''
