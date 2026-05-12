@@ -92,6 +92,7 @@ export function createApp(): Hono {
 
 const HONO_NODE_RENDERER_TSX = `import { jsxRenderer } from 'hono/jsx-renderer'
 import { BfImportMap, BfScripts } from '@barefootjs/hono/app'
+import { DevReload } from './dev-reload'
 import manifest from './dist/components/manifest.json'
 
 declare module 'hono' {
@@ -104,16 +105,7 @@ export interface CreateRendererOptions {
   componentsBase: string
 }
 
-// Browser-side dev-reload subscriber. Pulls SSE 'reload' events from
-// /_bf/reload (wired up in factory.ts via createDevReloader) and
-// reloads the page, preserving scrollY across the round-trip. Inline
-// rather than imported from @barefootjs/hono/dev to side-step a
-// jsxImportSource resolution quirk when tsx trans-compiles
-// node_modules .tsx files at runtime.
-const devReloadScript = "(()=>{if(window.__bfDevReload)return;window.__bfDevReload=1;try{var s=sessionStorage.getItem('__bf_devreload_scroll');if(s){sessionStorage.removeItem('__bf_devreload_scroll');var y=parseInt(s,10);if(!isNaN(y)){var restore=function(){window.scrollTo(0,y)};if(document.readyState==='loading'){addEventListener('DOMContentLoaded',restore,{once:true})}else{restore()}}}}catch(e){}var es=new EventSource('/_bf/reload');es.addEventListener('reload',function(){try{sessionStorage.setItem('__bf_devreload_scroll',String(window.scrollY))}catch(e){}location.reload()});es.addEventListener('error',function(){})})();"
-
 export function createRenderer({ componentsBase }: CreateRendererOptions) {
-  const isDev = process.env.NODE_ENV !== 'production'
   return jsxRenderer(({ children, title }) => (
     <html lang="en">
       <head>
@@ -127,10 +119,33 @@ export function createRenderer({ componentsBase }: CreateRendererOptions) {
       <body>
         {children}
         <BfScripts base={componentsBase} manifest={manifest} />
-        {isDev ? <script dangerouslySetInnerHTML={{ __html: devReloadScript }} /> : null}
+        <DevReload />
       </body>
     </html>
   ))
+}
+`
+
+// Dev-only browser snippet that subscribes to the SSE endpoint
+// published by Hono's createDevReloader (see factory.ts) and reloads
+// the page when \`barefoot build --watch\` finishes a build. Lives in
+// the project — not in a library — so the SSE endpoint URL is a
+// 1-line edit away if you re-route it in factory.ts.
+const HONO_NODE_DEV_RELOAD_TSX = `// Browser-side dev-reload subscriber.
+//
+// Mirrors the SSE endpoint registered by \`createDevReloader\` in
+// factory.ts and refreshes the page on each successful rebuild,
+// preserving the scroll position across the reload. Renders nothing
+// in production.
+//
+// If you re-route the SSE endpoint in factory.ts, update the URL in
+// the IIFE below to match.
+
+const snippet = "(()=>{if(window.__bfDevReload)return;window.__bfDevReload=1;try{var s=sessionStorage.getItem('__bf_devreload_scroll');if(s){sessionStorage.removeItem('__bf_devreload_scroll');var y=parseInt(s,10);if(!isNaN(y)){var restore=function(){window.scrollTo(0,y)};if(document.readyState==='loading'){addEventListener('DOMContentLoaded',restore,{once:true})}else{restore()}}}}catch(e){}var es=new EventSource('/_bf/reload');es.addEventListener('reload',function(){try{sessionStorage.setItem('__bf_devreload_scroll',String(window.scrollY))}catch(e){}location.reload()});es.addEventListener('error',function(){})})();"
+
+export function DevReload() {
+  if (process.env.NODE_ENV === 'production') return null
+  return <script dangerouslySetInnerHTML={{ __html: snippet }} />
 }
 `
 
@@ -187,6 +202,7 @@ export const HONO_NODE_ADAPTER: AdapterTemplate = {
     'server.tsx': HONO_NODE_SERVER_TSX,
     'factory.ts': HONO_NODE_FACTORY_TS,
     'renderer.tsx': HONO_NODE_RENDERER_TSX,
+    'dev-reload.tsx': HONO_NODE_DEV_RELOAD_TSX,
     'barefoot.config.ts': HONO_NODE_BAREFOOT_CONFIG_TS,
     'tsconfig.json': HONO_NODE_TSCONFIG,
     'uno.config.ts': unoConfigTs([

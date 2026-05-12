@@ -29,6 +29,20 @@ describe('adapter registry', () => {
     expect(ADAPTERS['hono-node'].deploy).toBeUndefined()
   })
 
+  test('hono-node ships an editable dev-reload component', () => {
+    // The dev-reload subscriber lives in the generated project (not
+    // imported from @barefootjs/hono) so users can re-route the SSE
+    // endpoint with a single in-project edit.
+    const honoNode = ADAPTERS['hono-node']
+    expect(honoNode.files['dev-reload.tsx']).toBeTruthy()
+    expect(honoNode.files['dev-reload.tsx']).toContain('EventSource')
+    expect(honoNode.files['dev-reload.tsx']).toContain('/_bf/reload')
+    expect(honoNode.files['dev-reload.tsx']).toContain('export function DevReload')
+    // renderer.tsx wires it up, not BfDevReload from the library.
+    expect(honoNode.files['renderer.tsx']).toContain("from './dev-reload'")
+    expect(honoNode.files['renderer.tsx']).not.toContain('BfDevReload')
+  })
+
   test('every adapter has a label, port, and barefoot.config.ts file', () => {
     for (const [id, adapter] of Object.entries(ADAPTERS)) {
       expect(adapter.label, `${id} missing label`).toBeTruthy()
