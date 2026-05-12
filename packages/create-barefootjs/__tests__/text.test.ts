@@ -31,20 +31,20 @@ describe('text()', () => {
     const { input, output, rendered } = mockTtyPair()
     const promise = text({
       message: 'Target directory',
-      defaultValue: 'my-barefoot-app',
+      defaultValue: 'my-app',
       input,
       output,
     })
     input.write('\n')
-    expect(await promise).toBe('my-barefoot-app')
-    expect(rendered()).toContain('Target directory: (my-barefoot-app)')
+    expect(await promise).toBe('my-app')
+    expect(rendered()).toContain('Target directory: (my-app)')
   })
 
   test('resolves to the trimmed input when the user types a name', async () => {
     const { input, output } = mockTtyPair()
     const promise = text({
       message: 'Target directory',
-      defaultValue: 'my-barefoot-app',
+      defaultValue: 'my-app',
       input,
       output,
     })
@@ -57,11 +57,11 @@ describe('text()', () => {
     const output = Object.assign(new PassThrough(), { isTTY: true })
     const answer = await text({
       message: 'Target directory',
-      defaultValue: 'my-barefoot-app',
+      defaultValue: 'my-app',
       input,
       output,
     })
-    expect(answer).toBe('my-barefoot-app')
+    expect(answer).toBe('my-app')
   })
 
   test('short-circuits to the default when stdout is not a TTY', async () => {
@@ -69,18 +69,18 @@ describe('text()', () => {
     const output = Object.assign(new PassThrough(), { isTTY: false })
     const answer = await text({
       message: 'Target directory',
-      defaultValue: 'my-barefoot-app',
+      defaultValue: 'my-app',
       input,
       output,
     })
-    expect(answer).toBe('my-barefoot-app')
+    expect(answer).toBe('my-app')
   })
 
   test('raises TextCancelled when the user dismisses the prompt', async () => {
     const { input, output } = mockTtyPair()
     const promise = text({
       message: 'Target directory',
-      defaultValue: 'my-barefoot-app',
+      defaultValue: 'my-app',
       input,
       output,
     })

@@ -229,7 +229,7 @@ describe('Scenario: how the target directory is chosen (no network)', () => {
   // Three branches the user can land in when invoking the CLI:
   //   (a) explicit positional arg → "Using target directory" confirmation
   //   (b) --yes / -y               → silent default acceptance
-  //   (c) interactive prompt       → "Target directory: (my-barefoot-app)"
+  //   (c) interactive prompt       → "Target directory: (my-app)"
   //                                  (TTY-gated; non-TTY falls back to default)
 
   describe('(a) When a positional argument is provided', () => {
@@ -242,28 +242,28 @@ describe('Scenario: how the target directory is chosen (no network)', () => {
   })
 
   describe('(b) When --yes / -y is passed without a positional argument', () => {
-    test('skips the prompt and silently accepts "my-barefoot-app"', () => {
+    test('skips the prompt and silently accepts "my-app"', () => {
       const cwd = mktmp()
       const r = runCreate(['--yes'], { cwd })
-      expect(r.stdout).toContain('Using target directory … my-barefoot-app')
-      expect(r.stdout).toMatch(/Scaffolding BarefootJS app in .*my-barefoot-app/)
+      expect(r.stdout).toContain('Using target directory … my-app')
+      expect(r.stdout).toMatch(/Scaffolding BarefootJS app in .*my-app/)
     })
 
     test('-y is accepted as an alias', () => {
       const cwd = mktmp()
       const r = runCreate(['-y'], { cwd })
-      expect(r.stdout).toContain('Using target directory … my-barefoot-app')
+      expect(r.stdout).toContain('Using target directory … my-app')
     })
   })
 
   describe('(c) When neither a positional argument nor --yes is given', () => {
-    test('falls back to "my-barefoot-app" in non-TTY contexts (no hang)', () => {
+    test('falls back to "my-app" in non-TTY contexts (no hang)', () => {
       // The spawned child inherits a piped stdin (not a TTY), so the
       // text() helper short-circuits to the default instead of trying
       // to render a prompt.
       const cwd = mktmp()
       const r = runCreate([], { cwd })
-      expect(r.stdout).toMatch(/Scaffolding BarefootJS app in .*my-barefoot-app/)
+      expect(r.stdout).toMatch(/Scaffolding BarefootJS app in .*my-app/)
     })
   })
 

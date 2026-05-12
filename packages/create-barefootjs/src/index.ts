@@ -5,7 +5,7 @@
 // Thin wrapper around the existing `barefoot init` command:
 //   1. Pick the target directory from the first positional arg, or
 //      prompt the user for one when omitted (TTY only — falls back to
-//      "my-barefoot-app" in CI / piped contexts).
+//      "my-app" in CI / piped contexts).
 //   2. Refuse to scaffold into a non-empty directory.
 //   3. Spawn `node <@barefootjs/cli bin> init` inside the target so
 //      init writes its files there, forwarding any --adapter / --css
@@ -20,7 +20,7 @@ import { text } from './text'
 
 const require = createRequire(import.meta.url)
 
-const DEFAULT_PROJECT_NAME = 'my-barefoot-app'
+const DEFAULT_PROJECT_NAME = 'my-app'
 const DEFAULT_ADAPTER = 'hono'
 const DEFAULT_CSS = 'unocss'
 
