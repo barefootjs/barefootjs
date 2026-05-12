@@ -10,8 +10,23 @@ describe('adapter registry', () => {
     expect(DEFAULT_ADAPTER).toBe('hono')
   })
 
-  test.each(['hono', 'echo', 'mojo', 'csr'])('%s adapter is registered', id => {
+  test.each(['hono', 'hono-node', 'echo', 'mojo', 'csr'])('%s adapter is registered', id => {
     expect(ADAPTERS[id]).toBeDefined()
+  })
+
+  test('hono and hono-node disambiguate via shortLabel in confirmation', () => {
+    // Both have "Hono" as the root noun, so the menu confirmation
+    // would collapse to the same word without an explicit shortLabel.
+    expect(ADAPTERS.hono.shortLabel).toBe('Hono / Cloudflare Workers')
+    expect(ADAPTERS['hono-node'].shortLabel).toBe('Hono / Node')
+  })
+
+  test('only hono (Cloudflare Workers) advertises a deploy story', () => {
+    // The CW variant has a one-command deploy via wrangler; the Node
+    // variant doesn't bind to a specific host so init suppresses the
+    // post-scaffold Deploy section.
+    expect(ADAPTERS.hono.deploy?.target).toBe('Cloudflare Workers')
+    expect(ADAPTERS['hono-node'].deploy).toBeUndefined()
   })
 
   test('every adapter has a label, port, and barefoot.config.ts file', () => {

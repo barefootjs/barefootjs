@@ -139,6 +139,7 @@ const HONO_WRANGLER_JSONC = `{
 
 export const HONO_ADAPTER: AdapterTemplate = {
   label: 'Hono (Cloudflare Workers, JSX SSR + hydration)',
+  shortLabel: 'Hono / Cloudflare Workers',
   port: 8787,
   files: {
     'server.tsx': HONO_SERVER_TSX,

@@ -107,7 +107,11 @@ async function resolveAdapter(flag: string | undefined): Promise<string> {
     }
     return flag
   }
-  const options = Object.entries(ADAPTERS).map(([value, t]) => ({ value, label: t.label }))
+  const options = Object.entries(ADAPTERS).map(([value, t]) => ({
+    value,
+    label: t.label,
+    shortLabel: t.shortLabel,
+  }))
   try {
     // The internal term is "adapter" (matches `--adapter` and the
     // architecture docs), but new users don't have that vocabulary

@@ -26,7 +26,18 @@ export class SelectCancelled extends Error {
 
 export interface SelectOption<T extends string = string> {
   value: T
+  /** Label rendered in the live arrow-key menu. */
   label: string
+  /**
+   * Label rendered in the post-confirmation summary line. Falls back
+   * to `label` with any trailing `(parenthetical description)` stripped
+   * — that default keeps existing single-noun options unchanged but
+   * collapses verbose menu rows ("Hono (Cloudflare Workers, JSX SSR
+   * + hydration)") to a confirmation noun ("Hono"). Set this
+   * explicitly when two options share the same root noun and need
+   * disambiguation in the confirmation line.
+   */
+  shortLabel?: string
 }
 
 export interface SelectArgs<T extends string = string> {
@@ -126,13 +137,15 @@ export async function select<T extends string = string>(args: SelectArgs<T>): Pr
         // reads as "✔ Choose an adapter Hono" instead of leaving the
         // raw arrow-key menu on screen.
         //
-        // The confirmation strips trailing parenthetical descriptions
-        // ("Hono (Node, JSX SSR + hydration)" → "Hono") so the picked
-        // value is the noun the user remembers, not the entire one-
-        // line tour. Tags like UnoCSS / CSR / yarn (no parens) pass
-        // through unchanged.
-        const fullLabel = args.options[cursor].label
-        const shortLabel = fullLabel.replace(/\s*\(.*\)$/, '')
+        // Confirmation label: prefer an explicit `shortLabel`, else
+        // strip a trailing parenthetical description ("Hono (Cloudflare
+        // Workers, ...)" → "Hono"). The auto-strip keeps short single-
+        // noun rows unchanged but collapses verbose ones; explicit
+        // shortLabel lets options that share a root noun stay
+        // distinguishable ("Hono / Cloudflare Workers" vs.
+        // "Hono / Node").
+        const picked = args.options[cursor]
+        const shortLabel = picked.shortLabel ?? picked.label.replace(/\s*\(.*\)$/, '')
         const totalLines = args.options.length + 1
         output.write(`\x1b[${totalLines}A`)
         for (let i = 0; i < totalLines; i++) {
