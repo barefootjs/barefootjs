@@ -141,20 +141,31 @@ export function PieChartInteractiveDemo() {
  * Animated demo — rAF-driven reactive SVG attributes.
  *
  * Each `<path>` slice has reactive `stroke-dasharray` / `stroke-dashoffset`
- * driven by a progress signal that climbs 0 → 1 via requestAnimationFrame
- * each time the "Animate" toggle is enabled. Exercises three compiler
- * paths in one demo:
+ * AND reactive `fill-opacity` driven by a progress signal that climbs 0 → 1
+ * via requestAnimationFrame each time the "Animate" toggle is enabled. The
+ * combination is what makes the animation visible: stroke-dashoffset alone
+ * only animates the thin separator stroke (which is barely perceptible
+ * against the solid fill), so we also fade the fill in. Exercises four
+ * compiler paths in one demo:
  *
  *   1. SVG presentation attribute reactive binding (`stroke-dasharray` /
  *      `stroke-dashoffset`) inside a `.map()` body.
- *   2. `requestAnimationFrame` loop owned by a `createEffect`, with
+ *   2. Reactive numeric SVG attribute (`fill-opacity`) inside the same
+ *      `.map()` body, driving the visible reveal.
+ *   3. `requestAnimationFrame` loop owned by a `createEffect`, with
  *      `cancelAnimationFrame` in `onCleanup` so toggling off mid-flight
  *      releases the frame handle.
- *   3. High-frequency signal updates (one tick per animation frame) driving
+ *   4. High-frequency signal updates (one tick per animation frame) driving
  *      DOM attribute writes without intervening user input.
+ *
+ * Why `pathLength="1"`: SVG `pathLength` normalises the path's length for
+ * stroke-dash math so the offset arithmetic is independent of the actual
+ * geometric length. Without it the dash math depended on `~809px` (the real
+ * path length for these slices) being close to a hard-coded `800` constant,
+ * which left only `~9px` of visual travel and made the stroke animation
+ * effectively invisible (the underlying bug behind #135 reports).
  */
 const ANIMATED_DURATION_MS = 1200
-const ANIMATED_DASH_LENGTH = 800
 
 export function PieChartAnimatedDemo() {
   const [animating, setAnimating] = createSignal(false)
@@ -204,7 +215,7 @@ export function PieChartAnimatedDemo() {
           {animating() ? 'Animating…' : 'Animate'}
         </button>
         <span className="text-xs text-muted-foreground">
-          stroke-dashoffset is driven by requestAnimationFrame
+          fill-opacity & stroke-dashoffset are driven by requestAnimationFrame
         </span>
       </div>
       <svg
@@ -217,10 +228,12 @@ export function PieChartAnimatedDemo() {
               key={s.name}
               d={s.d}
               fill={s.fill}
+              fill-opacity={String(progress())}
               stroke="hsl(0 0% 100% / 0.85)"
               stroke-width="2"
-              stroke-dasharray={String(ANIMATED_DASH_LENGTH)}
-              stroke-dashoffset={String(ANIMATED_DASH_LENGTH * (1 - progress()))}
+              pathLength="1"
+              stroke-dasharray="1"
+              stroke-dashoffset={String(1 - progress())}
               data-name={s.name}
               data-value={String(s.value)}
               data-anim-path
