@@ -1,0 +1,44 @@
+name: CI — create-barefootjs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/create-barefootjs/**'
+      # The bin spawns `@barefootjs/cli`'s init at runtime via
+      # `require.resolve('@barefootjs/cli/dist/index.js')`, so CLI
+      # changes must re-run these tests.
+      - 'packages/cli/**'
+      - '.github/workflows/ci-create-barefootjs.yml'
+  pull_request:
+    paths:
+      - 'packages/create-barefootjs/**'
+      - 'packages/cli/**'
+      - '.github/workflows/ci-create-barefootjs.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      # The create-barefootjs bin resolves `@barefootjs/cli/dist/index.js`
+      # at runtime, so the CLI must be built (including embedded adapter
+      # runtimes) before the tests spawn the bin.
+      - name: Build @barefootjs/cli
+        run: bun run --filter '@barefootjs/cli' build
+
+      - name: Build create-barefootjs
+        run: bun run --filter create-barefootjs build
+
+      - name: Run unit tests (offline)
+        run: cd packages/create-barefootjs && bun test
