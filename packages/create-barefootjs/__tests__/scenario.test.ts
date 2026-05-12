@@ -130,16 +130,19 @@ describe.skipIf(!INTEGRATION)(
     })
 
     describe('Step 6 — Detect the package manager and print next steps', () => {
-      test('auto-detects the package manager and announces it', () => {
-        // The happy-path run had no PM signal injected, so detection
-        // falls through to the npm default.
-        expect(result.stdout).toContain('detected package manager: npm')
+      test('confirms the project was initialised', () => {
+        expect(result.stdout).toContain('Project initialized!')
       })
 
-      test('prints the install / dev next-step guide', () => {
+      test('prints the install / dev next-step guide with PM-specific commands', () => {
+        // The detected PM isn't announced separately — it's reflected
+        // in the install / run commands quoted below. The happy-path
+        // run had no PM signal injected, so we expect the npm forms.
         expect(result.stdout).toContain('Next steps:')
         expect(result.stdout).toMatch(/Install dependencies/)
         expect(result.stdout).toMatch(/Start the dev server/)
+        expect(result.stdout).toContain('npm install')
+        expect(result.stdout).toContain('npm run dev')
         expect(result.stdout).toMatch(/http:\/\/localhost:\d+/)
       })
 
@@ -204,14 +207,13 @@ describe.skipIf(!INTEGRATION)(
 
     test.each(cases)(
       'when invoked via $pm, the post-scaffold guide uses $pm commands',
-      ({ pm, env, install, run, exec }) => {
+      ({ env, install, run, exec }) => {
         const cwd = mktmp()
         const r = runCreate(['demo-app'], { cwd, env })
 
         expect(r.exitCode).toBe(0)
-        // Announcement: detection picked up the invoking PM.
-        expect(r.stdout).toContain(`detected package manager: ${pm}`)
-        // The install / dev hints quote the matching commands.
+        // The detected PM isn't announced separately — we rely on the
+        // commands themselves to confirm detection picked it up.
         expect(r.stdout).toContain(install)
         expect(r.stdout).toContain(run)
         // "Then try:" lines use the PM's `exec` form (npx / bunx / pnpm dlx / yarn dlx).

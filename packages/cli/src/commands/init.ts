@@ -244,7 +244,10 @@ const DEFAULT_REGISTRY_URL = 'https://ui.barefootjs.dev/r/'
 function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
   const pm: PackageManager = detectPackageManager(projectDir)
   const cmd = commandsFor(pm)
-  console.log(`\nProject initialized!  (detected package manager: ${pm})`)
+  // The detected PM is reflected in the commands quoted below, so we
+  // don't announce it separately — the user just sees `bun install`
+  // or `pnpm install` and knows what's happening.
+  console.log(`\nProject initialized!`)
   console.log(`\nNext steps:`)
   console.log(`  1. Install dependencies`)
   console.log(`       ${cmd.install}`)
