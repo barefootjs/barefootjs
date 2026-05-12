@@ -126,7 +126,9 @@ describe.skipIf(!INTEGRATION)(
 
     describe('Step 6 — Detect the package manager and print next steps', () => {
       test('auto-detects the package manager and announces it', () => {
-        expect(result.stdout).toMatch(/detected package manager: (npm|pnpm|yarn|bun)/)
+        // The happy-path run had no PM signal injected, so detection
+        // falls through to the npm default.
+        expect(result.stdout).toContain('detected package manager: npm')
       })
 
       test('prints the install / dev next-step guide', () => {
@@ -140,6 +142,77 @@ describe.skipIf(!INTEGRATION)(
         expect(result.exitCode).toBe(0)
       })
     })
+  },
+)
+
+// ---------------------------------------------------------------------------
+// Package-manager scenario — the auto-detected PM is announced AND it
+// dictates the exact commands printed in the post-scaffold guide.
+//
+// Detection signal used here: `npm_config_user_agent`, set by every
+// major PM when it spawns a child process (e.g. `bun create barefootjs`
+// → `npm_config_user_agent=bun/...`). Lockfile-based detection is a
+// stronger signal but never fires here because the freshly scaffolded
+// project has no lockfile yet.
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!INTEGRATION)(
+  'Scenario: the invoking package manager dictates the next-step commands',
+  () => {
+    interface PmCase {
+      pm: 'npm' | 'bun' | 'pnpm' | 'yarn'
+      env: Record<string, string>
+      install: string
+      run: string
+      exec: string
+    }
+    const cases: PmCase[] = [
+      {
+        pm: 'npm',
+        env: { npm_config_user_agent: 'npm/10.0.0 node/v22.0.0 darwin arm64' },
+        install: 'npm install',
+        run: 'npm run dev',
+        exec: 'npx ',
+      },
+      {
+        pm: 'bun',
+        env: { npm_config_user_agent: 'bun/1.3.0' },
+        install: 'bun install',
+        run: 'bun run dev',
+        exec: 'bunx ',
+      },
+      {
+        pm: 'pnpm',
+        env: { npm_config_user_agent: 'pnpm/9.0.0' },
+        install: 'pnpm install',
+        run: 'pnpm dev',
+        exec: 'pnpm dlx ',
+      },
+      {
+        pm: 'yarn',
+        env: { npm_config_user_agent: 'yarn/4.0.0' },
+        install: 'yarn',
+        run: 'yarn dev',
+        exec: 'yarn dlx ',
+      },
+    ]
+
+    test.each(cases)(
+      'when invoked via $pm, the post-scaffold guide uses $pm commands',
+      ({ pm, env, install, run, exec }) => {
+        const cwd = mktmp()
+        const r = runCreate(['demo-app'], { cwd, env })
+
+        expect(r.exitCode).toBe(0)
+        // Announcement: detection picked up the invoking PM.
+        expect(r.stdout).toContain(`detected package manager: ${pm}`)
+        // The install / dev hints quote the matching commands.
+        expect(r.stdout).toContain(install)
+        expect(r.stdout).toContain(run)
+        // "Then try:" lines use the PM's `exec` form (npx / bunx / pnpm dlx / yarn dlx).
+        expect(r.stdout).toContain(exec)
+      },
+    )
   },
 )
 

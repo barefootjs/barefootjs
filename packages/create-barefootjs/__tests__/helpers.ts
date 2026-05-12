@@ -41,16 +41,25 @@ export function mktmp(prefix = 'create-barefootjs-test-'): string {
   return mkdtempSync(path.join(tmpdir(), prefix))
 }
 
-export function runCreate(args: string[], opts: { cwd: string }): RunResult {
+export function runCreate(
+  args: string[],
+  opts: { cwd: string; env?: Record<string, string | undefined> },
+): RunResult {
   ensureBuilt()
+  // Strip the parent test runner's `npm_config_user_agent` so the child
+  // CLI sees a deterministic environment. Callers can simulate "invoked
+  // via bun/pnpm/yarn/npm" by setting it back via `opts.env`.
+  const baseEnv: NodeJS.ProcessEnv = { ...process.env, CI: '1' }
+  delete baseEnv.npm_config_user_agent
+  const env = { ...baseEnv, ...(opts.env ?? {}) } as NodeJS.ProcessEnv
   const res = spawnSync('node', [CLI_PATH, ...args], {
     cwd: opts.cwd,
     encoding: 'utf-8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    // Make the child non-interactive — init's TTY-gated selectors fall
-    // back to defaults when stdin isn't a TTY, which is exactly what we
-    // want for deterministic tests.
-    env: { ...process.env, CI: '1' },
+    // Non-interactive: init's TTY-gated selectors fall back to defaults
+    // when stdin isn't a TTY, which is exactly what we want for
+    // deterministic tests.
+    env,
   })
   return {
     exitCode: res.status,
