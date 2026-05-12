@@ -32,6 +32,20 @@ function highlight(value: string): string {
   return process.stdout.isTTY ? `\x1b[1;32m${value}\x1b[0m` : value
 }
 
+// Dim a secondary line (e.g. version banner) so it sits visually
+// behind the primary "✔ Target directory" + Next-steps content.
+function dim(value: string): string {
+  return process.stdout.isTTY ? `\x1b[2m${value}\x1b[0m` : value
+}
+
+// `../package.json` is resolved at runtime from the bundled
+// `dist/index.js`. `createRequire`'s `require` is opaque to esbuild,
+// so the JSON isn't pulled into the bundle — npm publish ships the
+// real file alongside `dist/`.
+const { version: CREATE_BAREFOOTJS_VERSION } = require('../package.json') as {
+  version: string
+}
+
 function usage(): never {
   console.log(`Usage: npm create barefootjs@latest [<project-name>] [-- --adapter <name>]
 
@@ -63,6 +77,8 @@ function fail(msg: string): never {
 async function main(): Promise<void> {
   const args = process.argv.slice(2)
   if (args.includes('--help') || args.includes('-h')) usage()
+
+  console.log(dim(`create-barefootjs version ${CREATE_BAREFOOTJS_VERSION}`))
 
   const skipPrompts = args.includes('--yes') || args.includes('-y')
   const positional = args.find((a) => !a.startsWith('-'))

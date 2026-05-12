@@ -49,6 +49,15 @@ describe.skipIf(!INTEGRATION)(
       pkg = JSON.parse(readFileSync(path.join(projectDir, 'package.json'), 'utf-8'))
     })
 
+    describe('Step 0 — Announce the create-barefootjs version', () => {
+      test('prints "create-barefootjs version <semver>" at the top', () => {
+        // ANSI dim is stripped in non-TTY contexts (the spawned child
+        // inherits a piped stdout), so the assertion only matches the
+        // literal banner text.
+        expect(result.stdout).toMatch(/^create-barefootjs version \d+\.\d+\.\d+/m)
+      })
+    })
+
     describe('Step 1 — Resolve the target directory', () => {
       test('uses the positional argument as the project folder', () => {
         expect(existsSync(projectDir)).toBe(true)
