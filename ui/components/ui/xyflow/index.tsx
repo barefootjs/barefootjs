@@ -64,6 +64,7 @@ import {
   BF_FLOW_VIEWPORT,
   computeEdgePosition,
   createFlowStore,
+  dispatchNodeType,
   FlowContext,
   getEdgePath,
   Position,
@@ -76,7 +77,7 @@ import type {
   HandleType,
   InternalFlowStore,
   NodeBase,
-  NodeComponentProps,
+  NodeInitFn,
 } from '@barefootjs/xyflow'
 
 type Child = JSX.Element | string | number | boolean | null | undefined | Child[]
@@ -804,16 +805,6 @@ export function MiniMap(props: MiniMapComponentProps) {
 // Flow — top-level container.
 // ============================================================================
 
-/**
- * Imperative node init signature: `function MyNode(this: HTMLElement, props)`.
- * Each entry in `nodeTypes` is one of these — Flow's default renderer mounts
- * the matching one for each node based on `node.type`.
- */
-type NodeInitFn<NodeType extends NodeBase = NodeBase> = (
-  this: HTMLElement,
-  props: NodeComponentProps<NodeType>,
-) => void
-
 export interface FlowComponentProps<
   NodeType extends NodeBase = NodeBase,
   EdgeType extends EdgeBase = EdgeBase,
@@ -830,13 +821,23 @@ export interface FlowComponentProps<
    */
   renderNode?: (node: NodeType) => Child
   /**
-   * Map of `node.type` → imperative init function (`NodeInitFn`). When
-   * `renderNode` is unset, Flow synthesises a per-node bridge that picks
-   * the right init from this map and mounts it into a host `<div>`.
+   * Map of `node.type` → `NodeInitFn`. When `renderNode` is unset,
+   * Flow synthesises a per-node bridge that picks the right entry
+   * from this map and mounts it into a host `<div>`.
    *
-   * The runtime fills in the imperative `NodeComponentProps` shape from
-   * the live store entry — including the reactive `selected` getter —
-   * so individual nodes don't need to re-walk the store themselves.
+   * Each entry can be either:
+   *   1. **Imperative** — `function MyNode(this: HTMLElement, props)`
+   *      that mutates `this` and returns `void`.
+   *   2. **JSX-component shim** — a `'use client'` `.tsx` component
+   *      that ignores `this` and returns a DOM `Node`. The bridge
+   *      appends that node into the host so projects can migrate
+   *      custom nodes from imperative to JSX one file at a time
+   *      without flipping every `<Flow>` site to `renderNode`.
+   *
+   * The runtime fills in the `NodeComponentProps` shape from the live
+   * store entry — including the reactive `selected` getter — so
+   * individual nodes don't need to re-walk the store themselves. See
+   * `dispatchNodeType` in `@barefootjs/xyflow` and #1236.
    */
   nodeTypes?: Record<string, NodeInitFn<NodeType>>
 }
@@ -885,7 +886,7 @@ interface FlowNodeTypeBridgeProps {
   // biome-ignore lint/suspicious/noExplicitAny: nodes can be any narrowed shape
   forNode: any
   // biome-ignore lint/suspicious/noExplicitAny: per-type init signatures vary
-  nodeTypes: Record<string, (this: HTMLElement, props: any) => void>
+  nodeTypes: Record<string, (this: HTMLElement, props: any) => void | Node | undefined>
 }
 
 // Prop names are deliberately not `node` (which would collide with the
@@ -974,8 +975,13 @@ export function FlowNodeTypeBridge(props: FlowNodeTypeBridgeProps) {
     // registers is still rooted at this effect and tears down on the
     // next bridge re-run, preserving the wipe + rebuild semantics
     // documented above.
+    //
+    // `dispatchNodeType` (from `@barefootjs/xyflow`) handles both
+    // `initFn` shapes: imperative entries that mutate `this`, and
+    // JSX-component shim entries that return a `Node`. See its jsdoc
+    // and piconic-ai/barefootjs#1236.
     untrack(() =>
-      initFn.call(el, {
+      dispatchNodeType(el, initFn, {
         id,
         data,
         // The `selected` getter has to subscribe consumers (the user
