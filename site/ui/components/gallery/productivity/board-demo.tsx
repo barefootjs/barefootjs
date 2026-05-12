@@ -80,8 +80,17 @@ export function ProductivityBoardDemo() {
   // on a `.map()` root, the compiler path adjacent to the outstanding
   // Dashboard Builder reactive-className-on-.map()-root bug.
   const [draggingTaskId, setDraggingTaskId] = createSignal<number | null>(null)
+  // Column currently under the dragged card (HTML5 DnD hover target).
+  // Drives a per-column reactive `style={{'--drop-active': …}}` binding
+  // on the OUTER `.map()` body root, so the column wrapper exercises
+  // the same nested-reactive-attr path as the inner task card — but
+  // one level up the loop nesting.
+  const [dragOverColId, setDragOverColId] = createSignal<string | null>(null)
   const startDragPreview = (taskId: number) => setDraggingTaskId(taskId)
-  const endDragPreview = () => setDraggingTaskId(null)
+  const endDragPreview = () => {
+    setDraggingTaskId(null)
+    setDragOverColId(null)
+  }
 
   const showToast = (message: string) => {
     setToastMessage(message)
@@ -89,20 +98,84 @@ export function ProductivityBoardDemo() {
     setTimeout(() => setToastOpen(false), 3000)
   }
 
-  const moveTask = (taskId: number, fromColId: string, direction: 'left' | 'right') => {
+  // Move a task to an absolute target column (by id). Same-column drops
+  // are a no-op. Used both by drag-and-drop and the ←/→ buttons (the
+  // arrows resolve to the neighbour column and delegate here).
+  const moveTaskTo = (taskId: number, fromColId: string, toColId: string) => {
+    if (fromColId === toColId) return false
+    let didMove = false
     setColumns(prev => {
       const fromIdx = prev.findIndex(c => c.id === fromColId)
-      const toIdx = direction === 'left' ? fromIdx - 1 : fromIdx + 1
-      if (toIdx < 0 || toIdx >= prev.length) return prev
+      const toIdx = prev.findIndex(c => c.id === toColId)
+      if (fromIdx === -1 || toIdx === -1) return prev
       const task = prev[fromIdx].tasks.find(t => t.id === taskId)
       if (!task) return prev
+      didMove = true
       return prev.map((col, i) => {
         if (i === fromIdx) return { ...col, tasks: col.tasks.filter(t => t.id !== taskId) }
         if (i === toIdx) return { ...col, tasks: [...col.tasks, task] }
         return col
       })
     })
-    showToast('Task moved')
+    if (didMove) showToast('Task moved')
+    return didMove
+  }
+
+  const moveTask = (taskId: number, fromColId: string, direction: 'left' | 'right') => {
+    const cols = columns()
+    const fromIdx = cols.findIndex(c => c.id === fromColId)
+    const toIdx = direction === 'left' ? fromIdx - 1 : fromIdx + 1
+    if (toIdx < 0 || toIdx >= cols.length) return
+    moveTaskTo(taskId, fromColId, cols[toIdx].id)
+  }
+
+  // --- HTML5 drag-and-drop handlers ---
+  // The card publishes its task id + source column id via DataTransfer
+  // on dragstart; the column reads it back on drop. We also flip the
+  // shared drag-preview signal so the dragged card keeps its lifted
+  // visual treatment for the duration of the gesture (HTML5 DnD does
+  // NOT emit pointerdown/up, so the pointer-based handlers don't fire).
+  const handleDragStart = (taskId: number, fromColId: string) => (e: DragEvent) => {
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('application/task', JSON.stringify({ taskId, fromColId }))
+      e.dataTransfer.effectAllowed = 'move'
+    }
+    startDragPreview(taskId)
+  }
+
+  const handleDragEnd = () => {
+    endDragPreview()
+  }
+
+  const handleColDragOver = (colId: string) => (e: DragEvent) => {
+    // preventDefault is required for the element to count as a drop
+    // target — without it `drop` never fires.
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+    if (dragOverColId() !== colId) setDragOverColId(colId)
+  }
+
+  const handleColDragLeave = (colId: string) => (e: DragEvent) => {
+    // dragleave fires on every child boundary; only clear when leaving
+    // the column root (best-effort: relatedTarget outside this column).
+    const rel = e.relatedTarget as Node | null
+    const cur = e.currentTarget as Node | null
+    if (cur && rel && cur.contains(rel)) return
+    if (dragOverColId() === colId) setDragOverColId(null)
+  }
+
+  const handleColDrop = (toColId: string) => (e: DragEvent) => {
+    e.preventDefault()
+    const raw = e.dataTransfer?.getData('application/task')
+    setDragOverColId(null)
+    setDraggingTaskId(null)
+    if (!raw) return
+    try {
+      const { taskId, fromColId } = JSON.parse(raw) as { taskId: number; fromColId: string }
+      moveTaskTo(taskId, fromColId, toColId)
+    } catch {
+      // Malformed payload — ignore.
+    }
   }
 
   const addTask = (colId: string) => {
@@ -136,8 +209,33 @@ export function ProductivityBoardDemo() {
 
       <div className="kanban-columns flex gap-4 overflow-x-auto pb-4">
         {columns().map(col => (
-          <div key={col.id} className="kanban-column flex-1 min-w-[250px]">
-            <div className="flex items-center justify-between mb-3">
+          <div
+            key={col.id}
+            className="kanban-column flex-1 min-w-[250px] rounded-lg transition-colors duration-100"
+            // Per-column drop-target highlight, published as a CSS
+            // variable on the OUTER `.map()` body root. The boolean is
+            // also fanned out to concrete `background-color` / `outline`
+            // CSS properties so the highlight is visible without any
+            // additional class plumbing — and exercises the nested
+            // reactive-style path at the OUTER nesting level (cf. the
+            // inner task-card `--drag-*` vars one nesting level deeper).
+            style={{
+              '--drop-active': dragOverColId() === col.id ? '1' : '0',
+              backgroundColor: dragOverColId() === col.id
+                ? 'var(--color-accent, oklch(0.97 0 0))'
+                : 'transparent',
+              outline: dragOverColId() === col.id
+                ? '2px dashed var(--color-primary, oklch(0.205 0 0))'
+                : '2px dashed transparent',
+              outlineOffset: '-2px',
+            }}
+            data-col-id={col.id}
+            data-col-drop-active={dragOverColId() === col.id ? 'true' : 'false'}
+            onDragOver={handleColDragOver(col.id)}
+            onDragLeave={handleColDragLeave(col.id)}
+            onDrop={handleColDrop(col.id)}
+          >
+            <div className="flex items-center justify-between mb-3 px-1 pt-1">
               <div className="flex items-center gap-2">
                 <h3 className="column-title text-sm font-semibold">{col.title}</h3>
                 <Badge variant="secondary" className="task-count">{col.tasks.length}</Badge>
@@ -197,9 +295,12 @@ export function ProductivityBoardDemo() {
                   }}
                   data-task-id={String(task.id)}
                   data-task-dragging={draggingTaskId() === task.id ? 'true' : 'false'}
+                  draggable={true}
                   onPointerDown={() => startDragPreview(task.id)}
                   onPointerUp={endDragPreview}
                   onPointerLeave={endDragPreview}
+                  onDragStart={handleDragStart(task.id, col.id)}
+                  onDragEnd={handleDragEnd}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="task-title text-sm font-medium">{task.title}</p>
