@@ -172,7 +172,6 @@ describe.skipIf(!INTEGRATION)(
       env: Record<string, string>
       install: string
       run: string
-      exec: string
     }
     const cases: PmCase[] = [
       {
@@ -180,44 +179,38 @@ describe.skipIf(!INTEGRATION)(
         env: { npm_config_user_agent: 'npm/10.0.0 node/v22.0.0 darwin arm64' },
         install: 'npm install',
         run: 'npm run dev',
-        exec: 'npx ',
       },
       {
         pm: 'bun',
         env: { npm_config_user_agent: 'bun/1.3.0' },
         install: 'bun install',
         run: 'bun run dev',
-        exec: 'bunx ',
       },
       {
         pm: 'pnpm',
         env: { npm_config_user_agent: 'pnpm/9.0.0' },
         install: 'pnpm install',
         run: 'pnpm dev',
-        exec: 'pnpm dlx ',
       },
       {
         pm: 'yarn',
         env: { npm_config_user_agent: 'yarn/4.0.0' },
         install: 'yarn',
         run: 'yarn dev',
-        exec: 'yarn dlx ',
       },
     ]
 
     test.each(cases)(
       'when invoked via $pm, the post-scaffold guide uses $pm commands',
-      ({ env, install, run, exec }) => {
+      ({ env, install, run }) => {
         const cwd = mktmp()
         const r = runCreate(['demo-app'], { cwd, env })
 
         expect(r.exitCode).toBe(0)
         // The detected PM isn't announced separately — we rely on the
-        // commands themselves to confirm detection picked it up.
+        // install / run commands themselves to confirm detection picked it up.
         expect(r.stdout).toContain(install)
         expect(r.stdout).toContain(run)
-        // "Then try:" lines use the PM's `exec` form (npx / bunx / pnpm dlx / yarn dlx).
-        expect(r.stdout).toContain(exec)
       },
     )
   },

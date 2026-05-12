@@ -257,7 +257,4 @@ function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
   console.log(``)
   console.log(`Then try:`)
   console.log(`  • Edit components/Counter.tsx — the page rebuilds and reloads automatically.`)
-  console.log(`  • Inspect the bundled Button:    ${cmd.exec('barefoot ui button')}`)
-  console.log(`  • Browse the component registry: ${cmd.exec('barefoot search <query>')}`)
-  console.log(`  • Add another component:         ${cmd.exec('barefoot add input')}`)
 }
