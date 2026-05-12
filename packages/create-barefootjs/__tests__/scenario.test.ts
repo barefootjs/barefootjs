@@ -147,11 +147,13 @@ describe.skipIf(!INTEGRATION)(
       test('"Get started" lists cd / install / dev with PM-aware commands', () => {
         // The detected PM is reflected in the commands quoted below,
         // not announced separately. The happy-path run had no PM
-        // signal injected, so we expect the npm command forms.
+        // signal injected, so we expect the npm command forms. No URL
+        // is printed here — the dev server prints its own bound port,
+        // which can drift when the default is in use.
         expect(result.stdout).toContain('Get started:')
         expect(result.stdout).toContain('cd demo-app')
         expect(result.stdout).toContain('npm install')
-        expect(result.stdout).toMatch(/npm run dev\s+→ http:\/\/localhost:\d+/)
+        expect(result.stdout).toContain('npm run dev')
       })
 
       test('"More" lists editor + watch helpers', () => {
@@ -163,10 +165,10 @@ describe.skipIf(!INTEGRATION)(
       })
 
       test('"Deploy" surfaces the Cloudflare Workers target for the Hono adapter', () => {
-        // Same shape as "Get started" — command on the left, target
-        // hint after a `→` on the right, paired by visual columns.
+        // Same shape as "More" — command on the left, `# comment` on
+        // the right. The deploy target is the comment.
         expect(result.stdout).toContain('Deploy:')
-        expect(result.stdout).toMatch(/npm run deploy\s+→ Cloudflare Workers/)
+        expect(result.stdout).toMatch(/npm run deploy\s+# deploy to Cloudflare Workers/)
       })
 
       test('expands $EDITOR into the user\'s editor when EDITOR is set', () => {

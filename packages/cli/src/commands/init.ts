@@ -274,36 +274,37 @@ function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
   // remaining commands work when copy-pasted in order.
   const projectName = path.basename(projectDir)
 
-  // Width-pad commands so the trailing hint columns (→ / #) line up
-  // within each block. We pad against the widest command in the
-  // block, not the whole guide, so each section is self-contained.
-  const padTo = (s: string, width: number): string => s + ' '.repeat(Math.max(0, width - s.length))
-
-  // Get started — install + dev. Pad `dev` so the `→ URL` hint aligns
-  // even when the PM-aware command varies in length.
-  const devCmd = cmd.run('dev')
-  const startedWidth = Math.max(devCmd.length, cmd.install.length, `cd ${projectName}`.length) + 4
+  // Get started — minimal copy-paste sequence. No URL hint: wrangler
+  // (and other dev servers) can pick a different port when the
+  // default is in use, so quoting a specific URL here would be wrong
+  // some of the time. The dev server prints its bound address itself.
   console.log('')
   console.log(`${heading('Get started:')}`)
   console.log(`  cd ${projectName}`)
   console.log(`  ${cmd.install}`)
-  console.log(`  ${padTo(devCmd, startedWidth)}${dim(`→ http://localhost:${adapter.port}`)}`)
+  console.log(`  ${cmd.run('dev')}`)
 
-  if (adapter.deploy) {
-    const deployCmd = cmd.run(adapter.deploy.script)
-    console.log('')
-    console.log(`${heading('Deploy:')}`)
-    console.log(`  ${padTo(deployCmd, startedWidth)}${dim(`→ ${adapter.deploy.target}`)}`)
-  }
-
-  // More — pad commands so the # comments form a clean column.
+  // Width-pad commands so the trailing `# comment` columns line up
+  // across the Deploy + More sections, which share the same shape.
+  const padTo = (s: string, width: number): string => s + ' '.repeat(Math.max(0, width - s.length))
   const editorCmd = `${editor} components/Counter.tsx`
   const watchCmd = cmd.run('watch')
-  const moreWidth = Math.max(editorCmd.length, watchCmd.length) + 4
+  const deployCmd = adapter.deploy ? cmd.run(adapter.deploy.script) : ''
+  const commentColumn =
+    Math.max(deployCmd.length, editorCmd.length, watchCmd.length) + 4
+
+  if (adapter.deploy) {
+    console.log('')
+    console.log(`${heading('Deploy:')}`)
+    console.log(
+      `  ${padTo(deployCmd, commentColumn)}${dim(`# deploy to ${adapter.deploy.target}`)}`,
+    )
+  }
+
   console.log('')
   console.log(`${heading('More:')}`)
-  console.log(`  ${padTo(editorCmd, moreWidth)}${dim('# edit the starter component')}`)
-  console.log(`  ${padTo(watchCmd, moreWidth)}${dim('# rebuild on change without a server')}`)
+  console.log(`  ${padTo(editorCmd, commentColumn)}${dim('# edit the starter component')}`)
+  console.log(`  ${padTo(watchCmd, commentColumn)}${dim('# rebuild on change without a server')}`)
 }
 
 // ANSI helpers for the next-steps block. All three apply only in a
