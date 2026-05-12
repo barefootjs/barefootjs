@@ -161,12 +161,15 @@ export const HONO_ADAPTER: AdapterTemplate = {
   scripts: {
     // Run barefoot's component build, UnoCSS's class scanner, and the
     // local Workers dev server side-by-side. `concurrently -k` makes
-    // Ctrl-C kill all three. `wrangler` lives behind the PM's dlx so
-    // its (large) dependency tree never lands in node_modules; the
-    // first run caches it via bunx / npx / pnpm dlx / yarn dlx.
+    // Ctrl-C kill all three. `wrangler dev --live-reload` watches the
+    // worker + asset files and reloads the browser when they change,
+    // so we don't need a separate SSE-based reloader. `wrangler` lives
+    // behind the PM's dlx so its (large) dependency tree never lands
+    // in node_modules — the first run caches it via bunx / npx /
+    // pnpm dlx / yarn dlx.
     dev: (pm) =>
       `concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "${commandsFor(pm).exec(
-        'wrangler dev',
+        'wrangler dev --live-reload',
       )}"`,
     build: 'barefoot build && unocss',
     deploy: (pm) => `barefoot build && unocss && ${commandsFor(pm).exec('wrangler deploy')}`,

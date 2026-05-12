@@ -134,10 +134,19 @@ describe.skipIf(!INTEGRATION)(
       test('package.json exposes dev / build / deploy / watch scripts', () => {
         expect(pkg.scripts.dev).toBeString()
         expect(pkg.scripts.build).toBeString()
-        // `deploy` is the Cloudflare Workers deploy step quoted in the
-        // post-scaffold "Deploy" section.
+        // `dev` runs barefoot's component build, UnoCSS, and the
+        // Workers dev server concurrently. `--live-reload` is what
+        // pushes browser reloads when files change, replacing the old
+        // SSE-based BfDevReload that doesn't work on Workers.
+        expect(pkg.scripts.dev).toContain('barefoot build --watch')
+        expect(pkg.scripts.dev).toContain('unocss --watch')
+        expect(pkg.scripts.dev).toContain('wrangler dev --live-reload')
+        // `deploy` is the Cloudflare Workers deploy step quoted in
+        // the post-scaffold "Deploy" section.
         expect(pkg.scripts.deploy).toContain('wrangler deploy')
-        // `watch` is the server-less rebuild loop quoted in "More".
+        // `watch` is the server-less rebuild loop. Still present in
+        // package.json for advanced users, but not surfaced in the
+        // post-scaffold guide since `dev` already covers it.
         expect(pkg.scripts.watch).toContain('barefoot build --watch')
         expect(pkg.scripts.watch).toContain('unocss --watch')
       })
@@ -156,12 +165,13 @@ describe.skipIf(!INTEGRATION)(
         expect(result.stdout).toContain('npm run dev')
       })
 
-      test('"More" lists editor + watch helpers', () => {
+      test('"More" lists the editor hint', () => {
         // EDITOR was stripped by the test harness, so the editor hint
-        // falls back to a literal "$EDITOR".
+        // falls back to a literal "$EDITOR". `npm run dev` already
+        // reloads on change (via `wrangler dev --live-reload`), so no
+        // separate watch hint is offered.
         expect(result.stdout).toContain('More:')
         expect(result.stdout).toContain('$EDITOR components/Counter.tsx')
-        expect(result.stdout).toContain('npm run watch')
       })
 
       test('"Deploy" surfaces the Cloudflare Workers target for the Hono adapter', () => {
@@ -236,21 +246,16 @@ describe.skipIf(!INTEGRATION)(
 
     test.each(cases)(
       'when invoked via $pm, the post-scaffold guide uses $pm commands',
-      ({ env, install, run, pm }) => {
+      ({ env, install, run }) => {
         const cwd = mktmp()
         const r = runCreate(['demo-app'], { cwd, env })
 
         expect(r.exitCode).toBe(0)
         // The detected PM isn't announced separately — we rely on the
-        // commands themselves to confirm detection picked it up. The
-        // Get-started section quotes the install + dev commands, the
-        // More section quotes the watch command.
+        // install / dev commands themselves to confirm detection
+        // picked it up.
         expect(r.stdout).toContain(install)
         expect(r.stdout).toContain(run)
-        // "More:" quotes the PM's `run` form (e.g. "pnpm watch" vs.
-        // "npm run watch") for the server-less rebuild loop.
-        const watchCmd = pm === 'pnpm' || pm === 'yarn' ? `${pm} watch` : `${pm} run watch`
-        expect(r.stdout).toContain(watchCmd)
       },
     )
   },

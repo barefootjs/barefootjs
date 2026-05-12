@@ -288,10 +288,8 @@ function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
   // across the Deploy + More sections, which share the same shape.
   const padTo = (s: string, width: number): string => s + ' '.repeat(Math.max(0, width - s.length))
   const editorCmd = `${editor} components/Counter.tsx`
-  const watchCmd = cmd.run('watch')
   const deployCmd = adapter.deploy ? cmd.run(adapter.deploy.script) : ''
-  const commentColumn =
-    Math.max(deployCmd.length, editorCmd.length, watchCmd.length) + 4
+  const commentColumn = Math.max(deployCmd.length, editorCmd.length) + 4
 
   if (adapter.deploy) {
     console.log('')
@@ -304,7 +302,6 @@ function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
   console.log('')
   console.log(`${heading('More:')}`)
   console.log(`  ${padTo(editorCmd, commentColumn)}${dim('# edit the starter component')}`)
-  console.log(`  ${padTo(watchCmd, commentColumn)}${dim('# rebuild on change without a server')}`)
 }
 
 // ANSI helpers for the next-steps block. All three apply only in a
