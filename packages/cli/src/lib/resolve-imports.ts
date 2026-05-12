@@ -145,6 +145,92 @@ function collectExportedNames(source: string): string[] {
 }
 
 /**
+ * Detect whether a `.tsx` source file declares the `'use client'` directive
+ * as its first executable statement (per the JSX analyzer, which is the
+ * canonical check). Used to gate stub emission: only `'use client'`
+ * components have a runtime registry entry that the stub's
+ * `createComponent(...)` delegation can reach. A `.tsx` source without the
+ * directive is a plain server-side module (e.g. `blog-data.tsx` exporting
+ * data + utility functions), and stubbing its named imports as component
+ * factories breaks any consumer that actually reads the value — calling
+ * `getPost(slug)` returns a `createComponent('getPost', slug, undefined)`
+ * descriptor instead of a `BlogPost`, then `post.title` is undefined and
+ * the rendered DOM ends up empty/corrupt. piconic-ai/barefootjs#1258.
+ */
+function hasUseClientDirective(source: string): boolean {
+  const sourceFile = ts.createSourceFile(
+    'check.tsx',
+    source,
+    ts.ScriptTarget.Latest,
+    /*setParents*/ false,
+    ts.ScriptKind.TSX,
+  )
+  for (const stmt of sourceFile.statements) {
+    if (!ts.isExpressionStatement(stmt) || !ts.isStringLiteral(stmt.expression)) {
+      return false
+    }
+    if (stmt.expression.text === 'use client') return true
+  }
+  return false
+}
+
+/**
+ * Collect every top-level value-binding name introduced by a declaration
+ * (`function`, `const`/`let`/`var`, `class`) in a JS/TS module body.
+ *
+ * The stub-emission path uses this to detect when a sibling `'use client'`
+ * `.tsx`'s named binding is already provided by an earlier inlined module
+ * inside the assembled bundle (e.g. esbuild bundled the target's compiled
+ * `.js` whole), so re-declaring it as `const X = …` would produce a
+ * SyntaxError on parse and take the whole hydration script down with it.
+ * piconic-ai/barefootjs#1258.
+ *
+ * `import` declarations are intentionally excluded: the import we're about
+ * to process is itself an import declaration that would otherwise count
+ * itself as an existing binding and short-circuit the stub. Whether other
+ * pending imports collide with the stub is moot — they'll be stripped or
+ * stubbed in their own pass through `walkAndCollect` and any same-name
+ * collision becomes a real top-level declaration only via inlining.
+ *
+ * Type-only declarations (`type`, `interface`) are ignored because
+ * they're erased at runtime and can't collide with a value stub.
+ */
+function collectTopLevelBindings(source: string): Set<string> {
+  const names = new Set<string>()
+  const sourceFile = ts.createSourceFile(
+    'bundle.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    /*setParents*/ false,
+    ts.ScriptKind.TS,
+  )
+
+  function collectFromBindingName(name: ts.BindingName): void {
+    if (ts.isIdentifier(name)) {
+      names.add(name.text)
+      return
+    }
+    for (const el of name.elements) {
+      if (ts.isBindingElement(el)) collectFromBindingName(el.name)
+    }
+  }
+
+  for (const stmt of sourceFile.statements) {
+    if (ts.isVariableStatement(stmt)) {
+      for (const d of stmt.declarationList.declarations) {
+        collectFromBindingName(d.name)
+      }
+    } else if (ts.isFunctionDeclaration(stmt) && stmt.name) {
+      names.add(stmt.name.text)
+    } else if (ts.isClassDeclaration(stmt) && stmt.name) {
+      names.add(stmt.name.text)
+    }
+  }
+
+  return names
+}
+
+/**
  * Strip top-level `import` declarations and `export` modifiers/keywords
  * from a module body so it's valid as the inside of an IIFE.
  *
@@ -684,7 +770,7 @@ async function walkAndCollect(
     }
 
     if (result.path.endsWith('.tsx')) {
-      // A sibling `.tsx` reaching this path is, in practice, a `'use client'`
+      // A sibling `.tsx` that declares `'use client'` is a separately-compiled
       // component. Its own compiled `.client.js` exports a JSX-shim function
       // (`function X(props, key) { return createComponent('X', props, key) }`)
       // that delegates to the runtime registry. The shim isn't reachable
@@ -697,6 +783,17 @@ async function walkAndCollect(
       // non-JSX usages piconic-ai/barefootjs#1238 made supported at the
       // runtime side. Closes piconic-ai/barefootjs#1240.
       //
+      // A `.tsx` without the directive is a plain server-side module that
+      // happens to use JSX syntax (e.g. `blog-data.tsx` exporting BLOG_POSTS
+      // + getPost helpers, or any non-stateful render helper that bundles
+      // for SSR only). Those have no runtime registry entry, so a
+      // `createComponent(...)` stub returns a wrong-shaped descriptor and
+      // breaks every consumer that actually reads the value. Fall back to
+      // the pre-#1240 strip path for non-`'use client'` `.tsx` siblings —
+      // the SSR template imports them at the server-rendered layer where
+      // they resolve normally; the client bundle just doesn't get them.
+      // piconic-ai/barefootjs#1258.
+      //
       // Default and namespace imports of a `'use client'` `.tsx` are NOT
       // stubbed — the registered runtime name for those isn't trivially
       // recoverable from the import statement alone (default exports
@@ -706,17 +803,28 @@ async function walkAndCollect(
       // any actual usage still surfaces a build error rather than a silent
       // ReferenceError. The named-import path covers the practical case
       // (`nodeTypes={{ kind: Component }}`) that drove both #1236 and #1240.
+      const targetSource = await readText(result.path)
+      const isUseClientTarget = hasUseClientDirective(targetSource)
       const shape = parseImportShape(fullMatch)
       const namedBindings = shape?.named ?? []
       const fallbackBindings: string[] = []
       if (shape?.namespace) fallbackBindings.push(shape.namespace)
       if (shape?.default) fallbackBindings.push(shape.default)
 
-      if (namedBindings.length > 0) {
-        const stubBody = namedBindings
+      if (isUseClientTarget && namedBindings.length > 0) {
+        // Skip stubs for names esbuild has already inlined as real top-level
+        // bindings (typically the target's whole compiled JS got bundled in
+        // upstream, so `function X(_p, __bfKey) { return createComponent(…) }`
+        // is already present). Re-declaring those as `const X = …` produces
+        // a SyntaxError on parse and silently kills every hydration in the
+        // bundle. piconic-ai/barefootjs#1258.
+        const existingTopLevel = collectTopLevelBindings(content)
+        const stubsToEmit = namedBindings.filter(({ local }) => !existingTopLevel.has(local))
+        const stubBody = stubsToEmit
           .map(({ local, imported }) => `const ${local} = (props, key) => createComponent(${JSON.stringify(imported)}, props, key);`)
           .join('\n')
-        content = content.replace(new RegExp(escapeRegExp(fullMatch) + '\\n?'), `${stubBody}\n`)
+        const replacement = stubBody.length > 0 ? `${stubBody}\n` : ''
+        content = content.replace(new RegExp(escapeRegExp(fullMatch) + '\\n?'), replacement)
         // The stub references the runtime `createComponent` symbol. Every
         // JSX-emitted client bundle already imports it as part of the
         // umbrella `barefoot.js` runtime (any `<X />` use compiles to a
@@ -731,8 +839,8 @@ async function walkAndCollect(
         // `createComponent`), and a "createComponent is not defined" error
         // there would point at the stub line anyway.
         if (fallbackBindings.length === 0) {
-          // Every binding is now a working stub — nothing to strip, no
-          // dangling references possible.
+          // Every named binding is either already in scope or now stubbed —
+          // nothing to strip, no dangling references possible.
           continue
         }
         // Default + namespace siblings still need to be stripped; keep them
