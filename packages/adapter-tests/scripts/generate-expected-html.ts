@@ -17,11 +17,30 @@ import { resolve } from 'node:path'
 
 const FIXTURES_DIR = resolve(import.meta.dir, '../fixtures')
 
+// Fixtures whose expectedHtml is hand-curated (typically because the
+// reference adapter renders the case incorrectly today, and the
+// fixture exists specifically to pin that gap). Auto-update would
+// overwrite the intentional value with the bug's output, so we skip
+// regeneration here.
+const SKIP_AUTO_UPDATE = new Set<string>([
+  // HonoAdapter currently emits an empty substitution for the
+  // `classes[variant]` lookup — pinning Hono's broken output as the
+  // expected value would mask the bug from the go-template adapter
+  // (which renders this case correctly).
+  'record-index-lookup',
+])
+
 async function main() {
   let updated = 0
   let failed = 0
+  let skipped = 0
 
   for (const fixture of jsxFixtures) {
+    if (SKIP_AUTO_UPDATE.has(fixture.id)) {
+      console.log(`⚠ Skipped (hand-curated): ${fixture.id}`)
+      skipped++
+      continue
+    }
     try {
       const adapter = new HonoAdapter()
       const html = await renderHonoComponent({
@@ -62,7 +81,7 @@ async function main() {
     }
   }
 
-  console.log(`\nDone: ${updated} updated, ${failed} failed`)
+  console.log(`\nDone: ${updated} updated, ${failed} failed, ${skipped} skipped`)
   if (failed > 0) process.exit(1)
 }
 
