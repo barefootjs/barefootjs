@@ -62,6 +62,7 @@ import { fixture as booleanDynamicAttr } from './boolean-dynamic-attr'
 import { fixture as childComponentInit } from './child-component-init'
 import { fixture as reactivePropBinding } from './reactive-prop-binding'
 import { fixture as recordIndexLookup } from './record-index-lookup'
+import { fixture as recordIndexLookupViaChildProp } from './record-index-lookup-via-child-prop'
 
 import type { JSXFixture } from '../src/types'
 
@@ -130,4 +131,5 @@ export const jsxFixtures: JSXFixture[] = [
   childComponentInit,
   reactivePropBinding,
   recordIndexLookup,
+  recordIndexLookupViaChildProp,
 ]
