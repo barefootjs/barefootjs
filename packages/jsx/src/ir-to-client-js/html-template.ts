@@ -808,10 +808,16 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
     // call sites (loop array, text expression, child component prop) decide
     // how to render that placeholder. The init function's createEffect /
     // initChild bindings repaint the real value once init runs.
+    //
+    // Lexer-based post-substitution check (#1267): pure IR-based checking
+    // would require tracking transitive free-id closure through the
+    // `csrInlinableConstants` re-promotion path (which substitutes
+    // signal/memo getters before re-classifying constants). That bookkeeping
+    // is non-trivial and bears no semantic benefit over the lexer, which
+    // already respects string-literal / member-access boundaries.
     if (unsafeLocalNames && unsafeLocalNames.size > 0 && tokenContainsAny(finalResult, unsafeLocalNames)) {
       return UNSAFE_TEMPLATE_EXPR
     }
-
     return finalResult
   }
 

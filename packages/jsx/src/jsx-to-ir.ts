@@ -3217,6 +3217,7 @@ function processComponentProps(
       }
     }
 
+    const freeIdentifiers = attrFreeIdentifiers(attr)
     props.push({
       name,
       value: propValue,
@@ -3227,6 +3228,7 @@ function processComponentProps(
       loc: getSourceLocation(attr, ctx.sourceFile, ctx.filePath),
       ...computeReactivityFlags(attr, ctx),
       ...pickAttrMeta(attrResult),
+      ...(freeIdentifiers !== undefined && { freeIdentifiers }),
     })
   }
 
