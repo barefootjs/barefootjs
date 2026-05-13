@@ -88,6 +88,107 @@ console.log('client code')
     expect(errors).toHaveLength(0)
   })
 
+  // Regression: bf#1258 — a sibling `.tsx` without the `'use client'`
+  // directive is a plain server-side module (e.g. data + utility helpers
+  // that happen to live in a `.tsx` file because they shape SSR JSX). The
+  // runtime registry has no entry for `getPost`/`BLOG_POSTS`, so
+  // `createComponent('getPost', slug, undefined)` is a wrong-shaped
+  // descriptor, not a `BlogPost` — the consumer crashes, hydration aborts,
+  // and the SSR DOM never animates back to its rendered state. Treat
+  // non-`'use client'` `.tsx` the same as the pre-#1240 strip path: drop
+  // the import, let the SSR template's server-side resolution carry the
+  // value (the client bundle just doesn't get it).
+  test('does not stub a sibling .tsx import that is NOT a use-client component (#1258)', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'blog-data.tsx'), `// Static blog post data — SSR-only, no 'use client' directive.
+export interface BlogPost { slug: string; title: string }
+export const BLOG_POSTS: BlogPost[] = [{ slug: 'a', title: 'A' }]
+export function getPost(slug: string): BlogPost | undefined {
+  return BLOG_POSTS.find((p) => p.slug === slug)
+}
+`)
+    const clientJs = `import { BLOG_POSTS, getPost } from './blog-data'
+import { createComponent } from '@barefootjs/client/runtime'
+export function initBlogDemo(_p) {
+  const post = getPost(_p.slug)
+  return post?.title ?? BLOG_POSTS[0].title
+}
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'BlogDemo-abc.js'), clientJs)
+    const manifest = {
+      BlogDemo: { clientJs: 'components/BlogDemo-abc.js', markedTemplate: 'components/BlogDemo.tsx' },
+    }
+
+    await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'BlogDemo-abc.js')).text()
+    // The import line is gone …
+    expect(result).not.toContain("from './blog-data'")
+    // … and crucially NO stub is emitted: a `createComponent('getPost', …)`
+    // stub would silently return a malformed descriptor and break every
+    // consumer that reads the value.
+    expect(result).not.toContain('const getPost =')
+    expect(result).not.toContain('const BLOG_POSTS =')
+    // The original references stay as dangling identifiers — matching the
+    // pre-#1240 behaviour. The SSR template (server-side) has the real
+    // values; this client bundle's hydration may silently no-op, which is
+    // the documented contract for non-stateful SSR-only modules.
+    expect(result).toContain('getPost(_p.slug)')
+    expect(result).toContain('BLOG_POSTS[0].title')
+  })
+
+  // Regression: bf#1258 — the playground client bundles take two paths to
+  // the same sibling `'use client'` target:
+  //   (1) the parent `.tsx` has `import { Foo } from './foo'`, which reaches
+  //       `walkAndCollect` and (post-#1240) emits `const Foo = (props, key)
+  //       => createComponent('Foo', ...)` at the top of the bundle;
+  //   (2) esbuild bundled `./foo`'s compiled `.js` whole upstream, so the
+  //       bundle already contains `export function Foo(_p, __bfKey) { ... }`.
+  // Emitting (1) on top of (2) produces a duplicate top-level identifier and
+  // the whole script fails to parse — every hydration in the bundle dies
+  // silently, leaving SSR HTML with unsubstituted variant/signal slots.
+  // Fix: skip stub emission for any name esbuild has already declared at
+  // top level; for those, just strip the redundant import.
+  test('does not emit a duplicate-binding stub when the bundle already declares the named import at top level (#1258)', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'CopyButton.tsx'), `'use client'
+export function CopyButton() {
+  return <button>copy</button>
+}
+`)
+    // Simulates esbuild having already inlined CopyButton's compiled JS into
+    // the parent bundle (real-world case: relative `./copy-button` import in
+    // the source survives JSX compilation as a still-relative import in the
+    // emitted client JS *and* esbuild's bundling pass inlines the target's
+    // compiled output whole, so the same name appears twice).
+    const clientJs = `import { CopyButton } from './CopyButton'
+import { createComponent, hydrate } from '@barefootjs/client/runtime'
+export function initCopyButton(__scope, _p = {}) { /* ... */ }
+hydrate('CopyButton', { init: initCopyButton, template: (_p) => '<button>copy</button>' })
+export function CopyButton(_p, __bfKey) { return createComponent('CopyButton', _p, __bfKey) }
+console.log('parent bundle body')
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'Playground-abc123.js'), clientJs)
+
+    const manifest = {
+      Playground: { clientJs: 'components/Playground-abc123.js', markedTemplate: 'components/Playground.tsx' },
+    }
+
+    const { errors } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'Playground-abc123.js')).text()
+    // The redundant import is gone …
+    expect(result).not.toContain("from './CopyButton'")
+    // … but the stub MUST NOT be emitted — the bundle already declares
+    // `function CopyButton(...)` lower down, and a second `const CopyButton`
+    // at the top would make the whole script unparseable.
+    expect(result).not.toContain('const CopyButton =')
+    // The pre-existing inlined definition stays intact (this is the binding
+    // that the runtime registry looks up via `createComponent('CopyButton', …)`).
+    expect(result).toContain('export function CopyButton(_p, __bfKey)')
+    expect(result).toContain("hydrate('CopyButton'")
+    // No BF053 — the binding has a real definition, so no dangling reference.
+    expect(errors).toHaveLength(0)
+  })
+
   // Regression: bf#1227 used to surface BF053 when a stripped `'use client'`
   // import left a dangling reference. bf#1240 turns the strip into a
   // runtime-resolving stub instead, so the same call site that previously
