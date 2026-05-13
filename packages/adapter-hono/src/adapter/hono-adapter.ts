@@ -868,31 +868,22 @@ export class HonoAdapter extends JsxAdapter {
         // data-key which the BarefootJS client runtime uses for reconciliation.
         keyValue = prop.value
       } else if (prop.dynamic) {
+        // JSX expression container: <X onClick={() => 1} />, <X foo={false} />
         parts.push(`${prop.name}={${prop.value}}`)
       } else if (prop.isLiteral) {
-        // `isLiteral` is the IR's authoritative signal that this value
-        // came from a JSX string-attribute (`fill="var(--c)"`). Emit it
-        // verbatim as a string attribute — falling back to
-        // `isJsExpression()` here misidentifies legitimate CSS values
-        // like `var(--area-fill)` (parses as a JS function call) and
-        // strips the quotes, producing `fill={var(--area-fill)}`. The
-        // regex stays below as a defensive net for non-literal
-        // string-shaped props that the IR couldn't tag, but the literal
-        // case must short-circuit first.
+        // IR-authoritative string literal: <X fill="var(--c)" />. Emitting
+        // this verbatim is what distinguishes a CSS-shaped value (`var(...)`,
+        // `url(...)`, `calc(...)`) from a JS expression — both look alike
+        // after the IR collapses to `string + flags`, but `isLiteral` carries
+        // the parser's original answer.
         parts.push(`${prop.name}="${prop.value}"`)
       } else if (prop.value === 'true') {
-        // Boolean true: <Component disabled />
+        // Boolean shorthand: <X disabled /> (no initializer → propValue 'true')
         parts.push(prop.name)
-      } else if (prop.value === 'false') {
-        // Boolean false: <Component disabled={false} />
-        // Note: we output this explicitly rather than omitting it
-        // because the child component may need the explicit false value
-        parts.push(`${prop.name}={false}`)
-      } else if (this.isJsExpression(prop.value)) {
-        // JavaScript expressions (arrow functions, etc.)
-        parts.push(`${prop.name}={${prop.value}}`)
       } else {
-        // String literals (without isLiteral flag — pre-IR fixture path)
+        // Unreachable from the JSX → IR pipeline: Phase 1 always emits one of
+        // (dynamic | isLiteral | boolean-shorthand) for every prop. Defensive
+        // string fallback for hand-built IRs from external producers.
         parts.push(`${prop.name}="${prop.value}"`)
       }
     }
@@ -917,23 +908,6 @@ export class HonoAdapter extends JsxAdapter {
     }
     output += '`'
     return output
-  }
-
-  private isJsExpression(value: string): boolean {
-    // Arrow function: () => ..., (x) => ..., x => ...
-    if (/^(\([^)]*\)|[a-zA-Z_$][a-zA-Z0-9_$]*)\s*=>/.test(value)) {
-      return true
-    }
-    // Function call with parentheses: foo(), bar(x)
-    if (/^[a-zA-Z_$][a-zA-Z0-9_$.]*\s*\(/.test(value)) {
-      return true
-    }
-    // Function/setter reference: setFoo, handleClick (common naming patterns)
-    // These are likely function references, not string values
-    if (/^(set[A-Z]|handle[A-Z]|on[A-Z])[a-zA-Z0-9_$]*$/.test(value)) {
-      return true
-    }
-    return false
   }
 
 }
