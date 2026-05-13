@@ -205,9 +205,13 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
       // Increment loopDepth so inner key attrs become data-key-N
       // Forward loopParams so expressions referencing outer/inner loop params
       // get wrapped as signal accessors (e.g., task.title → task().title).
-      // `insideLoop` is forced to true for the recursive walk so nested
-      // component renderChild calls drop their slot suffix.
-      const innerRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth + 1, loopParams, branchSlotsVar, true)
+      // `insideLoop` is preserved (not forced to `true`): downstream branch /
+      // inner-loop templates depend on the legacy slot-suffix-keeping shape
+      // to find scopes via `findSsrScopeBySlotIn`. The opt-in at the entry
+      // call site is the only place that wants the suffix dropped (#1268
+      // Case 1 — childComponent body materialize); propagating it through
+      // every nested loop regressed form-builder's inner-loop Select wiring.
+      const innerRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth + 1, loopParams, branchSlotsVar, insideLoop)
       const childTemplate = node.children.map(innerRecurse).join('')
       const indexParam = node.index ? `, ${node.index}` : ''
       const wrappedArray = wrapExpr(node.array)
