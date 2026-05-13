@@ -57,6 +57,109 @@ describe('adapter registry', () => {
     expect(honoNode.devDependencies['@types/node']).toBeTruthy()
   })
 
+  // Regression guards for the "edits don't reach the browser" class
+  // of bug. Each adapter that does SSR has to invalidate *something*
+  // per request in dev — otherwise the boot-time render cache buries
+  // every `barefoot build --watch` rebuild.
+  //
+  // We've shipped this bug twice (hono-node held a stale build
+  // manifest, echo cached the parsed templates). These tests pin the
+  // contract so the next adapter that forgets to thread dev re-read
+  // through fails CI loudly instead of silently in someone's hand
+  // test.
+  describe('dev-time re-read contract', () => {
+    test('hono-node renderer reads the manifest per request in dev', () => {
+      const renderer = ADAPTERS['hono-node'].files['renderer.tsx']
+      // Reads the JSON from disk each time (not just a static import).
+      expect(renderer).toContain("from 'node:fs'")
+      expect(renderer).toMatch(/readFileSync\(.*manifest/i)
+      // Behind a dev gate — prod keeps the cheap static import.
+      expect(renderer).toMatch(/isDev \? .*: staticManifest/)
+    })
+
+    test('echo bf_render.go re-parses templates per request when BAREFOOT_DEV=1', () => {
+      const bfRender = ADAPTERS.echo.files['bf_render.go']
+      // Render method consults a devMode flag and re-loads templates.
+      expect(bfRender).toMatch(/devMode\s+bool/)
+      expect(bfRender).toMatch(/if r\.devMode/)
+      expect(bfRender).toMatch(/BAREFOOT_DEV/)
+      // dev script must pass BAREFOOT_DEV=1 to `go run`, otherwise
+      // the runtime check above would never flip on.
+      expect(ADAPTERS.echo.scripts.dev).toContain('BAREFOOT_DEV=1 go run')
+    })
+
+    test('mojo disables template cache in development mode', () => {
+      // Mojolicious caches parsed templates by default. `morbo`
+      // (the dev server in the `dev` npm script) sets mode to
+      // 'development' automatically, so the cache flush below kicks
+      // in and `barefoot build --watch` edits surface immediately.
+      const appPl = ADAPTERS.mojo.files['app.pl']
+      expect(appPl).toMatch(/app->mode eq 'development'/)
+      expect(appPl).toMatch(/renderer->cache->max_keys\(0\)/)
+      // dev script must launch via morbo (which auto-enables dev
+      // mode). Plain `perl app.pl daemon` would default to
+      // production and re-introduce the cache.
+      expect(ADAPTERS.mojo.scripts.dev).toMatch(/morbo app\.pl/)
+    })
+  })
+
+  // Regression guard for the "flash of unstyled content" bug.
+  // styles.css used to chain tokens.css and uno.css via @import,
+  // which deferred them to a second round-trip and left the DOM
+  // visible without styles in between. Each adapter's HTML layout
+  // must link all three sheets directly so the browser fetches them
+  // in parallel.
+  describe('CSS link contract (no @import FOUC)', () => {
+    // shared.ts ships STYLES_CSS to every adapter. If anyone
+    // re-introduces @import here it propagates to every scaffold,
+    // so guard at the source.
+    test('STYLES_CSS does not @import tokens.css or uno.css', () => {
+      // Sample via the hono adapter (which we know uses STYLES_CSS).
+      const styles = ADAPTERS.hono.files['public/styles.css']
+      expect(styles).not.toMatch(/@import\s+url\(['"]\.\/tokens\.css['"]\)/)
+      expect(styles).not.toMatch(/@import\s+url\(['"]\.\/uno\.css['"]\)/)
+    })
+
+    // [adapter id, file holding the <head> markup, all three href regexes]
+    const layoutCases: Array<[string, string, RegExp[]]> = [
+      ['hono', 'renderer.tsx', [
+        /href="\/tokens\.css"/,
+        /href="\/styles\.css"/,
+        /href="\/uno\.css"/,
+      ]],
+      ['hono-node', 'renderer.tsx', [
+        /href="\/static\/tokens\.css"/,
+        /href="\/static\/styles\.css"/,
+        /href="\/static\/uno\.css"/,
+      ]],
+      ['echo', 'renderer.go', [
+        /href="\/static\/tokens\.css"/,
+        /href="\/static\/styles\.css"/,
+        /href="\/static\/uno\.css"/,
+      ]],
+      // mojo embeds layouts inline in app.pl (Mojolicious @@ DATA
+      // section), so we check the script file rather than a separate
+      // template file.
+      ['mojo', 'app.pl', [
+        /href="\/static\/tokens\.css"/,
+        /href="\/static\/styles\.css"/,
+        /href="\/static\/uno\.css"/,
+      ]],
+      ['csr', 'pages/index.html', [
+        /href="\/static\/tokens\.css"/,
+        /href="\/static\/styles\.css"/,
+        /href="\/static\/uno\.css"/,
+      ]],
+    ]
+    test.each(layoutCases)('%s/%s links tokens + styles + uno', (id, file, links) => {
+      const contents = ADAPTERS[id].files[file]
+      expect(contents, `${id} missing ${file}`).toBeTruthy()
+      for (const link of links) {
+        expect(contents).toMatch(link)
+      }
+    })
+  })
+
   test('every adapter has a label, port, and barefoot.config.ts file', () => {
     for (const [id, adapter] of Object.entries(ADAPTERS)) {
       expect(adapter.label, `${id} missing label`).toBeTruthy()
