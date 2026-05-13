@@ -21,10 +21,10 @@ import type {
 } from '../../types'
 
 /**
- * Future BindingKind values are referenced as plain strings to keep these
- * tests type-stable before the type literal is widened. Cast at the call site.
+ * Alias kept for readability; once the `BindingKind` widening lands the
+ * cast at hasFreeRefKind call sites becomes a no-op.
  */
-export type FutureBindingKind = FreeReference['kind'] | 'reactive-brand'
+export type FutureBindingKind = FreeReference['kind']
 
 /**
  * Build a ts.Program from in-memory sources. Use this when the test exercises

@@ -2,7 +2,7 @@
  * Reactivity detection: reactive expression checking, event/ref collection.
  */
 
-import { type IRNode, type IRElement, type IRProp, type LoopParamBinding, pickAttrMeta } from '../types'
+import { type IRNode, type IRElement, type IRProp, type LoopParamBinding, type OriginInfo, pickAttrMeta, isReactiveOrigin } from '../types'
 import type {
   ClientJsContext,
   ConditionalBranchEvent,
@@ -54,16 +54,24 @@ export type WrapReason =
 
 /**
  * AST-flag based wrap decision for IRExpression / IRConditional / nested
- * IRConditional nodes. Replaces the duplicated
- * `node.reactive || node.callsReactiveGetters || node.hasFunctionCalls`
- * predicate (#937 / #941). Pure literals and bare identifiers (no calls)
- * stay un-wrapped because their SSR value is already in the DOM.
+ * IRConditional nodes. Consults `origin.freeRefs` (the unified Phase 1
+ * classification) first when available — this collapses the historic
+ * `reactive || callsReactiveGetters || hasFunctionCalls` fan-out onto a
+ * single source of truth. Legacy flags remain as fallbacks during the
+ * migration: nodes whose origin has not been populated yet (e.g. attr
+ * values, future IR kinds) still wrap correctly under the old gates.
+ * Pure literals and bare identifiers (no calls) stay un-wrapped because
+ * their SSR value is already in the DOM.
  */
 export function decideWrapFromAstFlags(node: {
   reactive?: boolean
   callsReactiveGetters?: boolean
   hasFunctionCalls?: boolean
+  origin?: OriginInfo
 }): WrapDecision {
+  if (node.origin && isReactiveOrigin(node.origin)) {
+    return { wrap: true, reason: 'proven-reactive' }
+  }
   if (node.reactive) return { wrap: true, reason: 'proven-reactive' }
   if (node.callsReactiveGetters) return { wrap: true, reason: 'fallback-getter-calls' }
   if (node.hasFunctionCalls) return { wrap: true, reason: 'fallback-function-calls' }

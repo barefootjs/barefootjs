@@ -25,13 +25,16 @@ import {
   type LoopParamBinding,
   type SourceLocation,
   type TypeInfo,
+  type OriginInfo,
   pickAttrMeta,
+  isReactiveOrigin,
 } from './types'
 import { type AnalyzerContext, getSourceLocation } from './analyzer-context'
 import { parseExpression, isSupported, parseBlockBody, type ParsedExpr, type ParsedStatement } from './expression-parser'
 import { createError, ErrorCodes } from './errors'
 import { containsReactiveExpression } from './reactivity-checker'
 import { rewriteBarePropRefs as rewriteBarePropRefsCore } from './prop-rewrite'
+import { resolveFreeRefs, type BindingEnvironment } from './free-refs'
 
 // =============================================================================
 // Transform Context
@@ -242,6 +245,30 @@ function generateSlotId(ctx: TransformContext, forComponent: boolean = false): s
   // passed as children into a child component's scope.
   if (forComponent) return id
   return ctx.insideComponentChildren ? `^${id}` : id
+}
+
+/**
+ * Build the binding environment for `resolveFreeRefs` from the current
+ * transform context. The analyzer's collected bindings (signals, memos,
+ * props, locals, imports) plus the active loop params form the resolution
+ * frame; the TypeChecker, when available, is forwarded so library getters
+ * carrying the Reactive<T> brand are recognised.
+ */
+function makeBindingEnv(ctx: TransformContext): BindingEnvironment {
+  const a = ctx.analyzer
+  return {
+    signals: a.signals,
+    memos: a.memos,
+    propsParams: a.propsParams,
+    propsObjectName: a.propsObjectName,
+    restPropsName: a.restPropsName,
+    localConstants: a.localConstants,
+    localFunctions: a.localFunctions,
+    imports: a.imports,
+    ambientGlobals: a.ambientGlobals,
+    loopParams: ctx.loopParams,
+    checker: a.checker,
+  }
 }
 
 // =============================================================================
@@ -988,7 +1015,18 @@ function transformExpression(
 
   // Scalar fallback — unchanged from pre-refactor.
   const exprText = ctx.getJS(expr)
-  const reactive = isReactiveExpression(exprText, ctx, expr)
+  const freeRefs = resolveFreeRefs(expr, makeBindingEnv(ctx))
+  const origin: OriginInfo = {
+    phase: 'tick',
+    scope: 'template',
+    effect: 'pure',
+    freeRefs,
+  }
+  // Combine the legacy regex/checker classifier with the new origin-based
+  // result so memo-as-value (Case 2) and renamed-prop (Case 3) cases —
+  // which the regex path misses — light up the reactive flag during the
+  // migration period.
+  const reactive = isReactiveExpression(exprText, ctx, expr) || isReactiveOrigin(origin)
   // @client expressions always need slotId and are treated as reactive for client-side evaluation
   // Expressions inside loops that reference the loop parameter need slotId
   // so fine-grained effects can target them for per-item signal updates
@@ -1019,6 +1057,7 @@ function transformExpression(
     callsReactiveGetters: callsReactive || undefined,
     hasFunctionCalls: hasCalls || undefined,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+    origin,
   }
 }
 
@@ -1075,6 +1114,12 @@ function transformJsxFunctionCall(
       reactive: false,
       slotId: null,
       loc: getSourceLocation(callExpr, ctx.sourceFile, ctx.filePath),
+      origin: {
+        phase: 'tick',
+        scope: 'template',
+        effect: 'pure',
+        freeRefs: [],
+      },
     }
   } finally {
     ctx.getJS = originalCtxGetJS
@@ -1087,7 +1132,13 @@ function transformConditional(
   ctx: TransformContext
 ): IRConditional {
   const condition = ctx.getJS(node.condition)
-  const reactive = isReactiveExpression(condition, ctx, node.condition)
+  const conditionOrigin: OriginInfo = {
+    phase: 'tick',
+    scope: 'template',
+    effect: 'pure',
+    freeRefs: resolveFreeRefs(node.condition, makeBindingEnv(ctx)),
+  }
+  const reactive = isReactiveExpression(condition, ctx, node.condition) || isReactiveOrigin(conditionOrigin)
   const loopParamReactive = !reactive && referencesLoopParam(condition, ctx)
   // Solid-style wrap-by-default fallback (#941, follow-up to #937/#939).
   // A condition the analyzer can't prove reactive but that contains a
@@ -1115,6 +1166,7 @@ function transformConditional(
     callsReactiveGetters: callsReactive || undefined,
     hasFunctionCalls: hasCalls || undefined,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+    origin: conditionOrigin,
   }
 }
 
@@ -1123,7 +1175,13 @@ function transformLogicalAnd(
   ctx: TransformContext
 ): IRConditional {
   const condition = ctx.getJS(node.left)
-  const reactive = isReactiveExpression(condition, ctx, node.left)
+  const leftOrigin: OriginInfo = {
+    phase: 'tick',
+    scope: 'template',
+    effect: 'pure',
+    freeRefs: resolveFreeRefs(node.left, makeBindingEnv(ctx)),
+  }
+  const reactive = isReactiveExpression(condition, ctx, node.left) || isReactiveOrigin(leftOrigin)
   const loopParamReactive = !reactive && referencesLoopParam(condition, ctx)
   // Wrap-by-default fallback (#941) — see transformConditional.
   const callsReactive = exprCallsReactiveGetters(node.left, ctx)
@@ -1139,6 +1197,12 @@ function transformLogicalAnd(
     reactive: false,
     slotId: null,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+    origin: {
+      phase: 'tick',
+      scope: 'template',
+      effect: 'pure',
+      freeRefs: [],
+    },
   }
 
   return {
@@ -1153,6 +1217,7 @@ function transformLogicalAnd(
     callsReactiveGetters: callsReactive || undefined,
     hasFunctionCalls: hasCalls || undefined,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+    origin: leftOrigin,
   }
 }
 
@@ -1183,7 +1248,13 @@ function transformNullishCoalescing(
   const leftText = ctx.getJS(node.left)
   const isNullish = node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
   const condition = isNullish ? `${leftText} != null` : leftText
-  const reactive = isReactiveExpression(leftText, ctx, node.left)
+  const leftOrigin: OriginInfo = {
+    phase: 'tick',
+    scope: 'template',
+    effect: 'pure',
+    freeRefs: resolveFreeRefs(node.left, makeBindingEnv(ctx)),
+  }
+  const reactive = isReactiveExpression(leftText, ctx, node.left) || isReactiveOrigin(leftOrigin)
   const loopParamReactive = !reactive && referencesLoopParam(leftText, ctx)
   // Wrap-by-default fallback (#941) — see transformConditional. The call
   // flags are computed from node.left (the operand that stands in for the
@@ -1206,6 +1277,7 @@ function transformNullishCoalescing(
     callsReactiveGetters: callsReactive || undefined,
     hasFunctionCalls: hasCalls || undefined,
     loc: getSourceLocation(node.left, ctx.sourceFile, ctx.filePath),
+    origin: leftOrigin,
   }
 
   // whenFalse: recursively transform the right-hand side (may contain JSX)
@@ -1227,6 +1299,7 @@ function transformNullishCoalescing(
     callsReactiveGetters: callsReactive || undefined,
     hasFunctionCalls: hasCalls || undefined,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+    origin: leftOrigin,
   }
 }
 
@@ -1446,16 +1519,23 @@ function transformConditionalBranch(
   // value. `null` specifically renders as empty via the adapter's scalar
   // pathway.
   const exprText = ctx.getJS(node)
+  const branchOrigin: OriginInfo = {
+    phase: 'tick',
+    scope: 'template',
+    effect: 'pure',
+    freeRefs: resolveFreeRefs(node, makeBindingEnv(ctx)),
+  }
   return {
     type: 'expression',
     expr: exprText,
     templateExpr: rewriteBarePropRefs(exprText, node, ctx),
     typeInfo: inferExpressionType(node, ctx),
-    reactive: isReactiveExpression(exprText, ctx, node),
+    reactive: isReactiveExpression(exprText, ctx, node) || isReactiveOrigin(branchOrigin),
     slotId: null,
     callsReactiveGetters: exprCallsReactiveGetters(node, ctx) || undefined,
     hasFunctionCalls: exprHasFunctionCalls(node) || undefined,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+    origin: branchOrigin,
   }
 }
 
