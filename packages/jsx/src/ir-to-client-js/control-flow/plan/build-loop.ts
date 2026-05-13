@@ -14,7 +14,7 @@ import type {
 } from '../../types'
 import {
   buildChainedArrayExpr,
-  exprReferencesIdent,
+  exprReferencesAny,
   varSlotId,
   wrapLoopParamAsAccessor,
 } from '../../utils'
@@ -102,17 +102,10 @@ function buildStaticLoopMaterialize(
   if (!elem.staticItemTemplate) return null
   if (elem.childComponent) return null
   if (elem.useElementReconciliation) return null
-  if (!arrayReferencesAny(elem.array, unsafeLocalNames)) return null
+  if (!exprReferencesAny(elem.array, unsafeLocalNames)) return null
   return {
     itemTemplate: elem.staticItemTemplate,
     mapPreamble: elem.mapPreamble ?? '',
     bodyIsMultiRoot: elem.bodyIsMultiRoot ?? false,
   }
-}
-
-function arrayReferencesAny(expr: string, names: Set<string>): boolean {
-  for (const name of names) {
-    if (exprReferencesIdent(expr, name)) return true
-  }
-  return false
 }

@@ -112,13 +112,21 @@ export function stringifyStaticLoop(lines: string[], plan: StaticLoopPlan): void
   lines.push(`  // ${parts.join(' / ')} in static array children`)
   lines.push(`  if (${containerVar}) {`)
   lines.push(`    ${arrayExpr}.forEach((${param}, ${indexParam}) => {`)
+  // `mapPreamble` (the user's pre-return statements inside the .map callback's
+  // block body, e.g. `const reacted = ...`) is emitted at the forEach body's
+  // top so its bindings are visible BOTH to the materialize-clone branch (which
+  // may interpolate them into the per-item template) AND to the reactive
+  // bind branch below. Pinning it inside `if (!__iterEl)` only would leave
+  // any preamble-declared local invisible to reactive-text / reactive-attr
+  // expressions — a silent hidden dependency on `expandConstantForReactivity`
+  // rescuing every such reference (#1247 follow-up).
+  if (csrMaterialize?.mapPreamble) {
+    lines.push(`      ${csrMaterialize.mapPreamble}`)
+  }
   // `let` (not `const`) so the materialize branch can reassign after cloning.
   lines.push(`      let __iterEl = ${containerVar}.children[${childIndexExpr}]`)
   if (csrMaterialize) {
     lines.push(`      if (!__iterEl) {`)
-    if (csrMaterialize.mapPreamble) {
-      lines.push(`        ${csrMaterialize.mapPreamble}`)
-    }
     if (csrMaterialize.bodyIsMultiRoot) {
       // Multi-root: clone every top-level sibling of the per-item template and
       // insert them in order. `__iterEl` is the first root (the one reactive

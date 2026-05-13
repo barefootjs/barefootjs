@@ -128,4 +128,126 @@ describe('#1247 — static-loop CSR self-heal', () => {
     // inside `mapArray` renderItems, not inside a plain forEach.
     expect(block).not.toMatch(/__bfItem\(\)/)
   })
+
+  test('multi-root (Fragment) body emits multi-sibling clone-and-insert', () => {
+    // When the per-item body is a JSX Fragment with multiple top-level
+    // siblings, `csrMaterialize.bodyIsMultiRoot` is true and the emitter
+    // must clone every sibling of the template content, tracking the first
+    // one as `__iterEl` so reactive bindings still anchor correctly.
+    // This pins the `bodyIsMultiRoot === true` branch in `loop.ts:122-138`.
+    const source = `
+      'use client'
+      type Props = { reactions: Record<string, string[]> }
+      export function MultiRootBar(props: Props) {
+        const entries = Object.entries(props.reactions ?? {}).filter(([, users]) => users.length > 0)
+        return (
+          <div>
+            {entries.map(([emoji, users]) => (
+              <>
+                <span data-emoji>{emoji}</span>
+                <span data-count>{String(users.length)}</span>
+              </>
+            ))}
+          </div>
+        )
+      }
+    `
+    const clientJs = getClientJs(source, 'MultiRootBar.tsx')
+    // `__mtpl` is the multi-root template var — distinct from the
+    // single-root `__tpl` to make the branch easy to grep.
+    expect(clientJs).toMatch(/const __mtpl = document\.createElement\('template'\)/)
+    // The sibling-walk loop:
+    expect(clientJs).toMatch(/let __sib = __mtpl\.content\.firstElementChild/)
+    expect(clientJs).toMatch(/while \(__sib\) \{/)
+    // First-sibling tracking — initialised to null and assigned to
+    // `__iterEl` after the walk so reactive bindings attach to the first
+    // root.
+    expect(clientJs).toMatch(/let __first = null/)
+    expect(clientJs).toMatch(/__iterEl = __first/)
+    // No `__bfItem()` accessor (this is a plain forEach with destructured
+    // params, not a mapArray renderItems).
+    expect(clientJs).not.toMatch(/__bfItem\(\)/)
+  })
+
+  test('static loop containing inner .map still compiles cleanly', () => {
+    // `collect-elements.ts` builds `staticItemTemplate` with
+    // `loopParams=undefined` so item-body templates render in caller scope.
+    // This test pins that change does NOT break a nested-map case: the
+    // outer static loop's materialize branch must include the inner
+    // `items.map(...)` expression inside the cloned template, and the
+    // compile must produce zero errors.
+    const source = `
+      'use client'
+      type Props = { groups: Record<string, string[]> }
+      export function NestedList(props: Props) {
+        const entries = Object.entries(props.groups ?? {})
+        return (
+          <div>
+            {entries.map(([name, items]) => (
+              <ul key={name}>
+                {items.map((it, i) => <li key={i}>{it}</li>)}
+              </ul>
+            ))}
+          </div>
+        )
+      }
+    `
+    // `getClientJs` already asserts zero errors.
+    const clientJs = getClientJs(source, 'NestedList.tsx')
+    // Outer materialize branch present.
+    expect(clientJs).toMatch(/if \(!__iterEl\)/)
+    // Inner `items.map(...)` is inlined into the cloned template literal
+    // — its expression survives intact (no mangled accessor, no loss of
+    // the inner `it` param).
+    expect(clientJs).toMatch(/items\.map\(\(it, i\) =>/)
+    // The inner per-item HTML references the inner destructured param
+    // directly (`${it}` in the template), not via a `__bfItem` accessor.
+    expect(clientJs).toMatch(/\$\{it\}/)
+    expect(clientJs).not.toMatch(/__bfItem\(\)/)
+  })
+
+  test('block-body .map emits mapPreamble at forEach top, visible to both branches', () => {
+    // When the arrow body is a block (`{ const count = ...; return ... }`),
+    // the const declaration lands in `csrMaterialize.mapPreamble`. The
+    // emitter places it at the forEach body's top — BEFORE the
+    // `let __iterEl` lookup — so the declared local is in scope for BOTH
+    // the materialize-clone template literal AND any reactive bind that
+    // happens to reference it. Pinning the preamble inside
+    // `if (!__iterEl) { ... }` only would leave reactive bindings
+    // depending on `expandConstantForReactivity` rescuing every reference,
+    // a brittle hidden dependency.
+    const source = `
+      'use client'
+      type Props = { reactions: Record<string, string[]>; currentUser?: string }
+      export function ReactionWithPreamble(props: Props) {
+        const entries = Object.entries(props.reactions ?? {}).filter(([, users]) => users.length > 0)
+        return (
+          <div>
+            {entries.map(([emoji, users]) => {
+              const count = users.length
+              return <button key={emoji}>{emoji}: {String(count)}</button>
+            })}
+          </div>
+        )
+      }
+    `
+    const clientJs = getClientJs(source, 'ReactionWithPreamble.tsx')
+
+    // Preamble appears at the forEach body's top — directly after the
+    // arrow opener, before the `let __iterEl` lookup. The preamble
+    // emit preserves the source-level statement (which may include a
+    // trailing semicolon).
+    expect(clientJs).toMatch(
+      /forEach\(\(\[emoji, users\], __idx\) => \{\s*\n\s+const count = users\.length;?\s*\n\s+let __iterEl/,
+    )
+    // Split into the two halves of the forEach body.
+    const matMatch = clientJs.match(/if \(!__iterEl\) \{([\s\S]*?)\n {6}\}\n {6}if \(__iterEl\)/)
+    expect(matMatch).toBeTruthy()
+    const materializeBlock = matMatch![1]
+    // Preamble is NOT duplicated inside the materialize branch.
+    expect(materializeBlock).not.toMatch(/const count = users\.length/)
+    // The cloned template still references `count` — now resolved by the
+    // forEach-scope `const` introduced just above.
+    expect(materializeBlock).toMatch(/\$\{String\(count\)\}/)
+  })
 })

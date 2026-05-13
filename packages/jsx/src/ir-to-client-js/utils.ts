@@ -264,6 +264,24 @@ export function exprReferencesIdent(expr: string, ident: string): boolean {
   return new RegExp(`\\b${escapeRegExp(ident)}\\b`).test(expr)
 }
 
+/**
+ * Check if `expr` references any identifier in `names`. Short-circuits on
+ * the first hit.
+ *
+ * Canonical helper for the "does this expression depend on any of the
+ * <unsafe / signal / prop / loop-param> names we're tracking" question.
+ * Multiple callers used to inline this loop or define a private clone
+ * (`expressionReferencesAny` in html-template.ts, `arrayReferencesAny`
+ * in control-flow/plan/build-loop.ts) — having a single shared helper
+ * keeps the semantic identical across the codebase.
+ */
+export function exprReferencesAny(expr: string, names: Iterable<string>): boolean {
+  for (const name of names) {
+    if (exprReferencesIdent(expr, name)) return true
+  }
+  return false
+}
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
