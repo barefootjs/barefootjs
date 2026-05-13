@@ -232,10 +232,11 @@ func loadTemplates() (*template.Template, error) {
 
 // echoRenderer adapts bf.Renderer to echo.Renderer.
 //
-// In dev mode (BAREFOOT_DEV=1) it re-parses dist/templates/ on every
-// Render call so a \`barefoot build --watch\` update surfaces as soon
-// as the browser refreshes — no Go server restart needed. In
-// production the parse happens once at startup.
+// In dev mode (env.go's IsDev() — i.e. APP_ENV != "production") it
+// re-parses dist/templates/ on every Render call so a
+// \`barefoot build --watch\` update surfaces as soon as the browser
+// refreshes — no Go server restart needed. In production the parse
+// happens once at startup.
 type echoRenderer struct {
 \tbf      *bf.Renderer
 \tdevMode bool
@@ -268,7 +269,7 @@ func mustNewRenderer() echo.Renderer {
 \t}
 \treturn &echoRenderer{
 \t\tbf:      bf.NewRenderer(tmpl, defaultLayout),
-\t\tdevMode: os.Getenv("BAREFOOT_DEV") == "1",
+\t\tdevMode: IsDev(),
 \t}
 }
 
@@ -291,8 +292,8 @@ func mustNewRenderer() echo.Renderer {
 //      the browser's stored \`Last-Event-ID\` to the new bootID and
 //      sends a one-shot \`event: reload\` on mismatch.
 //
-// Disabled entirely (404 + empty snippet) when BAREFOOT_DEV != "1",
-// so production HTML stays clean.
+// Disabled entirely (404 + empty snippet) in production
+// (APP_ENV=production), so deployed HTML stays clean.
 
 var (
 \tbootID          = newBootID()
@@ -353,11 +354,11 @@ func startTemplateWatcher() {
 \t}()
 }
 
-// DevReloadMiddleware mounts the SSE endpoint at "/_bf/reload" when
-// BAREFOOT_DEV=1, otherwise it's a no-op pass-through. Add via
+// DevReloadMiddleware mounts the SSE endpoint at "/_bf/reload" in
+// dev mode; in production it's a no-op pass-through. Add via
 // \`e.Use(DevReloadMiddleware())\` in main.go.
 func DevReloadMiddleware() echo.MiddlewareFunc {
-\tif os.Getenv("BAREFOOT_DEV") != "1" {
+\tif !IsDev() {
 \t\treturn func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 \t}
 \tstartReloadOnce.Do(startTemplateWatcher)
@@ -424,10 +425,29 @@ func handleDevReload(c echo.Context) error {
 // preserving scroll position across the round-trip. Returns "" in
 // production so nothing extra ends up in deployed HTML.
 func DevReloadScript() string {
-\tif os.Getenv("BAREFOOT_DEV") != "1" {
+\tif !IsDev() {
 \t\treturn ""
 \t}
 \treturn \`<script>(()=>{if(window.__bfDevReload)return;window.__bfDevReload=1;try{var s=sessionStorage.getItem('__bf_devreload_scroll');if(s){sessionStorage.removeItem('__bf_devreload_scroll');var y=parseInt(s,10);if(!isNaN(y)){var restore=function(){window.scrollTo(0,y)};if(document.readyState==='loading'){addEventListener('DOMContentLoaded',restore,{once:true})}else{restore()}}}}catch(e){}var es=new EventSource('/_bf/reload');es.addEventListener('reload',function(){try{sessionStorage.setItem('__bf_devreload_scroll',String(window.scrollY))}catch(e){}es.close();location.reload()});es.addEventListener('error',function(){})})();</script>\`
+}
+`
+
+// Centralised dev/prod flag mirrored across BarefootJS scaffolds.
+// We follow the Go web-app convention of APP_ENV — anything other
+// than "production" enables dev affordances (template re-parse,
+// /_bf/reload SSE). Keeping the check in one file means future
+// "dev gate" toggles (debug headers, verbose errors, ...) share a
+// single source of truth instead of growing parallel env-var reads.
+const ECHO_ENV_GO = `package main
+
+import "os"
+
+// IsDev reports whether the server is running in development mode.
+// Driven by APP_ENV — \`production\` flips into prod mode; anything
+// else (including unset) is dev. Mirrors the JS-side env.ts in the
+// Hono Node scaffold.
+func IsDev() bool {
+\treturn os.Getenv("APP_ENV") != "production"
 }
 `
 
@@ -475,6 +495,7 @@ export const ECHO_ADAPTER: AdapterTemplate = {
     'main.go': ECHO_MAIN_GO,
     'renderer.go': ECHO_RENDERER_GO,
     'bf_render.go': ECHO_BF_RENDER_GO,
+    'env.go': ECHO_ENV_GO,
     'go.mod': ECHO_GO_MOD,
     'bf-runtime/bf.go': bfGoSource,
     'bf-runtime/streaming.go': streamingGoSource,
@@ -498,10 +519,11 @@ export const ECHO_ADAPTER: AdapterTemplate = {
     // watchers and the Go server side-by-side. `concurrently -k` makes
     // Ctrl-C kill all three. Go has no built-in hot reload — restart
     // manually after main.go edits, or swap in `air` later.
-    // BAREFOOT_DEV=1 flips the Go renderer into re-parse-per-request
-    // mode so component edits surface on the next browser refresh
-    // without a Go server restart.
-    dev: 'go mod tidy && barefoot build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "BAREFOOT_DEV=1 go run ."',
+    // No APP_ENV here: env.go treats unset as dev, so `go run .`
+    // gets the template re-parse + /_bf/reload SSE automatically.
+    // Production launches (e.g. `bun run start` behind a process
+    // manager) should export `APP_ENV=production` to flip the gate.
+    dev: 'go mod tidy && barefoot build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "go run ."',
     build: 'go mod tidy && barefoot build && unocss',
     start: 'go run .',
   },

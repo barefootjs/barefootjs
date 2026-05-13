@@ -77,15 +77,30 @@ describe('adapter registry', () => {
       expect(renderer).toMatch(/isDev \? .*: staticManifest/)
     })
 
-    test('echo bf_render.go re-parses templates per request when BAREFOOT_DEV=1', () => {
+    test('echo centralises dev/prod detection in env.go via APP_ENV', () => {
+      // The Go web-app convention is APP_ENV (not BAREFOOT_DEV).
+      // Centralising in env.go means a future second dev gate
+      // (debug headers, verbose errors, ...) doesn't grow a parallel
+      // os.Getenv read somewhere else.
+      const env = ADAPTERS.echo.files['env.go']
+      expect(env).toContain('func IsDev() bool')
+      expect(env).toMatch(/os\.Getenv\("APP_ENV"\) != "production"/)
+      // bf_render.go consults IsDev() rather than reading the env
+      // var itself.
+      const bfRender = ADAPTERS.echo.files['bf_render.go']
+      expect(bfRender).toContain('IsDev()')
+      expect(bfRender).not.toContain('BAREFOOT_DEV')
+      // Dev script doesn't need to export anything — unset APP_ENV
+      // = dev by default.
+      expect(ADAPTERS.echo.scripts.dev).not.toContain('BAREFOOT_DEV')
+      expect(ADAPTERS.echo.scripts.dev).not.toContain('APP_ENV=')
+    })
+
+    test('echo re-parses templates per request in dev', () => {
       const bfRender = ADAPTERS.echo.files['bf_render.go']
       // Render method consults a devMode flag and re-loads templates.
       expect(bfRender).toMatch(/devMode\s+bool/)
       expect(bfRender).toMatch(/if r\.devMode/)
-      expect(bfRender).toMatch(/BAREFOOT_DEV/)
-      // dev script must pass BAREFOOT_DEV=1 to `go run`, otherwise
-      // the runtime check above would never flip on.
-      expect(ADAPTERS.echo.scripts.dev).toContain('BAREFOOT_DEV=1 go run')
     })
 
     test('echo ships SSE-based browser auto-reload (fsnotify + boot-id)', () => {
