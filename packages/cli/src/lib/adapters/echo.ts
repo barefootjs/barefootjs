@@ -132,7 +132,13 @@ func defaultLayout(ctx *bf.RenderContext) string {
 \t<meta charset="utf-8" />
 \t<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 \t<title>%s</title>
+\t<!-- Link all three sheets so the browser fetches them in parallel —
+\t     chaining via styles.css @import would defer tokens/uno to a
+\t     second round-trip and flash unstyled DOM. tokens first so its
+\t     CSS variables are defined before any rule references them. -->
+\t<link rel="stylesheet" href="/static/tokens.css" />
 \t<link rel="stylesheet" href="/static/styles.css" />
+\t<link rel="stylesheet" href="/static/uno.css" />
 </head>
 <body>
 \t<main>%s</main>
@@ -211,11 +217,24 @@ func loadTemplates() (*template.Template, error) {
 }
 
 // echoRenderer adapts bf.Renderer to echo.Renderer.
+//
+// In dev mode (BAREFOOT_DEV=1) it re-parses dist/templates/ on every
+// Render call so a \`barefoot build --watch\` update surfaces as soon
+// as the browser refreshes — no Go server restart needed. In
+// production the parse happens once at startup.
 type echoRenderer struct {
-\tbf *bf.Renderer
+\tbf      *bf.Renderer
+\tdevMode bool
 }
 
 func (r *echoRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+\tif r.devMode {
+\t\ttmpl, err := loadTemplates()
+\t\tif err != nil {
+\t\t\treturn err
+\t\t}
+\t\tr.bf = bf.NewRenderer(tmpl, defaultLayout)
+\t}
 \topts := data.(bf.RenderOptions)
 \topts.ComponentName = name
 \t_, err := w.Write([]byte(r.bf.Render(opts)))
@@ -233,7 +252,10 @@ func mustNewRenderer() echo.Renderer {
 \t\tfmt.Fprintln(os.Stderr, "barefoot: did you run \`bun run build\` first?")
 \t\tos.Exit(1)
 \t}
-\treturn &echoRenderer{bf: bf.NewRenderer(tmpl, defaultLayout)}
+\treturn &echoRenderer{
+\t\tbf:      bf.NewRenderer(tmpl, defaultLayout),
+\t\tdevMode: os.Getenv("BAREFOOT_DEV") == "1",
+\t}
 }
 `
 
@@ -303,7 +325,10 @@ export const ECHO_ADAPTER: AdapterTemplate = {
     // watchers and the Go server side-by-side. `concurrently -k` makes
     // Ctrl-C kill all three. Go has no built-in hot reload — restart
     // manually after main.go edits, or swap in `air` later.
-    dev: 'go mod tidy && barefoot build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "go run ."',
+    // BAREFOOT_DEV=1 flips the Go renderer into re-parse-per-request
+    // mode so component edits surface on the next browser refresh
+    // without a Go server restart.
+    dev: 'go mod tidy && barefoot build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "BAREFOOT_DEV=1 go run ."',
     build: 'go mod tidy && barefoot build && unocss',
     start: 'go run .',
   },

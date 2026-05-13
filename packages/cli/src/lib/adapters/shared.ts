@@ -162,10 +162,13 @@ export const TOKENS_CSS = `:root {
 // variables, then uno.css for the UnoCSS-generated utility classes,
 // then defines registry-component styles inside `@layer components`
 // so consumer utility classes (default UnoCSS layer) win on overlap.
-export const STYLES_CSS = `@import url('./tokens.css');
-@import url('./uno.css');
-
-html, body {
+// No `@import url(...)` here. CSS @import is chained: the browser
+// only discovers tokens.css / uno.css *after* parsing styles.css,
+// which produces a visible flash of unstyled content while the
+// extra round-trip is in flight. Each adapter's HTML layout
+// instead links tokens.css / styles.css / uno.css directly so all
+// three are fetched in parallel.
+export const STYLES_CSS = `html, body {
   margin: 0;
   padding: 0;
   font-family: var(--font-sans);
