@@ -14,6 +14,12 @@ on:
       # site/ui is the Hono adapter's end-to-end target, so Hono changes must
       # re-run this workflow's e2e-site-ui job (ci-hono.yml no longer duplicates it).
       - 'packages/adapter-hono/**'
+      # The CLI bundles site/ui (resolve-imports, JSX → IR → client JS), so a
+      # cli change can break the playground bundles e2e-site-ui exercises even
+      # when no gated source file moves. #1258 was a regression in cli/resolve-
+      # imports that all 4 e2e-site-ui shards caught locally but CI Core missed
+      # because cli wasn't gated here.
+      - 'packages/cli/**'
       - 'ui/**'
       - 'site/ui/**'
       - '.github/workflows/ci.yml'
@@ -29,6 +35,12 @@ on:
       # site/ui is the Hono adapter's end-to-end target, so Hono changes must
       # re-run this workflow's e2e-site-ui job (ci-hono.yml no longer duplicates it).
       - 'packages/adapter-hono/**'
+      # The CLI bundles site/ui (resolve-imports, JSX → IR → client JS), so a
+      # cli change can break the playground bundles e2e-site-ui exercises even
+      # when no gated source file moves. #1258 was a regression in cli/resolve-
+      # imports that all 4 e2e-site-ui shards caught locally but CI Core missed
+      # because cli wasn't gated here.
+      - 'packages/cli/**'
       - 'ui/**'
       - 'site/ui/**'
       - '.github/workflows/ci.yml'
