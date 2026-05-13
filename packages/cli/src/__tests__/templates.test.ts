@@ -88,6 +88,25 @@ describe('adapter registry', () => {
       expect(ADAPTERS.echo.scripts.dev).toContain('BAREFOOT_DEV=1 go run')
     })
 
+    test('echo ships SSE-based browser auto-reload (boot-id pattern)', () => {
+      const bfRender = ADAPTERS.echo.files['bf_render.go']
+      // Server side: middleware mounts /_bf/reload SSE endpoint with
+      // a per-process boot id. Browser reconnect with mismatched
+      // Last-Event-ID triggers `event: reload`.
+      expect(bfRender).toContain('DevReloadMiddleware')
+      expect(bfRender).toContain('/_bf/reload')
+      expect(bfRender).toContain('bootID')
+      expect(bfRender).toContain('Last-Event-ID')
+      // Browser side: snippet returned by DevReloadScript subscribes
+      // and calls location.reload().
+      expect(bfRender).toContain('DevReloadScript')
+      expect(bfRender).toContain('EventSource')
+      // main.go wires the middleware; renderer.go drops the snippet
+      // into <body>.
+      expect(ADAPTERS.echo.files['main.go']).toContain('DevReloadMiddleware()')
+      expect(ADAPTERS.echo.files['renderer.go']).toContain('DevReloadScript()')
+    })
+
     test('mojo disables template cache in development mode', () => {
       // Mojolicious caches parsed templates by default. `morbo`
       // (the dev server in the `dev` npm script) sets mode to

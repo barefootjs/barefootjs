@@ -79,6 +79,11 @@ func main() {
 \te.Use(middleware.Logger())
 \te.Use(middleware.Recover())
 
+\t// Auto-reload SSE — mounts /_bf/reload when BAREFOOT_DEV=1 and is
+\t// a no-op pass-through otherwise. Pairs with the snippet
+\t// renderer.go's defaultLayout drops into <body>.
+\te.Use(DevReloadMiddleware())
+
 \t// Render plumbing lives in bf_render.go. Edit defaultLayout in
 \t// renderer.go to change the surrounding HTML.
 \te.Renderer = mustNewRenderer()
@@ -144,12 +149,15 @@ func defaultLayout(ctx *bf.RenderContext) string {
 \t<main>%s</main>
 \t%s
 \t%s
+\t%s
 </body>
 </html>\`,
 \t\tctx.Title,
 \t\tctx.ComponentHTML,
 \t\tctx.Portals,
 \t\tctx.Scripts,
+\t\t// DevReloadScript returns "" in production so this stays empty.
+\t\tDevReloadScript(),
 \t)
 }
 `
@@ -170,12 +178,16 @@ const ECHO_BF_RENDER_GO = `package main
 // won't clobber your edits in place.
 
 import (
+\t"crypto/rand"
+\t"encoding/hex"
 \t"fmt"
 \t"html/template"
 \t"io"
 \t"io/fs"
+\t"net/http"
 \t"os"
 \t"path/filepath"
+\t"time"
 
 \tbf "github.com/barefootjs/runtime/bf"
 \t"github.com/labstack/echo/v4"
@@ -256,6 +268,93 @@ func mustNewRenderer() echo.Renderer {
 \t\tbf:      bf.NewRenderer(tmpl, defaultLayout),
 \t\tdevMode: os.Getenv("BAREFOOT_DEV") == "1",
 \t}
+}
+
+// ── dev auto-reload ──────────────────────────────────────────────────
+//
+// SSE handler + browser snippet that mirror @barefootjs/hono/app's
+// barefootDevReload middleware. Each Go process generates a fresh
+// bootID at startup, so when \`barefoot build --watch\` triggers a
+// rebuild and you re-run \`bun run dev\`, the EventSource the browser
+// has open sees a Last-Event-ID that no longer matches and fires a
+// reload. Disabled (404 + empty snippet) when BAREFOOT_DEV != "1".
+//
+// In the current dev script BAREFOOT_DEV=1 is set but Go itself
+// doesn't restart automatically — \`barefoot build --watch\` only
+// regenerates dist/templates and the renderer above re-parses them
+// per request, so the page DOES need a manual nudge. This snippet
+// supplies that nudge by riding on the SSE handler defined here
+// (long-poll style heartbeat keeps the connection open; a code
+// change that bounces the Go process rotates bootID, the browser
+// reconnects with the old id, and the handler answers
+// \`event: reload\`).
+
+var bootID = func() string {
+\tvar b [16]byte
+\tif _, err := rand.Read(b[:]); err != nil {
+\t\treturn fmt.Sprintf("%d", time.Now().UnixNano())
+\t}
+\treturn hex.EncodeToString(b[:])
+}()
+
+// DevReloadMiddleware mounts the SSE endpoint at "/_bf/reload" when
+// BAREFOOT_DEV=1, otherwise it's a no-op pass-through. Add via
+// \`e.Use(DevReloadMiddleware())\` in main.go.
+func DevReloadMiddleware() echo.MiddlewareFunc {
+\tif os.Getenv("BAREFOOT_DEV") != "1" {
+\t\treturn func(next echo.HandlerFunc) echo.HandlerFunc { return next }
+\t}
+\treturn func(next echo.HandlerFunc) echo.HandlerFunc {
+\t\treturn func(c echo.Context) error {
+\t\t\tif c.Request().Method == http.MethodGet && c.Request().URL.Path == "/_bf/reload" {
+\t\t\t\treturn handleDevReload(c)
+\t\t\t}
+\t\t\treturn next(c)
+\t\t}
+\t}
+}
+
+func handleDevReload(c echo.Context) error {
+\tlastEventID := c.Request().Header.Get("Last-Event-ID")
+\tres := c.Response()
+\tres.Header().Set("Content-Type", "text/event-stream")
+\tres.Header().Set("Cache-Control", "no-cache")
+\tres.Header().Set("Connection", "keep-alive")
+\tres.WriteHeader(http.StatusOK)
+
+\tfmt.Fprint(res.Writer, "retry: 1000\\n\\n")
+\tevent := "hello"
+\tif lastEventID != "" && lastEventID != bootID {
+\t\tevent = "reload"
+\t}
+\tfmt.Fprintf(res.Writer, "event: %s\\nid: %s\\ndata: %s\\n\\n", event, bootID, bootID)
+\tres.Flush()
+
+\tctx := c.Request().Context()
+\tticker := time.NewTicker(5 * time.Second)
+\tdefer ticker.Stop()
+\tfor {
+\t\tselect {
+\t\tcase <-ctx.Done():
+\t\t\treturn nil
+\t\tcase <-ticker.C:
+\t\t\tif _, err := fmt.Fprint(res.Writer, ": hb\\n\\n"); err != nil {
+\t\t\t\treturn nil
+\t\t\t}
+\t\t\tres.Flush()
+\t\t}
+\t}
+}
+
+// DevReloadScript returns the inline <script> tag that subscribes
+// to the SSE endpoint above and refreshes the page on \`reload\`,
+// preserving scroll position across the round-trip. Returns "" in
+// production so nothing extra ends up in deployed HTML.
+func DevReloadScript() string {
+\tif os.Getenv("BAREFOOT_DEV") != "1" {
+\t\treturn ""
+\t}
+\treturn \`<script>(()=>{if(window.__bfDevReload)return;window.__bfDevReload=1;try{var s=sessionStorage.getItem('__bf_devreload_scroll');if(s){sessionStorage.removeItem('__bf_devreload_scroll');var y=parseInt(s,10);if(!isNaN(y)){var restore=function(){window.scrollTo(0,y)};if(document.readyState==='loading'){addEventListener('DOMContentLoaded',restore,{once:true})}else{restore()}}}}catch(e){}var es=new EventSource('/_bf/reload');es.addEventListener('reload',function(){try{sessionStorage.setItem('__bf_devreload_scroll',String(window.scrollY))}catch(e){}es.close();location.reload()});es.addEventListener('error',function(){})})();</script>\`
 }
 `
 
