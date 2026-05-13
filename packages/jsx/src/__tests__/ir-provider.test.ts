@@ -41,8 +41,7 @@ describe('Context.Provider JSX', () => {
       contextName: 'MenuContext',
       valueProp: {
         name: 'value',
-        value: '{ open, setOpen }',
-        dynamic: true,
+        value: { kind: 'expression', expr: '{ open, setOpen }' },
       },
       children: [
         {
@@ -82,10 +81,10 @@ describe('Context.Provider JSX', () => {
     expect(ir).toMatchObject({
       type: 'provider',
       contextName: 'Ctx',
-      valueProp: { name: 'value', value: '{ active, setActive }' },
+      valueProp: { name: 'value', value: { kind: 'expression', expr: '{ active, setActive }' } },
       children: [
-        { type: 'element', tag: 'div', attrs: [{ name: 'className', value: 'tabs-header' }] },
-        { type: 'element', tag: 'div', attrs: [{ name: 'className', value: 'tabs-body' }] },
+        { type: 'element', tag: 'div', attrs: [{ name: 'className', value: { kind: 'literal', value: 'tabs-header' } }] },
+        { type: 'element', tag: 'div', attrs: [{ name: 'className', value: { kind: 'literal', value: 'tabs-body' } }] },
       ],
     })
   })
@@ -159,7 +158,7 @@ describe('Context.Provider JSX', () => {
       type: 'element',
       tag: 'div',
       needsScope: true,
-      attrs: [{ name: 'style', value: 'display:contents' }],
+      attrs: [{ name: 'style', value: { kind: 'literal', value: 'display:contents' } }],
       children: [
         {
           type: 'provider',
@@ -319,8 +318,7 @@ describe('Context.Provider JSX', () => {
       contextName: 'Ctx',
       valueProp: {
         name: 'value',
-        value: '{ val, setVal }',
-        dynamic: true,
+        value: { kind: 'expression', expr: '{ val, setVal }' },
       },
       children: [],
     })

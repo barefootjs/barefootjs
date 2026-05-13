@@ -105,8 +105,10 @@ describe('jsxToIR', () => {
         // The 'd' attribute should be marked as dynamic
         const dAttr = pathElement.attrs.find(a => a.name === 'd')
         expect(dAttr).toBeDefined()
-        expect(dAttr?.value).toBe("paths['icon']")
-        expect(dAttr?.dynamic).toBe(true)
+        expect(dAttr?.value.kind).toBe('expression')
+        if (dAttr?.value.kind === 'expression') {
+          expect(dAttr.value.expr).toBe("paths['icon']")
+        }
       }
     }
   })

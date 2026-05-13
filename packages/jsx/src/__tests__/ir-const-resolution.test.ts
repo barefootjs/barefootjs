@@ -11,7 +11,7 @@
 import { describe, test, expect } from 'bun:test'
 import { compileJSX } from '../compiler'
 import { TestAdapter } from '../adapters/test-adapter'
-import type { IRNode, IRElement, IRTemplateLiteral } from '../types'
+import type { IRNode, IRElement, AttrValue, TemplateAttr } from '../types'
 
 const adapter = new TestAdapter()
 
@@ -22,11 +22,11 @@ function compileToIR(source: string) {
   return JSON.parse(ir.content)
 }
 
-function findClassNameValue(node: IRNode): IRTemplateLiteral | string | null {
+function findClassNameValue(node: IRNode): AttrValue | null {
   if (node.type === 'element') {
     const el = node as IRElement
     for (const attr of el.attrs) {
-      if (attr.name === 'className') return attr.value as IRTemplateLiteral | string | null
+      if (attr.name === 'className') return attr.value
     }
     for (const child of el.children) {
       const v = findClassNameValue(child)
@@ -76,8 +76,8 @@ export function Demo() {
   return <span className={classes}>x</span>
 }
 `)
-    const v = findClassNameValue(ir.root) as IRTemplateLiteral
-    expect(v.type).toBe('template-literal')
+    const v = findClassNameValue(ir.root) as TemplateAttr
+    expect(v.kind).toBe('template')
     // The first non-empty static part should carry the resolved baseClasses.
     const concat = v.parts.map(p => (p.type === 'string' ? p.value : '')).join('')
     expect(concat).toContain('inline-flex items-center')
@@ -96,8 +96,8 @@ export function Tag(props: { variant?: 'default' | 'secondary' }) {
   return <span className={classes}>x</span>
 }
 `)
-    const v = findClassNameValue(ir.root) as IRTemplateLiteral
-    expect(v.type).toBe('template-literal')
+    const v = findClassNameValue(ir.root) as TemplateAttr
+    expect(v.kind).toBe('template')
     const lookup = v.parts.find(p => p.type === 'lookup') as Extract<typeof v.parts[number], { type: 'lookup' }>
     expect(lookup).toBeDefined()
     expect(lookup.cases).toEqual({ default: 'bg-primary', secondary: 'bg-secondary' })
@@ -114,8 +114,8 @@ export function Demo() {
   return <span className={classes}>x</span>
 }
 `)
-    const v = findClassNameValue(ir.root) as IRTemplateLiteral
-    expect(v.type).toBe('template-literal')
+    const v = findClassNameValue(ir.root) as TemplateAttr
+    expect(v.kind).toBe('template')
     expect(v.parts).toEqual([{ type: 'string', value: 'function-scope' }])
     // Negative assertion: the module-level binding must NOT win.
     const concat = v.parts.map(p => (p.type === 'string' ? p.value : '')).join('')
@@ -140,7 +140,7 @@ export function Tag(props: { variant?: 'default' | 'secondary' }) {
 `)
     const v = findClassNameValue(ir.root)
     // Falls back to the raw identifier reference when un-lowerable.
-    if (typeof v === 'object' && v !== null && v.type === 'template-literal') {
+    if (v && v.kind === 'template') {
       const hasLookup = v.parts.some(p => p.type === 'lookup')
       expect(hasLookup).toBe(false)
     }

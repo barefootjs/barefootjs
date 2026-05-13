@@ -10,7 +10,7 @@ import {
   applyCssLayerPrefix,
   extractIdentifiers,
 } from '../css-layer-prefixer'
-import type { ComponentIR, IRElement, IRMetadata, IRTemplateLiteral, ConstantInfo } from '../types'
+import type { ComponentIR, IRElement, IRMetadata, IRTemplatePart, ConstantInfo, TemplateAttr, LiteralAttr } from '../types'
 
 describe('prefixClass', () => {
   test('prefixes a simple class', () => {
@@ -203,7 +203,7 @@ describe('applyCssLayerPrefix', () => {
         type: 'element',
         tag: 'div',
         attrs: [
-          { name: 'className', value: 'bg-primary text-white', dynamic: false, isLiteral: true, loc: makeLoc() },
+          { name: 'className', value: { kind: 'literal', value: 'bg-primary text-white' }, loc: makeLoc() },
         ],
         events: [],
         ref: null,
@@ -217,7 +217,7 @@ describe('applyCssLayerPrefix', () => {
     applyCssLayerPrefix(ir, 'components')
 
     const classAttr = ir.root.type === 'element' ? ir.root.attrs[0] : null
-    expect(classAttr?.value).toBe('layer-components:bg-primary layer-components:text-white')
+    expect((classAttr?.value as LiteralAttr).value).toBe('layer-components:bg-primary layer-components:text-white')
   })
 
   test('prefixes static class attribute (HTML name)', () => {
@@ -226,7 +226,7 @@ describe('applyCssLayerPrefix', () => {
         type: 'element',
         tag: 'div',
         attrs: [
-          { name: 'class', value: 'flex gap-2', dynamic: false, isLiteral: true, loc: makeLoc() },
+          { name: 'class', value: { kind: 'literal', value: 'flex gap-2' }, loc: makeLoc() },
         ],
         events: [],
         ref: null,
@@ -240,7 +240,7 @@ describe('applyCssLayerPrefix', () => {
     applyCssLayerPrefix(ir, 'components')
 
     const classAttr = ir.root.type === 'element' ? ir.root.attrs[0] : null
-    expect(classAttr?.value).toBe('layer-components:flex layer-components:gap-2')
+    expect((classAttr?.value as LiteralAttr).value).toBe('layer-components:flex layer-components:gap-2')
   })
 
   test('prefixes constants referenced from dynamic className', () => {
@@ -251,9 +251,7 @@ describe('applyCssLayerPrefix', () => {
         attrs: [
           {
             name: 'className',
-            value: '`${buttonClasses} ${props.class ?? \'\'}`',
-            dynamic: true,
-            isLiteral: false,
+            value: { kind: 'expression', expr: '`${buttonClasses} ${props.class ?? \'\'}`' },
             loc: makeLoc(),
           },
         ],
@@ -288,9 +286,7 @@ describe('applyCssLayerPrefix', () => {
         attrs: [
           {
             name: 'className',
-            value: "`${baseClasses} ${variantClasses[props.variant ?? 'default']} ${props.class ?? ''}`",
-            dynamic: true,
-            isLiteral: false,
+            value: { kind: 'expression', expr: "`${baseClasses} ${variantClasses[props.variant ?? 'default']} ${props.class ?? ''}`" },
             loc: makeLoc(),
           },
         ],
@@ -322,21 +318,18 @@ describe('applyCssLayerPrefix', () => {
     expect(variants?.value).toContain("'layer-components:bg-destructive layer-components:hover:bg-destructive/90'")
   })
 
-  test('prefixes IRTemplateLiteral ternary parts', () => {
-    const templateLiteral: IRTemplateLiteral = {
-      type: 'template-literal',
-      parts: [
-        { type: 'string', value: 'btn ' },
-        { type: 'ternary', condition: 'disabled()', whenTrue: 'btn-disabled opacity-50', whenFalse: 'btn-enabled' },
-      ],
-    }
+  test('prefixes `template` AttrValue ternary parts', () => {
+    const templateParts: IRTemplatePart[] = [
+      { type: 'string', value: 'btn ' },
+      { type: 'ternary', condition: 'disabled()', whenTrue: 'btn-disabled opacity-50', whenFalse: 'btn-enabled' },
+    ]
 
     const ir = makeIR({
       root: {
         type: 'element',
         tag: 'button',
         attrs: [
-          { name: 'className', value: templateLiteral, dynamic: true, isLiteral: false, loc: makeLoc() },
+          { name: 'className', value: { kind: 'template', parts: templateParts }, loc: makeLoc() },
         ],
         events: [],
         ref: null,
@@ -350,7 +343,7 @@ describe('applyCssLayerPrefix', () => {
     applyCssLayerPrefix(ir, 'components')
 
     const attr = (ir.root as IRElement).attrs[0]
-    const tl = attr.value as IRTemplateLiteral
+    const tl = attr.value as TemplateAttr
     expect(tl.parts[0]).toEqual({ type: 'string', value: 'layer-components:btn ' })
     expect(tl.parts[1]).toEqual({
       type: 'ternary',
@@ -366,9 +359,9 @@ describe('applyCssLayerPrefix', () => {
         type: 'element',
         tag: 'div',
         attrs: [
-          { name: 'id', value: 'main-content', dynamic: false, isLiteral: true, loc: makeLoc() },
-          { name: 'data-state', value: 'open', dynamic: false, isLiteral: true, loc: makeLoc() },
-          { name: 'className', value: 'flex', dynamic: false, isLiteral: true, loc: makeLoc() },
+          { name: 'id', value: { kind: 'literal', value: 'main-content' }, loc: makeLoc() },
+          { name: 'data-state', value: { kind: 'literal', value: 'open' }, loc: makeLoc() },
+          { name: 'className', value: { kind: 'literal', value: 'flex' }, loc: makeLoc() },
         ],
         events: [],
         ref: null,
@@ -382,9 +375,9 @@ describe('applyCssLayerPrefix', () => {
     applyCssLayerPrefix(ir, 'components')
 
     const root = ir.root as IRElement
-    expect(root.attrs[0].value).toBe('main-content')
-    expect(root.attrs[1].value).toBe('open')
-    expect(root.attrs[2].value).toBe('layer-components:flex')
+    expect((root.attrs[0].value as LiteralAttr).value).toBe('main-content')
+    expect((root.attrs[1].value as LiteralAttr).value).toBe('open')
+    expect((root.attrs[2].value as LiteralAttr).value).toBe('layer-components:flex')
   })
 
   test('handles nested elements', () => {
@@ -393,7 +386,7 @@ describe('applyCssLayerPrefix', () => {
         type: 'element',
         tag: 'div',
         attrs: [
-          { name: 'className', value: 'container', dynamic: false, isLiteral: true, loc: makeLoc() },
+          { name: 'className', value: { kind: 'literal', value: 'container' }, loc: makeLoc() },
         ],
         events: [],
         ref: null,
@@ -402,7 +395,7 @@ describe('applyCssLayerPrefix', () => {
             type: 'element',
             tag: 'span',
             attrs: [
-              { name: 'className', value: 'text-sm', dynamic: false, isLiteral: true, loc: makeLoc() },
+              { name: 'className', value: { kind: 'literal', value: 'text-sm' }, loc: makeLoc() },
             ],
             events: [],
             ref: null,
@@ -421,9 +414,9 @@ describe('applyCssLayerPrefix', () => {
     applyCssLayerPrefix(ir, 'components')
 
     const root = ir.root as IRElement
-    expect(root.attrs[0].value).toBe('layer-components:container')
+    expect((root.attrs[0].value as LiteralAttr).value).toBe('layer-components:container')
     const child = root.children[0] as IRElement
-    expect(child.attrs[0].value).toBe('layer-components:text-sm')
+    expect((child.attrs[0].value as LiteralAttr).value).toBe('layer-components:text-sm')
   })
 
   test('resolves transitive constant references', () => {
@@ -434,9 +427,7 @@ describe('applyCssLayerPrefix', () => {
         attrs: [
           {
             name: 'className',
-            value: 'fullClasses',
-            dynamic: true,
-            isLiteral: false,
+            value: { kind: 'expression', expr: 'fullClasses' },
             loc: makeLoc(),
           },
         ],

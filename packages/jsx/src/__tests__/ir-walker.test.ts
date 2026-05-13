@@ -143,9 +143,7 @@ describe('walkIR', () => {
       props: [
         {
           name: 'header',
-          value: '',
-          dynamic: false,
-          jsxChildren: [expr('in-jsx-prop')],
+          value: { kind: 'jsx-children', children: [expr('in-jsx-prop')] },
         } as any,
       ],
       propsType: null,
