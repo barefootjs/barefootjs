@@ -131,6 +131,17 @@ describe.skipIf(!INTEGRATION)(
         expect(pkg.name).toBe('demo-app')
       })
 
+      test('wrangler.jsonc name matches the target directory', () => {
+        // Without this, every scaffolded app would deploy as the
+        // generic "my-app" Worker name and overwrite each other on
+        // shared Cloudflare accounts.
+        const wranglerRaw = readFileSync(path.join(projectDir, 'wrangler.jsonc'), 'utf-8')
+        // Strip line-comments (// ...) so we can JSON.parse the rest;
+        // wrangler.jsonc allows comments but JSON.parse doesn't.
+        const wrangler = JSON.parse(wranglerRaw.replace(/^\s*\/\/.*$/gm, ''))
+        expect(wrangler.name).toBe('demo-app')
+      })
+
       test('package.json exposes dev / build / deploy / watch scripts', () => {
         expect(pkg.scripts.dev).toBeString()
         expect(pkg.scripts.build).toBeString()

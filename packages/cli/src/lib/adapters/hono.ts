@@ -123,9 +123,12 @@ const HONO_TSCONFIG = `{
 }
 `
 
+// {{__PROJECT_NAME__}} is replaced by the chosen project folder name
+// in scaffoldApp (init.ts), so the deployed Workers script ends up
+// named after the user's app instead of a generic "my-app".
 const HONO_WRANGLER_JSONC = `{
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "my-app",
+  "name": "{{__PROJECT_NAME__}}",
   "main": "server.tsx",
   "compatibility_date": "2025-01-01",
   // Static assets (CSS, generated client JS, manifest) are served

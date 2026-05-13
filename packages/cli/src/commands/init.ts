@@ -188,12 +188,18 @@ async function scaffoldApp(
 
   let created = 0
 
+  // Project name — used both as the package.json `name` and to fill
+  // any `{{__PROJECT_NAME__}}` placeholders adapter templates carry
+  // (e.g. wrangler.jsonc's `name` field for Cloudflare Workers).
+  const pkgName = flags.name || path.basename(projectDir).replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'barefoot-app'
+
   // Adapter-contributed files (server, components/Counter, barefoot.config.ts, etc.)
   for (const [relPath, contents] of Object.entries(adapter.files)) {
     const target = path.join(projectDir, relPath)
     if (existsSync(target)) continue
     mkdirSync(path.dirname(target), { recursive: true })
-    writeFileSync(target, contents)
+    const resolved = contents.replace(/\{\{__PROJECT_NAME__\}\}/g, pkgName)
+    writeFileSync(target, resolved)
     created++
   }
 
@@ -209,7 +215,6 @@ async function scaffoldApp(
 
   // package.json — merge adapter scripts/deps with a sensible default.
   const pkgJsonPath = path.join(projectDir, 'package.json')
-  const pkgName = flags.name || path.basename(projectDir).replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'barefoot-app'
   // Resolve adapter scripts. Function values render against the
   // detected PM so `dev` / `deploy` quote the right dlx form
   // (`bunx wrangler` vs. `npx wrangler` vs. `pnpm dlx wrangler` etc.).
