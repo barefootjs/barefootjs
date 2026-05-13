@@ -3,7 +3,7 @@
  * No dependencies on ClientJsContext or other internal modules.
  */
 
-import type { IRTemplateLiteral, LoopParamBinding, FreeReference, IRNode } from '../types'
+import type { AttrValue, IRTemplatePart, LoopParamBinding, FreeReference, IRNode } from '../types'
 import type { TopLevelLoop } from './types'
 import {
   BF_KEY as DATA_KEY,
@@ -41,15 +41,13 @@ export function varSlotId(slotId: string): string {
 }
 
 /**
- * Convert an attribute value to a string expression.
- * Handles both string values and IRTemplateLiteral.
+ * Convert a `template` variant's parts into a JS template-literal string.
+ * Shared by both `attrValueToString` and any consumer that wants to flatten
+ * a structured template into JS-level concatenation.
  */
-export function attrValueToString(value: string | IRTemplateLiteral | null, opts?: { useTemplate?: boolean }): string | null {
-  if (value === null) return null
-  if (typeof value === 'string') return value
-
+export function templatePartsToJsExpr(parts: readonly IRTemplatePart[], opts?: { useTemplate?: boolean }): string {
   let result = '`'
-  for (const part of value.parts) {
+  for (const part of parts) {
     if (part.type === 'string') {
       result += (opts?.useTemplate && part.templateValue) ? part.templateValue : part.value
     } else if (part.type === 'ternary') {
@@ -70,6 +68,54 @@ export function attrValueToString(value: string | IRTemplateLiteral | null, opts
   }
   result += '`'
   return result
+}
+
+/**
+ * Flatten an `AttrValue` to its raw string form, suitable for HTML attribute
+ * body insertion (literal) or for raw JS expression substitution (expression
+ * / template / spread).
+ *
+ * Returns `null` for variants that have no string projection (`boolean-attr`,
+ * `boolean-shorthand`, `jsx-children`) — callers must branch on `value.kind`
+ * before reaching them.
+ *
+ * When `opts.useTemplate` is set, prefers `templateExpr` / `templateValue` /
+ * `templateCondition` / `templateKey` (the prop-rewritten variant) over the
+ * raw source form, for use in SSR template-literal interpolation.
+ */
+export function attrValueToString(value: AttrValue, opts?: { useTemplate?: boolean }): string | null {
+  switch (value.kind) {
+    case 'literal':
+      return value.value
+    case 'expression':
+      return opts?.useTemplate ? (value.templateExpr ?? value.expr) : value.expr
+    case 'spread':
+      return opts?.useTemplate ? (value.templateExpr ?? value.expr) : value.expr
+    case 'template':
+      return templatePartsToJsExpr(value.parts, opts)
+    case 'boolean-attr':
+    case 'boolean-shorthand':
+    case 'jsx-children':
+      return null
+  }
+}
+
+/**
+ * True when the value is fully resolvable at compile time (a string literal
+ * or a bare boolean attribute). The remaining variants depend on runtime
+ * values and must be inlined as `${...}` rather than embedded verbatim.
+ */
+export function isStaticAttrValue(value: AttrValue): boolean {
+  return value.kind === 'literal' || value.kind === 'boolean-attr' || value.kind === 'boolean-shorthand'
+}
+
+/**
+ * Exhaustiveness sentinel for `switch (value.kind)` blocks. If a future
+ * variant lands without a corresponding `case`, the parameter type
+ * collapses to `never` and the call site fails to type-check.
+ */
+export function exhaustiveAttrValue(value: never): never {
+  throw new Error(`Unhandled AttrValue kind: ${JSON.stringify(value)}`)
 }
 
 /**

@@ -18,13 +18,41 @@ import type {
   NestedLoop,
 } from '../../types'
 import type {
+  AttrValue,
   IRLoopChildComponent,
   IRNode,
   LoopParamBinding,
 } from '../../../types'
+import { AttrValueOf } from '../../../types'
 import {
   wrapLoopParamAsAccessor,
+  attrValueToString,
 } from '../../utils'
+
+/**
+ * Mirror of the helper in `build-loop-child-arm.ts` — kept local to avoid
+ * a cross-file import for what is structurally a two-line switch.
+ */
+function wrapAttrValueExpression(value: AttrValue, wrap: (s: string) => string): AttrValue {
+  switch (value.kind) {
+    case 'literal':
+    case 'boolean-attr':
+    case 'boolean-shorthand':
+    case 'jsx-children':
+      return value
+    case 'expression':
+      return AttrValueOf.expression(wrap(value.expr), {
+        ...(value.templateExpr !== undefined && { templateExpr: wrap(value.templateExpr) }),
+        ...(value.presenceOrUndefined !== undefined && { presenceOrUndefined: value.presenceOrUndefined }),
+      })
+    case 'template': {
+      const flat = attrValueToString(value)
+      return AttrValueOf.expression(wrap(flat ?? 'undefined'))
+    }
+    case 'spread':
+      return AttrValueOf.spread(wrap(value.expr), value.templateExpr ? wrap(value.templateExpr) : undefined)
+  }
+}
 import type { DepthLevel } from '../shared'
 import {
   destructureLoopParam,
@@ -138,7 +166,7 @@ function buildReactiveEmit(
     if (node.type === 'component') {
       return {
         ...node,
-        props: node.props.map(p => p.isLiteral ? p : ({ ...p, value: wrapInner(p.value) })),
+        props: node.props.map(p => ({ ...p, value: wrapAttrValueExpression(p.value, wrapInner) })),
         children: node.children?.map(wrapIRNode),
       }
     }
@@ -155,7 +183,7 @@ function buildReactiveEmit(
   }
   const components: IRLoopChildComponent[] = level.comps.map(comp => ({
     ...comp,
-    props: comp.props.map(p => p.isLiteral ? p : ({ ...p, value: wrapInner(p.value) })),
+    props: comp.props.map(p => ({ ...p, value: wrapAttrValueExpression(p.value, wrapInner) })),
     children: comp.children?.map(wrapIRNode),
   }))
   const events: LoopChildEvent[] = level.events.map(ev => ({

@@ -17,7 +17,8 @@ import {
   type IRIfStatement,
   type IRProvider,
   type IRAsync,
-  type IRTemplateLiteral,
+  type AttrValue,
+  type IRTemplatePart,
   type ParamInfo,
   type AdapterOutput,
   type TemplateSections,
@@ -488,9 +489,20 @@ export class HonoAdapter extends JsxAdapter {
       case 'provider': {
         const provider = node as IRProvider
         const children = this.renderChildren(provider.children)
-        // Quote string-literal values; dynamic expressions emit raw.
-        const rawValue = provider.valueProp.value ?? ''
-        const valueExpr = provider.valueProp.dynamic ? rawValue : JSON.stringify(rawValue)
+        // Quote literal values; expression / template / spread variants emit
+        // their JS source verbatim into the Hono JSX output.
+        const valueExpr = (() => {
+          const v = provider.valueProp.value
+          switch (v.kind) {
+            case 'literal': return JSON.stringify(v.value)
+            case 'expression':
+            case 'spread': return v.expr
+            case 'template': return this.renderTemplateLiteralParts(v.parts)
+            case 'boolean-attr':
+            case 'boolean-shorthand': return 'true'
+            case 'jsx-children': return 'undefined'
+          }
+        })()
         // Bridge BarefootJS Context to Hono's per-render context stack so
         // descendants that call useContext() at SSR see the provided value.
         // `provideContextSSR` is a helper exported from the client shim
@@ -814,29 +826,36 @@ export class HonoAdapter extends JsxAdapter {
 
     for (const attr of element.attrs) {
       const attrName = attr.name
+      const v = attr.value
 
-      if (attr.name === '...') {
-        // Spread attribute
-        parts.push(`{...${attr.value}}`)
-      } else if (attr.value === null) {
-        // Boolean attribute
-        parts.push(attrName)
-      } else if (typeof attr.value === 'object' && attr.value.type === 'template-literal') {
-        // Template literal with structured ternaries
-        const output = this.renderTemplateLiteral(attr.value)
-        parts.push(`${attrName}={${output}}`)
-      } else if (attr.dynamic) {
-        // Dynamic attribute
-        if (isBooleanAttr(attrName) || attr.presenceOrUndefined) {
-          // Boolean attrs: pass undefined when falsy so Hono omits the attribute
-          // Wrap in parentheses to avoid syntax error when value contains ?? operator
-          parts.push(`${attrName}={(${attr.value}) || undefined}`)
-        } else {
-          parts.push(`${attrName}={${attr.value}}`)
+      switch (v.kind) {
+        case 'spread':
+          parts.push(`{...${v.expr}}`)
+          break
+        case 'boolean-attr':
+          parts.push(attrName)
+          break
+        case 'literal':
+          parts.push(`${attrName}="${v.value}"`)
+          break
+        case 'template': {
+          const output = this.renderTemplateLiteralParts(v.parts)
+          parts.push(`${attrName}={${output}}`)
+          break
         }
-      } else {
-        // Static attribute
-        parts.push(`${attrName}="${attr.value}"`)
+        case 'expression':
+          if (isBooleanAttr(attrName) || v.presenceOrUndefined) {
+            // Boolean attrs: pass undefined when falsy so Hono omits the attribute
+            // Wrap in parentheses to avoid syntax error when value contains ?? operator
+            parts.push(`${attrName}={(${v.expr}) || undefined}`)
+          } else {
+            parts.push(`${attrName}={${v.expr}}`)
+          }
+          break
+        case 'boolean-shorthand':
+        case 'jsx-children':
+          // Neither variant is legal on intrinsic elements. Skip silently.
+          break
       }
     }
 
@@ -854,37 +873,44 @@ export class HonoAdapter extends JsxAdapter {
     let keyValue: string | null = null
 
     for (const prop of comp.props) {
-      if (prop.jsxChildren?.length) {
+      if (prop.value.kind === 'jsx-children') {
         // JSX prop: render children inline as JSX fragment
-        const rendered = prop.jsxChildren.map(c => this.renderNode(c)).join('')
+        const rendered = prop.value.children.map(c => this.renderNode(c)).join('')
         parts.push(`${prop.name}={<>${rendered}</>}`)
         continue
       }
-      if (prop.name === '...') {
-        parts.push(`{...${prop.value}}`)
-      } else if (prop.name === 'key') {
+      if (prop.value.kind === 'spread') {
+        parts.push(`{...${prop.value.expr}}`)
+        continue
+      }
+      if (prop.name === 'key') {
         // JSX key → data-key only. Hono JSX strips `key` from HTML output
         // (delete props["key"]), so emitting key={} is a no-op. We only need
         // data-key which the BarefootJS client runtime uses for reconciliation.
-        keyValue = prop.value
-      } else if (prop.dynamic) {
-        // JSX expression container: <X onClick={() => 1} />, <X foo={false} />
-        parts.push(`${prop.name}={${prop.value}}`)
-      } else if (prop.isLiteral) {
-        // IR-authoritative string literal: <X fill="var(--c)" />. Emitting
-        // this verbatim is what distinguishes a CSS-shaped value (`var(...)`,
-        // `url(...)`, `calc(...)`) from a JS expression — both look alike
-        // after the IR collapses to `string + flags`, but `isLiteral` carries
-        // the parser's original answer.
-        parts.push(`${prop.name}="${prop.value}"`)
-      } else if (prop.value === 'true') {
-        // Boolean shorthand: <X disabled /> (no initializer → propValue 'true')
-        parts.push(prop.name)
-      } else {
-        // Unreachable from the JSX → IR pipeline: Phase 1 always emits one of
-        // (dynamic | isLiteral | boolean-shorthand) for every prop. Defensive
-        // string fallback for hand-built IRs from external producers.
-        parts.push(`${prop.name}="${prop.value}"`)
+        keyValue = this.attrValueToJsExpr(prop.value)
+        continue
+      }
+      switch (prop.value.kind) {
+        case 'expression':
+          parts.push(`${prop.name}={${prop.value.expr}}`)
+          break
+        case 'template':
+          parts.push(`${prop.name}={${this.renderTemplateLiteralParts(prop.value.parts)}}`)
+          break
+        case 'literal':
+          // IR-authoritative string literal: <X fill="var(--c)" />. Emitting
+          // this verbatim is what distinguishes a CSS-shaped value (`var(...)`,
+          // `url(...)`, `calc(...)`) from a JS expression.
+          parts.push(`${prop.name}="${prop.value.value}"`)
+          break
+        case 'boolean-shorthand':
+          // <X disabled /> → emit bare `disabled`
+          parts.push(prop.name)
+          break
+        case 'boolean-attr':
+          // Element-only variant; component props use boolean-shorthand. Defensive.
+          parts.push(prop.name)
+          break
       }
     }
 
@@ -897,9 +923,21 @@ export class HonoAdapter extends JsxAdapter {
     return parts.length > 0 ? ' ' + parts.join(' ') : ''
   }
 
-  private renderTemplateLiteral(literal: IRTemplateLiteral): string {
+  private attrValueToJsExpr(value: AttrValue): string {
+    switch (value.kind) {
+      case 'literal': return JSON.stringify(value.value)
+      case 'expression':
+      case 'spread': return value.expr
+      case 'template': return this.renderTemplateLiteralParts(value.parts)
+      case 'boolean-shorthand':
+      case 'boolean-attr': return 'true'
+      case 'jsx-children': return 'undefined'
+    }
+  }
+
+  private renderTemplateLiteralParts(parts: IRTemplatePart[]): string {
     let output = '`'
-    for (const part of literal.parts) {
+    for (const part of parts) {
       if (part.type === 'string') {
         output += part.value
       } else if (part.type === 'ternary') {

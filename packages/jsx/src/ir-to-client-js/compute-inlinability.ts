@@ -309,10 +309,10 @@ function collectTemplateRiskyNames(irRoot: IRNode): Set<string> {
         // so their identifiers never reach a risky template
         // position. Same carve-out the build-references walker uses.
         if (attr.clientOnly) continue
-        if (!attr.dynamic || !attr.value) continue
-        const text = typeof attr.value === 'string'
-          ? (attr.templateValue ?? attr.value)
-          : (attrValueToString(attr.value, { useTemplate: true }) ?? '')
+        // Literal / boolean / jsx-children variants carry no template-time
+        // identifiers worth probing.
+        if (attr.value.kind !== 'expression' && attr.value.kind !== 'template' && attr.value.kind !== 'spread') continue
+        const text = attrValueToString(attr.value, { useTemplate: true }) ?? ''
         if (text) addExprIdents(text)
       }
       // Event handlers run in init-body context, not template. Skip.

@@ -28,7 +28,7 @@ function findComponent(node: any, name?: string): IRComponent | undefined {
 
 describe('JSX props (#559)', () => {
   describe('Phase 1: JSX → IR', () => {
-    test('JSX element prop produces jsxChildren in IR', () => {
+    test('JSX element prop produces jsx-children AttrValue', () => {
       const source = `
         'use client'
         import { createSignal } from '@barefootjs/client'
@@ -49,13 +49,14 @@ describe('JSX props (#559)', () => {
 
       const controlsProp = layout!.props.find(p => p.name === 'controls')
       expect(controlsProp).toBeDefined()
-      expect(controlsProp!.jsxChildren).toBeDefined()
-      expect(controlsProp!.jsxChildren).toHaveLength(1)
-      expect(controlsProp!.jsxChildren![0].type).toBe('element')
-      expect((controlsProp!.jsxChildren![0] as IRElement).tag).toBe('input')
+      expect(controlsProp!.value.kind).toBe('jsx-children')
+      const v = controlsProp!.value as Extract<typeof controlsProp.value, { kind: 'jsx-children' }>
+      expect(v.children).toHaveLength(1)
+      expect(v.children[0].type).toBe('element')
+      expect((v.children[0] as IRElement).tag).toBe('input')
     })
 
-    test('parenthesized JSX prop produces jsxChildren', () => {
+    test('parenthesized JSX prop produces jsx-children AttrValue', () => {
       const source = `
         'use client'
         import { createSignal } from '@barefootjs/client'
@@ -72,10 +73,11 @@ describe('JSX props (#559)', () => {
 
       const layout = findComponent(ir!, 'Layout')
       const controlsProp = layout!.props.find(p => p.name === 'controls')
-      expect(controlsProp!.jsxChildren).toBeDefined()
-      expect(controlsProp!.jsxChildren).toHaveLength(1)
-      expect(controlsProp!.jsxChildren![0].type).toBe('element')
-      expect((controlsProp!.jsxChildren![0] as IRElement).tag).toBe('div')
+      expect(controlsProp!.value.kind).toBe('jsx-children')
+      const v = controlsProp!.value as Extract<typeof controlsProp.value, { kind: 'jsx-children' }>
+      expect(v.children).toHaveLength(1)
+      expect(v.children[0].type).toBe('element')
+      expect((v.children[0] as IRElement).tag).toBe('div')
     })
 
     test('elements inside JSX props get ^-prefixed slot IDs', () => {
@@ -97,7 +99,8 @@ describe('JSX props (#559)', () => {
 
       const layout = findComponent(ir!, 'Layout')
       const controlsProp = layout!.props.find(p => p.name === 'controls')
-      const button = controlsProp!.jsxChildren![0] as IRElement
+      const v = controlsProp!.value as Extract<typeof controlsProp.value, { kind: 'jsx-children' }>
+      const button = v.children[0] as IRElement
       expect(button.tag).toBe('button')
       // Elements in JSX props are parent-owned, so get ^ prefix
       expect(button.slotId).toMatch(/^\^s\d+$/)
@@ -128,15 +131,14 @@ describe('JSX props (#559)', () => {
       expect(layout!.props).toHaveLength(3)
 
       const titleProp = layout!.props.find(p => p.name === 'title')
-      expect(titleProp!.jsxChildren).toBeUndefined()
-      expect(titleProp!.value).toBe('Hello')
+      expect(titleProp!.value).toEqual({ kind: 'literal', value: 'Hello' })
 
       const controlsProp = layout!.props.find(p => p.name === 'controls')
-      expect(controlsProp!.jsxChildren).toBeDefined()
+      expect(controlsProp!.value.kind).toBe('jsx-children')
 
       const countProp = layout!.props.find(p => p.name === 'count')
-      expect(countProp!.jsxChildren).toBeUndefined()
-      expect(countProp!.value).toBe('42')
+      expect(countProp!.value.kind).toBe('expression')
+      expect((countProp!.value as Extract<typeof countProp.value, { kind: 'expression' }>).expr).toBe('42')
     })
   })
 

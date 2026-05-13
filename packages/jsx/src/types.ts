@@ -368,9 +368,7 @@ export interface IRLoopChildComponent {
   slotId: string | null // Slot ID for querySelector targeting
   props: Array<{
     name: string
-    value: string // Expression (can use loop variables)
-    dynamic: boolean
-    isLiteral: boolean // true if value came from a string literal attribute
+    value: AttrValue
     isEventHandler: boolean
   }>
   children: IRNode[] // Child nodes for nested component rendering
@@ -619,16 +617,6 @@ export interface IRIfStatement {
 // IR Attributes & Events
 // =============================================================================
 
-/**
- * Template literal with ternary expressions for structured conditional rendering.
- * Used when attribute values contain template literals with ternaries like:
- * style={`background: ${on() ? '#4caf50' : '#ccc'}`}
- */
-export interface IRTemplateLiteral {
-  type: 'template-literal'
-  parts: IRTemplatePart[]
-}
-
 export type IRTemplatePart =
   | { type: 'string'; value: string; templateValue?: string }
   | { type: 'ternary'; condition: string; templateCondition?: string; whenTrue: string; whenFalse: string }
@@ -646,12 +634,142 @@ export type IRTemplatePart =
   | { type: 'lookup'; cases: Record<string, string>; key: string; templateKey?: string }
 
 /**
- * Attribute metadata shared across all attribute-like interfaces.
- * Adding a field here automatically propagates it through the entire pipeline
- * (IRAttribute → ReactiveAttribute / ReactiveChildProp / LoopChildReactiveAttr → emit).
+ * Discriminated union for attribute / component-prop values (#1264).
+ *
+ * Replaces the legacy `value: string | IRTemplateLiteral | null` plus
+ * sibling `dynamic` / `isLiteral` boolean flags. Every adapter switches on
+ * `value.kind` exhaustively, so adding a new shape becomes a type error
+ * at every emit site instead of a silent fallthrough.
+ *
+ * Variants:
+ * - `literal`  — value came from a string-literal attribute (`<X y="z" />`).
+ * - `expression` — value came from a JSX expression (`<X y={e} />`).
+ *   Carries the optional `templateExpr` (prop-rewritten form for SSR
+ *   template inlining) and `presenceOrUndefined` (the `expr || undefined`
+ *   peel result for boolean-presence attrs).
+ * - `boolean-attr` — bare attribute on an intrinsic element
+ *   (`<button disabled />`). Element-only.
+ * - `boolean-shorthand` — bare attribute on a component (`<X disabled />`),
+ *   which becomes `disabled={true}` at the call site. Component-only.
+ * - `template` — structured template literal with ternaries / Record-lookups
+ *   (the shape previously called `IRTemplateLiteral`). Adapters that can
+ *   run JS at SSR re-emit the JS; adapters that can't (Go-template) walk
+ *   the parts.
+ * - `spread` — JSX spread (`<X {...rest} />`). The IR attribute / prop
+ *   keeps `name === '...'` as a companion marker but `kind === 'spread'`
+ *   is the authoritative discriminator.
+ * - `jsx-children` — a component prop whose value is JSX
+ *   (`<X header={<h1/>} />`). Component-only.
+ */
+export type AttrValue =
+  | LiteralAttr
+  | ExpressionAttr
+  | BooleanAttr
+  | BooleanShorthandAttr
+  | TemplateAttr
+  | SpreadAttr
+  | JsxChildrenAttr
+
+export interface LiteralAttr {
+  kind: 'literal'
+  /** Raw string from the source. Emitted unquoted into HTML attribute body,
+   *  JSON.stringify'd when re-rendered as a component prop. */
+  value: string
+}
+
+export interface ExpressionAttr {
+  kind: 'expression'
+  /** Source-level JS expression text (e.g. `count()`, `props.checked`). */
+  expr: string
+  /** `expr` with destructured prop refs rewritten to `_p.xxx`, for SSR
+   *  template inlining. Absent when no rewrite was needed. */
+  templateExpr?: string
+  /** Set when the producer peeled an `expr || undefined` boolean-presence
+   *  pattern; adapters fold this back into `(expr) || undefined` at emit. */
+  presenceOrUndefined?: boolean
+}
+
+export interface BooleanAttr {
+  kind: 'boolean-attr'
+}
+
+export interface BooleanShorthandAttr {
+  kind: 'boolean-shorthand'
+}
+
+export interface TemplateAttr {
+  kind: 'template'
+  parts: IRTemplatePart[]
+}
+
+export interface SpreadAttr {
+  kind: 'spread'
+  expr: string
+  templateExpr?: string
+}
+
+export interface JsxChildrenAttr {
+  kind: 'jsx-children'
+  children: IRNode[]
+}
+
+/**
+ * Constructors for `AttrValue` variants. Centralised so the producer
+ * (`jsx-to-ir.ts`) and any future hand-built IR fixture share the same
+ * canonical shape — and so optional fields (`templateExpr`, `presenceOrUndefined`)
+ * are only set when present.
+ */
+export const AttrValueOf = {
+  literal(value: string): LiteralAttr {
+    return { kind: 'literal', value }
+  },
+  expression(expr: string, opts?: { templateExpr?: string; presenceOrUndefined?: boolean }): ExpressionAttr {
+    return {
+      kind: 'expression',
+      expr,
+      ...(opts?.templateExpr !== undefined && { templateExpr: opts.templateExpr }),
+      ...(opts?.presenceOrUndefined !== undefined && { presenceOrUndefined: opts.presenceOrUndefined }),
+    }
+  },
+  booleanAttr(): BooleanAttr {
+    return { kind: 'boolean-attr' }
+  },
+  booleanShorthand(): BooleanShorthandAttr {
+    return { kind: 'boolean-shorthand' }
+  },
+  template(parts: IRTemplatePart[]): TemplateAttr {
+    return { kind: 'template', parts }
+  },
+  spread(expr: string, templateExpr?: string): SpreadAttr {
+    return {
+      kind: 'spread',
+      expr,
+      ...(templateExpr !== undefined && { templateExpr }),
+    }
+  },
+  jsxChildren(children: IRNode[]): JsxChildrenAttr {
+    return { kind: 'jsx-children', children }
+  },
+} as const
+
+/**
+ * Attribute metadata shared by `IRAttribute` / `IRProp` and the emit-time
+ * collection types (`ReactiveAttribute`, `ReactiveChildProp`,
+ * `LoopChildReactiveAttr`, `ConditionalBranchReactiveAttr`,
+ * `ArmReactiveAttr`). Adding a field here propagates it through the entire
+ * pipeline.
+ *
+ * Note: on `IRAttribute` / `IRProp` the `presenceOrUndefined` flag is
+ * never populated directly — the canonical location is
+ * `ExpressionAttr.presenceOrUndefined` on the `value` field. The field
+ * is retained on `AttrMeta` so the emit-time accumulators can carry it
+ * forward through their pipeline without inventing a parallel type.
  */
 export interface AttrMeta {
-  presenceOrUndefined?: boolean // true when `expr || undefined` pattern is detected
+  /** True when the producer peeled an `expr || undefined` boolean-presence
+   *  pattern. Emit-time accumulators read this; on `IRAttribute` / `IRProp`
+   *  consult `value.kind === 'expression' && value.presenceOrUndefined`. */
+  presenceOrUndefined?: boolean
   /**
    * Pre-computed free identifiers referenced by the attribute's expression
    * (#1267). Populated during IR build by walking the originating AST node.
@@ -671,13 +789,23 @@ export function pickAttrMeta(src: AttrMeta): AttrMeta {
   }
 }
 
+/**
+ * Pull the `AttrMeta` slice from an `IRAttribute` / `IRProp`. Unlike
+ * `pickAttrMeta`, which reads from a parent extending `AttrMeta`, this
+ * helper resolves `presenceOrUndefined` from the underlying `AttrValue`
+ * variant (only `ExpressionAttr` carries it).
+ */
+export function pickAttrMetaFromIR(src: { value: AttrValue; freeIdentifiers?: ReadonlySet<string> }): AttrMeta {
+  const presenceOrUndefined = src.value.kind === 'expression' ? src.value.presenceOrUndefined : undefined
+  return {
+    ...(presenceOrUndefined !== undefined && { presenceOrUndefined }),
+    ...(src.freeIdentifiers !== undefined && { freeIdentifiers: src.freeIdentifiers }),
+  }
+}
+
 export interface IRAttribute extends AttrMeta {
   name: string
-  value: string | IRTemplateLiteral | null // null for boolean attrs like 'disabled'
-  /** Pre-transformed value string with destructured prop refs rewritten to _p.xxx. */
-  templateValue?: string
-  dynamic: boolean
-  isLiteral: boolean // true if value came from a string literal attribute
+  value: AttrValue
   loc: SourceLocation
   /** When true, attr expression calls signal getters or memos (computed from AST). (#940 DRY consolidation) */
   callsReactiveGetters?: boolean
@@ -704,14 +832,8 @@ export interface IREvent {
 
 export interface IRProp extends AttrMeta {
   name: string
-  value: string
-  /** Pre-transformed value with destructured prop refs rewritten to _p.xxx. */
-  templateValue?: string
-  dynamic: boolean
-  isLiteral: boolean // true if value came from a string literal attribute (e.g., value="account")
+  value: AttrValue
   loc: SourceLocation
-  /** When the prop value is a JSX element/fragment, store the transformed IR nodes here */
-  jsxChildren?: IRNode[]
   /** When true, prop expression calls signal getters or memos (computed from AST). (#942 DRY consolidation) */
   callsReactiveGetters?: boolean
   /** When true, prop expression contains any `identifier()` pattern (computed from AST). (#942 DRY consolidation) */

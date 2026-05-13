@@ -16,7 +16,8 @@
 import type { IRLoopChildComponent } from '../../types'
 import type { NestedLoop, TopLevelLoop } from '../types'
 import type { ClientJsContext } from '../types'
-import { quotePropName, varSlotId } from '../utils'
+import { quotePropName, varSlotId, attrValueToString } from '../utils'
+import { irChildrenToJsExpr } from '../html-template'
 import { buildCompSelector } from '../control-flow/shared'
 
 /** The inline prop shape carried on `IRLoopChildComponent.props`. */
@@ -158,12 +159,21 @@ function buildInnerLoopNestedPlan(
 function buildStaticPropsExpr(props: readonly LoopChildCompProp[]): PropsExpr {
   const entries = props.map(p => {
     if (p.isEventHandler) {
-      return `${quotePropName(p.name)}: ${p.value}`
+      return `${quotePropName(p.name)}: ${attrValueToString(p.value) ?? 'undefined'}`
     }
-    if (p.isLiteral) {
-      return `${quotePropName(p.name)}: ${JSON.stringify(p.value)}`
+    switch (p.value.kind) {
+      case 'literal':
+        return `${quotePropName(p.name)}: ${JSON.stringify(p.value.value)}`
+      case 'boolean-shorthand':
+      case 'boolean-attr':
+        return `${quotePropName(p.name)}: true`
+      case 'jsx-children':
+        return `get ${quotePropName(p.name)}() { return ${irChildrenToJsExpr(p.value.children)} }`
+      case 'expression':
+      case 'template':
+      case 'spread':
+        return `get ${quotePropName(p.name)}() { return ${attrValueToString(p.value) ?? 'undefined'} }`
     }
-    return `get ${quotePropName(p.name)}() { return ${p.value} }`
   })
   return entries.length > 0 ? `{ ${entries.join(', ')} }` : '{}'
 }

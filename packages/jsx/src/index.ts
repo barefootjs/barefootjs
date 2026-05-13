@@ -25,7 +25,14 @@ export type {
   IRProvider,
   IRAsync,
   IRMetadata,
-  IRTemplateLiteral,
+  AttrValue,
+  LiteralAttr,
+  ExpressionAttr,
+  BooleanAttr,
+  BooleanShorthandAttr,
+  TemplateAttr,
+  SpreadAttr,
+  JsxChildrenAttr,
   IRTemplatePart,
   IRProp,
   ParamInfo,
@@ -191,6 +198,9 @@ export interface BuildOptions {
    */
   bundleEntries?: BundleEntry[]
 }
+
+// AttrValue constructors
+export { AttrValueOf } from './types'
 
 // CSS Layer Prefixer
 export { applyCssLayerPrefix } from './css-layer-prefixer'

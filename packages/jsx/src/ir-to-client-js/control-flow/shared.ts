@@ -14,7 +14,7 @@
 
 import type { LoopChildEvent, TopLevelLoop, NestedLoop, CollectedLoop } from '../types'
 import type { IRLoopChildComponent, LoopParamBinding } from '../../types'
-import { quotePropName, wrapLoopParamAsAccessor, irChildrenFreeIds } from '../utils'
+import { quotePropName, wrapLoopParamAsAccessor, irChildrenFreeIds, attrValueToString } from '../utils'
 import { irChildrenToJsExpr } from '../html-template'
 import { emitListenerBlock } from './stringify/event-listener'
 import { nameForRegistryRef } from '../component-scope'
@@ -102,19 +102,33 @@ export function destructureLoopParam(
  * Shared by emitComponentLoopReconciliation and emitCompositeElementReconciliation.
  */
 export function buildComponentPropsExpr(
-  comp: { props: Array<{ name: string; value: string; isEventHandler: boolean; isLiteral: boolean }>, children?: import('../../types').IRNode[] },
+  comp: { props: Array<{ name: string; value: import('../../types').AttrValue; isEventHandler: boolean }>, children?: import('../../types').IRNode[] },
   loopParam?: string,
   loopParamBindings?: readonly LoopParamBinding[],
 ): string {
   const wrap = loopParam ? (expr: string) => wrapLoopParamAsAccessor(expr, loopParam, loopParamBindings) : (expr: string) => expr
   const entries = comp.props.map((p) => {
     if (p.isEventHandler) {
-      return `${quotePropName(p.name)}: ${wrap(p.value)}`
-    } else if (p.isLiteral) {
-      // Literal string values must NOT be wrapped — they don't reference loop params
-      return `get ${quotePropName(p.name)}() { return ${JSON.stringify(p.value)} }`
-    } else {
-      return `get ${quotePropName(p.name)}() { return ${wrap(p.value)} }`
+      const handlerExpr = attrValueToString(p.value) ?? 'undefined'
+      return `${quotePropName(p.name)}: ${wrap(handlerExpr)}`
+    }
+    switch (p.value.kind) {
+      case 'literal':
+        // Literal string values must NOT be wrapped — they don't reference loop params
+        return `get ${quotePropName(p.name)}() { return ${JSON.stringify(p.value.value)} }`
+      case 'boolean-shorthand':
+      case 'boolean-attr':
+        return `get ${quotePropName(p.name)}() { return true }`
+      case 'jsx-children': {
+        const childExpr = irChildrenToJsExpr(p.value.children)
+        return `get ${quotePropName(p.name)}() { return ${wrap(childExpr)} }`
+      }
+      case 'expression':
+      case 'template':
+      case 'spread': {
+        const valueExpr = attrValueToString(p.value)!
+        return `get ${quotePropName(p.name)}() { return ${wrap(valueExpr)} }`
+      }
     }
   })
   if ('children' in comp && Array.isArray(comp.children) && comp.children.length > 0) {
@@ -252,7 +266,7 @@ export function emitComponentAndEventSetup(
 
     const slotIdLit = comp.slotId ? `'${comp.slotId}'` : 'null'
     const keyProp = comp.props.find(p => p.name === 'key')
-    const keyArg = keyProp ? `, ${wrap(keyProp.value)}` : ', undefined'
+    const keyArg = keyProp ? `, ${wrap(attrValueToString(keyProp.value) ?? 'undefined')}` : ', undefined'
     // Pass the surrounding component's __scope so upsertChild can derive
     // bf-parent / bf-mount even when the loop-item element (`elVar`) is a
     // freshly-created detached fragment. Without this anchor, the new

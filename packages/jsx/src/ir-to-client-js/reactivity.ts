@@ -2,7 +2,7 @@
  * Reactivity detection: reactive expression checking, event/ref collection.
  */
 
-import { type IRNode, type IRElement, type IRProp, type LoopParamBinding, type OriginInfo, pickAttrMeta, isReactiveOrigin } from '../types'
+import { type IRNode, type IRElement, type IRProp, type LoopParamBinding, type OriginInfo, pickAttrMetaFromIR, isReactiveOrigin } from '../types'
 import type {
   ClientJsContext,
   ConditionalBranchEvent,
@@ -246,7 +246,8 @@ export function collectEventHandlersFromIR(node: IRNode): string[] {
     component: ({ node, descend }) => {
       for (const prop of node.props) {
         if (prop.name.startsWith('on') && prop.name.length > 2) {
-          handlers.push(prop.value)
+          const handler = attrValueToString(prop.value)
+          if (handler) handlers.push(handler)
         }
       }
       descend()
@@ -508,7 +509,10 @@ export function collectLoopChildReactiveAttrs(
   traverseElements(node, (el) => {
     if (el.slotId) {
       for (const attr of el.attrs) {
-        if (attr.name === '...' || !attr.dynamic || !attr.value) continue
+        if (attr.name === '...') continue
+        // Literal / boolean variants are baked into the SSR template and
+        // never react — skip them up front.
+        if (attr.value.kind !== 'expression' && attr.value.kind !== 'template' && attr.value.kind !== 'spread') continue
         // `key` is a reconciliation-only prop: the html-template path renames
         // it to `data-key` for SSR + mapArray uses it via keyFn. Wiring it
         // again as a reactive DOM attr would (a) emit a non-standard `key=`
@@ -530,7 +534,7 @@ export function collectLoopChildReactiveAttrs(
           childSlotId: el.slotId,
           attrName: attr.name,
           expression: expanded.expr,
-          ...pickAttrMeta(attr),
+          ...pickAttrMetaFromIR(attr),
           ...(expanded.freeIds !== undefined && { freeIdentifiers: expanded.freeIds }),
         })
       }

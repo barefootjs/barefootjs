@@ -137,13 +137,15 @@ export function buildReferencesGraph(ctx: ClientJsContext, irRoot: IRNode): Refe
     }
     if (elem.childComponent) {
       for (const prop of elem.childComponent.props) {
-        addExprEdges(ROOT_SOURCE, prop.value, 'template-closure')
+        const v = attrValueToString(prop.value)
+        if (v) addExprEdges(ROOT_SOURCE, v, 'template-closure')
       }
     }
     if (elem.nestedComponents) {
       for (const comp of elem.nestedComponents) {
         for (const prop of comp.props) {
-          addExprEdges(ROOT_SOURCE, prop.value, 'template-closure')
+          const v = attrValueToString(prop.value)
+          if (v) addExprEdges(ROOT_SOURCE, v, 'template-closure')
         }
       }
     }
@@ -263,10 +265,11 @@ export function buildReferencesGraph(ctx: ClientJsContext, irRoot: IRNode): Refe
         // `clientOnly` carve-out below so usage-aware diagnostics
         // (BF060/BF061) don't false-positive against them.
         if (attr.clientOnly) continue
-        if (attr.dynamic && attr.value) {
-          const v = typeof attr.value === 'string' ? attr.value : attrValueToString(attr.value)
-          if (v) addExprEdges(ROOT_SOURCE, v, 'template-closure')
-        }
+        // Only `expression` / `template` / `spread` variants carry a runtime
+        // expression worth tracing; literals and boolean attrs reference no
+        // identifiers. `attrValueToString` returns null for the latter.
+        const v = attrValueToString(attr.value)
+        if (v && attr.value.kind !== 'literal') addExprEdges(ROOT_SOURCE, v, 'template-closure')
       }
       for (const ev of el.events) addExprEdges(ROOT_SOURCE, ev.handler, 'init-body')
       descend()
@@ -278,7 +281,8 @@ export function buildReferencesGraph(ctx: ClientJsContext, irRoot: IRNode): Refe
         // init scope, not template scope, so no template-closure
         // edge.
         if (prop.clientOnly) continue
-        if (prop.dynamic) addExprEdges(ROOT_SOURCE, prop.value, 'template-closure')
+        const v = attrValueToString(prop.value)
+        if (v && prop.value.kind !== 'literal') addExprEdges(ROOT_SOURCE, v, 'template-closure')
       }
       descend()
       descendJsxChildren()
@@ -316,14 +320,16 @@ export function buildReferencesGraph(ctx: ClientJsContext, irRoot: IRNode): Refe
     },
     provider: ({ node: p, descend }) => {
       addExprEdges(ROOT_SOURCE, p.contextName, 'init-body')
-      if (p.valueProp.dynamic) addExprEdges(ROOT_SOURCE, p.valueProp.value, 'template-closure')
+      const v = attrValueToString(p.valueProp.value)
+      if (v && p.valueProp.value.kind !== 'literal') addExprEdges(ROOT_SOURCE, v, 'template-closure')
       descend()
     },
   }
 
   const walkChildComponent = (comp: IRLoopChildComponent): void => {
     for (const prop of comp.props) {
-      addExprEdges(ROOT_SOURCE, prop.value, 'template-closure')
+      const v = attrValueToString(prop.value)
+      if (v) addExprEdges(ROOT_SOURCE, v, 'template-closure')
     }
     for (const child of comp.children) walkIR(child, null, visitor)
   }

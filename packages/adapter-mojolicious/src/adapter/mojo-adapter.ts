@@ -18,7 +18,8 @@ import type {
   IRIfStatement,
   IRProvider,
   IRAsync,
-  IRTemplateLiteral,
+  IRTemplatePart,
+  AttrValue,
   CompilerError,
   TemplatePrimitiveRegistry,
 } from '@barefootjs/jsx'
@@ -384,12 +385,27 @@ export class MojoAdapter extends BaseAdapter {
   renderComponent(comp: IRComponent): string {
     const propParts: string[] = []
     for (const p of comp.props) {
-      // Skip callback props (onXxx) — event handlers are client-only for SSR
-      if (p.name.match(/^on[A-Z]/) && p.dynamic) continue
-      if (p.dynamic) {
-        propParts.push(`${p.name} => ${this.convertExpressionToPerl(typeof p.value === 'string' ? p.value : '')}`)
-      } else {
-        propParts.push(`${p.name} => '${p.value}'`)
+      const v = p.value
+      // Skip callback props (onXxx) — event handlers are client-only for SSR.
+      if (p.name.match(/^on[A-Z]/) && v.kind === 'expression') continue
+      switch (v.kind) {
+        case 'literal':
+          propParts.push(`${p.name} => '${v.value}'`)
+          break
+        case 'expression':
+        case 'spread':
+          propParts.push(`${p.name} => ${this.convertExpressionToPerl(v.expr)}`)
+          break
+        case 'template':
+          propParts.push(`${p.name} => ${this.convertTemplateLiteralPartsToPerl(v.parts)}`)
+          break
+        case 'boolean-shorthand':
+        case 'boolean-attr':
+          propParts.push(`${p.name} => 1`)
+          break
+        case 'jsx-children':
+          // JSX children are handled via the captured render below.
+          break
       }
     }
     // Pass slot ID so the child renderer can set correct scope ID for hydration
@@ -486,26 +502,35 @@ export class MojoAdapter extends BaseAdapter {
 
     for (const attr of element.attrs) {
       const attrName = attr.name === 'className' ? 'class' : attr.name
+      const v = attr.value
 
-      if (attr.name === '...') {
-        // Spread attributes — skip for now
-        continue
-      } else if (attr.value === null) {
-        parts.push(attrName)
-      } else if (attr.dynamic) {
-        if (typeof attr.value !== 'string') {
-          // IRTemplateLiteral — convert to Perl string expression
-          const perlExpr = this.convertTemplateLiteralToPerl(attr.value as IRTemplateLiteral)
+      switch (v.kind) {
+        case 'spread':
+          // Spread attributes — skip for now
+          continue
+        case 'boolean-attr':
+          parts.push(attrName)
+          break
+        case 'literal':
+          parts.push(`${attrName}="${v.value}"`)
+          break
+        case 'template': {
+          const perlExpr = this.convertTemplateLiteralPartsToPerl(v.parts)
           parts.push(`${attrName}="<%= ${perlExpr} %>"`)
-        } else if (isBooleanAttr(attrName)) {
-          // Boolean attributes: render conditionally (present or absent)
-          parts.push(`<%= ${this.convertExpressionToPerl(attr.value)} ? '${attrName}' : '' %>`)
-        } else {
-          parts.push(`${attrName}="<%= ${this.convertExpressionToPerl(attr.value)} %>"`)
+          break
         }
-      } else {
-        parts.push(`${attrName}="${attr.value ?? ''}"`)
-
+        case 'expression':
+          if (isBooleanAttr(attrName) || v.presenceOrUndefined) {
+            // Boolean attributes: render conditionally (present or absent)
+            parts.push(`<%= ${this.convertExpressionToPerl(v.expr)} ? '${attrName}' : '' %>`)
+          } else {
+            parts.push(`${attrName}="<%= ${this.convertExpressionToPerl(v.expr)} %>"`)
+          }
+          break
+        case 'boolean-shorthand':
+        case 'jsx-children':
+          // Neither variant is legal on intrinsic elements. Skip silently.
+          break
       }
     }
 
@@ -722,9 +747,9 @@ export class MojoAdapter extends BaseAdapter {
   // Expression Conversion: JS → Perl
   // ===========================================================================
 
-  private convertTemplateLiteralToPerl(literal: IRTemplateLiteral): string {
+  private convertTemplateLiteralPartsToPerl(literalParts: IRTemplatePart[]): string {
     const parts: string[] = []
-    for (const part of literal.parts) {
+    for (const part of literalParts) {
       if (part.type === 'string') {
         parts.push(`'${part.value}'`)
       } else if (part.type === 'ternary') {

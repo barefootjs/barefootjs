@@ -183,6 +183,54 @@ createEffect(() => {
 
 ---
 
+## Attribute & Prop Value Representation
+
+`IRAttribute` and `IRProp` carry their right-hand-side value through a
+single discriminated union `AttrValue` (#1264). Every adapter switches
+on `value.kind` exhaustively so a new variant becomes a type error at
+every emit site rather than a silent fallthrough.
+
+| Variant | Source shape | `IRAttribute` (element) | `IRProp` (component) |
+|---------|--------------|-------------------------|----------------------|
+| `literal` | `<X y="z" />` | ✓ | ✓ |
+| `expression` | `<X y={expr} />` | ✓ | ✓ |
+| `boolean-attr` | `<button disabled />` (intrinsic) | ✓ | – |
+| `boolean-shorthand` | `<X disabled />` (component) | – | ✓ |
+| `template` | `class={`${a} ${cond ? 'on' : 'off'}`}` | ✓ | ✓ |
+| `spread` | `<X {...rest} />` (with `name === '...'`) | ✓ | ✓ |
+| `jsx-children` | `<X header={<h1/>} />` | – | ✓ |
+
+Notable fields per variant:
+
+- `expression` carries `expr` (source-level JS), optional `templateExpr`
+  (the `_p.xxx`-rewritten variant used in SSR template inlining), and an
+  optional `presenceOrUndefined` set when the producer peeled an
+  `expr || undefined` boolean-presence pattern.
+- `template.parts` reuses `IRTemplatePart` (`string` / `ternary` / `lookup`).
+  Adapters that can run JS at SSR (Hono) re-emit a JS template literal;
+  adapters that can't (Go-template, Mojolicious) walk the parts.
+- `spread` keeps the legacy `name === '...'` marker for backward
+  compatibility, but `kind === 'spread'` is the authoritative
+  discriminator going forward.
+- The `freeIdentifiers`, `callsReactiveGetters`, `hasFunctionCalls`, and
+  `clientOnly` fields ride on the parent `IRAttribute` / `IRProp` (via
+  `AttrMeta`), not the variant — they apply orthogonally to every kind.
+
+Helpers exported from `@barefootjs/jsx`:
+
+- `AttrValueOf.literal(value)` / `.expression(expr, opts?)` /
+  `.booleanAttr()` / `.booleanShorthand()` / `.template(parts)` /
+  `.spread(expr, templateExpr?)` / `.jsxChildren(children)` — variant
+  constructors used by the producer and any hand-built IR fixture.
+- `attrValueToString(value, opts?)` — flatten to a JS expression string;
+  returns `null` for variants with no string projection (`boolean-attr`,
+  `boolean-shorthand`, `jsx-children`).
+- `isStaticAttrValue(value)` — true when the value is fully resolvable
+  at compile time.
+- `exhaustiveAttrValue(value)` — type-level sentinel for `switch`
+  defaults; if a future variant lands without a matching `case`, the
+  parameter collapses to `never` and the call site fails to type-check.
+
 ## Transformation Rules
 
 ### Categories

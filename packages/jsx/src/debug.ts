@@ -12,7 +12,7 @@ import type {
   IRConditional,
   IRElement,
   IRLoop,
-  IRTemplateLiteral,
+  AttrValue,
   SignalInfo,
   MemoInfo,
   EffectInfo,
@@ -578,7 +578,7 @@ function collectDomBindings(
       // both recognise known signal / memo / prop names, so a non-empty
       // deps list is the statically-proven-reactive case.
       for (const attr of node.attrs) {
-        if (!attr.dynamic) continue
+        if (attr.value.kind !== 'expression' && attr.value.kind !== 'template' && attr.value.kind !== 'spread') continue
         const expr = attrValueToString(attr.value)
         if (!expr) continue
         const deps = extractReactiveDeps(expr, signalGetters, memoNames)
@@ -712,9 +712,11 @@ function collectDomBindings(
       // type union stable for consumers).
       for (const prop of node.props) {
         if (prop.name === '...' || prop.name.startsWith('...')) continue
-        if (!prop.dynamic) continue
-        if (prop.jsxChildren) continue // JSX-as-prop handled via child traversal
-        const propValue = typeof prop.value === 'string' ? prop.value : ''
+        // Only `expression` / `template` / `spread` carry a runtime expression
+        // worth probing for reactive deps. `jsx-children` is handled via child
+        // traversal below; literal / boolean produce no reactive bindings.
+        if (prop.value.kind !== 'expression' && prop.value.kind !== 'template' && prop.value.kind !== 'spread') continue
+        const propValue = attrValueToString(prop.value) ?? ''
         if (!propValue) continue
         const deps = extractReactiveDeps(propValue, signalGetters, memoNames)
         const hasPropsRef = propValue.includes('props.')
@@ -755,14 +757,24 @@ function collectDomBindings(
   }
 }
 
-/** Convert an IRAttribute value to a flat string for reactive dep extraction. */
-function attrValueToString(value: string | IRTemplateLiteral | null): string | null {
-  if (value === null) return null
-  if (typeof value === 'string') return value
-  // IRTemplateLiteral: join all ternary expressions
-  return value.parts
-    .map(p => p.type === 'ternary' ? `${p.condition} ${p.whenTrue} ${p.whenFalse}` : '')
-    .join(' ')
+/** Convert an `AttrValue` to a flat string for reactive dep extraction. */
+function attrValueToString(value: AttrValue): string | null {
+  switch (value.kind) {
+    case 'literal':
+      return value.value
+    case 'expression':
+      return value.expr
+    case 'spread':
+      return value.expr
+    case 'template':
+      return value.parts
+        .map(p => p.type === 'ternary' ? `${p.condition} ${p.whenTrue} ${p.whenFalse}` : '')
+        .join(' ')
+    case 'boolean-attr':
+    case 'boolean-shorthand':
+    case 'jsx-children':
+      return null
+  }
 }
 
 /** Extract reactive getter names (signal/memo calls) from an expression. */

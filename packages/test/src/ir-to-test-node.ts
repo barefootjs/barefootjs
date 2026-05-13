@@ -20,7 +20,8 @@ import type {
 } from '@barefootjs/jsx'
 
 type IRAttribute = IRElement['attrs'][number]
-type IRTemplateLiteral = Exclude<IRAttribute['value'], string | null>
+type AttrValue = IRAttribute['value']
+type TemplateAttr = Extract<AttrValue, { kind: 'template' }>
 import { TestNode } from './test-node'
 
 export function irNodeToTestNode(node: IRNode, constantMap?: Map<string, string>): TestNode {
@@ -75,7 +76,8 @@ function convertElement(node: IRElement, cmap: Map<string, string>): TestNode {
 
     if (attr.name === 'className' || attr.name === 'class') {
       if (typeof value === 'string') {
-        if (attr.dynamic && cmap.size > 0) {
+        const isDynamic = attr.value.kind === 'expression' || attr.value.kind === 'template' || attr.value.kind === 'spread'
+        if (isDynamic && cmap.size > 0) {
           const resolved = resolveClassValue(value, cmap)
           if (resolved !== null) {
             classes = resolved.split(/\s+/).filter(Boolean)
@@ -224,7 +226,25 @@ function convertLoop(node: IRLoop, cmap: Map<string, string>): TestNode {
 function convertComponent(node: IRComponent, cmap: Map<string, string>): TestNode {
   const props: Record<string, string | boolean | null> = {}
   for (const prop of node.props) {
-    props[prop.name] = prop.value
+    switch (prop.value.kind) {
+      case 'literal':
+        props[prop.name] = prop.value.value
+        break
+      case 'expression':
+      case 'spread':
+        props[prop.name] = prop.value.expr
+        break
+      case 'template':
+        props[prop.name] = resolveTemplateAttr(prop.value)
+        break
+      case 'boolean-shorthand':
+      case 'boolean-attr':
+        props[prop.name] = true
+        break
+      case 'jsx-children':
+        props[prop.name] = null
+        break
+    }
   }
 
   const children = node.children.map(c => convert(c, cmap))
@@ -392,15 +412,25 @@ function resolveClassValue(value: string, cmap: Map<string, string>): string | n
 // ---------------------------------------------------------------------------
 
 function resolveAttrValue(attr: IRAttribute): string | boolean | null {
-  if (attr.value === null) return true // boolean attribute
-
-  if (typeof attr.value === 'string') return attr.value
-
-  // IRTemplateLiteral
-  return resolveTemplateLiteral(attr.value)
+  switch (attr.value.kind) {
+    case 'boolean-attr':
+      return true
+    case 'literal':
+      return attr.value.value
+    case 'expression':
+      return attr.value.expr
+    case 'spread':
+      return attr.value.expr
+    case 'template':
+      return resolveTemplateAttr(attr.value)
+    case 'boolean-shorthand':
+      return true
+    case 'jsx-children':
+      return null
+  }
 }
 
-function resolveTemplateLiteral(tl: IRTemplateLiteral): string {
+function resolveTemplateAttr(tl: TemplateAttr): string {
   return tl.parts
     .map(part => {
       if (part.type === 'string') return part.value
