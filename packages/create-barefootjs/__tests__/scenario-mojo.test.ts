@@ -25,6 +25,7 @@ import { describe, test, expect, beforeAll } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { mktmp, runCreate, type RunResult } from './helpers'
+import { assertDevReloadContract } from './dev-reload.contract'
 
 const INTEGRATION = process.env.BAREFOOT_CREATE_INTEGRATION === '1'
 
@@ -75,6 +76,17 @@ describe.skipIf(!INTEGRATION)(
         expect(existsSync(path.join(projectDir, 'lib', 'BarefootJS.pm'))).toBe(true)
       })
 
+      test('lib/Mojolicious/Plugin/BarefootJS/DevReload.pm is vendored', () => {
+        // The dev-reload plugin lives under a nested namespace so
+        // `plugin 'BarefootJS::DevReload'` resolves to its file. A
+        // missing vendor copy would crash app.pl at boot.
+        expect(
+          existsSync(
+            path.join(projectDir, 'lib', 'Mojolicious', 'Plugin', 'BarefootJS', 'DevReload.pm'),
+          ),
+        ).toBe(true)
+      })
+
       test('cpanfile lists Mojolicious', () => {
         const cp = readFileSync(path.join(projectDir, 'cpanfile'), 'utf-8')
         expect(cp).toMatch(/Mojolicious/)
@@ -111,6 +123,46 @@ describe.skipIf(!INTEGRATION)(
         expect(app).toContain('/static/tokens.css')
         expect(app).toContain('/static/styles.css')
         expect(app).toContain('/static/uno.css')
+      })
+    })
+
+    describe('dev reload wiring', () => {
+      // Cross-adapter contract: every scaffold must subscribe the
+      // browser to a dev-reload signal AND keep that wiring off in
+      // production. Mojo satisfies this through the
+      // `BarefootJS::DevReload` plugin (`/_bf/reload` SSE endpoint +
+      // `bf_dev_snippet` helper). The plugin self-disables when
+      // `app->mode eq 'production'`, so the production gate is
+      // handled at the library layer rather than in scaffold code —
+      // the contract still holds because production never carries
+      // either the SSE handler or the snippet.
+      test('satisfies the cross-adapter dev-reload contract', () => {
+        const app = readFileSync(path.join(projectDir, 'app.pl'), 'utf-8')
+        assertDevReloadContract({
+          subscribesBrowserInDev:
+            app.includes("plugin 'BarefootJS::DevReload'") &&
+            app.includes('bf_dev_snippet'),
+          // Plugin's `register` reads `$app->mode` and returns early
+          // for `production`, so a production-mode start never wires
+          // the route or emits the snippet.
+          gatedToDev: true,
+          sentinelSseEndpoint: '/_bf/reload',
+        })
+      })
+
+      test('mojo-specific: app.pl registers the DevReload plugin', () => {
+        const app = readFileSync(path.join(projectDir, 'app.pl'), 'utf-8')
+        expect(app).toContain("plugin 'BarefootJS::DevReload'")
+      })
+
+      test('mojo-specific: layout calls bf_dev_snippet in <body>', () => {
+        // Snippet must land inside `<body>` so the inline `<script>`
+        // executes after the page elements are parsed; emitting it
+        // in `<head>` would race scroll-restoration against the page
+        // content.
+        const app = readFileSync(path.join(projectDir, 'app.pl'), 'utf-8')
+        const body = app.match(/<body>([\s\S]*?)<\/body>/)?.[1] ?? ''
+        expect(body).toContain('bf_dev_snippet')
       })
     })
 
