@@ -62,6 +62,18 @@ if (app->mode eq 'development') {
     app->renderer->cache->max_keys(0);
 }
 
+# Mojolicious's built-in static dispatcher does not honour URL prefixes,
+# so map \`/static/*\` requests explicitly:
+#   - \`/static/components/*\` → \`dist/client/*\` (matches the
+#     \`clientJsBasePath: '/static/components/'\` in barefoot.config.ts).
+#   - \`/static/*\` → \`public/*\` (the handwritten stylesheets).
+get '/static/components/*asset' => sub ($c) {
+    $c->reply->static('client/' . ($c->stash('asset') // '')) or $c->reply->not_found;
+};
+get '/static/*asset' => sub ($c) {
+    $c->reply->static($c->stash('asset') // '') or $c->reply->not_found;
+};
+
 get '/' => sub ($c) {
     # Initialize the BarefootJS instance for this request so the layout's
     # \`$c->bf->scripts\` call picks up everything the template registers.
