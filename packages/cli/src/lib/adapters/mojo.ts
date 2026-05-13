@@ -40,6 +40,7 @@ export default createConfig({
 
 const MOJO_APP_PL = `#!/usr/bin/env perl
 use Mojolicious::Lite -signatures;
+use Mojo::JSON qw(decode_json);
 use lib 'lib';
 
 # Load the BarefootJS plugin (vendored under ./lib so the app runs
@@ -66,6 +67,32 @@ get '/' => sub ($c) {
     # \`$c->bf->scripts\` call picks up everything the template registers.
     my $bf = $c->bf;
     $bf->_scope_id('Counter_' . substr(rand() =~ s/^0\\.//r, 0, 6));
+
+    # Auto-register every UI registry component the manifest knows
+    # about so Counter's \`<%= bf->render_child('button', ...) %>\` and
+    # similar calls resolve without per-component wire-up. The
+    # \`signal_init\` callbacks supply the SSR defaults for each
+    # template variable (until \`barefoot build\` learns to embed them
+    # in the manifest itself).
+    my $manifest = decode_json(app->home->child('dist/templates/manifest.json')->slurp);
+    $bf->register_components_from_manifest($manifest, signal_init => {
+        button => sub ($props) {
+            return (
+                asChild   => $props->{asChild}   // 0,
+                variant   => $props->{variant}   // 'default',
+                size      => $props->{size}      // 'default',
+                className => $props->{className} // '',
+                props     => $props->{props}     // {},
+            );
+        },
+        slot => sub ($props) {
+            return (
+                className => $props->{className} // '',
+                props     => $props->{props}     // {},
+            );
+        },
+    });
+
     # Stash values for every signal/memo Counter.html.ep references.
     # \`barefoot build\` derives variable names directly from the JSX
     # \`createSignal\` / \`createMemo\` declarations (here: \`count\`,

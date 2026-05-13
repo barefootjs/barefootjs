@@ -4,7 +4,7 @@ use Mojo::Base -base, -signatures;
 use Mojo::ByteStream qw(b);
 use Mojo::JSON qw(encode_json to_json);
 use POSIX ();
-use Scalar::Util qw(looks_like_number);
+use Scalar::Util qw(looks_like_number weaken);
 
 has 'c';       # Mojolicious controller
 has 'config';  # Plugin config
@@ -94,6 +94,76 @@ sub render_child ($self, $name, %props) {
     # template sees `$children` as already-rendered HTML.
     $props{children} = $props{children}->() if ref($props{children}) eq 'CODE';
     return $renderer->(\%props);
+}
+
+# ---------------------------------------------------------------------------
+# Bulk registration from build manifest
+# ---------------------------------------------------------------------------
+#
+# `barefoot build` emits dist/templates/manifest.json describing every
+# component the page might invoke (Counter, ui/button/index, ...).
+# This helper walks that manifest and registers one child renderer per
+# UI registry entry — the path shape `ui/<name>/index` maps to the
+# `<name>` slot key Counter.html.ep and friends use via
+# `<%= bf->render_child('<name>', ...) %>`.
+#
+# `signal_init` is an optional hashref of `name => coderef`. Each
+# coderef receives the caller's props hashref and returns key/value
+# pairs that get stashed into the child template's lexical scope —
+# typically the initial values of every `createSignal` / `createMemo`
+# declared in the JSX source (Perl's strict mode rejects undefined
+# `$variant`, `$size`, etc. otherwise).
+#
+# When `barefoot build` learns to embed these defaults in the manifest
+# itself (tracked separately), this helper will derive them
+# automatically and callers can drop the signal_init argument.
+sub register_components_from_manifest ($self, $manifest, %opts) {
+    my $c = $self->c;
+    my $signal_inits = $opts{signal_init} // {};
+    my $parent_scope = $self->_scope_id;
+    weaken(my $parent = $self);
+
+    for my $entry_name (keys %$manifest) {
+        # `__barefoot__` is the runtime entry, not a component.
+        next if $entry_name eq '__barefoot__';
+        # Only UI registry components (path shape `ui/<name>/index`)
+        # become child renderers; top-level page components are the
+        # render target rather than a child.
+        next unless $entry_name =~ m{^ui/([^/]+)/index$};
+        my $slot_key = $1;
+        my $marked = $manifest->{$entry_name}{markedTemplate} // '';
+        next unless $marked;
+        # `templates/ui/button/index.html.ep` → `ui/button/index`
+        my $template_name = $marked;
+        $template_name =~ s{^templates/}{};
+        $template_name =~ s{\.html\.ep$}{};
+
+        my $signal_init = $signal_inits->{$slot_key};
+        $self->register_child_renderer($slot_key, sub {
+            my ($props) = @_;
+            my $child_bf = BarefootJS->new($c, {});
+            my $slot_id = delete $props->{_bf_slot};
+            $child_bf->_scope_id(
+                $slot_id ? $parent_scope . '_' . $slot_id
+                         : $template_name . '_' . substr(rand() =~ s/^0\.//r, 0, 6)
+            );
+            $child_bf->_is_child(1);
+            $child_bf->_scripts($parent->_scripts);
+            $child_bf->_script_seen($parent->_script_seen);
+
+            my %extra;
+            %extra = $signal_init->($props) if $signal_init;
+
+            my $prev = $c->stash->{'bf.instance'};
+            $c->stash->{'bf.instance'} = $child_bf;
+            my $html = $c->render_to_string(
+                template => $template_name, %$props, %extra,
+            );
+            $c->stash->{'bf.instance'} = $prev;
+            chomp $html;
+            return $html;
+        });
+    }
 }
 
 # ---------------------------------------------------------------------------
