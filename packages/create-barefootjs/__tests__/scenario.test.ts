@@ -142,6 +142,21 @@ describe.skipIf(!INTEGRATION)(
         expect(wrangler.name).toBe('demo-app')
       })
 
+      test('multi-segment positional path sanitizes name down to the basename', () => {
+        // "foo/bar/bazz" must reduce to "bazz" inside package.json
+        // and wrangler.jsonc — slashes are invalid in npm and CF
+        // Worker names.
+        const sandbox = mktmp()
+        const r = runCreate(['foo/bar/bazz'], { cwd: sandbox })
+        expect(r.exitCode).toBe(0)
+        const nested = path.join(sandbox, 'foo', 'bar', 'bazz')
+        const nestedPkg = JSON.parse(readFileSync(path.join(nested, 'package.json'), 'utf-8'))
+        expect(nestedPkg.name).toBe('bazz')
+        const nestedWranglerRaw = readFileSync(path.join(nested, 'wrangler.jsonc'), 'utf-8')
+        const nestedWrangler = JSON.parse(nestedWranglerRaw.replace(/^\s*\/\/.*$/gm, ''))
+        expect(nestedWrangler.name).toBe('bazz')
+      })
+
       test('package.json exposes dev / build / deploy / watch scripts', () => {
         expect(pkg.scripts.dev).toBeString()
         expect(pkg.scripts.build).toBeString()
@@ -303,30 +318,21 @@ describe('Scenario: how the target directory is chosen (no network)', () => {
   })
 
   describe('(d) When the positional argument is a multi-segment path', () => {
-    test('creates the nested directory, sanitizes names, but echoes the full path in `cd`', () => {
+    test('creates the nested directory tree and echoes the full path back', () => {
       const cwd = mktmp()
       const r = runCreate(['foo/bar/bazz'], { cwd })
-      expect(r.exitCode).toBe(0)
 
-      // Nested directory is created end-to-end.
-      const projectDir = path.join(cwd, 'foo', 'bar', 'bazz')
-      expect(existsSync(path.join(projectDir, 'package.json'))).toBe(true)
+      // Nested directory tree is created (create-barefootjs's
+      // responsibility) — the downstream init invocation may still
+      // fail registry probing in offline CI, but the dir itself is
+      // ready by then.
+      expect(existsSync(path.join(cwd, 'foo', 'bar', 'bazz'))).toBe(true)
 
-      // Slashes in the positional must NOT leak into package.json /
-      // wrangler.jsonc names (both invalid there). We sanitize down
-      // to the last segment.
-      const pkg = JSON.parse(readFileSync(path.join(projectDir, 'package.json'), 'utf-8'))
-      expect(pkg.name).toBe('bazz')
-      const wranglerRaw = readFileSync(path.join(projectDir, 'wrangler.jsonc'), 'utf-8')
-      const wrangler = JSON.parse(wranglerRaw.replace(/^\s*\/\/.*$/gm, ''))
-      expect(wrangler.name).toBe('bazz')
-
-      // But the `cd` line in Next steps quotes the path the user
-      // typed, not just the basename — otherwise copy-pasting from
-      // a parent directory would fail.
-      expect(r.stdout).toMatch(/cd foo\/bar\/bazz/)
-      // And the confirmation also reflects the user's input.
+      // Confirmation + `cd` line echo the user's typed path, not the
+      // basename — otherwise copy-pasting from a parent dir wouldn't
+      // resolve.
       expect(r.stdout).toContain('✔ Target directory foo/bar/bazz')
+      expect(r.stdout).toMatch(/cd foo\/bar\/bazz/)
     })
   })
 
