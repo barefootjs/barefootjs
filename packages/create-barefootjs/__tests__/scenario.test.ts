@@ -142,10 +142,12 @@ describe.skipIf(!INTEGRATION)(
         expect(wrangler.name).toBe('demo-app')
       })
 
-      test('multi-segment positional path sanitizes name down to the basename', () => {
+      test('multi-segment positional path sanitizes name + cd uses the full path', () => {
         // "foo/bar/bazz" must reduce to "bazz" inside package.json
         // and wrangler.jsonc — slashes are invalid in npm and CF
-        // Worker names.
+        // Worker names. The Next-steps `cd` line, on the other hand,
+        // should echo the full path so the user can copy-paste from
+        // wherever they ran the command.
         const sandbox = mktmp()
         const r = runCreate(['foo/bar/bazz'], { cwd: sandbox })
         expect(r.exitCode).toBe(0)
@@ -155,6 +157,7 @@ describe.skipIf(!INTEGRATION)(
         const nestedWranglerRaw = readFileSync(path.join(nested, 'wrangler.jsonc'), 'utf-8')
         const nestedWrangler = JSON.parse(nestedWranglerRaw.replace(/^\s*\/\/.*$/gm, ''))
         expect(nestedWrangler.name).toBe('bazz')
+        expect(r.stdout).toMatch(/cd foo\/bar\/bazz/)
       })
 
       test('package.json exposes dev / build / deploy / watch scripts', () => {
@@ -322,17 +325,16 @@ describe('Scenario: how the target directory is chosen (no network)', () => {
       const cwd = mktmp()
       const r = runCreate(['foo/bar/bazz'], { cwd })
 
-      // Nested directory tree is created (create-barefootjs's
-      // responsibility) — the downstream init invocation may still
-      // fail registry probing in offline CI, but the dir itself is
-      // ready by then.
+      // Nested directory tree is created (create-barefootjs's own
+      // responsibility, runs before init takes over).
       expect(existsSync(path.join(cwd, 'foo', 'bar', 'bazz'))).toBe(true)
 
-      // Confirmation + `cd` line echo the user's typed path, not the
-      // basename — otherwise copy-pasting from a parent dir wouldn't
-      // resolve.
+      // Target-directory confirmation echoes the user's typed path,
+      // not the basename. The `cd <full path>` line in Next steps is
+      // asserted in the integration suite because it's printed by
+      // init *after* the registry probe — offline runs may not reach
+      // that step.
       expect(r.stdout).toContain('✔ Target directory foo/bar/bazz')
-      expect(r.stdout).toMatch(/cd foo\/bar\/bazz/)
     })
   })
 
