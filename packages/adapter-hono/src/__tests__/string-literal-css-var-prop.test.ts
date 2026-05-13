@@ -1,17 +1,19 @@
 /**
- * Hono adapter: string-literal props containing JS-shaped values (#135).
+ * Hono adapter: string-literal props containing JS-shaped values (#135, #1255).
  *
  * A JSX string attribute like `fill="var(--area-fill)"` is an SVG
  * presentation attribute whose value happens to look like a JS function
- * call. The old adapter used a regex (`isJsExpression`) to disambiguate
- * string literals from arrow / call expressions and tripped on values
- * shaped like `var(...)`, `url(...)`, or `calc(...)`, emitting them as
- * `fill={var(--area-fill)}` — `var` is then parsed as a JS identifier
- * and the build fails with "Unexpected var".
+ * call. An older adapter implementation used a regex (`isJsExpression`)
+ * to disambiguate string literals from arrow / call expressions, and
+ * tripped on values shaped like `var(...)`, `url(...)`, or `calc(...)`,
+ * emitting them as `fill={var(--area-fill)}` — `var` was then parsed as
+ * a JS identifier and the build failed with "Unexpected var".
  *
- * The IR's `isLiteral` flag is the authoritative source of truth here,
- * so the adapter now short-circuits on it before falling back to the
- * regex.
+ * The IR's `isLiteral` flag is the authoritative source of truth here.
+ * #1255 deleted the regex fallback: every prop emitted by Phase 1
+ * already carries `dynamic | isLiteral | boolean-shorthand`, so the
+ * decision is made from IR alone, not by re-classifying the value
+ * string at emit time.
  *
  * Surfaced by the area chart palette demo (#135 Concrete Additions).
  */
