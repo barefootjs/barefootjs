@@ -6,7 +6,7 @@
 
 import type { ComponentIR, IRFragment, IRNode, ReferencesGraph } from '../types'
 import type { ClientJsContext } from './types'
-import { PROPS_PARAM, inferDefaultValue, exprReferencesIdent } from './utils'
+import { PROPS_PARAM, inferDefaultValue, tokenContainsIdent } from './utils'
 import { computeInlinability, toLegacyInlinability } from './compute-inlinability'
 import { isInlinableInTemplate } from '../relocate'
 import { buildEnvFromCtx } from './compute-inlinability'
@@ -77,7 +77,7 @@ export function buildInlinableConstants(
   unsafeLocalNames: Set<string>
 } {
   const analysis = computeInlinability(ctx, graph, irRoot)
-  return toLegacyInlinability(analysis, resolveChainedRefs, ctx, exprReferencesIdent)
+  return toLegacyInlinability(analysis, resolveChainedRefs, ctx, tokenContainsIdent)
 }
 
 /**

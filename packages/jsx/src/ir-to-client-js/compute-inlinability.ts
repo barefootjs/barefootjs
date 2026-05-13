@@ -502,7 +502,10 @@ export function toLegacyInlinability(
   analysis: InlinabilityAnalysis,
   resolveChained: (constants: Map<string, string>, freeIdsMap: Map<string, Set<string>>) => void,
   ctx: ClientJsContext,
-  exprReferencesIdent: (expr: string, ident: string) => boolean,
+  // Lexer-aware "does this synthesised string reference an identifier" helper
+  // (#1267). The chain-resolved values fed in below have no originating AST
+  // node, so callers pass `tokenContainsIdent`.
+  identInExpr: (expr: string, ident: string) => boolean,
 ): {
   inlinableConstants: Map<string, string>
   unsafeLocalNames: Set<string>
@@ -542,7 +545,7 @@ export function toLegacyInlinability(
     if (!isUnsafe) {
       // Post-chain: check the resolved string for any unsafe name.
       for (const unsafeName of unsafeLocalNames) {
-        if (exprReferencesIdent(constValue, unsafeName)) {
+        if (identInExpr(constValue, unsafeName)) {
           isUnsafe = true
           break
         }
