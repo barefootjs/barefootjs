@@ -78,7 +78,12 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
     console.error(``)
     console.error(`barefoot init pulls the starter's Button component from`)
     console.error(`${DEFAULT_REGISTRY_URL} (which the renderer wires through UnoCSS).`)
-    console.error(`Retry when online.`)
+    console.error(``)
+    console.error(`Things to try:`)
+    console.error(`  1. Open ${DEFAULT_REGISTRY_URL}button.json in a browser to`)
+    console.error(`     confirm ${registryHost} is reachable from this network.`)
+    console.error(`  2. If you're behind a corporate proxy, set HTTPS_PROXY.`)
+    console.error(`  3. Re-run the create-barefootjs command once you're connected.`)
     process.exit(1)
   }
 
