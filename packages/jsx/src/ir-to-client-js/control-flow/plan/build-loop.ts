@@ -83,16 +83,25 @@ export function buildStaticLoopPlan(elem: TopLevelLoop, unsafeLocalNames: Set<st
  * Decide whether the CSR template will substitute the loop's array with `[]`
  * (the unsafe-name fallback in `html-template.ts`) and, if so, package the
  * inputs the stringifier needs to clone per-iteration children into the
- * container at hydrate time (#1247).
+ * container at hydrate time (#1247, #1268).
  *
  * Skipped when:
+ *   - there are no init-scope locals (the CSR template never substitutes),
+ *   - the per-iteration template wasn't built (cannot reproduce content), or
  *   - the array is safe in template scope (the CSR template already emits
- *     items via `.map(...)`, no fallback needed),
- *   - the loop body is a child component or composite/element-reconciled
- *     shape (the SSR-then-CSR mismatch in that case is handled by the
- *     dynamic-loop path; the static branch here only materialises plain
- *     element bodies), or
- *   - the loop's per-iteration template wasn't built (childComponent path).
+ *     items via `.map(...)`, no fallback needed).
+ *
+ * Body shape handling: the per-iteration template carries `${renderChild(...)}`
+ * expressions for component bodies (plain element, single-child-component, and
+ * composite-with-nested-components paths alike). The clone-and-insert branch
+ * in `stringifyStaticLoop` evaluates them when constructing the template's
+ * `innerHTML`, so the cloned children land with the SSR `bf-s` shape and
+ * `static-array-child-inits` can wire them via `initChild` unchanged.
+ *
+ * Note: `useElementReconciliation` is forced to `false` for static arrays in
+ * `decideLoopRendering`, so no explicit exclusion is needed for that flag —
+ * the composite-with-nested-components case takes the plain-element template
+ * path with renderChild expressions inlined.
  */
 function buildStaticLoopMaterialize(
   elem: TopLevelLoop,
@@ -100,8 +109,6 @@ function buildStaticLoopMaterialize(
 ): StaticLoopMaterializePlan | null {
   if (unsafeLocalNames.size === 0) return null
   if (!elem.staticItemTemplate) return null
-  if (elem.childComponent) return null
-  if (elem.useElementReconciliation) return null
   if (!exprReferencesAny(elem.array, unsafeLocalNames)) return null
   return {
     itemTemplate: elem.staticItemTemplate,

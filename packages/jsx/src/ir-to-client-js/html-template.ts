@@ -88,9 +88,15 @@ function templateAttrExpr(attrName: string, valExpr: string, attr: { presenceOrU
  *    are wrapped with `__bfSlot(EXPR, <branchSlotsVar>)` so the runtime can
  *    splice live `Node` returns into the parsed fragment instead of
  *    stringifying them via the template literal (#1213).
+ *  @param insideLoop - When true, component nodes omit their `slotId` from the
+ *    `renderChild` call. Each loop iteration produces its own scope (identified
+ *    by `data-key`), so the parent-slot suffix would create scopes that don't
+ *    match the SSR shape — see #1268 and the matching `insideLoop` guard in
+ *    `generateCsrTemplate` (case `'component'`). Set to `true` when generating
+ *    the per-iteration `staticItemTemplate` for static loops.
  */
-export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, loopDepth = 0, loopParams?: ReadonlyArray<string | LoopParamSpec>, branchSlotsVar?: string): string {
-  const recurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth, loopParams, branchSlotsVar)
+export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, loopDepth = 0, loopParams?: ReadonlyArray<string | LoopParamSpec>, branchSlotsVar?: string, insideLoop = false): string {
+  const recurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth, loopParams, branchSlotsVar, insideLoop)
   const wrapExpr = (expr: string) => wrapExprWithLoopParams(expr, loopParams)
   const wrapInterpolation = (expr: string): string => branchSlotsVar
     ? `__bfSlot(${expr}, ${branchSlotsVar})`
@@ -186,8 +192,11 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
       const keyArg = keyProp ? `, ${keyProp.value}` : ''
-      // Pass slotId as suffix so $c() can find the child component by slot after branch swap
-      const slotArg = node.slotId ? `, '${node.slotId}'` : ''
+      // Pass slotId as suffix so $c() can find the child component by slot after branch swap.
+      // Inside a loop body each iteration owns a separate scope (identified by
+      // `data-key`), so the parent-slot suffix is dropped — matching the
+      // SSR template's loop component emit in `generateCsrTemplate` (#1268).
+      const slotArg = (!insideLoop && node.slotId) ? `, '${node.slotId}'` : ''
       return `\${renderChild('${nameForRegistryRef(node.name)}', ${propsExpr}${keyArg || (slotArg ? ', undefined' : '')}${slotArg})}`
     }
 
@@ -196,7 +205,9 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
       // Increment loopDepth so inner key attrs become data-key-N
       // Forward loopParams so expressions referencing outer/inner loop params
       // get wrapped as signal accessors (e.g., task.title → task().title).
-      const innerRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth + 1, loopParams, branchSlotsVar)
+      // `insideLoop` is forced to true for the recursive walk so nested
+      // component renderChild calls drop their slot suffix.
+      const innerRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth + 1, loopParams, branchSlotsVar, true)
       const childTemplate = node.children.map(innerRecurse).join('')
       const indexParam = node.index ? `, ${node.index}` : ''
       const wrappedArray = wrapExpr(node.array)

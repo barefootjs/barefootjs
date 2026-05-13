@@ -32,6 +32,11 @@ describe('CSR Conformance Tests', () => {
     // lambda, so the post-init DOM shape is verified by the runtime regression
     // in `packages/client/__tests__/runtime/static-loop-csr-materialize.test.ts`.
     'static-array-from-props',
+    // #1268: same reason as `static-array-from-props` — the childComponent
+    // variant also materialises children at init time via the clone-and-
+    // insert fallback, not at template-eval time. CSR coverage lives in
+    // `packages/client/__tests__/runtime/static-loop-csr-materialize.test.ts`.
+    'static-array-from-props-with-component',
     // Static style object is converted at compile time — no runtime needed.
     // Attribute ordering differs between SSR (style first) and CSR injection (bf-s first).
     'style-object-static',

@@ -206,6 +206,92 @@ describe('#1247 — static-loop CSR self-heal', () => {
     expect(clientJs).not.toMatch(/__bfItem\(\)/)
   })
 
+  test('#1268 — childComponent body emits renderChild materialize template', () => {
+    // Loop body is a single child component reading from a prop-derived
+    // const (`entries`). Before #1268 the materialize gate excluded
+    // childComponent loops, so `createComponent` mounts of `TagList`
+    // rendered an empty `<ul>`. Now the per-iteration template is the
+    // `${renderChild('Tag', ..., key)}` expression — evaluating that
+    // template literal produces the rendered child HTML, which the
+    // existing `static-array-child-inits` phase wires via `initChild`.
+    const source = `
+      'use client'
+      type Props = { tags: Record<string, { variant: 'on' | 'off' }> }
+      export function TagList(props: Props) {
+        const entries = Object.entries(props.tags).filter(([, t]) => t.variant === 'on')
+        return (
+          <ul>
+            {entries.map(([id, t]) => (
+              <Tag key={id} id={id} variant={t.variant} />
+            ))}
+          </ul>
+        )
+      }
+    `
+    const clientJs = getClientJs(source, 'TagList.tsx')
+    // Materialize branch present.
+    expect(clientJs).toMatch(/if \(!__iterEl\)/)
+    // The cloned template body is a single `renderChild('Tag', ...)`
+    // expression — props read from the destructured forEach param.
+    const matMatch = clientJs.match(/__tpl\.innerHTML = `([^`]*)`/)
+    expect(matMatch).toBeTruthy()
+    const inner = matMatch![1]
+    expect(inner).toMatch(/\$\{renderChild\('Tag', \{[^}]*id: id[^}]*variant: t\.variant[^}]*\}, id/)
+    // No `__bfItem()` accessor (forEach destructures the param directly).
+    expect(clientJs).not.toMatch(/__bfItem\(\)/)
+    // The `static-array-child-inits` phase still emits its `initChild`
+    // pass — it runs after materialize, finds the cloned children via
+    // `qsaChildScopes`, and wires them with the same prop getters as
+    // before. Pinning this here is a guard against an accidental
+    // double-init by emitting renderChild AND createComponent.
+    expect(clientJs).toMatch(/qsaChildScopes\(/)
+    expect(clientJs).toMatch(/initChild\('Tag',/)
+  })
+
+  test('#1268 — composite element body with nested component materializes via renderChild', () => {
+    // Loop body is `<li><Cell /></li>` — a plain element wrapping a
+    // nested child component, with the array still prop-derived.
+    // `useElementReconciliation` is forced false for static arrays in
+    // `decideLoopRendering`, so the per-iteration template comes from
+    // `irToHtmlTemplate` (not `irToPlaceholderTemplate`), inlining a
+    // `${renderChild('Cell', ...)}` expression inside the `<li>`. The
+    // existing materialize plan from #1265 covers this — this test
+    // documents the contract so a later refactor doesn't accidentally
+    // route this shape through the placeholder path.
+    const source = `
+      'use client'
+      type Props = { rows: Record<string, { label: string }> }
+      export function Table(props: Props) {
+        const entries = Object.entries(props.rows)
+        return (
+          <ul>
+            {entries.map(([id, row]) => (
+              <li key={id}>
+                <Cell label={row.label} />
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const clientJs = getClientJs(source, 'Table.tsx')
+    // Materialize branch present.
+    expect(clientJs).toMatch(/if \(!__iterEl\)/)
+    // Per-iteration template is `<li ...>...renderChild('Cell', ...)...</li>`.
+    const matMatch = clientJs.match(/__tpl\.innerHTML = `([^`]*)`/)
+    expect(matMatch).toBeTruthy()
+    const inner = matMatch![1]
+    expect(inner).toMatch(/^<li\b/)
+    expect(inner).toMatch(/\$\{renderChild\('Cell', \{[^}]*label: row\.label[^}]*\}/)
+    // The materialize must NOT emit a `data-bf-ph` placeholder for
+    // composite-with-nested-component static loops — that's the
+    // useElementReconciliation shape, which the classifier forbids for
+    // static arrays.
+    expect(inner).not.toMatch(/data-bf-ph=/)
+    // Nested-comp init still runs after materialize.
+    expect(clientJs).toMatch(/initChild\('Cell',/)
+  })
+
   test('block-body .map emits mapPreamble at forEach top, visible to both branches', () => {
     // When the arrow body is a block (`{ const count = ...; return ... }`),
     // the const declaration lands in `csrMaterialize.mapPreamble`. The

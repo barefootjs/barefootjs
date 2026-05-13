@@ -56,6 +56,7 @@ import { fixture as componentWithJsxChildren } from './component-with-jsx-childr
 import { fixture as multipleInstances } from './multiple-instances'
 import { fixture as staticArrayChildren } from './static-array-children'
 import { fixture as staticArrayFromProps } from './static-array-from-props'
+import { fixture as staticArrayFromPropsWithComponent } from './static-array-from-props-with-component'
 // Priority 8: CSR conformance
 import { fixture as booleanDynamicAttr } from './boolean-dynamic-attr'
 import { fixture as childComponentInit } from './child-component-init'
@@ -122,6 +123,7 @@ export const jsxFixtures: JSXFixture[] = [
   multipleInstances,
   staticArrayChildren,
   staticArrayFromProps,
+  staticArrayFromPropsWithComponent,
   // Priority 8: CSR conformance
   booleanDynamicAttr,
   childComponentInit,
