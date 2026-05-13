@@ -66,12 +66,17 @@ get '/' => sub ($c) {
     # \`$c->bf->scripts\` call picks up everything the template registers.
     my $bf = $c->bf;
     $bf->_scope_id('Counter_' . substr(rand() =~ s/^0\\.//r, 0, 6));
+    # Stash values for every signal/memo Counter.html.ep references.
+    # \`barefoot build\` derives variable names directly from the JSX
+    # \`createSignal\` / \`createMemo\` declarations (here: \`count\`,
+    # \`doubled\`), so the SSR template needs each one set explicitly —
+    # client-side hydration takes over once the bundle loads.
+    my $initial = 0;
     $c->render(
         template => 'Counter',
         layout   => 'default',
-        # Component props — names match the JSX prop interface used in
-        # components/Counter.tsx.
-        initial  => 0,
+        count    => $initial,
+        doubled  => $initial * 2,
     );
 };
 

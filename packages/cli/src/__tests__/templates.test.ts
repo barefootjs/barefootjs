@@ -129,6 +129,18 @@ describe('adapter registry', () => {
       expect(ADAPTERS.echo.files['go.mod']).toContain('github.com/fsnotify/fsnotify')
     })
 
+    test('mojo passes Counter signal/memo values to the SSR template', () => {
+      // `barefoot build` derives template variable names ($count,
+      // $doubled) from the JSX createSignal/createMemo declarations.
+      // Perl's strict mode rejects undefined globals, so app.pl has
+      // to stash each one explicitly — otherwise the very first
+      // request 500s with "Global symbol $count requires explicit
+      // package name".
+      const appPl = ADAPTERS.mojo.files['app.pl']
+      expect(appPl).toMatch(/count\s+=>/)
+      expect(appPl).toMatch(/doubled\s+=>/)
+    })
+
     test('mojo disables template cache in development mode', () => {
       // Mojolicious caches parsed templates by default. `morbo`
       // (the dev server in the `dev` npm script) sets mode to
