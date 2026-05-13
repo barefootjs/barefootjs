@@ -122,8 +122,8 @@ function descendComponentJsxChildren<Scope>(
   walk: (n: IRNode, s: Scope) => void,
 ): void {
   for (const prop of node.props) {
-    if (!prop.jsxChildren) continue
-    for (const child of prop.jsxChildren) walk(child, scope)
+    if (prop.value.kind !== 'jsx-children') continue
+    for (const child of prop.value.children) walk(child, scope)
   }
 }
 

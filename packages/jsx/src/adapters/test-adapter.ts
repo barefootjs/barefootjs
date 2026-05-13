@@ -258,14 +258,26 @@ export class TestAdapter extends JsxAdapter {
     for (const attr of element.attrs) {
       const attrName = attr.name === 'class' ? 'className' : attr.name
 
-      if (attr.name === '...') {
-        parts.push(`{...${attr.value}}`)
-      } else if (attr.value === null) {
-        parts.push(attrName)
-      } else if (attr.dynamic) {
-        parts.push(`${attrName}={${attr.value}}`)
-      } else {
-        parts.push(`${attrName}="${attr.value}"`)
+      switch (attr.value.kind) {
+        case 'spread':
+          parts.push(`{...${attr.value.expr}}`)
+          break
+        case 'boolean-attr':
+          parts.push(attrName)
+          break
+        case 'expression':
+          parts.push(`${attrName}={${attr.value.expr}}`)
+          break
+        case 'template':
+          parts.push(`${attrName}={${this.flattenTemplate(attr.value)}}`)
+          break
+        case 'literal':
+          parts.push(`${attrName}="${attr.value.value}"`)
+          break
+        case 'boolean-shorthand':
+        case 'jsx-children':
+          // Not legal on intrinsic elements; emit nothing.
+          break
       }
     }
 
@@ -277,25 +289,46 @@ export class TestAdapter extends JsxAdapter {
     return parts.length > 0 ? ' ' + parts.join(' ') : ''
   }
 
+  private flattenTemplate(value: { kind: string }): string {
+    // Simple stringifier for `template`-kind values; tests only need a
+    // recognisable JSX shape, not byte-exact reproduction.
+    const v = value as { kind: 'template'; parts: import('../types').IRTemplatePart[] }
+    return '`' + v.parts.map(p => {
+      if (p.type === 'string') return p.value
+      if (p.type === 'ternary') return `\${${p.condition} ? '${p.whenTrue}' : '${p.whenFalse}'}`
+      return `\${(${JSON.stringify(p.cases)})[${p.key}]}`
+    }).join('') + '`'
+  }
+
   private renderComponentProps(comp: IRComponent): string {
     const parts: string[] = []
 
     for (const prop of comp.props) {
-      if (prop.jsxChildren?.length) {
-        const rendered = prop.jsxChildren.map(c => this.renderNode(c)).join('')
-        parts.push(`${prop.name}={<>${rendered}</>}`)
-        continue
-      }
-      if (prop.name === '...') {
-        parts.push(`{...${prop.value}}`)
-      } else if (prop.dynamic) {
-        parts.push(`${prop.name}={${prop.value}}`)
-      } else if (prop.value === 'true') {
-        parts.push(prop.name)
-      } else if (prop.value === 'false') {
-        parts.push(`${prop.name}={false}`)
-      } else {
-        parts.push(`${prop.name}="${prop.value}"`)
+      switch (prop.value.kind) {
+        case 'jsx-children': {
+          const rendered = prop.value.children.map(c => this.renderNode(c)).join('')
+          parts.push(`${prop.name}={<>${rendered}</>}`)
+          break
+        }
+        case 'spread':
+          parts.push(`{...${prop.value.expr}}`)
+          break
+        case 'expression':
+          parts.push(`${prop.name}={${prop.value.expr}}`)
+          break
+        case 'template':
+          parts.push(`${prop.name}={${this.flattenTemplate(prop.value)}}`)
+          break
+        case 'boolean-shorthand':
+          parts.push(prop.name)
+          break
+        case 'literal':
+          parts.push(`${prop.name}="${prop.value.value}"`)
+          break
+        case 'boolean-attr':
+          // Element-only variant; component props use boolean-shorthand.
+          parts.push(prop.name)
+          break
       }
     }
 

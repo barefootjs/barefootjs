@@ -2,7 +2,7 @@
  * IR → HTML template string generation and validation.
  */
 
-import type { IRNode } from '../types'
+import type { AttrValue, IRAttribute, IRNode } from '../types'
 import { isBooleanAttr } from '../html-constants'
 import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM, DATA_BF_PH, keyAttrName, loopStartMarker, loopEndMarker, freeIdsFromRefs, setIntersects, tokenContainsAny, wrapExprWithLoopParams } from './utils'
 import type { LoopParamSpec } from './utils'
@@ -64,8 +64,8 @@ const UNSAFE_TEMPLATE_EXPR = 'undefined'
  * @param valExpr - The already-transformed value expression string
  * @param attr - Attribute metadata (only presenceOrUndefined flag is used)
  */
-function templateAttrExpr(attrName: string, valExpr: string, attr: { presenceOrUndefined?: boolean }): string {
-  if (isBooleanAttr(attrName) || attr.presenceOrUndefined) {
+function templateAttrExpr(attrName: string, valExpr: string, presenceOrUndefined?: boolean): string {
+  if (isBooleanAttr(attrName) || presenceOrUndefined) {
     return `\${${valExpr} ? '${attrName}' : ''}`
   }
   if (attrName === 'style') {
@@ -79,6 +79,74 @@ function templateAttrExpr(attrName: string, valExpr: string, attr: { presenceOrU
     return `${attrName}="\${${valExpr}}"`
   }
   return `\${(${valExpr}) != null ? '${attrName}="' + (${valExpr}) + '"' : ''}`
+}
+
+/**
+ * Project a prop's `AttrValue` into its JS-expression string form suitable
+ * for the `renderChild(..., propsObj, KEY)` `KEY` argument. `transformExpr`
+ * applies the constant-inlining / props-rewrite pass used by the CSR
+ * template path; for non-`expression`/`spread`/`template` variants we
+ * delegate to the canonical projection.
+ */
+function transformKeyValue(value: AttrValue, transformExpr: (expr: string, templateExpr?: string) => string): string {
+  switch (value.kind) {
+    case 'expression':
+    case 'spread':
+      return transformExpr(value.expr, value.templateExpr)
+    case 'template':
+      return transformExpr(attrValueToString(value, { useTemplate: true }) ?? '')
+    case 'literal':
+      return JSON.stringify(value.value)
+    case 'boolean-shorthand':
+    case 'boolean-attr':
+      return 'true'
+    case 'jsx-children':
+      return 'undefined'
+  }
+}
+
+/**
+ * Render one element attribute into its template-literal substring for the
+ * SSR template path. Switches on `AttrValue.kind` exhaustively so a new
+ * variant becomes a type error.
+ *
+ * `wrap` is the loop-param-accessor rewrite (`task.title` → `task().title`)
+ * applied to any runtime-evaluated expression.
+ *
+ * Returns `''` to skip the attribute entirely (spread whose source is a
+ * known rest-prop, or `jsx-children` which never appears on intrinsic
+ * elements in well-formed IR).
+ */
+function renderTemplateAttrPart(
+  attr: IRAttribute,
+  attrName: string,
+  wrap: (expr: string) => string,
+  restSpreadNames?: Set<string>,
+): string {
+  const v = attr.value
+  switch (v.kind) {
+    case 'boolean-attr':
+      return attrName
+    case 'literal':
+      return `${attrName}="${v.value}"`
+    case 'expression': {
+      const valExpr = wrap(v.expr)
+      return templateAttrExpr(attrName, valExpr, v.presenceOrUndefined)
+    }
+    case 'template': {
+      const tmplStr = attrValueToString(v) ?? ''
+      return templateAttrExpr(attrName, wrap(tmplStr))
+    }
+    case 'spread': {
+      if (restSpreadNames?.has(v.expr)) return ''
+      return `\${spreadAttrs(${v.expr})}`
+    }
+    case 'boolean-shorthand':
+    case 'jsx-children':
+      // Neither variant is legal as an intrinsic-element attribute in
+      // well-formed IR. Emit nothing rather than crashing.
+      return ''
+  }
 }
 
 /** Convert an IR node tree to an HTML template string (for conditionals/loops).
@@ -106,24 +174,10 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
     case 'element': {
       const attrParts = node.attrs
         .map((a) => {
-          if (a.name === '...') {
-            const spreadValue = typeof a.value === 'string' ? a.value : null
-            if (!spreadValue) return ''
-            if (restSpreadNames?.has(spreadValue)) return ''
-            return `\${spreadAttrs(${spreadValue})}`
-          }
-          // Convert JSX `key` to `data-key` (or `data-key-N` for nested loops)
-          const attrName = a.name === 'key'
-            ? keyAttrName(loopDepth)
-            : toHtmlAttrName(a.name)
-          if (a.value === null) return attrName
-          // Resolve IRTemplateLiteral to string expression for use in template literals
-          const valExpr = typeof a.value === 'string' ? a.value : (attrValueToString(a.value) ?? '')
-          if (a.dynamic) {
-            const wrappedVal = wrapExpr(valExpr)
-            return templateAttrExpr(attrName, wrappedVal, a)
-          }
-          return `${attrName}="${valExpr}"`
+          const attrName = a.name === '...'
+            ? '...'
+            : (a.name === 'key' ? keyAttrName(loopDepth) : toHtmlAttrName(a.name))
+          return renderTemplateAttrPart(a, attrName, wrapExpr, restSpreadNames)
         })
         .filter(Boolean)
 
@@ -178,20 +232,31 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
         .map(p => {
           // `/* @client */` defers the prop to hydrate via initChild.
           if (p.clientOnly) return null
-          // JSX prop: render children inline as template literal
-          if (p.jsxChildren?.length) {
-            const childHtml = p.jsxChildren.map(c => recurse(c)).join('')
-            return `${quotePropName(p.name)}: \`${childHtml}\``
+          switch (p.value.kind) {
+            case 'jsx-children': {
+              const childHtml = p.value.children.map(c => recurse(c)).join('')
+              return `${quotePropName(p.name)}: \`${childHtml}\``
+            }
+            case 'literal':
+              return `${quotePropName(p.name)}: ${JSON.stringify(p.value.value)}`
+            case 'boolean-shorthand':
+              return `${quotePropName(p.name)}: true`
+            case 'boolean-attr':
+              return `${quotePropName(p.name)}: true`
+            case 'expression':
+            case 'template':
+            case 'spread': {
+              const expr = attrValueToString(p.value) ?? 'undefined'
+              return `${quotePropName(p.name)}: ${expr}`
+            }
           }
-          if (p.isLiteral) return `${quotePropName(p.name)}: ${JSON.stringify(p.value)}`
-          return `${quotePropName(p.name)}: ${p.value}`
         })
         .filter((entry): entry is string => entry !== null)
       const childrenEntry = childrenPropEntry(node.children, recurse)
       if (childrenEntry) propsEntries.push(childrenEntry)
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
-      const keyArg = keyProp ? `, ${keyProp.value}` : ''
+      const keyArg = keyProp ? `, ${attrValueToString(keyProp.value) ?? 'undefined'}` : ''
       // Pass slotId as suffix so $c() can find the child component by slot after branch swap.
       // Inside a loop body each iteration owns a separate scope (identified by
       // `data-key`), so the parent-slot suffix is dropped — matching the
@@ -251,24 +316,10 @@ export function irToPlaceholderTemplate(node: IRNode, restSpreadNames?: Set<stri
     case 'element': {
       const attrParts = node.attrs
         .map((a) => {
-          if (a.name === '...') {
-            const spreadValue = typeof a.value === 'string' ? a.value : null
-            if (!spreadValue) return ''
-            if (restSpreadNames?.has(spreadValue)) return ''
-            return `\${spreadAttrs(${spreadValue})}`
-          }
-          const attrName = a.name === 'key'
-            ? keyAttrName(loopDepth)
-            : toHtmlAttrName(a.name)
-          if (a.value === null) return attrName
-          const valExpr = typeof a.value === 'string' ? a.value : (attrValueToString(a.value) ?? '')
-          // Only wrap dynamic expression values, not string literals that happen
-          // to be marked dynamic (e.g., className="cart-item" where "item" matches a loop param)
-          if (a.dynamic) {
-            const wrappedVal = wrapExpr(valExpr)
-            return templateAttrExpr(attrName, wrappedVal, a)
-          }
-          return `${attrName}="${valExpr}"`
+          const attrName = a.name === '...'
+            ? '...'
+            : (a.name === 'key' ? keyAttrName(loopDepth) : toHtmlAttrName(a.name))
+          return renderTemplateAttrPart(a, attrName, wrapExpr, restSpreadNames)
         })
         .filter(Boolean)
 
@@ -371,16 +422,21 @@ function irNodeToJsExprs(node: IRNode): string[] {
         .filter(p => p.name !== 'key' && p.name !== '...' && !p.name.startsWith('...'))
         .map(p => {
           if (p.name.startsWith('on') && p.name.length > 2 && p.name[2] === p.name[2].toUpperCase()) {
-            return `${quotePropName(p.name)}: ${p.value}`
+            return `${quotePropName(p.name)}: ${attrValueToString(p.value) ?? 'undefined'}`
           }
-          // JSX prop: generate getter using IR children → JS expression
-          if (p.jsxChildren?.length) {
-            return `get ${quotePropName(p.name)}() { return ${irChildrenToJsExpr(p.jsxChildren)} }`
+          switch (p.value.kind) {
+            case 'jsx-children':
+              return `get ${quotePropName(p.name)}() { return ${irChildrenToJsExpr(p.value.children)} }`
+            case 'literal':
+              return `get ${quotePropName(p.name)}() { return ${JSON.stringify(p.value.value)} }`
+            case 'boolean-shorthand':
+            case 'boolean-attr':
+              return `get ${quotePropName(p.name)}() { return true }`
+            case 'expression':
+            case 'template':
+            case 'spread':
+              return `get ${quotePropName(p.name)}() { return ${attrValueToString(p.value) ?? 'undefined'} }`
           }
-          if (p.isLiteral) {
-            return `get ${quotePropName(p.name)}() { return ${JSON.stringify(p.value)} }`
-          }
-          return `get ${quotePropName(p.name)}() { return ${p.value} }`
         })
 
       if (node.children.length > 0) {
@@ -523,27 +579,46 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
           // `reactiveAttrs`. Skip from the SSR template so init's
           // createEffect is the sole authority on the attribute.
           if (a.clientOnly) return ''
-          if (a.name === '...') {
-            const spreadValue = attrValueToString(a.value, { useTemplate: true })
-            if (!spreadValue) return ''
-            if (restSpreadNames?.has(spreadValue)) return ''
-            return `\${spreadAttrs(${transformExpr(spreadValue, a.templateValue ?? undefined)})}`
+          const v = a.value
+          if (v.kind === 'spread') {
+            const spreadExpr = v.templateExpr ?? v.expr
+            if (restSpreadNames?.has(spreadExpr)) return ''
+            return `\${spreadAttrs(${transformExpr(v.expr, v.templateExpr)})}`
           }
           // Skip key for outer loop elements (reconcileTemplates sets data-key at runtime).
           // But render data-key-N for inner loop elements (needed for event delegation).
           if (a.name === 'key') {
             if (loopDepth === 0) return ''  // outer loop: skip (runtime handles it)
-            const valStr = attrValueToString(a.value, { useTemplate: true })
-            if (valStr && a.dynamic) return templateAttrExpr(keyAttrName(loopDepth), transformExpr(valStr, a.templateValue ?? undefined), a)
-            if (valStr) return `${keyAttrName(loopDepth)}="${valStr}"`
-            return ''
+            const keyName = keyAttrName(loopDepth)
+            switch (v.kind) {
+              case 'expression':
+                return templateAttrExpr(keyName, transformExpr(v.expr, v.templateExpr), v.presenceOrUndefined)
+              case 'template': {
+                const tmplStr = attrValueToString(v, { useTemplate: true }) ?? ''
+                return templateAttrExpr(keyName, transformExpr(tmplStr))
+              }
+              case 'literal':
+                return `${keyName}="${v.value}"`
+              default:
+                return ''
+            }
           }
           const attrName = toHtmlAttrName(a.name)
-          if (a.value === null) return attrName
-          const valueStr = attrValueToString(a.value, { useTemplate: true })
-          if (a.dynamic && valueStr) return templateAttrExpr(attrName, transformExpr(valueStr, a.templateValue ?? undefined), a)
-          if (valueStr) return `${attrName}="${valueStr}"`
-          return attrName
+          switch (v.kind) {
+            case 'boolean-attr':
+              return attrName
+            case 'literal':
+              return `${attrName}="${v.value}"`
+            case 'expression':
+              return templateAttrExpr(attrName, transformExpr(v.expr, v.templateExpr), v.presenceOrUndefined)
+            case 'template': {
+              const tmplStr = attrValueToString(v, { useTemplate: true }) ?? ''
+              return templateAttrExpr(attrName, transformExpr(tmplStr))
+            }
+            case 'boolean-shorthand':
+            case 'jsx-children':
+              return ''
+          }
         })
         .filter(Boolean)
 
@@ -593,20 +668,32 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
         .map(p => {
           // `/* @client */` defers the prop to hydrate via initChild.
           if (p.clientOnly) return null
-          if (p.jsxChildren?.length) {
-            const childHtml = p.jsxChildren.map(recurse).join('')
-            return `${quotePropName(p.name)}: \`${childHtml}\``
+          switch (p.value.kind) {
+            case 'jsx-children': {
+              const childHtml = p.value.children.map(recurse).join('')
+              return `${quotePropName(p.name)}: \`${childHtml}\``
+            }
+            case 'literal':
+              return `${quotePropName(p.name)}: ${JSON.stringify(p.value.value)}`
+            case 'boolean-shorthand':
+            case 'boolean-attr':
+              return `${quotePropName(p.name)}: true`
+            case 'expression':
+              return `${quotePropName(p.name)}: ${transformExpr(p.value.expr, p.value.templateExpr)}`
+            case 'spread':
+              return `${quotePropName(p.name)}: ${transformExpr(p.value.expr, p.value.templateExpr)}`
+            case 'template': {
+              const valueStr = attrValueToString(p.value, { useTemplate: true })!
+              return `${quotePropName(p.name)}: ${transformExpr(valueStr)}`
+            }
           }
-          if (p.isLiteral) return `${quotePropName(p.name)}: ${JSON.stringify(p.value)}`
-          const valueStr = attrValueToString(p.value, { useTemplate: true })
-          return `${quotePropName(p.name)}: ${valueStr ? transformExpr(valueStr, p.templateValue) : JSON.stringify(p.value)}`
         })
         .filter((entry): entry is string => entry !== null)
       const childrenEntry = childrenPropEntry(node.children, recurse)
       if (childrenEntry) propsEntries.push(childrenEntry)
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
-      const keyArg = keyProp ? `, ${transformExpr(keyProp.value, keyProp.templateValue)}` : ''
+      const keyArg = keyProp ? `, ${transformKeyValue(keyProp.value, transformExpr)}` : ''
       return `\${renderChild('${nameForRegistryRef(node.name)}', ${propsExpr}${keyArg})}`
     }
 
@@ -679,7 +766,8 @@ export function canGenerateStaticTemplate(
           if (valueStr && valueStr.includes('()') && !isSimplePropExpression(valueStr, propNames)) return false
           continue
         }
-        if (attr.dynamic && attr.value) {
+        // Only `expression` / `template` carry runtime references worth probing.
+        if (attr.value.kind === 'expression' || attr.value.kind === 'template' || attr.value.kind === 'spread') {
           const valueStr = attrValueToString(attr.value)
           if (valueStr) {
             if (hasUnsafeRef(attr.freeIdentifiers)) return false
@@ -835,20 +923,30 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
           // by emitting an initial value, so skip the attribute
           // entirely here.
           if (a.clientOnly) return ''
-          if (a.name === '...') {
-            const spreadValue = attrValueToString(a.value, { useTemplate: true })
-            if (!spreadValue) return ''
-            if (restSpreadNames?.has(spreadValue)) return ''
-            return `\${spreadAttrs(${transformExpr(spreadValue, a.templateValue ?? undefined)})}`
+          const v = a.value
+          if (v.kind === 'spread') {
+            const spreadExpr = v.templateExpr ?? v.expr
+            if (restSpreadNames?.has(spreadExpr)) return ''
+            return `\${spreadAttrs(${transformExpr(v.expr, v.templateExpr)})}`
           }
           const attrName = a.name === 'key'
             ? keyAttrName(loopDepth)
             : toHtmlAttrName(a.name)
-          if (a.value === null) return attrName
-          const valueStr = attrValueToString(a.value, { useTemplate: true })
-          if (a.dynamic && valueStr) return templateAttrExpr(attrName, transformExpr(valueStr, a.templateValue ?? undefined), a)
-          if (valueStr) return `${attrName}="${valueStr}"`
-          return attrName
+          switch (v.kind) {
+            case 'boolean-attr':
+              return attrName
+            case 'literal':
+              return `${attrName}="${v.value}"`
+            case 'expression':
+              return templateAttrExpr(attrName, transformExpr(v.expr, v.templateExpr), v.presenceOrUndefined)
+            case 'template': {
+              const valueStr = attrValueToString(v, { useTemplate: true })
+              return valueStr ? templateAttrExpr(attrName, transformExpr(valueStr)) : ''
+            }
+            case 'boolean-shorthand':
+            case 'jsx-children':
+              return ''
+          }
         })
         .filter(Boolean)
 
@@ -910,26 +1008,40 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
           // (built in collect-elements) reads the value once init
           // runs, mirroring the existing UNSAFE strip path below.
           if (p.clientOnly) return null
-          if (p.jsxChildren?.length) {
-            const childHtml = p.jsxChildren.map(c => recurse(c)).join('')
-            return `${quotePropName(p.name)}: \`${childHtml}\``
+          switch (p.value.kind) {
+            case 'jsx-children': {
+              const childHtml = p.value.children.map(c => recurse(c)).join('')
+              return `${quotePropName(p.name)}: \`${childHtml}\``
+            }
+            case 'literal':
+              return `${quotePropName(p.name)}: ${JSON.stringify(p.value.value)}`
+            case 'boolean-shorthand':
+            case 'boolean-attr':
+              return `${quotePropName(p.name)}: true`
+            case 'expression':
+            case 'spread': {
+              const transformed = transformExpr(p.value.expr, p.value.templateExpr)
+              // When transformExpr emits the unsafe sentinel for an init-scope-only
+              // reference (#1128), drop the prop from renderChild — initChild's
+              // getter binding will populate it once init runs.
+              if (transformed === UNSAFE_TEMPLATE_EXPR) return null
+              return `${quotePropName(p.name)}: ${transformed}`
+            }
+            case 'template': {
+              const valueStr = attrValueToString(p.value, { useTemplate: true })
+              if (!valueStr) return null
+              const transformed = transformExpr(valueStr)
+              if (transformed === UNSAFE_TEMPLATE_EXPR) return null
+              return `${quotePropName(p.name)}: ${transformed}`
+            }
           }
-          if (p.isLiteral) return `${quotePropName(p.name)}: ${JSON.stringify(p.value)}`
-          const valueStr = attrValueToString(p.value, { useTemplate: true })
-          if (!valueStr) return `${quotePropName(p.name)}: ${JSON.stringify(p.value)}`
-          const transformed = transformExpr(valueStr, p.templateValue)
-          // When transformExpr emits the unsafe sentinel for an init-scope-only
-          // reference (#1128), drop the prop from renderChild — initChild's
-          // getter binding will populate it once init runs.
-          if (transformed === UNSAFE_TEMPLATE_EXPR) return null
-          return `${quotePropName(p.name)}: ${transformed}`
         })
         .filter((entry): entry is string => entry !== null)
       const childrenEntry = childrenPropEntry(node.children, recurse)
       if (childrenEntry) propsEntries.push(childrenEntry)
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
-      const keyArg = keyProp ? `, ${transformExpr(keyProp.value, keyProp.templateValue)}` : ''
+      const keyArg = keyProp ? `, ${transformKeyValue(keyProp.value, transformExpr)}` : ''
       const slotArg = (!insideLoop && node.slotId) ? `, '${node.slotId}'` : ''
       return `\${renderChild('${nameForRegistryRef(node.name)}', ${propsExpr}${keyArg || (slotArg ? ', undefined' : '')}${slotArg})}`
     }

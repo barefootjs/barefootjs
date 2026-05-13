@@ -5,7 +5,7 @@
  * for CSS cascade ordering. Un-layered user classes always beat layered component classes.
  */
 
-import type { ComponentIR, IRNode, IRTemplateLiteral } from './types'
+import type { ComponentIR, IRNode, IRTemplatePart } from './types'
 
 /**
  * Prefix a single CSS class token with a layer variant.
@@ -89,29 +89,31 @@ export function applyCssLayerPrefix(ir: ComponentIR, layerName: string): void {
 
     for (const attr of node.attrs) {
       if (attr.name !== 'class' && attr.name !== 'className') continue
-      if (attr.value === null) continue
 
-      // Static className: prefix value directly
-      if (typeof attr.value === 'string' && attr.isLiteral) {
-        attr.value = prefixClassString(attr.value, layerName)
-        continue
-      }
-
-      // IRTemplateLiteral: prefix ternary branches and static string parts
-      if (typeof attr.value === 'object' && attr.value.type === 'template-literal') {
-        prefixIRTemplateLiteral(attr.value, layerName)
-        // Extract constant references from ${expr} in string parts
-        for (const part of attr.value.parts) {
-          if (part.type === 'string' && part.value.includes('${')) {
-            collectConstantRefs(part.value, referencedConstants, constantNames)
+      switch (attr.value.kind) {
+        case 'literal':
+          attr.value.value = prefixClassString(attr.value.value, layerName)
+          break
+        case 'template': {
+          prefixIRTemplateParts(attr.value.parts, layerName)
+          // Extract constant references from ${expr} in string parts
+          for (const part of attr.value.parts) {
+            if (part.type === 'string' && part.value.includes('${')) {
+              collectConstantRefs(part.value, referencedConstants, constantNames)
+            }
           }
+          break
         }
-        continue
-      }
-
-      // Dynamic expression: extract referenced constants
-      if (typeof attr.value === 'string' && !attr.isLiteral) {
-        collectConstantRefs(attr.value, referencedConstants, constantNames)
+        case 'expression':
+          collectConstantRefs(attr.value.expr, referencedConstants, constantNames)
+          break
+        case 'spread':
+          collectConstantRefs(attr.value.expr, referencedConstants, constantNames)
+          break
+        case 'boolean-attr':
+        case 'boolean-shorthand':
+        case 'jsx-children':
+          break
       }
     }
   })
@@ -145,10 +147,11 @@ export function applyCssLayerPrefix(ir: ComponentIR, layerName: string): void {
 // =============================================================================
 
 /**
- * Prefix ternary parts and pure static text in an IRTemplateLiteral.
+ * Prefix ternary parts and pure static text in a structured `template`
+ * AttrValue's parts.
  */
-function prefixIRTemplateLiteral(tl: IRTemplateLiteral, layerName: string): void {
-  for (const part of tl.parts) {
+function prefixIRTemplateParts(parts: IRTemplatePart[], layerName: string): void {
+  for (const part of parts) {
     if (part.type === 'ternary') {
       part.whenTrue = prefixClassString(part.whenTrue, layerName)
       part.whenFalse = prefixClassString(part.whenFalse, layerName)

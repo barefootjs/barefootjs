@@ -14,13 +14,49 @@ import type {
   NestedLoop,
 } from '../../types'
 import type {
+  AttrValue,
   IRLoopChildComponent,
   IRNode,
   IRProp,
   LoopParamBinding,
 } from '../../../types'
-import { quotePropName, wrapLoopParamAsAccessor } from '../../utils'
+import { AttrValueOf } from '../../../types'
+import { quotePropName, wrapLoopParamAsAccessor, attrValueToString } from '../../utils'
 import { addCondAttrToTemplate, irChildrenToJsExpr } from '../../html-template'
+
+/**
+ * Apply a string-level expression rewriter (loop-param-accessor wrap, prop
+ * rebase, etc.) to every runtime-evaluated part of an `AttrValue`. Static
+ * variants (`literal`, `boolean-attr`, `boolean-shorthand`) and JSX children
+ * pass through unchanged.
+ *
+ * Currently used by the inner-loop / branch plan builders that need to
+ * rewrite `param.foo` → `param().foo` everywhere a loop iteration's prop
+ * value would be evaluated.
+ */
+function wrapAttrValueExpression(value: AttrValue, wrap: (s: string) => string): AttrValue {
+  switch (value.kind) {
+    case 'literal':
+    case 'boolean-attr':
+    case 'boolean-shorthand':
+    case 'jsx-children':
+      return value
+    case 'expression':
+      return AttrValueOf.expression(wrap(value.expr), {
+        ...(value.templateExpr !== undefined && { templateExpr: wrap(value.templateExpr) }),
+        ...(value.presenceOrUndefined !== undefined && { presenceOrUndefined: value.presenceOrUndefined }),
+      })
+    case 'template': {
+      // Collapse to an `expression` after the wrap. Template structure is
+      // an SSR-adapter optimization; the inner-loop path emits client JS
+      // directly so a flat string suffices.
+      const flat = attrValueToString(value)
+      return AttrValueOf.expression(wrap(flat ?? 'undefined'))
+    }
+    case 'spread':
+      return AttrValueOf.spread(wrap(value.expr), value.templateExpr ? wrap(value.templateExpr) : undefined)
+  }
+}
 import { destructureLoopParam, loopKeyFn } from '../shared'
 import type {
   BranchChildComponentInit,
@@ -112,12 +148,22 @@ export function buildBranchChildComponentInitsPlan(
       .filter(p => p.name !== 'key')
       .map(p => {
         if (p.name.startsWith('on') && p.name.length > 2) {
-          return `${quotePropName(p.name)}: ${wrap(p.value)}`
+          return `${quotePropName(p.name)}: ${wrap(attrValueToString(p.value) ?? 'undefined')}`
         }
-        if (p.isLiteral) {
-          return `get ${quotePropName(p.name)}() { return ${JSON.stringify(p.value)} }`
+        switch (p.value.kind) {
+          case 'literal':
+            return `get ${quotePropName(p.name)}() { return ${JSON.stringify(p.value.value)} }`
+          case 'boolean-shorthand':
+          case 'boolean-attr':
+            return `get ${quotePropName(p.name)}() { return true }`
+          case 'jsx-children':
+          case 'expression':
+          case 'template':
+          case 'spread': {
+            const expr = attrValueToString(p.value) ?? 'undefined'
+            return `get ${quotePropName(p.name)}() { return ${wrap(expr)} }`
+          }
         }
-        return `get ${quotePropName(p.name)}() { return ${wrap(p.value)} }`
       })
 
     // Children are needed for CSR createComponent; SSR initChild ignores them
@@ -197,7 +243,7 @@ export function buildBranchInnerLoopsPlan(
       if (node.type === 'component') {
         return {
           ...node,
-          props: node.props.map(p => p.isLiteral ? p : ({ ...p, value: wrapInner(p.value) })),
+          props: node.props.map(p => ({ ...p, value: wrapAttrValueExpression(p.value, wrapInner) })),
           children: node.children?.map(wrapIRNode),
         }
       }
@@ -214,7 +260,7 @@ export function buildBranchInnerLoopsPlan(
     }
     const legacyComponents: IRLoopChildComponent[] = (inner.childComponents ?? []).map(comp => ({
       ...comp,
-      props: comp.props.map(p => p.isLiteral ? p : ({ ...p, value: wrapInner(p.value) })),
+      props: comp.props.map(p => ({ ...p, value: wrapAttrValueExpression(p.value, wrapInner) })),
       children: comp.children?.map(wrapIRNode),
     }))
     const legacyEvents: LoopChildEvent[] = (inner.childEvents ?? []).map(ev => ({

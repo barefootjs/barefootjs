@@ -20,14 +20,14 @@ import {
   type IRAttribute,
   type IREvent,
   type IRProp,
-  type IRTemplateLiteral,
+  type AttrValue,
   type IRTemplatePart,
   type LoopParamBinding,
   type SourceLocation,
   type TypeInfo,
   type OriginInfo,
-  pickAttrMeta,
   isReactiveOrigin,
+  AttrValueOf,
 } from './types'
 import { type AnalyzerContext, getSourceLocation } from './analyzer-context'
 import { parseExpression, isSupported, parseBlockBody, type ParsedExpr, type ParsedStatement } from './expression-parser'
@@ -409,9 +409,7 @@ function wrapInScopeElement(node: IRNode): IRElement {
     tag: 'div',
     attrs: [{
       name: 'style',
-      value: 'display:contents',
-      dynamic: false,
-      isLiteral: true,
+      value: AttrValueOf.literal('display:contents'),
       loc: node.loc,
     }],
     events: [],
@@ -714,26 +712,16 @@ function parseFallbackProp(
   ctx: TransformContext,
   parentNode: ts.Node
 ): IRNode {
-  // Walk the parent node's attributes to find the actual AST node for fallback
-  const openingEl = (parentNode as ts.JsxElement).openingElement
-  for (const attr of openingEl.attributes.properties) {
-    if (ts.isJsxAttribute(attr) && attr.name.getText(ctx.sourceFile) === 'fallback') {
-      const initializer = attr.initializer
-      if (initializer && ts.isJsxExpression(initializer) && initializer.expression) {
-        const expr = initializer.expression
-        // If it's a JSX element, transform it
-        if (ts.isJsxElement(expr) || ts.isJsxSelfClosingElement(expr) || ts.isJsxFragment(expr)) {
-          const result = transformNode(expr, ctx)
-          if (result) return result
-        }
-      }
-    }
+  // The JSX-as-prop case is now structurally captured by processComponentProps
+  // as a `jsx-children` AttrValue variant — pluck the IR node directly.
+  if (prop.value.kind === 'jsx-children' && prop.value.children.length > 0) {
+    return prop.value.children[0]
   }
 
-  // Fallback to a text node with the prop value
+  // Fallback to a text node with the prop value's string form
   return {
     type: 'text',
-    value: prop.value,
+    value: prop.value.kind === 'literal' ? prop.value.value : prop.value.kind === 'expression' ? prop.value.expr : '',
     loc: getSourceLocation(parentNode, ctx.sourceFile, ctx.filePath),
   }
 }
@@ -750,24 +738,19 @@ function transformSelfClosingAsyncElement(
     return stubFragment(ctx, node, () => [])
   }
 
-  // Parse fallback from the self-closing element's attributes
-  let fallbackNode: IRNode | null = null
-  for (const attr of node.attributes.properties) {
-    if (ts.isJsxAttribute(attr) && attr.name.getText(ctx.sourceFile) === 'fallback') {
-      const initializer = attr.initializer
-      if (initializer && ts.isJsxExpression(initializer) && initializer.expression) {
-        const expr = initializer.expression
-        if (ts.isJsxElement(expr) || ts.isJsxSelfClosingElement(expr) || ts.isJsxFragment(expr)) {
-          fallbackNode = transformNode(expr, ctx)
-        }
-      }
-    }
-  }
-
-  if (!fallbackNode) {
+  // The JSX-as-prop case is structurally captured by processComponentProps
+  // as a `jsx-children` AttrValue variant — pluck the IR node directly.
+  let fallbackNode: IRNode
+  if (fallbackProp.value.kind === 'jsx-children' && fallbackProp.value.children.length > 0) {
+    fallbackNode = fallbackProp.value.children[0]
+  } else {
     fallbackNode = {
       type: 'text',
-      value: fallbackProp.value,
+      value: fallbackProp.value.kind === 'literal'
+        ? fallbackProp.value.value
+        : fallbackProp.value.kind === 'expression'
+          ? fallbackProp.value.expr
+          : '',
       loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
     }
   }
@@ -1880,13 +1863,13 @@ function findKeyJsxAttribute(
 function extractLoopKey(node: IRNode): string | null {
   if (node.type === 'element') {
     const keyAttr = node.attrs.find((a) => a.name === 'key')
-    if (!keyAttr || !keyAttr.value || typeof keyAttr.value !== 'string') return null
-    return keyAttr.value
+    if (!keyAttr) return null
+    return keyAttrValueToExpr(keyAttr.value)
   }
   if (node.type === 'component') {
     const keyProp = node.props.find((p) => p.name === 'key')
-    if (!keyProp || !keyProp.value || typeof keyProp.value !== 'string') return null
-    return keyProp.value
+    if (!keyProp) return null
+    return keyAttrValueToExpr(keyProp.value)
   }
   if (node.type === 'conditional') {
     const a = extractLoopKey(node.whenTrue)
@@ -1896,6 +1879,20 @@ function extractLoopKey(node: IRNode): string | null {
     return normalizeKeyExpr(a) === normalizeKeyExpr(b) ? a : null
   }
   return null
+}
+
+/**
+ * Project the `key={...}` AttrValue into the raw expression string used
+ * by `loopKeyFn` for `mapArray`'s key callback. Only `expression`,
+ * `literal`, and `template` make sense as key sources at runtime.
+ */
+function keyAttrValueToExpr(v: AttrValue): string | null {
+  switch (v.kind) {
+    case 'expression': return v.expr
+    case 'literal': return JSON.stringify(v.value)
+    case 'template': return null
+    default: return null
+  }
 }
 
 /**
@@ -2396,8 +2393,6 @@ function transformMapCall(
         .map((p) => ({
           name: p.name,
           value: p.value,
-          dynamic: p.dynamic,
-          isLiteral: p.isLiteral,
           isEventHandler: p.name.startsWith('on') && p.name.length > 2,
         })),
       children: comp.children,
@@ -2496,8 +2491,6 @@ function collectNestedComponents(nodes: IRNode[]): IRLoopChildComponent[] {
           .map(p => ({
             name: p.name,
             value: p.value,
-            dynamic: p.dynamic,
-            isLiteral: p.isLiteral,
             isEventHandler: p.name.startsWith('on') && p.name.length > 2,
           })),
         children: node.children,
@@ -2563,17 +2556,13 @@ interface ProcessedAttributes {
 // rest-prop itself: arbitrary `{...someObject}` spreads can't be unrolled
 // because we don't have a static key list for them.
 //
-// The shape returned satisfies both IRAttribute and IRProp (string value,
-// dynamic, isLiteral=false).
+// The shape returned satisfies both IRAttribute and IRProp.
 function expandSpreadAttribute(
   attr: ts.JsxSpreadAttribute,
   ctx: TransformContext,
 ): Array<{
   name: string
-  value: string
-  templateValue?: string
-  dynamic: true
-  isLiteral: false
+  value: AttrValue
   loc: SourceLocation
   freeIdentifiers?: ReadonlySet<string>
 }> {
@@ -2590,9 +2579,7 @@ function expandSpreadAttribute(
     const perKeyFreeIds: ReadonlySet<string> = new Set([restName])
     return expandedKeys.map(key => ({
       name: key,
-      value: `${restName}.${key}`,
-      dynamic: true,
-      isLiteral: false,
+      value: AttrValueOf.expression(`${restName}.${key}`),
       loc,
       freeIdentifiers: perKeyFreeIds,
     }))
@@ -2600,10 +2587,7 @@ function expandSpreadAttribute(
 
   return [{
     name: '...',
-    value: spreadExpr,
-    templateValue: ctx.getTemplateJS(attr.expression),
-    dynamic: true,
-    isLiteral: false,
+    value: AttrValueOf.spread(spreadExpr, ctx.getTemplateJS(attr.expression)),
     loc,
     freeIdentifiers: spreadFreeIdentifiers,
   }]
@@ -2697,13 +2681,14 @@ function processAttributes(
       continue
     }
 
-    const attrResult = getAttributeValue(attr, ctx)
-    const { value, dynamic, isLiteral } = attrResult
-    let templateValue: string | undefined
+    let value = getAttributeValue(attr, ctx)
     let clientOnly: boolean | undefined
     if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
-      if (dynamic && typeof value === 'string') {
-        templateValue = rewriteBarePropRefs(value, attr.initializer.expression, ctx)
+      if (value.kind === 'expression' && value.templateExpr === undefined) {
+        const rewritten = rewriteBarePropRefs(value.expr, attr.initializer.expression, ctx)
+        if (rewritten !== value.expr) {
+          value = { ...value, templateExpr: rewritten }
+        }
       }
       // `/* @client */` in attribute initializer position: defer the
       // attribute to hydrate. Detection routed through the shared
@@ -2720,13 +2705,9 @@ function processAttributes(
     attrs.push({
       name,
       value,
-      templateValue,
-      dynamic,
-      isLiteral,
       clientOnly,
       loc: getSourceLocation(attr, ctx.sourceFile, ctx.filePath),
       ...computeReactivityFlags(attr, ctx),
-      ...pickAttrMeta(attrResult),
       ...(freeIdentifiers !== undefined && { freeIdentifiers }),
     })
   }
@@ -2734,18 +2715,15 @@ function processAttributes(
   return { attrs, events, ref }
 }
 
-function getAttributeValue(
-  attr: ts.JsxAttribute,
-  ctx: TransformContext
-): { value: string | IRTemplateLiteral | null; dynamic: boolean; isLiteral: boolean; presenceOrUndefined?: boolean } {
+function getAttributeValue(attr: ts.JsxAttribute, ctx: TransformContext): AttrValue {
   // Boolean attribute: <button disabled />
   if (!attr.initializer) {
-    return { value: null, dynamic: false, isLiteral: false }
+    return AttrValueOf.booleanAttr()
   }
 
   // String literal: <div id="main" />
   if (ts.isStringLiteral(attr.initializer)) {
-    return { value: attr.initializer.text, dynamic: false, isLiteral: true }
+    return AttrValueOf.literal(attr.initializer.text)
   }
 
   // Expression: <div class={className} />
@@ -2762,7 +2740,7 @@ function getAttributeValue(
     if (attr.name.getText(ctx.sourceFile) === 'style' && ts.isObjectLiteralExpression(expr)) {
       const cssString = tryStaticStyleObjectToCss(expr)
       if (cssString !== null) {
-        return { value: cssString, dynamic: false, isLiteral: true }
+        return AttrValueOf.literal(cssString)
       }
     }
 
@@ -2774,11 +2752,7 @@ function getAttributeValue(
     if (ts.isTemplateExpression(expr)) {
       const parts = parseTemplateLiteral(expr, ctx)
       if (parts.some(p => p.type === 'ternary' || p.type === 'lookup')) {
-        return {
-          value: { type: 'template-literal', parts },
-          dynamic: true,
-          isLiteral: false,
-        }
+        return AttrValueOf.template(parts)
       }
     }
 
@@ -2789,7 +2763,7 @@ function getAttributeValue(
     if (ts.isIdentifier(expr)) {
       const resolved = tryResolveIdentifierAsTemplateLiteral(expr, ctx)
       if (resolved) {
-        return { value: resolved, dynamic: true, isLiteral: false }
+        return AttrValueOf.template(resolved)
       }
     }
 
@@ -2797,11 +2771,7 @@ function getAttributeValue(
     if (ts.isConditionalExpression(expr)) {
       const ternary = parseTernary(expr, ctx)
       if (ternary) {
-        return {
-          value: { type: 'template-literal', parts: [ternary] },
-          dynamic: true,
-          isLiteral: false,
-        }
+        return AttrValueOf.template([ternary])
       }
     }
 
@@ -2809,15 +2779,15 @@ function getAttributeValue(
     if (ts.isBinaryExpression(expr) && expr.operatorToken.kind === ts.SyntaxKind.BarBarToken) {
       if (ts.isIdentifier(expr.right) && expr.right.text === 'undefined') {
         const baseExpr = ctx.getJS(expr.left)
-        return { value: baseExpr, dynamic: true, isLiteral: false, presenceOrUndefined: true }
+        return AttrValueOf.expression(baseExpr, { presenceOrUndefined: true })
       }
     }
 
     const exprText = ctx.getJS(expr)
-    return { value: exprText, dynamic: true, isLiteral: false }
+    return AttrValueOf.expression(exprText)
   }
 
-  return { value: null, dynamic: false, isLiteral: false }
+  return AttrValueOf.booleanAttr()
 }
 
 /**
@@ -3005,14 +2975,14 @@ function findLocalConst(name: string, ctx: TransformContext) {
 function tryResolveIdentifierAsTemplateLiteral(
   ident: ts.Identifier,
   ctx: TransformContext,
-): IRTemplateLiteral | null {
+): IRTemplatePart[] | null {
   const constInfo = findLocalConst(ident.text, ctx)
   if (!constInfo) return null
   const ast = parseConstInitializer(constInfo)
   if (!ast) return null
 
   if (ts.isNoSubstitutionTemplateLiteral(ast) || ts.isStringLiteral(ast)) {
-    return { type: 'template-literal', parts: [{ type: 'string', value: ast.text }] }
+    return [{ type: 'string', value: ast.text }]
   }
 
   if (!ts.isTemplateExpression(ast)) return null
@@ -3046,7 +3016,7 @@ function tryResolveIdentifierAsTemplateLiteral(
     if (span.literal.text) parts.push({ type: 'string', value: span.literal.text })
   }
 
-  return resolvedAny ? { type: 'template-literal', parts } : null
+  return resolvedAny ? parts : null
 }
 
 /**
@@ -3166,8 +3136,8 @@ function processComponentProps(
     const name = attr.name.getText(ctx.sourceFile)
 
     // JSX element/fragment as prop value: controls={<select />} or
-    // controls={(<div/>)}. Stored on `jsxChildren` so the adapter can render
-    // it inline rather than passing a string.
+    // controls={(<div/>)}. Carried as a `jsx-children` AttrValue variant
+    // so adapters render the JSX inline rather than passing a string.
     if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
       let jsxExpr = attr.initializer.expression
       while (ts.isParenthesizedExpression(jsxExpr)) {
@@ -3181,30 +3151,31 @@ function processComponentProps(
         if (irNode) {
           props.push({
             name,
-            value: '__jsx_prop',
-            dynamic: true,
-            isLiteral: false,
+            value: AttrValueOf.jsxChildren([irNode]),
             loc: getSourceLocation(attr, ctx.sourceFile, ctx.filePath),
-            jsxChildren: [irNode],
           })
           continue
         }
       }
     }
 
-    const attrResult = getAttributeValue(attr, ctx)
-    const { value, dynamic, isLiteral } = attrResult
+    let value = getAttributeValue(attr, ctx)
+    // Components receive props as runtime values, so collapse a structured
+    // template literal back into a JS expression, and promote `boolean-attr`
+    // to `boolean-shorthand` (`<X disabled />` → `disabled={true}`).
+    if (value.kind === 'template') {
+      value = AttrValueOf.expression(templatePartsToJsString(value.parts))
+    } else if (value.kind === 'boolean-attr') {
+      value = AttrValueOf.booleanShorthand()
+    }
 
-    // Components receive props as runtime values, so collapse IRTemplateLiteral
-    // back to a JS expression and fall back to 'true' for boolean shorthand
-    // (`<X disabled />` → `disabled={true}`).
-    const propValue = templateLiteralToString(value) ?? 'true'
-
-    let propTemplateValue: string | undefined
     let clientOnly: boolean | undefined
     if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
-      if (dynamic && typeof value === 'string') {
-        propTemplateValue = rewriteBarePropRefs(propValue, attr.initializer.expression, ctx)
+      if (value.kind === 'expression' && value.templateExpr === undefined) {
+        const rewritten = rewriteBarePropRefs(value.expr, attr.initializer.expression, ctx)
+        if (rewritten !== value.expr) {
+          value = { ...value, templateExpr: rewritten }
+        }
       }
       // `/* @client */` in component-prop initializer position: defer
       // to hydrate. Detection routed through the shared helper so it
@@ -3220,14 +3191,10 @@ function processComponentProps(
     const freeIdentifiers = attrFreeIdentifiers(attr)
     props.push({
       name,
-      value: propValue,
-      templateValue: propTemplateValue,
-      dynamic,
-      isLiteral,
+      value,
       clientOnly,
       loc: getSourceLocation(attr, ctx.sourceFile, ctx.filePath),
       ...computeReactivityFlags(attr, ctx),
-      ...pickAttrMeta(attrResult),
       ...(freeIdentifiers !== undefined && { freeIdentifiers }),
     })
   }
@@ -3236,24 +3203,19 @@ function processComponentProps(
 }
 
 /**
- * Convert an IRTemplateLiteral back to its JavaScript string representation.
- * Returns the original value if it's already a string.
+ * Flatten a structured template-literal's parts back into a JS expression
+ * string. Used at IR construction time when a structured `template` variant
+ * needs to be collapsed into an `expression` for component-prop forwarding —
+ * component props are runtime JS values, not HTML attribute bodies.
  */
-function templateLiteralToString(value: string | IRTemplateLiteral | null): string | null {
-  if (value === null) return null
-  if (typeof value === 'string') return value
-
-  // Reconstruct the template literal as a JS expression
+function templatePartsToJsString(parts: readonly IRTemplatePart[]): string {
   let result = '`'
-  for (const part of value.parts) {
+  for (const part of parts) {
     if (part.type === 'string') {
       result += part.value
     } else if (part.type === 'ternary') {
       result += `\${${part.condition} ? '${part.whenTrue}' : '${part.whenFalse}'}`
     } else if (part.type === 'lookup') {
-      // Rebuild the indexed lookup as runtime JS so the JSX runtime
-      // path (Hono component-prop forwarding, client-side template
-      // generation) keeps producing the same value.
       const obj = '{' + Object.entries(part.cases).map(
         ([k, v]) => `${JSON.stringify(k)}: ${JSON.stringify(v)}`
       ).join(', ') + '}'
@@ -3450,19 +3412,17 @@ function hasReactiveAttributes(attrs: IRAttribute[], ctx: TransformContext): boo
     // element MUST have a slotId for runtime lookup — even if the
     // expression itself doesn't trip the signal/memo/prop heuristics.
     if (attr.clientOnly) return true
-    if (attr.dynamic && attr.value) {
-      const valueToCheck = getAttributeValueAsString(attr.value)
-      if (!valueToCheck) continue
+    const valueToCheck = attrValueReactivityProbe(attr.value)
+    if (!valueToCheck) continue
 
-      if (isSignalOrMemoReference(valueToCheck, ctx) || isPropsReference(valueToCheck, ctx)) {
-        return true
-      }
-      // Check if attribute references any active loop parameters —
-      // loop root elements need a slotId so className can be updated reactively.
-      if (ctx.loopParams.size > 0) {
-        for (const p of ctx.loopParams) {
-          if (new RegExp(`\\b${p}\\b`).test(valueToCheck)) return true
-        }
+    if (isSignalOrMemoReference(valueToCheck, ctx) || isPropsReference(valueToCheck, ctx)) {
+      return true
+    }
+    // Check if attribute references any active loop parameters —
+    // loop root elements need a slotId so className can be updated reactively.
+    if (ctx.loopParams.size > 0) {
+      for (const p of ctx.loopParams) {
+        if (new RegExp(`\\b${p}\\b`).test(valueToCheck)) return true
       }
     }
   }
@@ -3470,20 +3430,28 @@ function hasReactiveAttributes(attrs: IRAttribute[], ctx: TransformContext): boo
 }
 
 /**
- * Get the string representation of an attribute value for reactivity checking.
+ * Extract a string representation of an `AttrValue` suitable for the
+ * reactivity heuristics (regex tests against signal / memo / prop names).
+ * Returns null for variants whose body never references runtime values.
  */
-function getAttributeValueAsString(value: string | IRTemplateLiteral | null): string | null {
-  if (value === null) return null
-  if (typeof value === 'string') return value
-  // For template literals, concatenate all parts for reactivity checking.
-  // We reach into the part-specific reactive-relevant expression: the
-  // ternary `condition`, or the lookup `key`. The string part is a
-  // literal, no further inspection needed.
-  return value.parts.map(p => {
-    if (p.type === 'string') return p.value
-    if (p.type === 'ternary') return p.condition
-    return p.key
-  }).join('')
+function attrValueReactivityProbe(value: AttrValue): string | null {
+  switch (value.kind) {
+    case 'expression':
+      return value.expr
+    case 'spread':
+      return value.expr
+    case 'template':
+      return value.parts.map((p: IRTemplatePart) => {
+        if (p.type === 'string') return p.value
+        if (p.type === 'ternary') return p.condition
+        return p.key
+      }).join('')
+    case 'literal':
+    case 'boolean-attr':
+    case 'boolean-shorthand':
+    case 'jsx-children':
+      return null
+  }
 }
 
 /**

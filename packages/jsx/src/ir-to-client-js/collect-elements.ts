@@ -2,7 +2,7 @@
  * IR tree traversal → collect elements into ClientJsContext.
  */
 
-import { type IRNode, type IRElement, type IRComponent, type IRLoop, type IRProp, pickAttrMeta } from '../types'
+import { type IRNode, type IRElement, type IRComponent, type IRLoop, type IRProp, pickAttrMetaFromIR } from '../types'
 import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchReactiveAttr, BranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildBranchSummary, LoopChildConditional, LoopChildEvent, LoopChildReactiveAttr, NestedLoop } from './types'
 import { attrValueToString, freeIdsFromRefs, quotePropName, PROPS_PARAM } from './utils'
 import { classifyReactivity, decideWrapForAttr, decideWrapForChildProp, decideWrapFromAstFlags, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts } from './reactivity'
@@ -199,8 +199,6 @@ export function collectInnerLoops(
               props: c.props.map(p => ({
                 name: p.name,
                 value: p.value,
-                dynamic: p.dynamic ?? false,
-                isLiteral: p.isLiteral ?? false,
                 isEventHandler: p.name.startsWith('on') && p.name.length > 2 && p.name[2] === p.name[2].toUpperCase(),
               })),
               children: c.children,
@@ -311,10 +309,12 @@ function buildRestSpreadNames(ctx: ClientJsContext): Set<string> {
 function buildComponentPropsExpr(props: IRProp[], ctx: ClientJsContext): string {
   const restName = ctx.restPropsName
   const propsObjName = ctx.propsObjectName
-  const knownSpreadProp = props.find(p =>
-    (p.name === '...' || p.name.startsWith('...')) &&
-    (p.value === restName || p.value === propsObjName)
-  )
+  const knownSpreadProp = props.find(p => {
+    if (p.name !== '...' && !p.name.startsWith('...')) return false
+    if (p.value.kind !== 'spread' && p.value.kind !== 'expression') return false
+    const expr = p.value.kind === 'spread' ? p.value.expr : p.value.expr
+    return expr === restName || expr === propsObjName
+  })
   const spreadSource = knownSpreadProp ? PROPS_PARAM : null
 
   const propsForInit: string[] = []
@@ -327,21 +327,39 @@ function buildComponentPropsExpr(props: IRProp[], ctx: ClientJsContext): string 
       prop.name.length > 2 &&
       prop.name[2] === prop.name[2].toUpperCase()
     if (isEventHandler) {
-      propsForInit.push(`${quotePropName(prop.name)}: ${prop.value}`)
-    } else if (prop.jsxChildren) {
-      const jsxExpr = irChildrenToJsExpr(prop.jsxChildren)
-      if (jsxChildrenContainComponent(prop.jsxChildren)) {
-        propsForInit.push(`get ${quotePropName(prop.name)}() { return __slot(() => ${jsxExpr}) }`)
-      } else {
-        propsForInit.push(`get ${quotePropName(prop.name)}() { return ${jsxExpr} }`)
+      // Event handlers reach here only as `expression` variants.
+      propsForInit.push(`${quotePropName(prop.name)}: ${attrValueToString(prop.value) ?? prop.name}`)
+      continue
+    }
+    switch (prop.value.kind) {
+      case 'jsx-children': {
+        const jsxExpr = irChildrenToJsExpr(prop.value.children)
+        if (jsxChildrenContainComponent(prop.value.children)) {
+          propsForInit.push(`get ${quotePropName(prop.name)}() { return __slot(() => ${jsxExpr}) }`)
+        } else {
+          propsForInit.push(`get ${quotePropName(prop.name)}() { return ${jsxExpr} }`)
+        }
+        break
       }
-    } else if (prop.dynamic) {
-      const expandedValue = expandDynamicPropValue(prop.value, ctx)
-      propsForInit.push(`get ${quotePropName(prop.name)}() { return ${expandedValue} }`)
-    } else if (prop.isLiteral) {
-      propsForInit.push(`${quotePropName(prop.name)}: ${JSON.stringify(prop.value)}`)
-    } else {
-      propsForInit.push(`${quotePropName(prop.name)}: ${prop.value}`)
+      case 'expression':
+      case 'template':
+      case 'spread': {
+        const valueExpr = attrValueToString(prop.value)!
+        const expandedValue = expandDynamicPropValue(valueExpr, ctx)
+        propsForInit.push(`get ${quotePropName(prop.name)}() { return ${expandedValue} }`)
+        break
+      }
+      case 'literal':
+        propsForInit.push(`${quotePropName(prop.name)}: ${JSON.stringify(prop.value.value)}`)
+        break
+      case 'boolean-shorthand':
+        propsForInit.push(`${quotePropName(prop.name)}: true`)
+        break
+      case 'boolean-attr':
+        // Should not reach here for component props (processComponentProps
+        // promotes to boolean-shorthand), but handle defensively.
+        propsForInit.push(`${quotePropName(prop.name)}: true`)
+        break
     }
   }
 
@@ -361,14 +379,16 @@ function buildComponentPropsExpr(props: IRProp[], ctx: ClientJsContext): string 
 function collectReactiveChildProps(node: IRComponent, ctx: ClientJsContext): void {
   for (const prop of node.props) {
     if (prop.name === '...' || prop.name.startsWith('...')) continue
-    if (prop.jsxChildren) continue
+    if (prop.value.kind === 'jsx-children') continue
     const isEventHandler =
       prop.name.startsWith('on') &&
       prop.name.length > 2 &&
       prop.name[2] === prop.name[2].toUpperCase()
     if (isEventHandler) continue
-    if (!prop.dynamic) continue
-    const expandedValue = expandDynamicPropValue(prop.value, ctx)
+    // Only `expression` / `template` variants drive reactive prop forwarding.
+    if (prop.value.kind !== 'expression' && prop.value.kind !== 'template') continue
+    const valueExpr = attrValueToString(prop.value)!
+    const expandedValue = expandDynamicPropValue(valueExpr, ctx)
     if (!decideWrapForChildProp(expandedValue, ctx, prop).wrap) continue
     const attrName = prop.name === 'className' ? 'class' : prop.name
     ctx.reactiveChildProps.push({
@@ -377,7 +397,7 @@ function collectReactiveChildProps(node: IRComponent, ctx: ClientJsContext): voi
       propName: prop.name,
       attrName,
       expression: expandedValue,
-      ...pickAttrMeta(prop),
+      ...pickAttrMetaFromIR(prop),
     })
   }
 }
@@ -485,7 +505,10 @@ export function collectElements(
 
       if (l.childComponent) {
         for (const prop of l.childComponent.props) {
-          if (prop.isEventHandler) childHandlers.push(prop.value)
+          if (prop.isEventHandler) {
+            const handler = attrValueToString(prop.value)
+            if (handler) childHandlers.push(handler)
+          }
         }
       }
 
@@ -585,9 +608,13 @@ export function collectElements(
       if (c.slotId) {
         // Reactive props need effects to update the element when values change.
         for (const prop of c.props) {
-          if (prop.jsxChildren) continue
+          if (prop.value.kind === 'jsx-children') continue
           if (prop.name.startsWith('on') && prop.name.length > 2) continue
-          const value = prop.value
+          // Only `expression` variants reach the signal/memo getter heuristic
+          // — literal / template / spread / boolean forms don't have a single
+          // bare-identifier shape to lookup.
+          if (prop.value.kind !== 'expression') continue
+          const value = prop.value.expr
           if (value.endsWith('()')) {
             const fnName = value.slice(0, -2)
             const isMemo = ctx.memos.some((m) => m.name === fnName)
@@ -620,7 +647,7 @@ export function collectElements(
     provider: ({ node: p, descend }) => {
       ctx.providerSetups.push({
         contextName: p.contextName,
-        valueExpr: p.valueProp.value,
+        valueExpr: attrValueToString(p.valueProp.value) ?? '',
       })
       descend()
     },
@@ -676,7 +703,10 @@ function collectFromElement(element: IRElement, ctx: ClientJsContext, insideCond
         continue
       }
 
-      if (attr.dynamic && attr.value) {
+      // Literal / boolean variants need no reactive binding — they're
+      // already in the SSR DOM and never change. Only `expression` /
+      // `template` / `spread` reach the wrap decision.
+      if (attr.value.kind === 'expression' || attr.value.kind === 'template' || attr.value.kind === 'spread') {
         const valueStr = attrValueToString(attr.value)
         if (!valueStr) continue
 
@@ -719,7 +749,7 @@ function collectFromElement(element: IRElement, ctx: ClientJsContext, insideCond
             slotId: element.slotId,
             attrName: attr.name,
             expression: expandedValueStr,
-            ...pickAttrMeta(attr),
+            ...pickAttrMetaFromIR(attr),
             ...(expandedResult.freeIds !== undefined && { freeIdentifiers: expandedResult.freeIds }),
           })
         }
@@ -748,7 +778,9 @@ function collectBranchReactiveAttrs(node: IRNode, ctx: ClientJsContext): Conditi
         return
       }
       for (const attr of el.attrs) {
-        if (attr.name === '...' || !attr.dynamic || !attr.value) continue
+        if (attr.name === '...') continue
+        // Only `expression` / `template` / `spread` carry a reactive expression.
+        if (attr.value.kind !== 'expression' && attr.value.kind !== 'template' && attr.value.kind !== 'spread') continue
         const valueStr = attrValueToString(attr.value)
         if (!valueStr) continue
         const expanded = expandConstantForReactivity(valueStr, ctx, attr.freeIdentifiers)
@@ -763,7 +795,7 @@ function collectBranchReactiveAttrs(node: IRNode, ctx: ClientJsContext): Conditi
           slotId: el.slotId,
           attrName: attr.name,
           expression: expanded.expr,
-          ...pickAttrMeta(attr),
+          ...pickAttrMetaFromIR(attr),
           ...(expanded.freeIds !== undefined && { freeIdentifiers: expanded.freeIds }),
         })
       }
