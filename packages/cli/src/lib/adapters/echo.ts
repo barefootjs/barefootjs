@@ -187,9 +187,11 @@ import (
 \t"net/http"
 \t"os"
 \t"path/filepath"
+\t"sync"
 \t"time"
 
 \tbf "github.com/barefootjs/runtime/bf"
+\t"github.com/fsnotify/fsnotify"
 \t"github.com/labstack/echo/v4"
 )
 
@@ -272,30 +274,84 @@ func mustNewRenderer() echo.Renderer {
 
 // ── dev auto-reload ──────────────────────────────────────────────────
 //
-// SSE handler + browser snippet that mirror @barefootjs/hono/app's
-// barefootDevReload middleware. Each Go process generates a fresh
-// bootID at startup, so when \`barefoot build --watch\` triggers a
-// rebuild and you re-run \`bun run dev\`, the EventSource the browser
-// has open sees a Last-Event-ID that no longer matches and fires a
-// reload. Disabled (404 + empty snippet) when BAREFOOT_DEV != "1".
+// Browser auto-reload over SSE. The mechanism has two complementary
+// triggers — together they cover both \`barefoot build --watch\`
+// rebuilds (the common case during component editing) and Go-side
+// process restarts (less common, but \`Last-Event-ID\` recovers
+// gracefully even then).
 //
-// In the current dev script BAREFOOT_DEV=1 is set but Go itself
-// doesn't restart automatically — \`barefoot build --watch\` only
-// regenerates dist/templates and the renderer above re-parses them
-// per request, so the page DOES need a manual nudge. This snippet
-// supplies that nudge by riding on the SSE handler defined here
-// (long-poll style heartbeat keeps the connection open; a code
-// change that bounces the Go process rotates bootID, the browser
-// reconnects with the old id, and the handler answers
-// \`event: reload\`).
+//   1. dist/templates watcher (fsnotify): every successful rebuild
+//      flips a broadcast, every live SSE connection emits
+//      \`event: reload\` immediately. The browser refreshes and the
+//      renderer (which re-parses templates per request in dev) sends
+//      down the new HTML.
+//
+//   2. Per-process bootID: if the Go process itself restarts the
+//      reload event channel is gone, but the SSE handshake compares
+//      the browser's stored \`Last-Event-ID\` to the new bootID and
+//      sends a one-shot \`event: reload\` on mismatch.
+//
+// Disabled entirely (404 + empty snippet) when BAREFOOT_DEV != "1",
+// so production HTML stays clean.
 
-var bootID = func() string {
+var (
+\tbootID          = newBootID()
+\tsubscribersMu   sync.Mutex
+\tsubscribers     = make(map[chan string]struct{})
+\tstartReloadOnce sync.Once
+)
+
+func newBootID() string {
 \tvar b [16]byte
 \tif _, err := rand.Read(b[:]); err != nil {
 \t\treturn fmt.Sprintf("%d", time.Now().UnixNano())
 \t}
 \treturn hex.EncodeToString(b[:])
-}()
+}
+
+func broadcastReload(id string) {
+\tsubscribersMu.Lock()
+\tdefer subscribersMu.Unlock()
+\tfor ch := range subscribers {
+\t\tselect {
+\t\tcase ch <- id:
+\t\tdefault:
+\t\t}
+\t}
+}
+
+// startTemplateWatcher subscribes to dist/templates and broadcasts
+// a reload event to every connected SSE client whenever a write
+// completes. Debounced to 50ms so a flurry of file ops from a
+// single rebuild fires once.
+func startTemplateWatcher() {
+\tw, err := fsnotify.NewWatcher()
+\tif err != nil {
+\t\tfmt.Fprintf(os.Stderr, "barefoot dev-reload: %v\\n", err)
+\t\treturn
+\t}
+\tif err := w.Add("dist/templates"); err != nil {
+\t\tfmt.Fprintf(os.Stderr, "barefoot dev-reload: %v\\n", err)
+\t\treturn
+\t}
+\tgo func() {
+\t\tvar debounce <-chan time.Time
+\t\tfor {
+\t\t\tselect {
+\t\t\tcase ev, ok := <-w.Events:
+\t\t\t\tif !ok {
+\t\t\t\t\treturn
+\t\t\t\t}
+\t\t\t\tif ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+\t\t\t\t\tdebounce = time.After(50 * time.Millisecond)
+\t\t\t\t}
+\t\t\tcase <-debounce:
+\t\t\t\tdebounce = nil
+\t\t\t\tbroadcastReload(newBootID())
+\t\t\t}
+\t\t}
+\t}()
+}
 
 // DevReloadMiddleware mounts the SSE endpoint at "/_bf/reload" when
 // BAREFOOT_DEV=1, otherwise it's a no-op pass-through. Add via
@@ -304,6 +360,7 @@ func DevReloadMiddleware() echo.MiddlewareFunc {
 \tif os.Getenv("BAREFOOT_DEV") != "1" {
 \t\treturn func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 \t}
+\tstartReloadOnce.Do(startTemplateWatcher)
 \treturn func(next echo.HandlerFunc) echo.HandlerFunc {
 \t\treturn func(c echo.Context) error {
 \t\t\tif c.Request().Method == http.MethodGet && c.Request().URL.Path == "/_bf/reload" {
@@ -330,6 +387,19 @@ func handleDevReload(c echo.Context) error {
 \tfmt.Fprintf(res.Writer, "event: %s\\nid: %s\\ndata: %s\\n\\n", event, bootID, bootID)
 \tres.Flush()
 
+\t// Subscribe this connection to broadcasts from the template
+\t// watcher. Buffered so a missed read doesn't block the watcher;
+\t// deregister on disconnect.
+\tch := make(chan string, 4)
+\tsubscribersMu.Lock()
+\tsubscribers[ch] = struct{}{}
+\tsubscribersMu.Unlock()
+\tdefer func() {
+\t\tsubscribersMu.Lock()
+\t\tdelete(subscribers, ch)
+\t\tsubscribersMu.Unlock()
+\t}()
+
 \tctx := c.Request().Context()
 \tticker := time.NewTicker(5 * time.Second)
 \tdefer ticker.Stop()
@@ -337,6 +407,9 @@ func handleDevReload(c echo.Context) error {
 \t\tselect {
 \t\tcase <-ctx.Done():
 \t\t\treturn nil
+\t\tcase id := <-ch:
+\t\t\tfmt.Fprintf(res.Writer, "event: reload\\nid: %s\\ndata: %s\\n\\n", id, id)
+\t\t\tres.Flush()
 \t\tcase <-ticker.C:
 \t\t\tif _, err := fmt.Fprint(res.Writer, ": hb\\n\\n"); err != nil {
 \t\t\t\treturn nil
@@ -364,6 +437,7 @@ go 1.22
 
 require (
 \tgithub.com/barefootjs/runtime/bf v0.0.0
+\tgithub.com/fsnotify/fsnotify v1.7.0
 \tgithub.com/labstack/echo/v4 v4.12.0
 )
 
