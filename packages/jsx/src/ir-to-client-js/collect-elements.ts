@@ -497,6 +497,21 @@ export function collectElements(
       let staticItemTemplate: string | undefined
       if (l.childComponent) {
         template = '' // childComponent path uses createComponent directly
+        // CSR materialize fallback (#1268): when the loop array references an
+        // init-scope local the CSR template substitutes `[]`, so the
+        // container is empty on a `createComponent` mount. The materialize
+        // forEach in `stringifyStaticLoop` evaluates this per-iteration
+        // template (a single `${renderChild('Name', ...)}` expression) so the
+        // rendered child HTML lands inside the container; the
+        // `static-array-child-inits` phase then wires it via `initChild`.
+        // Loop-param refs use the raw destructured binding (no loopParams
+        // passed), matching the plain-element path's `staticItemTemplate`.
+        if (l.isStaticArray && l.children[0]) {
+          // `insideLoop=true` so the component-emit drops the parent's slot
+          // suffix — each iteration owns a distinct scope identified by
+          // `data-key`, mirroring the SSR template's renderChild emit.
+          staticItemTemplate = irToHtmlTemplate(l.children[0], buildRestSpreadNames(ctx), 0, undefined, undefined, /* insideLoop */ true)
+        }
       } else if (l.children[0]) {
         // Pass loopParams so expressions are wrapped at generation time,
         // avoiding post-hoc regex wrapping that corrupts literal attribute values.
@@ -512,6 +527,15 @@ export function collectElements(
         // accessor wrap so the CSR materialize fallback (#1247) can clone
         // items inside the forEach body without rewriting the template.
         if (l.isStaticArray) {
+          // Plain-element body: leave `insideLoop=false` so any nested
+          // component nodes keep their parent-slot suffix in the per-iteration
+          // renderChild call. The `outer-nested` static-array-child-init plan
+          // uses a strict `'[bf-s$="_${slotId}"]'` selector with no `~Name_`
+          // fallback, so the materialized children must end in `_${slotId}`
+          // for `initChild` to find them. SSR's parent-anchored shape
+          // (`test_${slotId}`) and CSR's random-anchored shape
+          // (`~${name}_<rand>_${slotId}`) both end in `_${slotId}` — keeping
+          // them aligned is what makes the dual SSR/CSR lookup work.
           staticItemTemplate = useElementReconciliation
             ? irToPlaceholderTemplate(l.children[0], buildRestSpreadNames(ctx), 0)
             : irToHtmlTemplate(l.children[0], buildRestSpreadNames(ctx), 0)
