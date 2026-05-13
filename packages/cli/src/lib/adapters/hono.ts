@@ -1,6 +1,14 @@
-// Hono adapter starter (Node, JSX SSR + hydration).
+// Hono adapter starter (Cloudflare Workers, JSX SSR + hydration).
+//
+// The generated app boots on `wrangler dev` (local workerd) and ships
+// with `wrangler deploy`. `@barefootjs/hono`'s core (`app.ts`) is
+// runtime-agnostic — no `node:fs`, no `process.env` — so the same
+// adapter code runs on Node-shaped hosts as well, but the scaffold
+// commits to Workers as the default target to deliver an
+// "instantly deployable" first impression.
 
 import type { AdapterTemplate } from '../templates'
+import { commandsFor } from '../pm'
 import {
   COMPONENTS_MANIFEST_SEED,
   SHARED_COUNTER_TSX,
@@ -11,11 +19,13 @@ import {
   unoConfigTs,
 } from './shared'
 
-const HONO_SERVER_TSX = `import { serve } from '@hono/node-server'
-import { createApp } from './factory'
+const HONO_SERVER_TSX = `import { Hono } from 'hono'
+import { renderer } from './renderer'
 import { Counter } from '@/components/Counter'
 
-const app = createApp()
+const app = new Hono()
+
+app.use('*', renderer)
 
 app.get('/', (c) =>
   c.render(
@@ -26,71 +36,12 @@ app.get('/', (c) =>
   ),
 )
 
-serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3000) }, (info) => {
-  console.log(\`  ➜ http://localhost:\${info.port}\`)
-})
-
 export default app
 `
 
-const HONO_FACTORY_TS = `import { Hono } from 'hono'
-import { serveStatic } from '@hono/node-server/serve-static'
-import { barefootDevReload } from '@barefootjs/hono/app'
-import { createRenderer } from './renderer'
-
-export function createApp(): Hono {
-  const isProd = process.env.NODE_ENV === 'production'
-
-  // Compiled component bundles: served from \`componentsBase\` URL,
-  // sourced from \`componentsDistDir\` on disk.
-  const componentsBase = '/static/components'
-  const componentsDistDir = './dist/components'
-
-  // Everything else under public/: served from \`publicBase\` URL,
-  // sourced from \`publicDir\` on disk.
-  const publicBase = '/static'
-  const publicDir = './public'
-
-  const renderer = createRenderer({ componentsBase })
-
-  const app = new Hono()
-
-  app.use('*', renderer)
-
-  app.use(
-    \`\${componentsBase}/*\`,
-    serveStatic({
-      root: componentsDistDir,
-      rewriteRequestPath: (path) => path.replace(componentsBase, ''),
-    }),
-  )
-
-  app.use(
-    \`\${publicBase}/*\`,
-    serveStatic({
-      root: publicDir,
-      rewriteRequestPath: (path) => path.replace(publicBase, ''),
-    }),
-  )
-
-  // \`<BfDevReload />\` in renderer.tsx reads the endpoint off the
-  // context this middleware publishes — when \`enabled: false\`, no
-  // context is set and the component renders nothing.
-  app.use(
-    '*',
-    barefootDevReload({
-      endpoint: '/_bf/reload',
-      enabled: !isProd,
-    }),
-  )
-
-  return app
-}
-`
-
 const HONO_RENDERER_TSX = `import { jsxRenderer } from 'hono/jsx-renderer'
-import { BfImportMap, BfScripts, BfDevReload } from '@barefootjs/hono/app'
-import manifest from './dist/components/manifest.json'
+import { BfImportMap, BfScripts } from '@barefootjs/hono/app'
+import manifest from './public/components/manifest.json'
 
 declare module 'hono' {
   interface ContextRenderer {
@@ -98,30 +49,38 @@ declare module 'hono' {
   }
 }
 
-export interface CreateRendererOptions {
-  componentsBase: string
-}
+const componentsBase = '/components'
 
-export function createRenderer({ componentsBase }: CreateRendererOptions) {
-  return jsxRenderer(({ children, title }) => (
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{title ?? 'BarefootJS app'}</title>
-        <link rel="stylesheet" href="/static/styles.css" />
-        <BfImportMap base={componentsBase} />
-      </head>
-      <body>
-        {children}
-        <BfScripts base={componentsBase} manifest={manifest} />
-        <BfDevReload />
-      </body>
-    </html>
-  ))
-}
+export const renderer = jsxRenderer(({ children, title }) => (
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>{title ?? 'BarefootJS app'}</title>
+      {/* Link all three sheets so the browser fetches them in
+          parallel — chaining via styles.css @import would defer
+          tokens/uno to a second round-trip and flash unstyled DOM.
+          tokens.css first so CSS variables are defined before any
+          rule references them. */}
+      <link rel="stylesheet" href="/tokens.css" />
+      <link rel="stylesheet" href="/styles.css" />
+      <link rel="stylesheet" href="/uno.css" />
+      <BfImportMap base={componentsBase} />
+    </head>
+    <body>
+      {children}
+      <BfScripts base={componentsBase} manifest={manifest} />
+    </body>
+  </html>
+))
 `
 
+// Static assets (styles, tokens, generated client JS, manifest) live
+// under \`./public/\` so Workers Assets serves them automatically per
+// the binding in \`wrangler.jsonc\`. \`barefoot build\` mirrors the
+// input directory layout under \`outDir\`, so \`outDir: 'public'\`
+// produces \`public/components/<file>.client.js\` — the URLs the
+// renderer references at \`/components/...\`.
 const HONO_BAREFOOT_CONFIG_TS = `import { createConfig } from '@barefootjs/hono/build'
 
 export default createConfig({
@@ -131,13 +90,15 @@ export default createConfig({
     tokens: 'tokens',
     meta: 'meta',
   },
-  // Build inputs and output
+  // Build inputs and output. barefoot mirrors the input dir under
+  // \`outDir\`, so \`components/\` lands at \`public/components/\` —
+  // exactly where Workers Assets serves it from.
   components: ['components'],
-  outDir: 'dist',
-  scriptBasePath: '/static/components/',
+  outDir: 'public',
+  scriptBasePath: '/components/',
   adapterOptions: {
-    clientJsBasePath: '/static/components/',
-    barefootJsPath: '/static/components/barefoot.js',
+    clientJsBasePath: '/components/',
+    barefootJsPath: '/components/barefoot.js',
   },
 })
 `
@@ -149,6 +110,7 @@ const HONO_TSCONFIG = `{
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "jsxImportSource": "@barefootjs/hono/jsx",
+    "types": ["@cloudflare/workers-types"],
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -159,26 +121,44 @@ const HONO_TSCONFIG = `{
       // Server components (no 'use client') aren't emitted to dist by
       // \`barefoot build\`, so the path map falls back to the source so
       // imports of those components still resolve.
-      "@/components/*": ["./dist/components/*", "./components/*"]
+      "@/components/*": ["./public/components/*", "./components/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "dist/components/**/*.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", "public/components/**/*.tsx"],
   "exclude": ["node_modules"]
 }
 `
 
+// {{__PROJECT_NAME__}} is replaced by the chosen project folder name
+// in scaffoldApp (init.ts), so the deployed Workers script ends up
+// named after the user's app instead of a generic "my-app".
+const HONO_WRANGLER_JSONC = `{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "{{__PROJECT_NAME__}}",
+  "main": "server.tsx",
+  "compatibility_date": "2025-01-01",
+  // Static assets (CSS, generated client JS, manifest) are served
+  // directly by Workers Assets. The Worker script handles everything
+  // else — SSR, API routes, etc.
+  "assets": {
+    "directory": "./public"
+  }
+}
+`
+
 export const HONO_ADAPTER: AdapterTemplate = {
-  label: 'Hono (Node, JSX SSR + hydration)',
-  port: 3000,
+  label: 'Hono (Cloudflare Workers, JSX SSR + hydration)',
+  shortLabel: 'Hono / Cloudflare Workers',
+  port: 8787,
   files: {
     'server.tsx': HONO_SERVER_TSX,
-    'factory.ts': HONO_FACTORY_TS,
     'renderer.tsx': HONO_RENDERER_TSX,
     'barefoot.config.ts': HONO_BAREFOOT_CONFIG_TS,
     'tsconfig.json': HONO_TSCONFIG,
+    'wrangler.jsonc': HONO_WRANGLER_JSONC,
     'uno.config.ts': unoConfigTs([
       'components/**/*.tsx',
-      'dist/components/**/*.tsx',
+      'public/components/**/*.tsx',
       'server.tsx',
       'renderer.tsx',
     ]),
@@ -186,15 +166,27 @@ export const HONO_ADAPTER: AdapterTemplate = {
     'public/styles.css': STYLES_CSS,
     'public/tokens.css': TOKENS_CSS,
     'public/uno.css': UNO_CSS_PLACEHOLDER,
-    'dist/components/manifest.json': COMPONENTS_MANIFEST_SEED,
+    'public/components/manifest.json': COMPONENTS_MANIFEST_SEED,
   },
   scripts: {
-    // Build everything once, then run barefoot's watch-build, UnoCSS's
-    // class scanner, and the server side-by-side. `concurrently -k`
-    // makes Ctrl-C kill all three.
-    dev: 'barefoot build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "tsx watch server.tsx"',
+    // Run barefoot's component build, UnoCSS's class scanner, and the
+    // local Workers dev server side-by-side. `concurrently -k` makes
+    // Ctrl-C kill all three. `wrangler dev --live-reload` watches the
+    // worker + asset files and reloads the browser when they change,
+    // so we don't need a separate SSE-based reloader. `wrangler` lives
+    // behind the PM's dlx so its (large) dependency tree never lands
+    // in node_modules — the first run caches it via bunx / npx /
+    // pnpm dlx / yarn dlx.
+    dev: (pm) =>
+      `concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "${commandsFor(pm).exec(
+        'wrangler dev --live-reload',
+      )}"`,
     build: 'barefoot build && unocss',
-    start: 'tsx server.tsx',
+    deploy: (pm) => `barefoot build && unocss && ${commandsFor(pm).exec('wrangler deploy')}`,
+  },
+  deploy: {
+    target: 'Cloudflare Workers',
+    script: 'deploy',
   },
   dependencies: {
     '@barefootjs/cli': 'latest',
@@ -203,13 +195,12 @@ export const HONO_ADAPTER: AdapterTemplate = {
     // Required transitively by @barefootjs/hono via the registry button.
     '@barefootjs/jsx': 'latest',
     '@barefootjs/shared': 'latest',
-    '@hono/node-server': '^1.13.0',
     hono: '^4.6.0',
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@cloudflare/workers-types': '^4.20250101.0',
     concurrently: '^9.0.0',
-    tsx: '^4.19.0',
     typescript: '^5.6.0',
   },
   prereqWarnings: () => [],

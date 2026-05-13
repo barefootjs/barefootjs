@@ -79,6 +79,11 @@ func main() {
 \te.Use(middleware.Logger())
 \te.Use(middleware.Recover())
 
+\t// Auto-reload SSE — mounts /_bf/reload when BAREFOOT_DEV=1 and is
+\t// a no-op pass-through otherwise. Pairs with the snippet
+\t// renderer.go's defaultLayout drops into <body>.
+\te.Use(DevReloadMiddleware())
+
 \t// Render plumbing lives in bf_render.go. Edit defaultLayout in
 \t// renderer.go to change the surrounding HTML.
 \te.Renderer = mustNewRenderer()
@@ -132,10 +137,17 @@ func defaultLayout(ctx *bf.RenderContext) string {
 \t<meta charset="utf-8" />
 \t<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 \t<title>%s</title>
+\t<!-- Link all three sheets so the browser fetches them in parallel —
+\t     chaining via styles.css @import would defer tokens/uno to a
+\t     second round-trip and flash unstyled DOM. tokens first so its
+\t     CSS variables are defined before any rule references them. -->
+\t<link rel="stylesheet" href="/static/tokens.css" />
 \t<link rel="stylesheet" href="/static/styles.css" />
+\t<link rel="stylesheet" href="/static/uno.css" />
 </head>
 <body>
 \t<main>%s</main>
+\t%s
 \t%s
 \t%s
 </body>
@@ -144,6 +156,8 @@ func defaultLayout(ctx *bf.RenderContext) string {
 \t\tctx.ComponentHTML,
 \t\tctx.Portals,
 \t\tctx.Scripts,
+\t\t// DevReloadScript returns "" in production so this stays empty.
+\t\tDevReloadScript(),
 \t)
 }
 `
@@ -164,14 +178,20 @@ const ECHO_BF_RENDER_GO = `package main
 // won't clobber your edits in place.
 
 import (
+\t"crypto/rand"
+\t"encoding/hex"
 \t"fmt"
 \t"html/template"
 \t"io"
 \t"io/fs"
+\t"net/http"
 \t"os"
 \t"path/filepath"
+\t"sync"
+\t"time"
 
 \tbf "github.com/barefootjs/runtime/bf"
+\t"github.com/fsnotify/fsnotify"
 \t"github.com/labstack/echo/v4"
 )
 
@@ -211,11 +231,25 @@ func loadTemplates() (*template.Template, error) {
 }
 
 // echoRenderer adapts bf.Renderer to echo.Renderer.
+//
+// In dev mode (env.go's IsDev() — i.e. APP_ENV != "production") it
+// re-parses dist/templates/ on every Render call so a
+// \`barefoot build --watch\` update surfaces as soon as the browser
+// refreshes — no Go server restart needed. In production the parse
+// happens once at startup.
 type echoRenderer struct {
-\tbf *bf.Renderer
+\tbf      *bf.Renderer
+\tdevMode bool
 }
 
 func (r *echoRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+\tif r.devMode {
+\t\ttmpl, err := loadTemplates()
+\t\tif err != nil {
+\t\t\treturn err
+\t\t}
+\t\tr.bf = bf.NewRenderer(tmpl, defaultLayout)
+\t}
 \topts := data.(bf.RenderOptions)
 \topts.ComponentName = name
 \t_, err := w.Write([]byte(r.bf.Render(opts)))
@@ -233,7 +267,187 @@ func mustNewRenderer() echo.Renderer {
 \t\tfmt.Fprintln(os.Stderr, "barefoot: did you run \`bun run build\` first?")
 \t\tos.Exit(1)
 \t}
-\treturn &echoRenderer{bf: bf.NewRenderer(tmpl, defaultLayout)}
+\treturn &echoRenderer{
+\t\tbf:      bf.NewRenderer(tmpl, defaultLayout),
+\t\tdevMode: IsDev(),
+\t}
+}
+
+// ── dev auto-reload ──────────────────────────────────────────────────
+//
+// Browser auto-reload over SSE. The mechanism has two complementary
+// triggers — together they cover both \`barefoot build --watch\`
+// rebuilds (the common case during component editing) and Go-side
+// process restarts (less common, but \`Last-Event-ID\` recovers
+// gracefully even then).
+//
+//   1. dist/templates watcher (fsnotify): every successful rebuild
+//      flips a broadcast, every live SSE connection emits
+//      \`event: reload\` immediately. The browser refreshes and the
+//      renderer (which re-parses templates per request in dev) sends
+//      down the new HTML.
+//
+//   2. Per-process bootID: if the Go process itself restarts the
+//      reload event channel is gone, but the SSE handshake compares
+//      the browser's stored \`Last-Event-ID\` to the new bootID and
+//      sends a one-shot \`event: reload\` on mismatch.
+//
+// Disabled entirely (404 + empty snippet) in production
+// (APP_ENV=production), so deployed HTML stays clean.
+
+var (
+\tbootID          = newBootID()
+\tsubscribersMu   sync.Mutex
+\tsubscribers     = make(map[chan string]struct{})
+\tstartReloadOnce sync.Once
+)
+
+func newBootID() string {
+\tvar b [16]byte
+\tif _, err := rand.Read(b[:]); err != nil {
+\t\treturn fmt.Sprintf("%d", time.Now().UnixNano())
+\t}
+\treturn hex.EncodeToString(b[:])
+}
+
+func broadcastReload(id string) {
+\tsubscribersMu.Lock()
+\tdefer subscribersMu.Unlock()
+\tfor ch := range subscribers {
+\t\tselect {
+\t\tcase ch <- id:
+\t\tdefault:
+\t\t}
+\t}
+}
+
+// startTemplateWatcher subscribes to dist/templates and broadcasts
+// a reload event to every connected SSE client whenever a write
+// completes. Debounced to 50ms so a flurry of file ops from a
+// single rebuild fires once.
+func startTemplateWatcher() {
+\tw, err := fsnotify.NewWatcher()
+\tif err != nil {
+\t\tfmt.Fprintf(os.Stderr, "barefoot dev-reload: %v\\n", err)
+\t\treturn
+\t}
+\tif err := w.Add("dist/templates"); err != nil {
+\t\tfmt.Fprintf(os.Stderr, "barefoot dev-reload: %v\\n", err)
+\t\treturn
+\t}
+\tgo func() {
+\t\tvar debounce <-chan time.Time
+\t\tfor {
+\t\t\tselect {
+\t\t\tcase ev, ok := <-w.Events:
+\t\t\t\tif !ok {
+\t\t\t\t\treturn
+\t\t\t\t}
+\t\t\t\tif ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+\t\t\t\t\tdebounce = time.After(50 * time.Millisecond)
+\t\t\t\t}
+\t\t\tcase <-debounce:
+\t\t\t\tdebounce = nil
+\t\t\t\tbroadcastReload(newBootID())
+\t\t\t}
+\t\t}
+\t}()
+}
+
+// DevReloadMiddleware mounts the SSE endpoint at "/_bf/reload" in
+// dev mode; in production it's a no-op pass-through. Add via
+// \`e.Use(DevReloadMiddleware())\` in main.go.
+func DevReloadMiddleware() echo.MiddlewareFunc {
+\tif !IsDev() {
+\t\treturn func(next echo.HandlerFunc) echo.HandlerFunc { return next }
+\t}
+\tstartReloadOnce.Do(startTemplateWatcher)
+\treturn func(next echo.HandlerFunc) echo.HandlerFunc {
+\t\treturn func(c echo.Context) error {
+\t\t\tif c.Request().Method == http.MethodGet && c.Request().URL.Path == "/_bf/reload" {
+\t\t\t\treturn handleDevReload(c)
+\t\t\t}
+\t\t\treturn next(c)
+\t\t}
+\t}
+}
+
+func handleDevReload(c echo.Context) error {
+\tlastEventID := c.Request().Header.Get("Last-Event-ID")
+\tres := c.Response()
+\tres.Header().Set("Content-Type", "text/event-stream")
+\tres.Header().Set("Cache-Control", "no-cache")
+\tres.Header().Set("Connection", "keep-alive")
+\tres.WriteHeader(http.StatusOK)
+
+\tfmt.Fprint(res.Writer, "retry: 1000\\n\\n")
+\tevent := "hello"
+\tif lastEventID != "" && lastEventID != bootID {
+\t\tevent = "reload"
+\t}
+\tfmt.Fprintf(res.Writer, "event: %s\\nid: %s\\ndata: %s\\n\\n", event, bootID, bootID)
+\tres.Flush()
+
+\t// Subscribe this connection to broadcasts from the template
+\t// watcher. Buffered so a missed read doesn't block the watcher;
+\t// deregister on disconnect.
+\tch := make(chan string, 4)
+\tsubscribersMu.Lock()
+\tsubscribers[ch] = struct{}{}
+\tsubscribersMu.Unlock()
+\tdefer func() {
+\t\tsubscribersMu.Lock()
+\t\tdelete(subscribers, ch)
+\t\tsubscribersMu.Unlock()
+\t}()
+
+\tctx := c.Request().Context()
+\tticker := time.NewTicker(5 * time.Second)
+\tdefer ticker.Stop()
+\tfor {
+\t\tselect {
+\t\tcase <-ctx.Done():
+\t\t\treturn nil
+\t\tcase id := <-ch:
+\t\t\tfmt.Fprintf(res.Writer, "event: reload\\nid: %s\\ndata: %s\\n\\n", id, id)
+\t\t\tres.Flush()
+\t\tcase <-ticker.C:
+\t\t\tif _, err := fmt.Fprint(res.Writer, ": hb\\n\\n"); err != nil {
+\t\t\t\treturn nil
+\t\t\t}
+\t\t\tres.Flush()
+\t\t}
+\t}
+}
+
+// DevReloadScript returns the inline <script> tag that subscribes
+// to the SSE endpoint above and refreshes the page on \`reload\`,
+// preserving scroll position across the round-trip. Returns "" in
+// production so nothing extra ends up in deployed HTML.
+func DevReloadScript() string {
+\tif !IsDev() {
+\t\treturn ""
+\t}
+\treturn \`<script>(()=>{if(window.__bfDevReload)return;window.__bfDevReload=1;try{var s=sessionStorage.getItem('__bf_devreload_scroll');if(s){sessionStorage.removeItem('__bf_devreload_scroll');var y=parseInt(s,10);if(!isNaN(y)){var restore=function(){window.scrollTo(0,y)};if(document.readyState==='loading'){addEventListener('DOMContentLoaded',restore,{once:true})}else{restore()}}}}catch(e){}var es=new EventSource('/_bf/reload');es.addEventListener('reload',function(){try{sessionStorage.setItem('__bf_devreload_scroll',String(window.scrollY))}catch(e){}es.close();location.reload()});es.addEventListener('error',function(){})})();</script>\`
+}
+`
+
+// Centralised dev/prod flag mirrored across BarefootJS scaffolds.
+// We follow the Go web-app convention of APP_ENV — anything other
+// than "production" enables dev affordances (template re-parse,
+// /_bf/reload SSE). Keeping the check in one file means future
+// "dev gate" toggles (debug headers, verbose errors, ...) share a
+// single source of truth instead of growing parallel env-var reads.
+const ECHO_ENV_GO = `package main
+
+import "os"
+
+// IsDev reports whether the server is running in development mode.
+// Driven by APP_ENV — \`production\` flips into prod mode; anything
+// else (including unset) is dev. Mirrors the JS-side env.ts in the
+// Hono Node scaffold.
+func IsDev() bool {
+\treturn os.Getenv("APP_ENV") != "production"
 }
 `
 
@@ -243,6 +457,7 @@ go 1.22
 
 require (
 \tgithub.com/barefootjs/runtime/bf v0.0.0
+\tgithub.com/fsnotify/fsnotify v1.7.0
 \tgithub.com/labstack/echo/v4 v4.12.0
 )
 
@@ -280,6 +495,7 @@ export const ECHO_ADAPTER: AdapterTemplate = {
     'main.go': ECHO_MAIN_GO,
     'renderer.go': ECHO_RENDERER_GO,
     'bf_render.go': ECHO_BF_RENDER_GO,
+    'env.go': ECHO_ENV_GO,
     'go.mod': ECHO_GO_MOD,
     'bf-runtime/bf.go': bfGoSource,
     'bf-runtime/streaming.go': streamingGoSource,
@@ -303,6 +519,10 @@ export const ECHO_ADAPTER: AdapterTemplate = {
     // watchers and the Go server side-by-side. `concurrently -k` makes
     // Ctrl-C kill all three. Go has no built-in hot reload — restart
     // manually after main.go edits, or swap in `air` later.
+    // No APP_ENV here: env.go treats unset as dev, so `go run .`
+    // gets the template re-parse + /_bf/reload SSE automatically.
+    // Production launches (e.g. `bun run start` behind a process
+    // manager) should export `APP_ENV=production` to flip the gate.
     dev: 'go mod tidy && barefoot build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "go run ."',
     build: 'go mod tidy && barefoot build && unocss',
     start: 'go run .',

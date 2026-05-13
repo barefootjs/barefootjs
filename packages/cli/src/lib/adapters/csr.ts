@@ -109,7 +109,13 @@ const CSR_INDEX_HTML = `<!DOCTYPE html>
   <script type="importmap">
     { "imports": { "@barefootjs/client/runtime": "/static/components/barefoot.js" } }
   </script>
+  <!-- Link all three sheets so the browser fetches them in parallel —
+       chaining via styles.css @import would defer tokens/uno to a
+       second round-trip and flash unstyled DOM. tokens first so its
+       CSS variables are defined before any rule references them. -->
+  <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/uno.css">
 </head>
 <body>
   <main>

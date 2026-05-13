@@ -7,7 +7,7 @@
 
 import { jsxRenderer } from 'hono/jsx-renderer'
 import { BfScripts } from '../../packages/adapter-hono/src/scripts'
-import { BfDevReload } from '../../packages/adapter-hono/src/dev-reload'
+import { BfDevReload } from '../../packages/adapter-hono/src/app'
 
 const BASE_PATH = process.env.BASE_PATH ?? '/integrations/hono'
 

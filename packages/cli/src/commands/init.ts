@@ -17,6 +17,7 @@ import {
 } from '../lib/templates'
 import { detectPackageManager, commandsFor, type PackageManager } from '../lib/pm'
 import { select, SelectCancelled } from '../lib/select'
+import { startSpinner } from '../lib/spinner'
 
 interface InitFlags {
   name?: string
@@ -53,9 +54,6 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
   const adapter = ADAPTERS[adapterId]
   const cssId = await resolveCssLibrary(flags.css)
   const cssLibrary = CSS_LIBRARIES[cssId]
-  console.log(`  Adapter:     ${adapter.label}`)
-  console.log(`  CSS library: ${cssLibrary.label}`)
-  console.log()
 
   // Pre-flight: confirm the UI registry is reachable BEFORE writing
   // anything to disk. The runnable starter requires the registry's
@@ -63,25 +61,46 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
   // through a painful migration to UnoCSS + barefootjs UI later.
   // Better to fail fast and have them retry online with no partial
   // state to clean up.
+  // Surface the host the scaffold is reaching out to so the spinner
+  // reads like a concrete action ("Fetching starter components from
+  // ui.barefootjs.dev...") rather than a vague "checking a registry".
+  const registryHost = new URL(DEFAULT_REGISTRY_URL).host
+  const probeSpinner = startSpinner({
+    text: `Fetching starter components from ${registryHost}...`,
+  })
   try {
     await probeRegistry(DEFAULT_REGISTRY_URL)
+    probeSpinner.stop()
   } catch (err) {
+    probeSpinner.fail(`Cannot reach ${registryHost} (BarefootJS UI registry)`)
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: cannot reach the BarefootJS UI registry at ${DEFAULT_REGISTRY_URL}`)
     console.error(`  ${msg}`)
     console.error(``)
-    console.error(`barefoot init needs the registry to scaffold a runnable starter (Counter`)
-    console.error(`uses Button from the registry, which the renderer wires through UnoCSS).`)
-    console.error(`Retry when online.`)
+    console.error(`barefoot init pulls the starter's Button component from`)
+    console.error(`${DEFAULT_REGISTRY_URL} (which the renderer wires through UnoCSS).`)
+    console.error(``)
+    console.error(`Things to try:`)
+    console.error(`  1. Open ${DEFAULT_REGISTRY_URL}button.json in a browser to`)
+    console.error(`     confirm ${registryHost} is reachable from this network.`)
+    console.error(`  2. If you're behind a corporate proxy, set HTTPS_PROXY.`)
+    console.error(`  3. Re-run the create-barefootjs command once you're connected.`)
     process.exit(1)
   }
 
   const warnings = adapter.prereqWarnings()
   for (const w of warnings) console.warn(`  ! ${w}`)
 
-  console.log(`Initializing BarefootJS app...\n`)
+  const buildSpinner = startSpinner({
+    text: `Creating ${adapter.label.split(' ')[0]} + ${cssLibrary.label} project...`,
+  })
+  try {
+    await scaffoldApp(projectDir, adapter, flags, ctx)
+  } catch (err) {
+    buildSpinner.fail('Failed to create project files')
+    throw err
+  }
+  buildSpinner.stop()
 
-  await scaffoldApp(projectDir, adapter, flags, ctx)
   printAppNextSteps(projectDir, adapter)
 }
 
@@ -99,9 +118,16 @@ async function resolveAdapter(flag: string | undefined): Promise<string> {
     }
     return flag
   }
-  const options = Object.entries(ADAPTERS).map(([value, t]) => ({ value, label: t.label }))
+  const options = Object.entries(ADAPTERS).map(([value, t]) => ({
+    value,
+    label: t.label,
+    shortLabel: t.shortLabel,
+  }))
   try {
-    return await select({ message: 'Choose an adapter:', options, defaultValue: DEFAULT_ADAPTER })
+    // The internal term is "adapter" (matches `--adapter` and the
+    // architecture docs), but new users don't have that vocabulary
+    // yet — the prompt phrases the choice in user-facing terms.
+    return await select({ message: 'Choose a framework or runtime', options, defaultValue: DEFAULT_ADAPTER })
   } catch (err) {
     bailOnSelectError(err)
   }
@@ -118,7 +144,7 @@ async function resolveCssLibrary(flag: string | undefined): Promise<string> {
   }
   const options = Object.entries(CSS_LIBRARIES).map(([value, t]) => ({ value, label: t.label }))
   try {
-    return await select({ message: 'Choose a CSS library:', options, defaultValue: DEFAULT_CSS_LIBRARY })
+    return await select({ message: 'Choose a CSS library', options, defaultValue: DEFAULT_CSS_LIBRARY })
   } catch (err) {
     bailOnSelectError(err)
   }
@@ -160,7 +186,7 @@ async function scaffoldApp(
   adapter: AdapterTemplate,
   flags: InitFlags,
   _ctx: CliContext,
-): Promise<void> {
+): Promise<number> {
   // The single source of truth is `barefoot.config.ts` (written below via
   // adapter.files). It carries both `paths` (consumed by registry tooling)
   // and the build options. We mirror the same defaults here so the rest
@@ -171,16 +197,25 @@ async function scaffoldApp(
     meta: 'meta',
   }
 
+  let created = 0
+
+  // Project name — used both as the package.json `name` and to fill
+  // any `{{__PROJECT_NAME__}}` placeholders adapter templates carry
+  // (e.g. wrangler.jsonc's `name` field for Cloudflare Workers).
+  // Sanitize even when `flags.name` is set: the caller might pass a
+  // multi-segment path like "foo/bar/bazz" and slashes are invalid in
+  // both npm names and Cloudflare Worker names.
+  const rawName = flags.name || path.basename(projectDir)
+  const pkgName = path.basename(rawName).replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'barefoot-app'
+
   // Adapter-contributed files (server, components/Counter, barefoot.config.ts, etc.)
   for (const [relPath, contents] of Object.entries(adapter.files)) {
     const target = path.join(projectDir, relPath)
-    if (existsSync(target)) {
-      console.log(`  Skipped ${relPath} (already exists)`)
-      continue
-    }
+    if (existsSync(target)) continue
     mkdirSync(path.dirname(target), { recursive: true })
-    writeFileSync(target, contents)
-    console.log(`  Created ${relPath}`)
+    const resolved = contents.replace(/\{\{__PROJECT_NAME__\}\}/g, pkgName)
+    writeFileSync(target, resolved)
+    created++
   }
 
   // meta/ — empty registry index so `barefoot search` doesn't error
@@ -191,35 +226,59 @@ async function scaffoldApp(
     path.join(metaDir, 'index.json'),
     JSON.stringify({ version: 1, generatedAt: new Date().toISOString(), components: [] }, null, 2) + '\n',
   )
-  console.log(`  Created ${paths.meta}/index.json`)
+  created++
 
   // package.json — merge adapter scripts/deps with a sensible default.
   const pkgJsonPath = path.join(projectDir, 'package.json')
-  const pkgName = flags.name || path.basename(projectDir).replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'barefoot-app'
+  // Resolve adapter scripts. Function values render against the
+  // detected PM so `dev` / `deploy` quote the right dlx form
+  // (`bunx wrangler` vs. `npx wrangler` vs. `pnpm dlx wrangler` etc.).
+  const pm = detectPackageManager(projectDir)
+  const resolvedAdapterScripts: Record<string, string> = {}
+  for (const [k, v] of Object.entries(adapter.scripts)) {
+    resolvedAdapterScripts[k] = typeof v === 'function' ? v(pm) : v
+  }
+
   const pkgJson = {
     name: pkgName,
     private: true,
     type: 'module',
     scripts: {
-      ...adapter.scripts,
+      ...resolvedAdapterScripts,
+      // `watch` is the server-less twin of `dev`: rebuild components +
+      // UnoCSS on change, but don't spin up a server. Useful when the
+      // user is running their server through another tool (e.g. an
+      // existing `morbo`, `go run`, or an external dev container) and
+      // only needs the BarefootJS asset pipeline to keep pace.
+      watch:
+        'concurrently -k -n build,uno -c blue,magenta "barefoot build --watch" "unocss --watch"',
       test: 'echo "no tests yet"',
     },
     dependencies: { ...adapter.dependencies },
     devDependencies: { ...adapter.devDependencies },
   }
-  if (existsSync(pkgJsonPath)) {
-    console.log('  Skipped package.json (already exists — merge deps manually)')
-  } else {
+  if (!existsSync(pkgJsonPath)) {
     writeFileSync(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + '\n')
-    console.log('  Created package.json')
+    created++
   }
 
   // Pull the registry Button. The pre-flight probe in run() already
   // verified reachability, so a failure here is unusual (transient
   // registry hiccup, malformed item, etc.) — let it propagate so the
   // user retries instead of ending up with a half-scaffolded project
-  // that points at a missing import.
-  await addFromRegistry(['button'], DEFAULT_REGISTRY_URL, projectDir, { paths }, true, true)
+  // that points at a missing import. `silent: true` so the per-file
+  // summary doesn't fight the surrounding spinner for the same line.
+  await addFromRegistry(
+    ['button'],
+    DEFAULT_REGISTRY_URL,
+    projectDir,
+    { paths },
+    true,
+    true,
+    true,
+  )
+
+  return created
 }
 
 const DEFAULT_REGISTRY_URL = 'https://ui.barefootjs.dev/r/'
@@ -227,17 +286,43 @@ const DEFAULT_REGISTRY_URL = 'https://ui.barefootjs.dev/r/'
 function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
   const pm: PackageManager = detectPackageManager(projectDir)
   const cmd = commandsFor(pm)
-  console.log(`\nProject initialized!  (detected package manager: ${pm})`)
-  console.log(`\nNext steps:`)
-  console.log(`  1. Install dependencies`)
-  console.log(`       ${cmd.install}`)
-  console.log(`  2. Start the dev server`)
-  console.log(`       ${cmd.run('dev')}`)
-  console.log(`       → http://localhost:${adapter.port}`)
-  console.log(``)
-  console.log(`Then try:`)
-  console.log(`  • Edit components/Counter.tsx — the page rebuilds and reloads automatically.`)
-  console.log(`  • Inspect the bundled Button:    ${cmd.exec('barefoot ui button')}`)
-  console.log(`  • Browse the component registry: ${cmd.exec('barefoot search <query>')}`)
-  console.log(`  • Add another component:         ${cmd.exec('barefoot add input')}`)
+  // The detected PM is reflected in the commands quoted below, so we
+  // don't announce it separately — the user just sees `bun install`
+  // or `pnpm install` and knows what's happening.
+  // `barefoot init` runs inside the freshly created project dir but
+  // the user's shell is still in the parent. Lead with `cd` so the
+  // remaining commands work when copy-pasted in order. When invoked
+  // via create-barefootjs the relative path the user typed
+  // (e.g. "foo/bar/bazz") is forwarded through this env var so we
+  // echo the same thing back; standalone `barefoot init` invocations
+  // (no env var) fall back to the directory basename.
+  const projectName =
+    process.env.BAREFOOT_INIT_PROJECT_PATH || path.basename(projectDir)
+
+  // Get started — minimal copy-paste sequence. No URL hint: wrangler
+  // (and other dev servers) can pick a different port when the
+  // default is in use, so quoting a specific URL here would be wrong
+  // some of the time. The dev server prints its bound address itself.
+  console.log('')
+  console.log(`${heading('Get started:')}`)
+  console.log(`  cd ${projectName}`)
+  console.log(`  ${cmd.install}`)
+  console.log(`  ${cmd.run('dev')}`)
+
+  if (adapter.deploy) {
+    const deployCmd = cmd.run(adapter.deploy.script)
+    console.log('')
+    console.log(`${heading('Deploy:')}`)
+    console.log(`  ${deployCmd}${dim(`   # deploy to ${adapter.deploy.target}`)}`)
+  }
+}
+
+// ANSI helpers for the next-steps block. All three apply only in a
+// TTY — piped output (CI, scripts) gets the plain text so logs stay
+// grep-friendly.
+function heading(s: string): string {
+  return process.stdout.isTTY ? `\x1b[1;36m${s}\x1b[0m` : s
+}
+function dim(s: string): string {
+  return process.stdout.isTTY ? `\x1b[2m${s}\x1b[0m` : s
 }

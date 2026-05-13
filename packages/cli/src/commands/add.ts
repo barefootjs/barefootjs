@@ -83,6 +83,10 @@ export async function addFromRegistry(
   config: BarefootConfig,
   force: boolean,
   skipErrors = false,
+  // `silent` suppresses the per-step summary lines so callers that
+  // wrap this in a spinner (notably `barefoot init`) don't interleave
+  // output with the spinner frames.
+  silent = false,
 ): Promise<void> {
   // Phase 1: Fetch all registry items, resolving requires transitively
   const fetched = new Map<string, RegistryItem>()
@@ -118,7 +122,7 @@ export async function addFromRegistry(
     queue.splice(0, pending.length)
   }
 
-  if (failed.size > 0) {
+  if (failed.size > 0 && !silent) {
     console.log(`  Skipped ${failed.size} unavailable component(s)`)
   }
 
@@ -126,7 +130,7 @@ export async function addFromRegistry(
   const autoDeps = items
     .map(i => i.name)
     .filter(n => !componentNames.includes(n))
-  if (autoDeps.length > 0) {
+  if (autoDeps.length > 0 && !silent) {
     console.log(`  Resolved dependencies: ${autoDeps.join(', ')}`)
   }
 
@@ -174,6 +178,7 @@ export async function addFromRegistry(
   }
 
   // Summary
+  if (silent) return
   if (added.length > 0) {
     console.log(`\n  Added: ${added.join(', ')}`)
   }

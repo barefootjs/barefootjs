@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'bun:test'
+import { PassThrough } from 'node:stream'
 import { select, SelectCancelled } from '../lib/select'
 
 // The interactive arrow-key path is hard to drive in unit tests (it
@@ -64,6 +65,50 @@ describe('select short-circuit behavior', () => {
       output: fakeOutput,
     })
     expect(result).toBe('fallback')
+  })
+})
+
+describe('select — confirmation line', () => {
+  test('on Enter, wipes the menu and writes `✔ <message> *<label>*`', async () => {
+    const input = Object.assign(new PassThrough(), {
+      isTTY: true,
+      setRawMode: () => {},
+    })
+    const output = Object.assign(new PassThrough(), { isTTY: true })
+    const chunks: string[] = []
+    output.on('data', (c) => chunks.push(c.toString()))
+
+    const promise = select({
+      message: 'Choose a framework or runtime',
+      options: [
+        { value: 'hono', label: 'Hono (Node, JSX SSR + hydration)' },
+        { value: 'csr', label: 'CSR (Bun, client-side rendering only)' },
+      ],
+      defaultValue: 'hono',
+      input,
+      output,
+    })
+
+    // Let `select()` finish wiring up its keypress listener before we
+    // feed it the Enter byte. `readline.emitKeypressEvents` translates
+    // a CR (\r) on stdin into a `{ name: 'return' }` keypress event.
+    await new Promise((r) => setImmediate(r))
+    input.write('\r')
+
+    const result = await promise
+
+    expect(result).toBe('hono')
+    const joined = chunks.join('')
+    // The menu header is rendered inquirer-style with a yellow "?"
+    // marker and a bold message.
+    const ansiStripped = joined.replace(/\x1b\[[0-9;]*m/g, '')
+    expect(ansiStripped).toContain('? Choose a framework or runtime')
+    // The confirmation strips the parenthetical description and
+    // highlights the picked option in bold green.
+    expect(joined).toContain('✔ Choose a framework or runtime \x1b[1;32mHono\x1b[0m\n')
+    // The full label (with parens) appears only in the menu render,
+    // never in the confirmation line itself.
+    expect(joined.split('\x1b[1;32m')[1]).not.toContain('(Node')
   })
 })
 
