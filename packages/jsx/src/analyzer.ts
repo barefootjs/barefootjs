@@ -49,6 +49,34 @@ export function needsTypeBasedDetection(source: string): boolean {
 }
 
 /**
+ * Locate the first `import ... from '<brand-package>'` statement in
+ * `sourceFile`. Used by BF050 so the diagnostic points at the offending
+ * import line rather than a synthetic (1, 0) position.
+ *
+ * The scan is structural (`ts.ImportDeclaration` + `StringLiteral`
+ * specifier) rather than substring-based so it doesn't false-match on
+ * the package name appearing inside a string literal or comment.
+ */
+function findBrandPackageImportLoc(
+  sourceFile: ts.SourceFile,
+  filePath: string,
+): { file: string; start: { line: number; column: number }; end: { line: number; column: number } } | null {
+  for (const stmt of sourceFile.statements) {
+    if (!ts.isImportDeclaration(stmt)) continue
+    if (!ts.isStringLiteral(stmt.moduleSpecifier)) continue
+    if (!REACTIVE_BRAND_PACKAGES.includes(stmt.moduleSpecifier.text)) continue
+    const start = sourceFile.getLineAndCharacterOfPosition(stmt.getStart(sourceFile))
+    const end = sourceFile.getLineAndCharacterOfPosition(stmt.getEnd())
+    return {
+      file: filePath,
+      start: { line: start.line + 1, column: start.character },
+      end: { line: end.line + 1, column: end.character },
+    }
+  }
+  return null
+}
+
+/**
  * Create a TypeScript program for a single file to enable type-based reactivity detection.
  * Uses a virtual CompilerHost that injects the source string as a virtual file
  * and delegates to the real file system for node_modules resolution.
@@ -121,6 +149,12 @@ export function analyzeComponent(
   program?: ts.Program
 ): AnalyzerContext {
   incrementCounter('filesAnalyzed')
+  // Track whether the caller supplied a shared ts.Program. Used downstream
+  // to decide whether the silent per-file fallback should also emit a
+  // BF050 diagnostic (issue #1248): when the source needs type-based
+  // detection but no shared Program is in scope, the regex fallback may
+  // misclassify library-getter reactivity.
+  const hadSharedProgram = program !== undefined
   // Pre-pass: inline calls to same-file reactive factory helpers so the
   // downstream analyzer sees ordinary `createSignal(...)` declarations
   // instead of `const [a, b] = customFactory(...)` (#931). Skipped when
@@ -185,6 +219,23 @@ export function analyzeComponent(
 
   const ctx = createAnalyzerContext(sourceFile, filePath)
   ctx.checker = checker
+
+  // BF050 — surface "no shared Program supplied for type-based reactivity
+  // classification" as a diagnostic so callers can fail strict builds
+  // rather than silently depending on the per-file Program fallback
+  // (issue #1248). Restricted to sources that import a known
+  // Reactive<T>-branded library: regex alone cannot classify those
+  // getters, so the per-file fallback may misclassify reactivity. The
+  // broader `needsTypeBasedDetection` predicate also fires for `.map()`
+  // (BF023/BF024 nullable-key check), which is unrelated to reactivity
+  // and must NOT trigger BF050.
+  const brandImportLoc = findBrandPackageImportLoc(sourceFile, filePath)
+  if (!hadSharedProgram && brandImportLoc !== null) {
+    ctx.errors.push(createError(
+      ErrorCodes.SHARED_PROGRAM_REQUIRED,
+      brandImportLoc,
+    ))
+  }
 
   // If no target specified, prioritize the default exported component
   if (!targetComponentName) {

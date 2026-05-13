@@ -161,7 +161,17 @@ export interface OriginInfo {
  * authoring scope's binding environment.
  */
 export interface FreeReference {
-  /** The identifier as written in source. */
+  /**
+   * Identifier text. For every kind except `'reactive-brand'` this is a
+   * bare identifier (`count`, `props`, …) and downstream rewriters can
+   * treat it as a word-boundary token. For `'reactive-brand'` it is the
+   * full property-access expression text (e.g. `props.form.isSubmitting`)
+   * because the brand lives on the access expression as a whole — the
+   * root identifier of that access is reported separately under its own
+   * kind. `relocate()` rewrites identifier refs by name, so consumers
+   * that touch `reactive-brand` entries must consult `kind` before
+   * matching.
+   */
   name: string
   /** Where the binding for this name lives. */
   bindingScope: Scope
@@ -174,16 +184,19 @@ export interface FreeReference {
 }
 
 export type BindingKind =
-  | 'prop'           // destructured-from-props or props.X
-  | 'signal-getter'  // [count, setCount] = createSignal(...) → count
-  | 'signal-setter'  // → setCount
-  | 'memo-getter'    // createMemo(...)
-  | 'init-local'     // const x = ... in init body (not a memo/signal)
-  | 'sub-init-local' // declared inside a nested arrow / function
-  | 'render-item'    // .map() callback param
-  | 'module-import'  // from an import declaration
-  | 'module-local'   // module-level const/function (not imported)
-  | 'global'         // not declared anywhere we tracked → assume global
+  | 'prop'            // destructured-from-props or props.X
+  | 'signal-getter'   // [count, setCount] = createSignal(...) → count
+  | 'signal-setter'   // → setCount
+  | 'memo-getter'     // createMemo(...)
+  | 'reactive-brand'  // identifier carrying Reactive<T> brand from a library
+                      // (e.g. form.isSubmitting, username.error) — reactivity
+                      // comes from the type, not from a local declaration
+  | 'init-local'      // const x = ... in init body (not a memo/signal)
+  | 'sub-init-local'  // declared inside a nested arrow / function
+  | 'render-item'     // .map() callback param
+  | 'module-import'   // from an import declaration
+  | 'module-local'    // module-level const/function (not imported)
+  | 'global'          // not declared anywhere we tracked → assume global
 
 /**
  * Static visibility table — kinds NOT directly emittable as a bare
@@ -198,6 +211,7 @@ const SCOPE_FORBIDDEN: Record<Scope, ReadonlySet<BindingKind>> = {
     'signal-getter',
     'signal-setter',
     'memo-getter',
+    'reactive-brand',
     'init-local',
     'sub-init-local',
     'render-item',
@@ -209,6 +223,9 @@ const SCOPE_FORBIDDEN: Record<Scope, ReadonlySet<BindingKind>> = {
     'signal-getter',
     'signal-setter',
     'memo-getter',
+    // A library getter (`form.isSubmitting()`) must be re-evaluated inside
+    // an effect to subscribe — not bare-emittable in template scope.
+    'reactive-brand',
     'init-local',
     'sub-init-local',
     'render-item',
@@ -225,6 +242,36 @@ const SCOPE_FORBIDDEN: Record<Scope, ReadonlySet<BindingKind>> = {
  */
 export function isVisibleIn(scope: Scope, kind: BindingKind): boolean {
   return !SCOPE_FORBIDDEN[scope].has(kind)
+}
+
+/**
+ * BindingKinds that contribute reactivity to an enclosing expression.
+ * Used by `isReactiveOrigin()` and any future single-channel classifier
+ * derived from `OriginInfo.freeRefs`.
+ *
+ * `init-local` is intentionally excluded here — a local constant is only
+ * reactive if its initializer itself contains a reactive reference, and
+ * that taint should already be flattened into the consuming expression's
+ * `freeRefs` by the analyzer (transitive resolution). Listing it here
+ * would over-wrap any expression that references any local.
+ */
+export const REACTIVE_BINDING_KINDS: ReadonlySet<BindingKind> = new Set<BindingKind>([
+  'prop',
+  'signal-getter',
+  'memo-getter',
+  'reactive-brand',
+])
+
+/**
+ * Single source of truth for "is this expression reactive?" once
+ * `OriginInfo.freeRefs` is populated uniformly (issue #1248 + #1251).
+ *
+ * Until that migration is complete, callers must handle the absence of
+ * `origin` themselves — this helper deliberately requires a non-optional
+ * `OriginInfo` so the type system flags un-migrated sites.
+ */
+export function isReactiveOrigin(origin: OriginInfo): boolean {
+  return origin.freeRefs?.some(r => REACTIVE_BINDING_KINDS.has(r.kind)) ?? false
 }
 
 // =============================================================================
@@ -278,12 +325,12 @@ export interface IRExpression {
   /** When true, expression contains function call(s) — any `identifier()` pattern (computed from AST). */
   hasFunctionCalls?: boolean
   /**
-   * Staged-IR origin info (#1138). When present, supersedes the implicit
-   * "always init scope at tick phase" assumption used by today's
-   * templateExpr precomputation. relocate() consults this when
-   * deriving the template-side form.
+   * Staged-IR origin info (#1138). Mandatory as of #1248: every
+   * expression-bearing IR node carries `origin` and downstream emit
+   * passes (relocate, decideWrapFromAstFlags) read it as the single
+   * source of truth for free-reference / reactivity classification.
    */
-  origin?: OriginInfo
+  origin: OriginInfo
 }
 
 export interface IRConditional {
@@ -303,6 +350,14 @@ export interface IRConditional {
   callsReactiveGetters?: boolean
   /** When true, condition contains function call(s) — any `identifier()` pattern (computed from AST). */
   hasFunctionCalls?: boolean
+  /**
+   * Staged-IR origin info — same semantics as `IRExpression.origin`,
+   * mandatory as of #1248. The condition expression's classification
+   * and free-reference resolution live here; consumers
+   * (`isReactiveOrigin`, relocate) read from here instead of running
+   * their own walks.
+   */
+  origin: OriginInfo
 }
 
 /**
