@@ -61,17 +61,23 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
   // through a painful migration to UnoCSS + barefootjs UI later.
   // Better to fail fast and have them retry online with no partial
   // state to clean up.
-  const probeSpinner = startSpinner({ text: 'Checking the BarefootJS UI registry...' })
+  // Surface the host the scaffold is reaching out to so the spinner
+  // reads like a concrete action ("Fetching starter components from
+  // ui.barefootjs.dev...") rather than a vague "checking a registry".
+  const registryHost = new URL(DEFAULT_REGISTRY_URL).host
+  const probeSpinner = startSpinner({
+    text: `Fetching starter components from ${registryHost}...`,
+  })
   try {
     await probeRegistry(DEFAULT_REGISTRY_URL)
     probeSpinner.stop()
   } catch (err) {
-    probeSpinner.fail(`Cannot reach the BarefootJS UI registry at ${DEFAULT_REGISTRY_URL}`)
+    probeSpinner.fail(`Cannot reach ${registryHost} (BarefootJS UI registry)`)
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`  ${msg}`)
     console.error(``)
-    console.error(`barefoot init needs the registry to scaffold a runnable starter (Counter`)
-    console.error(`uses Button from the registry, which the renderer wires through UnoCSS).`)
+    console.error(`barefoot init pulls the starter's Button component from`)
+    console.error(`${DEFAULT_REGISTRY_URL} (which the renderer wires through UnoCSS).`)
     console.error(`Retry when online.`)
     process.exit(1)
   }

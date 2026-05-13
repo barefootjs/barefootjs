@@ -24,7 +24,7 @@ const INTEGRATION = process.env.BAREFOOT_CREATE_INTEGRATION === '1'
 //   1. Resolve the target directory
 //   2. Choose an adapter      (defaults to Hono, non-interactive)
 //   3. Choose a CSS library   (defaults to UnoCSS, non-interactive)
-//   4. Probe the BarefootJS UI registry
+//   4. Fetch starter components from ui.barefootjs.dev
 //   5. Write the runnable starter file set
 //   6. Detect the package manager and print next-step instructions
 // ---------------------------------------------------------------------------
@@ -88,12 +88,13 @@ describe.skipIf(!INTEGRATION)(
       })
     })
 
-    describe('Step 4 — Probe the BarefootJS UI registry (silent on success)', () => {
+    describe('Step 4 — Fetch starter components from the UI registry (silent on success)', () => {
       test('does not surface a registry error', () => {
         // The spinner is TTY-only and silent on success — the absence
         // of an error and the project files appearing in Step 5 are
-        // the only contracts we assert here.
-        expect(result.stderr).not.toContain('Cannot reach the BarefootJS UI registry')
+        // the only contracts we assert here. The error message names
+        // the host so the user knows where the network call is going.
+        expect(result.stderr).not.toMatch(/Cannot reach ui\.barefootjs\.dev/)
       })
     })
 
