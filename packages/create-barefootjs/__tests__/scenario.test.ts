@@ -302,6 +302,34 @@ describe('Scenario: how the target directory is chosen (no network)', () => {
     })
   })
 
+  describe('(d) When the positional argument is a multi-segment path', () => {
+    test('creates the nested directory, sanitizes names, but echoes the full path in `cd`', () => {
+      const cwd = mktmp()
+      const r = runCreate(['foo/bar/bazz'], { cwd })
+      expect(r.exitCode).toBe(0)
+
+      // Nested directory is created end-to-end.
+      const projectDir = path.join(cwd, 'foo', 'bar', 'bazz')
+      expect(existsSync(path.join(projectDir, 'package.json'))).toBe(true)
+
+      // Slashes in the positional must NOT leak into package.json /
+      // wrangler.jsonc names (both invalid there). We sanitize down
+      // to the last segment.
+      const pkg = JSON.parse(readFileSync(path.join(projectDir, 'package.json'), 'utf-8'))
+      expect(pkg.name).toBe('bazz')
+      const wranglerRaw = readFileSync(path.join(projectDir, 'wrangler.jsonc'), 'utf-8')
+      const wrangler = JSON.parse(wranglerRaw.replace(/^\s*\/\/.*$/gm, ''))
+      expect(wrangler.name).toBe('bazz')
+
+      // But the `cd` line in Next steps quotes the path the user
+      // typed, not just the basename — otherwise copy-pasting from
+      // a parent directory would fail.
+      expect(r.stdout).toMatch(/cd foo\/bar\/bazz/)
+      // And the confirmation also reflects the user's input.
+      expect(r.stdout).toContain('✔ Target directory foo/bar/bazz')
+    })
+  })
+
   describe('Guards applied to the resolved directory', () => {
     test('refuses to scaffold into an existing non-empty directory', () => {
       const cwd = mktmp()

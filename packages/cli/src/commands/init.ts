@@ -191,7 +191,11 @@ async function scaffoldApp(
   // Project name — used both as the package.json `name` and to fill
   // any `{{__PROJECT_NAME__}}` placeholders adapter templates carry
   // (e.g. wrangler.jsonc's `name` field for Cloudflare Workers).
-  const pkgName = flags.name || path.basename(projectDir).replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'barefoot-app'
+  // Sanitize even when `flags.name` is set: the caller might pass a
+  // multi-segment path like "foo/bar/bazz" and slashes are invalid in
+  // both npm names and Cloudflare Worker names.
+  const rawName = flags.name || path.basename(projectDir)
+  const pkgName = path.basename(rawName).replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'barefoot-app'
 
   // Adapter-contributed files (server, components/Counter, barefoot.config.ts, etc.)
   for (const [relPath, contents] of Object.entries(adapter.files)) {
@@ -276,8 +280,13 @@ function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
   // or `pnpm install` and knows what's happening.
   // `barefoot init` runs inside the freshly created project dir but
   // the user's shell is still in the parent. Lead with `cd` so the
-  // remaining commands work when copy-pasted in order.
-  const projectName = path.basename(projectDir)
+  // remaining commands work when copy-pasted in order. When invoked
+  // via create-barefootjs the relative path the user typed
+  // (e.g. "foo/bar/bazz") is forwarded through this env var so we
+  // echo the same thing back; standalone `barefoot init` invocations
+  // (no env var) fall back to the directory basename.
+  const projectName =
+    process.env.BAREFOOT_INIT_PROJECT_PATH || path.basename(projectDir)
 
   // Get started — minimal copy-paste sequence. No URL hint: wrangler
   // (and other dev servers) can pick a different port when the

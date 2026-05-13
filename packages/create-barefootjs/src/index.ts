@@ -13,7 +13,7 @@
 //      adapter / css defaults too.
 
 import { existsSync, mkdirSync, readdirSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { basename, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { text } from './text'
@@ -142,7 +142,13 @@ async function main(): Promise<void> {
     )
   }
 
-  const initArgs = ['--name', projectName]
+  // `--name` gets the last path segment, sanitized later by init —
+  // multi-segment inputs like "foo/bar/bazz" would otherwise leak
+  // slashes into package.json / wrangler.jsonc names where they're
+  // invalid. The user-typed path stays available to init via
+  // BAREFOOT_INIT_PROJECT_PATH so the "cd ..." line in the Next steps
+  // guide still echoes what the user typed.
+  const initArgs = ['--name', basename(projectName)]
   // `--yes` short-circuits init's adapter / css selectors too by
   // explicitly forwarding the defaults — but only when the caller
   // hasn't already pinned them via passthrough flags.
@@ -157,6 +163,13 @@ async function main(): Promise<void> {
   const result = spawnSync('node', [cliBin, 'init', ...initArgs], {
     cwd: targetDir,
     stdio: 'inherit',
+    env: {
+      ...process.env,
+      // Init reads this when rendering the "cd <path>" Next-steps
+      // line so a "foo/bar/bazz" positional shows as `cd foo/bar/bazz`
+      // instead of just `cd bazz`.
+      BAREFOOT_INIT_PROJECT_PATH: projectName,
+    },
   })
 
   process.exit(result.status ?? 1)
