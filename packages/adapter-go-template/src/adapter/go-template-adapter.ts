@@ -16,7 +16,7 @@ import type {
   IRComponent,
   IRFragment,
   IRSlot,
-  IRTemplateLiteral,
+  IRTemplatePart,
   IRProp,
   TypeInfo,
   CompilerError,
@@ -724,19 +724,35 @@ export class GoTemplateAdapter extends BaseAdapter {
       lines.push(`\t\t\tScopeID: scopeID + "_${child.slotId}",`)
       // Add prop values
       for (const prop of child.props) {
-        if (prop.isLiteral) {
-          lines.push(`\t\t\t${this.capitalizeFieldName(prop.name)}: ${this.goLiteral(prop.value)},`)
-        } else {
-          // Dynamic prop - resolve to parent's initial signal/memo value
-          const resolvedValue = this.resolveDynamicPropValue(
-            prop.value,
-            ir.metadata.signals,
-            ir.metadata.memos,
-            ir.metadata.propsParams
-          )
-          if (resolvedValue !== null) {
-            lines.push(`\t\t\t${this.capitalizeFieldName(prop.name)}: ${resolvedValue},`)
+        switch (prop.value.kind) {
+          case 'literal':
+            lines.push(`\t\t\t${this.capitalizeFieldName(prop.name)}: ${this.goLiteral(prop.value.value)},`)
+            break
+          case 'boolean-shorthand':
+          case 'boolean-attr':
+            lines.push(`\t\t\t${this.capitalizeFieldName(prop.name)}: true,`)
+            break
+          case 'expression':
+          case 'spread':
+          case 'template': {
+            const exprText = prop.value.kind === 'template'
+              ? '' // template literals collapse to runtime expressions; resolveDynamicPropValue does not handle them yet
+              : prop.value.expr
+            if (!exprText) break
+            const resolvedValue = this.resolveDynamicPropValue(
+              exprText,
+              ir.metadata.signals,
+              ir.metadata.memos,
+              ir.metadata.propsParams
+            )
+            if (resolvedValue !== null) {
+              lines.push(`\t\t\t${this.capitalizeFieldName(prop.name)}: ${resolvedValue},`)
+            }
+            break
           }
+          case 'jsx-children':
+            // Handled separately via `child.childrenText` / `child.childrenHtml` below.
+            break
         }
       }
       // Pass through JSX children as the child slot's `Children` input.
@@ -2756,41 +2772,48 @@ export class GoTemplateAdapter extends BaseAdapter {
     const parts: string[] = []
 
     for (const attr of element.attrs) {
-      if (attr.name === '...') {
-        // Spread attributes not directly supported in Go templates
-        continue
-      }
-
       // Convert JSX className to HTML class attribute
       const attrName = attr.name === 'className' ? 'class' : attr.name
+      const v = attr.value
 
-      if (attr.value === null) {
-        // Boolean attribute
-        parts.push(attrName)
-      } else if (typeof attr.value === 'object' && attr.value.type === 'template-literal') {
-        // Template literal with structured ternaries
-        const output = this.renderTemplateLiteral(attr.value)
-        parts.push(`${attrName}="${output}"`)
-      } else if (attr.dynamic) {
-        const value = attr.value as string
-        if (isBooleanAttr(attrName) || attr.presenceOrUndefined) {
-          // Boolean attrs: render attr name only when truthy, omit when falsy
-          const { condition: goCond, preamble } = this.convertConditionToGo(value)
-          parts.push(`${preamble}{{if ${goCond}}}${attrName}{{end}}`)
-        } else {
-          // Check for ternary/conditional or template literal expressions using the parser
-          const parsed = parseExpression(value.trim())
-          if (parsed.kind === 'conditional' || parsed.kind === 'template-literal') {
-            // These produce inline Go template syntax with embedded {{...}} actions
-            const goValue = this.renderParsedExpr(parsed)
-            parts.push(`${attrName}="${goValue}"`)
-          } else {
-            const goValue = this.convertExpressionToGo(value)
-            parts.push(`${attrName}="{{${goValue}}}"`)
-          }
+      switch (v.kind) {
+        case 'spread':
+          // Spread attributes not directly supported in Go templates
+          continue
+        case 'boolean-attr':
+          parts.push(attrName)
+          break
+        case 'literal':
+          parts.push(`${attrName}="${v.value}"`)
+          break
+        case 'template': {
+          const output = this.renderTemplateLiteralParts(v.parts)
+          parts.push(`${attrName}="${output}"`)
+          break
         }
-      } else {
-        parts.push(`${attrName}="${attr.value}"`)
+        case 'expression': {
+          if (isBooleanAttr(attrName) || v.presenceOrUndefined) {
+            // Boolean attrs: render attr name only when truthy, omit when falsy
+            const { condition: goCond, preamble } = this.convertConditionToGo(v.expr)
+            parts.push(`${preamble}{{if ${goCond}}}${attrName}{{end}}`)
+          } else {
+            // Check for ternary/conditional or template literal expressions using the parser
+            const parsed = parseExpression(v.expr.trim())
+            if (parsed.kind === 'conditional' || parsed.kind === 'template-literal') {
+              // These produce inline Go template syntax with embedded {{...}} actions
+              const goValue = this.renderParsedExpr(parsed)
+              parts.push(`${attrName}="${goValue}"`)
+            } else {
+              const goValue = this.convertExpressionToGo(v.expr)
+              parts.push(`${attrName}="{{${goValue}}}"`)
+            }
+          }
+          break
+        }
+        case 'boolean-shorthand':
+        case 'jsx-children':
+          // Neither variant is legal on intrinsic elements. Skip silently.
+          break
       }
     }
 
@@ -2887,9 +2910,9 @@ export class GoTemplateAdapter extends BaseAdapter {
       .replace(/>/g, '&gt;')
   }
 
-  private renderTemplateLiteral(literal: IRTemplateLiteral): string {
+  private renderTemplateLiteralParts(parts: IRTemplatePart[]): string {
     let output = ''
-    for (const part of literal.parts) {
+    for (const part of parts) {
       if (part.type === 'string') {
         // String parts can carry unresolved `${expr}` placeholders
         // (e.g. for function params like `className` that the IR
