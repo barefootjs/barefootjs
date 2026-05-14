@@ -27,6 +27,8 @@ const sources = {
   streamingGoSource: 'packages/adapter-go-template/runtime/streaming.go',
   barefootPmSource: 'packages/adapter-mojolicious/lib/BarefootJS.pm',
   barefootPluginPmSource: 'packages/adapter-mojolicious/lib/Mojolicious/Plugin/BarefootJS.pm',
+  barefootDevReloadPmSource:
+    'packages/adapter-mojolicious/lib/Mojolicious/Plugin/BarefootJS/DevReload.pm',
 }
 
 // Pre-flight: surface a clear error when a source file is missing

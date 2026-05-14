@@ -17,6 +17,7 @@ import {
   unoConfigTs,
 } from './shared'
 import {
+  barefootDevReloadPmSource,
   barefootPluginPmSource,
   barefootPmSource,
 } from './runtimes.generated'
@@ -46,6 +47,14 @@ use lib 'lib';
 # Load the BarefootJS plugin (vendored under ./lib so the app runs
 # without a CPAN release of the plugin yet).
 plugin 'BarefootJS';
+
+# Dev-only browser auto-reload over SSE. The plugin polls
+# \`dist/.dev/build-id\` (written by \`barefoot build --watch\` after every
+# successful rebuild) and streams \`event: reload\` to subscribers — the
+# layout's \`<%== bf_dev_snippet %>\` registers an EventSource subscriber.
+# Self-disabling when \`app->mode eq 'production'\`, so the snippet and
+# SSE endpoint never reach prod.
+plugin 'BarefootJS::DevReload';
 
 # Static asset roots:
 #   - dist/         — compiled component bundles (served at /static/components)
@@ -141,6 +150,7 @@ __DATA__
 <body>
     <main><%== content %></main>
     %== $c->bf->scripts
+    %== bf_dev_snippet
 </body>
 </html>
 `
@@ -179,6 +189,7 @@ export const MOJO_ADAPTER: AdapterTemplate = {
     'cpanfile': MOJO_CPANFILE,
     'lib/BarefootJS.pm': barefootPmSource,
     'lib/Mojolicious/Plugin/BarefootJS.pm': barefootPluginPmSource,
+    'lib/Mojolicious/Plugin/BarefootJS/DevReload.pm': barefootDevReloadPmSource,
     'barefoot.config.ts': MOJO_BAREFOOT_CONFIG_TS,
     'tsconfig.json': MOJO_TSCONFIG,
     'uno.config.ts': unoConfigTs([
