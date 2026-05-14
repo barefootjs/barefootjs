@@ -297,14 +297,14 @@ export function renderChild(
     ? ` ${BF_HOST}="${_parentScopeId}" ${BF_AT}="${slotSuffix}"`
     : ''
 
-  // Visual / locator convention: child scopes keep a `~` prefix on bf-s
-  // so existing `[bf-s^="ParentName_"]` selectors continue to address only
-  // the root. Semantic child detection uses bf-h presence (#1249); the
-  // prefix is purely a shape detail to preserve test/CSS compatibility.
-  const childMark = slotSuffix ? '~' : ''
+  // renderChild always emits a child scope (HTML embedded into a parent
+  // template), so the `~` prefix applies unconditionally. Semantic child
+  // detection uses bf-h presence (#1249); the `~` is a shape convention
+  // kept so `[bf-s^="ParentName_"]` selectors continue to address only
+  // the root.
 
   if (!templateFn) {
-    return `<div bf-s="${childMark}${scopePrefix}${suffix}"${slotAttrs}${keyAttr}></div>`
+    return `<div bf-s="~${scopePrefix}${suffix}"${slotAttrs}${keyAttr}></div>`
   }
 
   const html = templateFn(props).trim()
@@ -315,7 +315,7 @@ export function renderChild(
   if (!firstElMatch) return html
   const insertPos = html.indexOf(firstElMatch[0])
   return html.slice(0, insertPos) +
-    html.slice(insertPos).replace(/^(<\w+)/, `$1 bf-s="${childMark}${scopePrefix}${suffix}"${slotAttrs}${keyAttr}`)
+    html.slice(insertPos).replace(/^(<\w+)/, `$1 bf-s="~${scopePrefix}${suffix}"${slotAttrs}${keyAttr}`)
 }
 
 /**

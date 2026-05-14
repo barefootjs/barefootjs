@@ -87,15 +87,15 @@ export function findSsrScopeBySlotIn(
     if (direct) return direct
   }
 
-  // Loop-body fallback: inside a mapArray reconcile, `renderChild` runs
-  // outside any `setParentScopeId` context (mapArray doesn't propagate
-  // host through its renderItem callback yet — follow-up). Those elements
-  // therefore lack bf-h / bf-m even though their bf-s value still ends
-  // in `_<slotId>`. We accept the suffix lookup as a fallback ONLY for
-  // elements that have NO bf-h, so it can't reclaim a sibling slot's
-  // already-bound child. The legacy bf-s name-prefix scan is intentionally
-  // gone — that was the source of #1249's cross-scope collision.
-  const suffixSelector = `[${BF_SCOPE}$="_${slotId}"]:not([${BF_HOST}])`
+  // Loop-body / nested-wrapper fallback: bf-s suffix lookup. Used when
+  // primary (bf-h, bf-m) misses — typically because the element was
+  // mounted with a host that's an inner component wrapper (e.g. Card)
+  // rather than the loop's owning component (#1249 follow-up: propagate
+  // host through mapArray's renderItem and `insert()`'s scope-id walk).
+  // Cross-scope collision protection from #1249 relies on the search
+  // root being the right subtree — slot suffix is unique within an
+  // iteration's body, which is what `parent` is at this call site.
+  const suffixSelector = `[${BF_SCOPE}$="_${slotId}"]`
   if (selfMatch && parent.matches(suffixSelector)) return parent as HTMLElement
   return parent.querySelector(suffixSelector) as HTMLElement | null
 }
