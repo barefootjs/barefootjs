@@ -69,7 +69,7 @@ export function buildSlotInfo(
  */
 export function findSsrScopeBySlotIn(
   parent: Element,
-  _name: string,
+  name: string,
   slotId: string,
   anchorScope: Element | null | undefined,
   selfMatch: boolean,
@@ -87,15 +87,20 @@ export function findSsrScopeBySlotIn(
     if (direct) return direct
   }
 
-  // Loop-body / nested-wrapper fallback: bf-s suffix lookup. Used when
-  // primary (bf-h, bf-m) misses — typically because the element was
-  // mounted with a host that's an inner component wrapper (e.g. Card)
-  // rather than the loop's owning component (#1249 follow-up: propagate
-  // host through mapArray's renderItem and `insert()`'s scope-id walk).
-  // Cross-scope collision protection from #1249 relies on the search
-  // root being the right subtree — slot suffix is unique within an
-  // iteration's body, which is what `parent` is at this call site.
+  // Suffix lookup: matches the parent-anchored bf-s shape used by Hono
+  // SSR (`~Parent_xxx_sN`) and by renderChild when invoked with a
+  // _parentScopeId context. Cross-scope collision protection comes from
+  // the search-root scoping — slot suffix is unique within `parent`.
   const suffixSelector = `[${BF_SCOPE}$="_${slotId}"]`
   if (selfMatch && parent.matches(suffixSelector)) return parent as HTMLElement
-  return parent.querySelector(suffixSelector) as HTMLElement | null
+  const suffixMatch = parent.querySelector(suffixSelector) as HTMLElement | null
+  if (suffixMatch) return suffixMatch
+
+  // Name-prefix scan: for adapters that emit random-anchored child
+  // scopes (`~Name_<rand>` without slot suffix — go-template /
+  // mojolicious). Each loop iteration calls this with its own primary
+  // root, so name-prefix is uniquely matching within scope.
+  const nameSelector = `[${BF_SCOPE}^="~${name}_"]`
+  if (selfMatch && parent.matches(nameSelector)) return parent as HTMLElement
+  return parent.querySelector(nameSelector) as HTMLElement | null
 }

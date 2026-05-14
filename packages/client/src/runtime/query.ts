@@ -8,7 +8,12 @@
 
 import { commentScopeRegistry, getCommentScopeBoundary } from './scope'
 import { hydratedScopes } from './hydration-state'
-import { BF_SCOPE, BF_SLOT, BF_PORTAL_OWNER, BF_PARENT_OWNED_PREFIX, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
+import { BF_SCOPE, BF_SLOT, BF_HOST, BF_AT, BF_PORTAL_OWNER, BF_PARENT_OWNED_PREFIX, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
+
+const cssEscape: (s: string) => string =
+  typeof CSS !== 'undefined' && (CSS as { escape?: (s: string) => string }).escape
+    ? (s) => CSS.escape(s)
+    : (s) => s.replace(/"/g, '\\"')
 
 // --- helpers ---
 
@@ -391,6 +396,55 @@ export function qsaChildScopes(scope: Element, selector: string): Element[] {
     if (!NESTED_SLOT_SUFFIX.test(bfs)) out.push(candidate)
   }
   return out
+}
+
+/**
+ * Locate a child-component scope inside `scope` for slot `slotId`, with
+ * priority-ordered fallbacks:
+ *
+ *   1. `[bf-h="<host>"][bf-m="<slot>"]` — authoritative slot identity
+ *      (#1249). Always tried when the host scope id is resolvable.
+ *   2. `[bf-s$="_<slot>"]` — bf-s suffix lookup; matches the parent-
+ *      anchored shape Hono SSR / parent-context renderChild emit.
+ *      #1220-filtered (nested `_sM_sN` paths are skipped).
+ *   3. `[bf-s^="~<name>_"]` / `[bf-s^="<name>_"]` — name-prefix scan
+ *      for random-anchored child scopes (`~Name_<rand>`) emitted by
+ *      SSR adapters that don't carry slot context (go-template,
+ *      mojolicious today). Disambiguated by the search-root scoping
+ *      — each loop iteration calls this with its own root, so
+ *      same-name children in different iterations stay isolated.
+ *
+ * Each step also checks `scope.matches(selector)` so the helper works
+ * for both child-of-parent and self-match (loop-item primary) cases.
+ */
+export function qsaSlotChild(scope: Element | null, slotId: string, name: string): Element | null {
+  if (!scope) return null
+
+  // Step 1: primary (bf-h, bf-m).
+  const hostId = getScopeId(scope)
+  if (hostId) {
+    const primarySelector = `[${BF_HOST}="${cssEscape(hostId)}"][${BF_AT}="${slotId}"]`
+    if (scope.matches?.(primarySelector)) return scope
+    const primary = scope.querySelector(primarySelector)
+    if (primary) return primary
+  }
+
+  // Step 2: bf-s suffix lookup (with #1220 nested-slot filter).
+  const suffixSelector = `[${BF_SCOPE}$="_${slotId}"]`
+  if (scope.matches?.(suffixSelector)) {
+    const bfs = scope.getAttribute(BF_SCOPE) || ''
+    if (!NESTED_SLOT_SUFFIX.test(bfs)) return scope
+  }
+  for (const candidate of scope.querySelectorAll(suffixSelector)) {
+    const bfs = candidate.getAttribute(BF_SCOPE) || ''
+    if (!NESTED_SLOT_SUFFIX.test(bfs)) return candidate
+  }
+
+  // Step 3: name-prefix scan — for SSR adapters that emit
+  // `~Name_<rand>` without slot suffix (random-anchored).
+  const namePrefixSelector = `[${BF_SCOPE}^="~${name}_"], [${BF_SCOPE}^="${name}_"]`
+  if (scope.matches?.(namePrefixSelector)) return scope
+  return scope.querySelector(namePrefixSelector)
 }
 
 /**
