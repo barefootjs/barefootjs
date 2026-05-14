@@ -6,8 +6,10 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import type { TemplateAdapter } from '@barefootjs/jsx'
+import type { CompilerError, TemplateAdapter } from '@barefootjs/jsx'
+import { compileJSX } from '@barefootjs/jsx'
 import { jsxFixtures } from '../fixtures'
+import type { ExpectedDiagnostic } from './types'
 
 export interface RenderOptions {
   /** JSX source code */
@@ -25,6 +27,17 @@ export interface RunJSXConformanceOptions {
   createAdapter: () => TemplateAdapter
   /** Render compiled template to HTML */
   render: (options: RenderOptions) => Promise<string>
+  /**
+   * Adapter name — must match the key used in
+   * `JSXFixture.expectedDiagnostics`. When a fixture declares expected
+   * diagnostics for this adapter, the runner compiles the fixture,
+   * asserts the listed diagnostics fired, and skips HTML comparison.
+   *
+   * Required to enable the `expectedDiagnostics` mechanism; when
+   * omitted, the runner falls back to legacy render-only behavior
+   * (no diagnostic assertions).
+   */
+  adapterName?: string
   /** Factory to create the reference adapter (optional). If provided, HTML output is compared. */
   referenceAdapter?: () => TemplateAdapter
   /** Render function for reference adapter (required if referenceAdapter is set) */
@@ -69,6 +82,16 @@ export function normalizeHTML(html: string): string {
     // JS-runtime hydration path uses them, so removing them keeps
     // cross-adapter conformance comparisons apples-to-apples.
     .replace(/<!--bf-scope:[^>]*-->/g, '')
+    // Collapse the conditional-branch hydration markers used by the
+    // Hono and SSR-text-template adapters into nothing — they're
+    // structurally equivalent but the literal HTML differs:
+    //   - Hono:  `<br bf-c="s0">`              (attribute on the single root)
+    //   - Go:    `<!--bf-cond-start:s0--><br><!--bf-cond-end:s0-->`  (comment pair)
+    // The runtime accepts either; both pin the same slotId. For
+    // cross-adapter conformance the canonical comparison shape is "no
+    // marker at all" — semantic structure remains intact (#1266).
+    .replace(/<!--bf-cond-(start|end):[^>]*-->/g, '')
+    .replace(/\s*bf-c="[^"]*"/g, '')
     // Normalize child scope ID prefix: bf-s="~parentId_sN" → bf-s="parentId_sN"
     .replace(/bf-s="~([^"]*)"/g, 'bf-s="$1"')
     // Normalize non-deterministic child scope IDs (hash derived from file path):
@@ -85,8 +108,63 @@ export function normalizeHTML(html: string): string {
     .trim()
 }
 
+/**
+ * Compile a fixture (parent source + any child components) through the
+ * adapter and collect every `CompilerError`. Used by the
+ * `expectedDiagnostics` assertion path so the conformance runner can
+ * surface adapter-emitted diagnostics without going through the
+ * adapter's `render()` (which typically throws on errors).
+ */
+function collectFixtureDiagnostics(args: {
+  source: string
+  components?: Record<string, string>
+  adapter: TemplateAdapter
+}): CompilerError[] {
+  const all: CompilerError[] = []
+  if (args.components) {
+    for (const [filename, childSource] of Object.entries(args.components)) {
+      const r = compileJSX(childSource.trimStart(), filename, {
+        adapter: args.adapter,
+        outputIR: true,
+      })
+      all.push(...r.errors)
+    }
+  }
+  const result = compileJSX(args.source.trimStart(), 'component.tsx', {
+    adapter: args.adapter,
+    outputIR: true,
+  })
+  all.push(...result.errors)
+  return all
+}
+
+/**
+ * Assert that every expected `{ code, severity }` appears at least once
+ * in the actual diagnostics. The match is subset — incidental extra
+ * diagnostics don't fail the assertion, but every declared expectation
+ * must be present.
+ */
+function assertExpectedDiagnostics(
+  fixtureId: string,
+  expected: ReadonlyArray<ExpectedDiagnostic>,
+  actual: CompilerError[],
+): void {
+  for (const want of expected) {
+    const hit = actual.some(e => e.code === want.code && e.severity === want.severity)
+    if (!hit) {
+      const seen = actual
+        .map(e => `${e.severity}/${e.code}: ${e.message}`)
+        .join('\n  ')
+      throw new Error(
+        `[${fixtureId}] expected diagnostic ${want.severity}/${want.code} was not emitted.\n` +
+          `Diagnostics seen:\n  ${seen || '(none)'}`,
+      )
+    }
+  }
+}
+
 export function runJSXConformanceTests(options: RunJSXConformanceOptions): void {
-  const { createAdapter, render, referenceAdapter, referenceRender, skip = [] } = options
+  const { createAdapter, render, referenceAdapter, referenceRender, skip = [], adapterName } = options
   const skipSet = new Set(skip)
 
   describe('JSX Conformance Tests', () => {
@@ -94,6 +172,27 @@ export function runJSXConformanceTests(options: RunJSXConformanceOptions): void 
       if (skipSet.has(fixture.id)) continue
 
       test(`[${fixture.id}] ${fixture.description}`, async () => {
+        // expectedDiagnostics path: compile-only, no HTML comparison.
+        // Patterns the adapter intentionally rejects at build time
+        // (e.g. Object.entries-derived loop arrays for the Go template
+        // adapter) declare their expected codes per-adapter on the
+        // fixture. We assert those fired and skip rendering — the
+        // adapter would either throw or emit invalid template syntax.
+        const expectedDiagnostics =
+          adapterName && fixture.expectedDiagnostics
+            ? fixture.expectedDiagnostics[adapterName]
+            : undefined
+        if (expectedDiagnostics && expectedDiagnostics.length > 0) {
+          const adapter = createAdapter()
+          const diagnostics = collectFixtureDiagnostics({
+            source: fixture.source,
+            components: fixture.components,
+            adapter,
+          })
+          assertExpectedDiagnostics(fixture.id, expectedDiagnostics, diagnostics)
+          return
+        }
+
         const adapter = createAdapter()
 
         // 1. Render with the adapter under test
@@ -127,9 +226,13 @@ export function runJSXConformanceTests(options: RunJSXConformanceOptions): void 
 
           expect(normalizedHtml).toBe(normalizedRefHtml)
         } else if (fixture.expectedHtml) {
-          // Pre-generated reference: compare against fixture's expectedHtml
+          // Pre-generated reference: compare against fixture's expectedHtml.
+          // Both sides go through normalizeHTML so cross-adapter marker
+          // divergences (bf-c attribute vs comment-pair markers) collapse
+          // to a single canonical token before comparison.
           const normalizedHtml = normalizeHTML(html)
-          expect(normalizedHtml).toBe(fixture.expectedHtml)
+          const normalizedExpected = normalizeHTML(fixture.expectedHtml)
+          expect(normalizedHtml).toBe(normalizedExpected)
         }
       })
     }

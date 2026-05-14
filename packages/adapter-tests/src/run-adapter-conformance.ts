@@ -66,6 +66,7 @@ export function runAdapterConformanceTests(
   runJSXConformanceTests({
     createAdapter: opts.factory,
     render: opts.render,
+    adapterName: opts.name,
     referenceAdapter: opts.referenceAdapter,
     referenceRender: opts.referenceRender,
     onRenderError: opts.onRenderError,

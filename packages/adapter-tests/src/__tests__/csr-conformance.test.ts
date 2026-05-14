@@ -74,8 +74,15 @@ describe('CSR Conformance Tests', () => {
 
       expect(html).toBeTruthy()
 
+      // Both sides go through `normalizeHTML` so cross-adapter
+      // canonicalisation rules (e.g. stripping the conditional-marker
+      // divergence introduced in #1266) apply symmetrically — without
+      // this the actual output loses `bf-c="sN"` attributes but the
+      // fixture's expectedHtml retains them, causing every conditional
+      // fixture to fail.
       const normalizedHtml = normalizeHTML(html)
-      expect(normalizedHtml).toBe(fixture.expectedHtml!)
+      const normalizedExpected = normalizeHTML(fixture.expectedHtml!)
+      expect(normalizedHtml).toBe(normalizedExpected)
     })
   }
 })
