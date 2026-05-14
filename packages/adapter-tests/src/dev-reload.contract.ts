@@ -4,16 +4,16 @@
 // browser-side reload subscriber when the app is started in dev mode,
 // and must keep that wiring OFF in production. Each adapter satisfies
 // the contract with adapter-specific machinery (see the
-// `scenario-<adapter>.test.ts` files for how the facts below are
-// computed from each adapter's output), but the contract itself is
+// `scaffold.test.ts` in each adapter package for how the facts below
+// are computed from each adapter's output), but the contract itself is
 // adapter-agnostic.
 //
-// Run this contract from each scenario test by computing the facts
-// from that adapter's scaffold output and passing them to
-// `assertDevReloadContract`. The facts type intentionally avoids
-// adapter-specific terminology so a new adapter can be added without
-// changing the contract surface — only the per-adapter fact-extraction
-// logic.
+// Run this contract from each adapter's `scaffold.test.ts` by
+// computing the facts from that adapter's scaffold output and passing
+// them to `assertDevReloadContract`. The facts type intentionally
+// avoids adapter-specific terminology so a new adapter can be added
+// without changing the contract surface — only the per-adapter
+// fact-extraction logic.
 
 import { expect } from 'bun:test'
 
@@ -53,7 +53,7 @@ export interface DevReloadFacts {
 
 /**
  * Assert that an adapter's scaffold output satisfies the dev-reload
- * contract. Call from each `scenario-<adapter>.test.ts` after
+ * contract. Call from each adapter's `scaffold.test.ts` after
  * extracting the facts from that adapter's output files.
  *
  * Failure messages intentionally name the fact rather than the

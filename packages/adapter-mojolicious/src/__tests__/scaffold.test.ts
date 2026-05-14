@@ -1,9 +1,8 @@
 // Specification-as-test for `bun create barefootjs --adapter mojo <project-name>`.
 //
-// Read this file top-to-bottom to learn the mojo-specific scaffold
-// surface. The companion `scenario.test.ts` covers the default Hono
-// path; this file pins everything that differs when `--adapter mojo`
-// is selected:
+// This file verifies that the Mojo scaffold satisfies both the
+// cross-adapter contract defined in `create-barefootjs` and the
+// Mojo-specific wiring:
 //
 //   - `barefoot.config.ts` targets `@barefootjs/mojolicious/build` and
 //     uses `clientJsBasePath: '/static/components/'`.
@@ -13,21 +12,69 @@
 //     stylesheet and client bundle 404s in the browser).
 //   - `lib/BarefootJS.pm` is vendored, `cpanfile` lists Mojolicious,
 //     and `app.pl` uses `register_components_from_manifest` so the
-//     manifest-driven child rendering works without per-component
-//     wire-up.
+//     manifest-driven child rendering works without per-component wire-up.
 //
-// Run the full scenario locally with the network-reaching gate the
-// Hono scenario already uses:
-//
-//   BAREFOOT_CREATE_INTEGRATION=1 bun test scenario-mojo.test.ts
+//   BAREFOOT_CREATE_INTEGRATION=1 bun test src/__tests__/scaffold.test.ts
 
 import { describe, test, expect, beforeAll } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { mktmp, runCreate, type RunResult } from './helpers'
-import { assertDevReloadContract } from './dev-reload.contract'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
+import {
+  assertScaffoldContract,
+  ensureCreateCli,
+  type ScaffoldFacts,
+} from '@barefootjs/adapter-tests'
+
+// ---------------------------------------------------------------------------
+// Helpers (thin wrappers around the compiled create-barefootjs CLI)
+// ---------------------------------------------------------------------------
+
+const CREATE_PKG_DIR = path.join(
+  fileURLToPath(new URL('.', import.meta.url)),
+  '../../../create-barefootjs',
+)
+const CREATE_CLI = path.join(CREATE_PKG_DIR, 'dist', 'index.js')
+
+function mktmp(): string {
+  return mkdtempSync(path.join(tmpdir(), 'bf-mojo-scaffold-test-'))
+}
+
+interface RunResult {
+  exitCode: number | null
+  stdout: string
+  stderr: string
+}
+
+function runCreate(
+  args: string[],
+  opts: { cwd: string; env?: Record<string, string> },
+): RunResult {
+  ensureCreateCli(CREATE_PKG_DIR)
+  const result = spawnSync('node', [CREATE_CLI, ...args], {
+    cwd: opts.cwd,
+    env: {
+      ...process.env,
+      ...opts.env,
+      npm_config_user_agent: undefined,
+    },
+    encoding: 'utf-8',
+  })
+  return {
+    exitCode: result.status,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  }
+}
 
 const INTEGRATION = process.env.BAREFOOT_CREATE_INTEGRATION === '1'
+
+// ---------------------------------------------------------------------------
+// Happy-path scenario — `bun create barefootjs --adapter mojo mojo-app`
+// ---------------------------------------------------------------------------
 
 describe.skipIf(!INTEGRATION)(
   'Scenario: bun create barefootjs --adapter mojo <project-name>',
@@ -41,18 +88,38 @@ describe.skipIf(!INTEGRATION)(
       projectDir = path.join(cwd, 'mojo-app')
     })
 
-    test('scaffold completes successfully', () => {
-      expect(result.exitCode).toBe(0)
+    test('satisfies the cross-adapter scaffold contract', () => {
+      const app = readFileSync(path.join(projectDir, 'app.pl'), 'utf-8')
+      assertScaffoldContract({
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        projectDir,
+        adapterPackageName: '@barefootjs/mojolicious',
+        devReload: {
+          // The `BarefootJS::DevReload` plugin registers `/_bf/reload` as
+          // an SSE endpoint and exposes `bf_dev_snippet` to embed the
+          // reload subscriber in the layout. The plugin self-disables when
+          // `app->mode eq 'production'`, so the production gate is
+          // handled at the library layer.
+          subscribesBrowserInDev:
+            app.includes("plugin 'BarefootJS::DevReload'") &&
+            app.includes('bf_dev_snippet'),
+          gatedToDev: true,
+          sentinelSseEndpoint: '/_bf/reload',
+        },
+      } satisfies ScaffoldFacts)
     })
+
+    // -------------------------------------------------------------------------
+    // Mojo-specific: static asset routing
+    // -------------------------------------------------------------------------
 
     describe('app.pl serves static assets', () => {
       // Mojolicious's built-in static dispatcher does not honour URL
-      // prefixes. The scaffold's `barefoot.config.ts` and layout
-      // `<link>`s all reference `/static/*` URLs, so `app.pl` needs
-      // explicit forwarding routes — without them every stylesheet
-      // and client bundle 404s in the browser even though the SSR
-      // HTML rendered correctly. Pin both routes here so a refactor
-      // to the scaffold's app.pl template doesn't drop either one.
+      // prefixes. The scaffold's `barefoot.config.ts` and layout `<link>`s
+      // all reference `/static/*` URLs, so `app.pl` needs explicit
+      // forwarding routes — without them every stylesheet and client bundle
+      // 404s in the browser even though the SSR HTML rendered correctly.
       test('forwards /static/components/* to dist/client/* (clientJsBasePath)', () => {
         const app = readFileSync(path.join(projectDir, 'app.pl'), 'utf-8')
         expect(app).toMatch(/get\s+'\/static\/components\/\*asset'/)
@@ -70,6 +137,10 @@ describe.skipIf(!INTEGRATION)(
         expect(app).toContain("app->home->child('dist')")
       })
     })
+
+    // -------------------------------------------------------------------------
+    // Mojo-specific: plugin wiring and Perl deps
+    // -------------------------------------------------------------------------
 
     describe('mojo wiring', () => {
       test('lib/BarefootJS.pm is vendored', () => {
@@ -108,13 +179,6 @@ describe.skipIf(!INTEGRATION)(
         expect(cfg).toContain("clientJsBasePath: '/static/components/'")
       })
 
-      test('package.json depends on @barefootjs/mojolicious', () => {
-        const pkg = JSON.parse(
-          readFileSync(path.join(projectDir, 'package.json'), 'utf-8'),
-        ) as { dependencies?: Record<string, string> }
-        expect(pkg.dependencies?.['@barefootjs/mojolicious']).toBeTruthy()
-      })
-
       test('layout stylesheets point at /static/*.css', () => {
         // The forwarding `/static/*asset` route serves these from
         // `public/`, so the `<link href>`s in the rendered HTML must
@@ -126,50 +190,32 @@ describe.skipIf(!INTEGRATION)(
       })
     })
 
-    describe('dev reload wiring', () => {
-      // Cross-adapter contract: every scaffold must subscribe the
-      // browser to a dev-reload signal AND keep that wiring off in
-      // production. Mojo satisfies this through the
-      // `BarefootJS::DevReload` plugin (`/_bf/reload` SSE endpoint +
-      // `bf_dev_snippet` helper). The plugin self-disables when
-      // `app->mode eq 'production'`, so the production gate is
-      // handled at the library layer rather than in scaffold code —
-      // the contract still holds because production never carries
-      // either the SSE handler or the snippet.
-      test('satisfies the cross-adapter dev-reload contract', () => {
-        const app = readFileSync(path.join(projectDir, 'app.pl'), 'utf-8')
-        assertDevReloadContract({
-          subscribesBrowserInDev:
-            app.includes("plugin 'BarefootJS::DevReload'") &&
-            app.includes('bf_dev_snippet'),
-          // Plugin's `register` reads `$app->mode` and returns early
-          // for `production`, so a production-mode start never wires
-          // the route or emits the snippet.
-          gatedToDev: true,
-          sentinelSseEndpoint: '/_bf/reload',
-        })
-      })
+    // -------------------------------------------------------------------------
+    // Mojo-specific: dev-reload wiring (detailed)
+    // -------------------------------------------------------------------------
 
-      test('mojo-specific: app.pl registers the DevReload plugin', () => {
+    describe('dev reload wiring', () => {
+      test('app.pl registers the DevReload plugin', () => {
         const app = readFileSync(path.join(projectDir, 'app.pl'), 'utf-8')
         expect(app).toContain("plugin 'BarefootJS::DevReload'")
       })
 
-      test('mojo-specific: layout calls bf_dev_snippet in <body>', () => {
+      test('layout calls bf_dev_snippet inside <body>', () => {
         // Snippet must land inside `<body>` so the inline `<script>`
         // executes after the page elements are parsed; emitting it
-        // in `<head>` would race scroll-restoration against the page
-        // content.
+        // in `<head>` would race scroll-restoration against the page content.
         const app = readFileSync(path.join(projectDir, 'app.pl'), 'utf-8')
         const body = app.match(/<body>([\s\S]*?)<\/body>/)?.[1] ?? ''
         expect(body).toContain('bf_dev_snippet')
       })
     })
 
-    describe('next-step instructions', () => {
-      test('the printed next-step uses the chosen target directory', () => {
-        expect(result.stdout).toContain('cd mojo-app')
-      })
+    // -------------------------------------------------------------------------
+    // Next-step instructions
+    // -------------------------------------------------------------------------
+
+    test('the printed next-step uses the chosen target directory', () => {
+      expect(result.stdout).toContain('cd mojo-app')
     })
   },
 )
