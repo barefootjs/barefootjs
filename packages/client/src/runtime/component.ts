@@ -166,12 +166,9 @@ export function createComponent(
   const def = getRegisteredDef(name)
   const isCommentWrapper = def?.comment === true
   if (!isCommentWrapper) {
-    // Child scopes get the `~` prefix as a visual + locator convention so
-    // selectors like `[bf-s^="ParentName_"]` keep matching the root only.
-    // Semantic child-scope detection (in the hydration walker / resolver)
-    // uses bf-h presence per #1249; the prefix is a shape detail.
-    const childPrefix = slot ? '~' : ''
-    element.setAttribute(BF_SCOPE, `${childPrefix}${name}_${generateId()}`)
+    // bf-s is the addressable scope id only (#1249). Identity / root-vs-
+    // child distinction lives on separate attributes (bf-h, bf-m, bf-r).
+    element.setAttribute(BF_SCOPE, `${name}_${generateId()}`)
   }
   // Stamp slot-relationship markers for any CSR child mount. `bf-m` is
   // always set when a slot is provided so the resolver's
@@ -297,14 +294,11 @@ export function renderChild(
     ? ` ${BF_HOST}="${_parentScopeId}" ${BF_AT}="${slotSuffix}"`
     : ''
 
-  // renderChild always emits a child scope (HTML embedded into a parent
-  // template), so the `~` prefix applies unconditionally. Semantic child
-  // detection uses bf-h presence (#1249); the `~` is a shape convention
-  // kept so `[bf-s^="ParentName_"]` selectors continue to address only
-  // the root.
+  // renderChild emits a child scope. bf-s is the addressable id only
+  // (#1249); slot relationship lives on bf-h / bf-m (in slotAttrs).
 
   if (!templateFn) {
-    return `<div bf-s="~${scopePrefix}${suffix}"${slotAttrs}${keyAttr}></div>`
+    return `<div bf-s="${scopePrefix}${suffix}"${slotAttrs}${keyAttr}></div>`
   }
 
   const html = templateFn(props).trim()
@@ -315,7 +309,7 @@ export function renderChild(
   if (!firstElMatch) return html
   const insertPos = html.indexOf(firstElMatch[0])
   return html.slice(0, insertPos) +
-    html.slice(insertPos).replace(/^(<\w+)/, `$1 bf-s="~${scopePrefix}${suffix}"${slotAttrs}${keyAttr}`)
+    html.slice(insertPos).replace(/^(<\w+)/, `$1 bf-s="${scopePrefix}${suffix}"${slotAttrs}${keyAttr}`)
 }
 
 /**

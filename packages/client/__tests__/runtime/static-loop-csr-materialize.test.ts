@@ -138,10 +138,9 @@ describe('#1247 — createComponent on static-loop with prop-derived array', () 
     expect(tags.length).toBe(2)
     expect(tags[0].textContent).toBe('a')
     expect(tags[1].textContent).toBe('b')
-    // bf-s carries the `~` child prefix as a shape convention (#1249
-    // keeps it so locator-based selectors continue to address only the
-    // root). Hydrate skips child scopes via bf-h presence.
-    expect(tags[0].getAttribute('bf-s') || '').toMatch(/^~Tag_/)
+    // bf-s carries the child component's own name + random id (no `~`
+    // prefix per #1249). Hydrate skips child scopes via bf-h presence.
+    expect(tags[0].getAttribute('bf-s') || '').toMatch(/^Tag_/)
   })
 
   test('#1268 — composite element body with nested component materialises', async () => {
