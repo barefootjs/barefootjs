@@ -7,7 +7,7 @@ test.describe('Select Reference Page', () => {
 
   test.describe('Basic Demo', () => {
     test('renders trigger with placeholder', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
 
       const trigger = section.locator('[data-slot="select-trigger"]')
@@ -16,7 +16,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('click opens dropdown', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
 
       await trigger.click()
@@ -28,7 +28,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('select item updates trigger label and closes dropdown', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
 
       await trigger.click()
@@ -44,7 +44,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('disabled item cannot be selected', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
 
       await trigger.click()
@@ -59,7 +59,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('ESC closes dropdown', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
 
       await trigger.click()
@@ -72,7 +72,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('click outside closes dropdown', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
 
       await trigger.click()
@@ -85,7 +85,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('value display updates after selection', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
       const valueText = section.locator('.selected-value')
 
@@ -101,7 +101,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('selected item shows check indicator', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
 
       // Select Apple
@@ -118,7 +118,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('has correct ARIA roles', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
 
       await expect(trigger).toHaveAttribute('role', 'combobox')
@@ -136,7 +136,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('keyboard navigation with arrow keys', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
 
       await trigger.click()
@@ -161,7 +161,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('Enter key selects focused item', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
 
       await trigger.click()
@@ -187,7 +187,7 @@ test.describe('Select Reference Page', () => {
 
   test.describe('Form Demo', () => {
     test('displays three select fields', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
 
       const triggers = section.locator('[data-slot="select-trigger"]')
@@ -195,12 +195,12 @@ test.describe('Select Reference Page', () => {
     })
 
     test('shows initial summary', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('.summary-text')).toContainText('No selections yet')
     })
 
     test('selecting values updates summary', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectFormDemo_"][bf-r]:not([data-slot])').first()
       const triggers = section.locator('[data-slot="select-trigger"]')
       const summaryText = section.locator('.summary-text')
 
@@ -223,7 +223,7 @@ test.describe('Select Reference Page', () => {
 
   test.describe('Grouped Demo', () => {
     test('group labels visible', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectGroupedDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectGroupedDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
 
       const trigger = section.locator('[data-slot="select-trigger"]')
@@ -236,7 +236,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('separators present', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectGroupedDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectGroupedDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
 
       await trigger.click()
@@ -247,7 +247,7 @@ test.describe('Select Reference Page', () => {
     })
 
     test('selection from groups works', async ({ page }) => {
-      const section = page.locator('[bf-s^="SelectGroupedDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SelectGroupedDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="select-trigger"]')
       const valueText = section.locator('.selected-timezone')
 

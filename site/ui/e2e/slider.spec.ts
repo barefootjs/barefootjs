@@ -20,42 +20,42 @@ test.describe('Slider Reference Page', () => {
   test.describe('Basic', () => {
     test('displays basic example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Basic")')).toBeVisible()
-      const section = page.locator('[bf-s^="SliderBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderBasicDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('has three sliders', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderBasicDemo_"][bf-r]:not([data-slot])').first()
       const sliders = section.locator('[role="slider"]')
       await expect(sliders).toHaveCount(3)
     })
 
     test('first slider starts at 0 (default)', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderBasicDemo_"][bf-r]:not([data-slot])').first()
       const sliders = section.locator('[role="slider"]')
       await expect(sliders.first()).toHaveAttribute('aria-valuenow', '0')
     })
 
     test('second slider starts at 50 (defaultValue)', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderBasicDemo_"][bf-r]:not([data-slot])').first()
       const sliders = section.locator('[role="slider"]')
       await expect(sliders.nth(1)).toHaveAttribute('aria-valuenow', '50')
     })
 
     test('third slider is disabled', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderBasicDemo_"][bf-r]:not([data-slot])').first()
       const sliderRoots = section.locator('[data-slot="slider"]')
       await expect(sliderRoots.nth(2)).toHaveAttribute('data-disabled', '')
     })
 
     test('third slider has value 33', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderBasicDemo_"][bf-r]:not([data-slot])').first()
       const sliders = section.locator('[role="slider"]')
       await expect(sliders.nth(2)).toHaveAttribute('aria-valuenow', '33')
     })
 
     test('keyboard navigation works on slider', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderBasicDemo_"][bf-r]:not([data-slot])').first()
       const slider = section.locator('[role="slider"]').nth(1)
 
       // Focus the slider
@@ -83,36 +83,36 @@ test.describe('Slider Reference Page', () => {
   test.describe('Form (Display Settings)', () => {
     test('displays form example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Form")')).toBeVisible()
-      const section = page.locator('[bf-s^="SliderFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('shows display settings heading', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('h4:has-text("Display Settings")')).toBeVisible()
       await expect(section.locator('text=Adjust brightness')).toBeVisible()
     })
 
     test('has three sliders', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderFormDemo_"][bf-r]:not([data-slot])').first()
       const sliders = section.locator('[role="slider"]')
       await expect(sliders).toHaveCount(3)
     })
 
     test('shows initial values', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=75%').first()).toBeVisible()
       await expect(section.locator('text=100%').first()).toBeVisible()
     })
 
     test('reset button is disabled at default values', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderFormDemo_"][bf-r]:not([data-slot])').first()
       const resetButton = section.locator('button:has-text("Reset to defaults")')
       await expect(resetButton).toBeDisabled()
     })
 
     test('clicking track changes value and enables reset', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderFormDemo_"][bf-r]:not([data-slot])').first()
       const slider = section.locator('[role="slider"]').first()
       const resetButton = section.locator('button:has-text("Reset to defaults")')
 
@@ -128,18 +128,18 @@ test.describe('Slider Reference Page', () => {
   test.describe('Custom Range', () => {
     test('displays custom range example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Custom Range")')).toBeVisible()
-      const section = page.locator('[bf-s^="SliderStepDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderStepDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('shows font size slider with initial value', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderStepDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderStepDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=Font Size')).toBeVisible()
       await expect(section.locator('text=16px').first()).toBeVisible()
     })
 
     test('font size slider has correct min/max', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderStepDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderStepDemo_"][bf-r]:not([data-slot])').first()
       const slider = section.locator('[role="slider"]').first()
       await expect(slider).toHaveAttribute('aria-valuemin', '8')
       await expect(slider).toHaveAttribute('aria-valuemax', '32')
@@ -147,7 +147,7 @@ test.describe('Slider Reference Page', () => {
     })
 
     test('opacity slider has step=5', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderStepDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderStepDemo_"][bf-r]:not([data-slot])').first()
       const slider = section.locator('[role="slider"]').nth(1)
 
       // Focus and use keyboard to verify step
@@ -162,12 +162,12 @@ test.describe('Slider Reference Page', () => {
     })
 
     test('shows preview text section', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderStepDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderStepDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=Preview text')).toBeVisible()
     })
 
     test('shows range labels', async ({ page }) => {
-      const section = page.locator('[bf-s^="SliderStepDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SliderStepDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=8px').first()).toBeVisible()
       await expect(section.locator('text=32px')).toBeVisible()
     })

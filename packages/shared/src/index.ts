@@ -3,6 +3,7 @@ export {
   BF_SLOT,
   BF_HOST,
   BF_AT,
+  BF_ROOT,
   BF_PROPS,
   BF_COND,
   BF_ITEM,

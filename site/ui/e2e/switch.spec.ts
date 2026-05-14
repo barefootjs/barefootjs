@@ -19,20 +19,20 @@ test.describe('Switch Reference Page', () => {
 
   test.describe('Consent Demo', () => {
     test('displays consent demo with switch and button', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchConsentDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchConsentDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
       await expect(section.locator('button[role="switch"]')).toBeVisible()
       await expect(section.locator('button:has-text("Save preferences")')).toBeVisible()
     })
 
     test('button is disabled when unchecked', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchConsentDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchConsentDemo_"][bf-r]:not([data-slot])').first()
       const button = section.locator('button:has-text("Save preferences")')
       await expect(button).toBeDisabled()
     })
 
     test('button enables when switch is checked', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchConsentDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchConsentDemo_"][bf-r]:not([data-slot])').first()
       const switchBtn = section.locator('button[role="switch"]')
       const button = section.locator('button:has-text("Save preferences")')
 
@@ -41,7 +41,7 @@ test.describe('Switch Reference Page', () => {
     })
 
     test('clicking label toggles switch', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchConsentDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchConsentDemo_"][bf-r]:not([data-slot])').first()
       const switchBtn = section.locator('button[role="switch"]')
       const label = section.locator('text=Accept analytics cookies')
 
@@ -60,7 +60,7 @@ test.describe('Switch Reference Page', () => {
   test.describe('Form', () => {
     test('displays form example with multiple switches', async ({ page }) => {
       await expect(page.locator('h3:has-text("Form")')).toBeVisible()
-      const section = page.locator('[bf-s^="SwitchFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
 
       // Should have 3 switches
@@ -69,13 +69,13 @@ test.describe('Switch Reference Page', () => {
     })
 
     test('shows notifications heading and description', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('h4:has-text("Notifications")')).toBeVisible()
       await expect(section.locator('text=Configure how you receive')).toBeVisible()
     })
 
     test('Push notifications is checked by default', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchFormDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
       // Push notifications is the first switch
@@ -84,13 +84,13 @@ test.describe('Switch Reference Page', () => {
     })
 
     test('shows enabled items', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=Enabled:')).toBeVisible()
       await expect(section.locator('text=Push notifications').first()).toBeVisible()
     })
 
     test('updates enabled text when switches are toggled', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchFormDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
       const enabledText = section.locator('text=/Enabled:/')
 
@@ -104,18 +104,18 @@ test.describe('Switch Reference Page', () => {
   test.describe('Notification Preferences', () => {
     test('displays notification preferences example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Notification Preferences")')).toBeVisible()
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('shows enable all switch and items', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=Enable all')).toBeVisible()
       await expect(section.locator('text=Receive notifications via email')).toBeVisible()
     })
 
     test('can toggle individual channels', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
       // First switch is "enable all", second is first channel (Email)
@@ -127,7 +127,7 @@ test.describe('Switch Reference Page', () => {
     })
 
     test('enable all checks all channel switches', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
       // Click "Enable all" switch (first one)
@@ -146,7 +146,7 @@ test.describe('Switch Reference Page', () => {
 
   test.describe('Notification Preferences Detailed Behavior', () => {
     test('initial state: all unchecked, shows "Enable all"', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
       // All 4 switches unchecked
@@ -159,7 +159,7 @@ test.describe('Switch Reference Page', () => {
     })
 
     test('selecting 1 channel shows "1 enabled"', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
       await switches.nth(1).click()
@@ -167,7 +167,7 @@ test.describe('Switch Reference Page', () => {
     })
 
     test('selecting 2 channels shows "2 enabled"', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
       await switches.nth(1).click()
@@ -176,7 +176,7 @@ test.describe('Switch Reference Page', () => {
     })
 
     test('selecting all 3 channels shows "3 enabled" and checks "Enable all"', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
       await switches.nth(1).click()
@@ -188,7 +188,7 @@ test.describe('Switch Reference Page', () => {
     })
 
     test('deselecting one channel updates count', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
       // Select 2
@@ -202,7 +202,7 @@ test.describe('Switch Reference Page', () => {
     })
 
     test('deselecting all returns to "Enable all"', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
       // Select 1, then deselect
@@ -213,7 +213,7 @@ test.describe('Switch Reference Page', () => {
     })
 
     test('clicking "Enable all" when partially selected selects all', async ({ page }) => {
-      const section = page.locator('[bf-s^="SwitchNotificationDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="SwitchNotificationDemo_"][bf-r]:not([data-slot])').first()
       const switches = section.locator('button[role="switch"]')
 
       // Select 1 channel first

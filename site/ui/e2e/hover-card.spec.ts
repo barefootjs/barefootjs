@@ -7,7 +7,7 @@ test.describe('Hover Card Reference Page', () => {
 
   test.describe('Preview Demo', () => {
     test('opens hover card on trigger hover', async ({ page }) => {
-      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="hover-card-trigger"]')
 
       await trigger.hover()
@@ -18,7 +18,7 @@ test.describe('Hover Card Reference Page', () => {
     })
 
     test('closes after mouse leaves trigger', async ({ page }) => {
-      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="hover-card-trigger"]')
 
       await trigger.hover()
@@ -34,7 +34,7 @@ test.describe('Hover Card Reference Page', () => {
     })
 
     test('stays open when hovering content', async ({ page }) => {
-      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="hover-card-trigger"]')
 
       await trigger.hover()
@@ -57,7 +57,7 @@ test.describe('Hover Card Reference Page', () => {
       await expect(content).toHaveAttribute('data-state', 'closed')
 
       // Hover to open
-      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="hover-card-trigger"]')
       await trigger.hover()
 
@@ -69,7 +69,7 @@ test.describe('Hover Card Reference Page', () => {
     })
 
     test('closes on ESC key', async ({ page }) => {
-      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="hover-card-trigger"]')
 
       await trigger.hover()
@@ -82,7 +82,7 @@ test.describe('Hover Card Reference Page', () => {
     })
 
     test('has correct aria-expanded on trigger', async ({ page }) => {
-      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="HoverCardPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="hover-card-trigger"]')
 
       await expect(trigger).toHaveAttribute('aria-expanded', 'false')
@@ -97,7 +97,7 @@ test.describe('Hover Card Reference Page', () => {
 
   test.describe('Basic Demo', () => {
     test('opens and shows content on hover', async ({ page }) => {
-      const demo = page.locator('[bf-s^="HoverCardBasicDemo_"]').first()
+      const demo = page.locator('[bf-s^="HoverCardBasicDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="hover-card-trigger"]')
 
       await trigger.hover()

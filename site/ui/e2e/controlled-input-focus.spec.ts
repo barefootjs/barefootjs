@@ -5,7 +5,7 @@ test.describe('Controlled input focus preservation in loops', () => {
     await page.goto('/docs/forms/field-arrays')
     await page.waitForLoadState('networkidle')
 
-    const demo = page.locator('[bf-s^="BasicFieldArrayDemo_"]')
+    const demo = page.locator('[bf-s^="BasicFieldArrayDemo_"][bf-r]')
     const input = demo.locator('input').first()
 
     await input.focus()
@@ -21,7 +21,7 @@ test.describe('Controlled input focus preservation in loops', () => {
     await page.goto('/docs/forms/field-arrays')
     await page.waitForLoadState('networkidle')
 
-    const demo = page.locator('[bf-s^="BasicFieldArrayDemo_"]')
+    const demo = page.locator('[bf-s^="BasicFieldArrayDemo_"][bf-r]')
     await demo.locator('button:has-text("+ Add Email")').click()
     const secondInput = demo.locator('input').nth(1)
 
@@ -37,7 +37,7 @@ test.describe('Controlled input focus preservation in loops', () => {
     await page.goto('/gallery/social/thread')
     await page.waitForLoadState('networkidle')
 
-    const firstComment = page.locator('[bf-s^="SocialThreadDemo_"]:not([data-slot])').first().locator('.comment-item').first()
+    const firstComment = page.locator('[bf-s^="SocialThreadDemo_"][bf-r]:not([data-slot])').first().locator('.comment-item').first()
     await firstComment.locator('button:has-text("Edit")').click()
 
     const textarea = firstComment.locator('textarea')

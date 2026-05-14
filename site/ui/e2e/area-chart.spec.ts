@@ -6,7 +6,7 @@ test.describe('Area Chart Reference Page', () => {
   })
 
   test.describe('Preview', () => {
-    const scope = '[bf-s^="AreaChartPreviewDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="AreaChartPreviewDemo_"][bf-r]:not([data-slot])'
 
     test('renders an SVG chart', async ({ page }) => {
       const container = page.locator(scope)
@@ -99,7 +99,7 @@ test.describe('Area Chart Reference Page', () => {
 
   test.describe('Basic', () => {
     test('renders an SVG with area paths', async ({ page }) => {
-      const container = page.locator('[bf-s^="AreaChartBasicDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="AreaChartBasicDemo_"][bf-r]:not([data-slot])')
       await expect(container.locator('svg')).toBeVisible()
       const paths = container.locator('path[data-key="desktop"]')
       await expect(paths).toHaveCount(2)
@@ -108,7 +108,7 @@ test.describe('Area Chart Reference Page', () => {
 
   test.describe('Multiple', () => {
     test('renders both desktop and mobile areas', async ({ page }) => {
-      const container = page.locator('[bf-s^="AreaChartMultipleDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="AreaChartMultipleDemo_"][bf-r]:not([data-slot])')
       const desktopPaths = container.locator('path[data-key="desktop"]')
       const mobilePaths = container.locator('path[data-key="mobile"]')
       await expect(desktopPaths).toHaveCount(2)
@@ -118,7 +118,7 @@ test.describe('Area Chart Reference Page', () => {
 
   test.describe('Interactive', () => {
     test('switching category updates the chart', async ({ page }) => {
-      const section = page.locator('[bf-s^="AreaChartInteractiveDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="AreaChartInteractiveDemo_"][bf-r]:not([data-slot])').first()
 
       // Initially shows desktop area
       await expect(section.locator('path[data-key="desktop"]')).toHaveCount(2)
@@ -135,7 +135,7 @@ test.describe('Area Chart Reference Page', () => {
 
   test.describe('Tooltip', () => {
     test('tooltip appears on area hover', async ({ page }) => {
-      const container = page.locator('[bf-s^="AreaChartPreviewDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="AreaChartPreviewDemo_"][bf-r]:not([data-slot])')
       const tooltip = container.locator('.chart-tooltip')
 
       // Tooltip should be hidden initially

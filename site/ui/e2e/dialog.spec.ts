@@ -12,7 +12,7 @@ test.describe('Dialog Documentation Page', () => {
 
   test.describe('Basic Dialog', () => {
     test('opens dialog when trigger is clicked', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
 
       await trigger.click()
@@ -24,7 +24,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('focuses first form element when dialog opens', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
 
       await trigger.click()
@@ -39,7 +39,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('closes dialog when close button is clicked', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
 
       await trigger.click()
@@ -58,7 +58,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('closes dialog when ESC key is pressed', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
 
       await trigger.click()
@@ -79,7 +79,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('closes dialog when overlay is clicked', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
 
       await trigger.click()
@@ -98,7 +98,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('has correct accessibility attributes', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
 
       await trigger.click()
@@ -112,7 +112,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('traps focus within dialog', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
 
       await trigger.click()
@@ -138,7 +138,7 @@ test.describe('Dialog Documentation Page', () => {
 
   test.describe('Dialog Animations', () => {
     test('open animation plays', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
       // Dialog is portaled to body - check closed state first
       const closedDialog = page.locator('[role="dialog"][aria-labelledby="dialog-title"][data-state="closed"]').first()
@@ -158,7 +158,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('close via ESC - animation plays', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
 
       await trigger.click()
@@ -179,7 +179,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('close via overlay click', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
       const overlay = page.locator('[data-slot="dialog-overlay"]').first()
 
@@ -197,7 +197,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('rapid open/close - no visual glitches', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DialogBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Create Task")')
 
       // Rapid open/close sequence
@@ -223,7 +223,7 @@ test.describe('Dialog Documentation Page', () => {
 
   test.describe('Delete Confirmation Dialog', () => {
     test('opens delete dialog when trigger is clicked', async ({ page }) => {
-      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
       const trigger = deleteDemo.locator('button:has-text("Delete Project")')
 
       await trigger.click()
@@ -235,7 +235,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('shows confirmation input', async ({ page }) => {
-      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
       const trigger = deleteDemo.locator('button:has-text("Delete Project")')
 
       await trigger.click()
@@ -254,7 +254,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('delete button is disabled without confirmation', async ({ page }) => {
-      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
       const trigger = deleteDemo.locator('button:has-text("Delete Project")')
 
       await trigger.click()
@@ -273,7 +273,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('delete button becomes enabled when project name matches', async ({ page }) => {
-      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
       const trigger = deleteDemo.locator('button:has-text("Delete Project")')
 
       await trigger.click()
@@ -297,7 +297,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('delete closes dialog when project name matches', async ({ page }) => {
-      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
       const trigger = deleteDemo.locator('button:has-text("Delete Project")')
 
       await trigger.click()
@@ -321,7 +321,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('closes delete dialog when Cancel is clicked', async ({ page }) => {
-      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
       const trigger = deleteDemo.locator('button:has-text("Delete Project")')
 
       await trigger.click()
@@ -338,7 +338,7 @@ test.describe('Dialog Documentation Page', () => {
     })
 
     test('resets input when dialog is reopened', async ({ page }) => {
-      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+      const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
       const trigger = deleteDemo.locator('button:has-text("Delete Project")')
 
       await trigger.click()
@@ -373,7 +373,7 @@ test.describe('DialogTrigger asChild', () => {
   })
 
   test('custom button renders as trigger with destructive styling', async ({ page }) => {
-    const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+    const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
     const trigger = deleteDemo.locator('button:has-text("Delete Project")')
 
     await expect(trigger).toBeVisible()
@@ -382,7 +382,7 @@ test.describe('DialogTrigger asChild', () => {
   })
 
   test('display:contents wrapper is present on asChild trigger', async ({ page }) => {
-    const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+    const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
     const triggerWrapper = deleteDemo.locator('[data-slot="dialog-trigger"]')
 
     await expect(triggerWrapper).toBeVisible()
@@ -391,7 +391,7 @@ test.describe('DialogTrigger asChild', () => {
   })
 
   test('clicking asChild trigger opens dialog', async ({ page }) => {
-    const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+    const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
     const trigger = deleteDemo.locator('button:has-text("Delete Project")')
 
     await trigger.click()
@@ -402,7 +402,7 @@ test.describe('DialogTrigger asChild', () => {
   })
 
   test('dialog can be closed and reopened via asChild trigger', async ({ page }) => {
-    const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"]').first()
+    const deleteDemo = page.locator('[bf-s^="DialogFormDemo_"][bf-r]').first()
     const trigger = deleteDemo.locator('button:has-text("Delete Project")')
 
     // Open dialog

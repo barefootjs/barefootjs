@@ -51,6 +51,20 @@ export const BF_HOST = 'bf-h'
  */
 export const BF_AT = 'bf-m'
 
+/**
+ * Root-of-client-component marker: `bf-r`. Present (as a boolean attribute)
+ * on the SSR root of a stateful component that's the entry point of a
+ * client-side island — what Hono's adapter calls `isRootOfClientComponent`.
+ *
+ * Even when such a root is itself a slot-attached child of an outer
+ * page/layout (and therefore carries BF_HOST / BF_AT too), `bf-r` lets
+ * test locators and tooling distinguish it from non-root child scopes
+ * that share the same bf-s name prefix. Used by e2e locators of the
+ * form `[bf-s^="FooDemo_"][bf-r]` so they don't over-match into demo
+ * internals after the `~` shape-prefix is removed (#1249 follow-up).
+ */
+export const BF_ROOT = 'bf-r'
+
 /** Serialized props JSON: `bf-p="..."` */
 export const BF_PROPS = 'bf-p'
 

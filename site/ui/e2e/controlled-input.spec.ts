@@ -6,11 +6,11 @@ test.describe('Forms Introduction Page — Controlled Input demo', () => {
   })
 
   test('displays basic controlled demo', async ({ page }) => {
-    await expect(page.locator('[bf-s^="BasicControlledDemo_"]')).toBeVisible()
+    await expect(page.locator('[bf-s^="BasicControlledDemo_"][bf-r]')).toBeVisible()
   })
 
   test('updates display when typing', async ({ page }) => {
-    const demo = page.locator('[bf-s^="BasicControlledDemo_"]')
+    const demo = page.locator('[bf-s^="BasicControlledDemo_"][bf-r]')
     const input = demo.locator('input')
     const display = demo.locator('.current-value')
 
@@ -21,7 +21,7 @@ test.describe('Forms Introduction Page — Controlled Input demo', () => {
   })
 
   test('handles rapid typing', async ({ page }) => {
-    const demo = page.locator('[bf-s^="BasicControlledDemo_"]')
+    const demo = page.locator('[bf-s^="BasicControlledDemo_"][bf-r]')
     const input = demo.locator('input')
     const display = demo.locator('.current-value')
 
@@ -30,7 +30,7 @@ test.describe('Forms Introduction Page — Controlled Input demo', () => {
   })
 
   test('handles typing in middle of text', async ({ page }) => {
-    const demo = page.locator('[bf-s^="BasicControlledDemo_"]')
+    const demo = page.locator('[bf-s^="BasicControlledDemo_"][bf-r]')
     const input = demo.locator('input')
     const display = demo.locator('.current-value')
 

@@ -544,6 +544,15 @@ export class HonoAdapter extends JsxAdapter {
       // this pair without any fallback selector.
       hydrationAttrs += ' {...(__bfParent ? { "bf-h": __bfParent } : {})}'
       hydrationAttrs += ' {...(__bfMount ? { "bf-m": __bfMount } : {})}'
+      // Root-of-client-component marker (#1249 follow-up): present on
+      // every scope element that owns its own hydration entry (i.e. is
+      // NOT a slot-attached child of an outer component). Lets test
+      // locators distinguish demo roots from internal child scopes
+      // that share the same bf-s name prefix, even when a demo root is
+      // itself slot-attached to an outer page (`__bfChild` is still
+      // false in that case — the demo is the *target* of init, not a
+      // delegated child).
+      hydrationAttrs += ' {...(!__bfChild ? { "bf-r": "" } : {})}'
       if (this.currentComponentHasProps) {
         // Only emit bf-p on root components (not children).
         // Child components receive props from parent via initChild().

@@ -21,32 +21,32 @@ test.describe('RadioGroup Reference Page', () => {
   test.describe('Basic', () => {
     test('displays basic example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Basic")')).toBeVisible()
-      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('has three radio items', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const radios = section.locator('button[role="radio"]')
       await expect(radios).toHaveCount(3)
     })
 
     test('first radio starts checked (defaultValue)', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const radios = section.locator('button[role="radio"]')
       await expect(radios.first()).toHaveAttribute('aria-checked', 'true')
       await expect(radios.first()).toHaveAttribute('data-state', 'checked')
     })
 
     test('other radios start unchecked', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const radios = section.locator('button[role="radio"]')
       await expect(radios.nth(1)).toHaveAttribute('aria-checked', 'false')
       await expect(radios.nth(2)).toHaveAttribute('aria-checked', 'false')
     })
 
     test('clicking selects a radio and deselects others (exclusive selection)', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const radios = section.locator('button[role="radio"]')
 
       // Initially "default" is selected
@@ -63,14 +63,14 @@ test.describe('RadioGroup Reference Page', () => {
     })
 
     test('shows selected value text', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=Selected:')).toBeVisible()
       // Use first() since "default" appears in radio label and selected text
       await expect(section.locator('text=default').first()).toBeVisible()
     })
 
     test('updates selected text when clicking another option', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const radios = section.locator('button[role="radio"]')
 
       // Click "compact" (third radio)
@@ -82,7 +82,7 @@ test.describe('RadioGroup Reference Page', () => {
   test.describe('Form', () => {
     test('displays form example with two radio groups', async ({ page }) => {
       await expect(page.locator('h3:has-text("Form")')).toBeVisible()
-      const section = page.locator('[bf-s^="RadioGroupFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
 
       // Should have 6 radio items total (3 for notify + 3 for theme)
@@ -91,13 +91,13 @@ test.describe('RadioGroup Reference Page', () => {
     })
 
     test('shows notification and theme headings', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('h4:has-text("Notify me about")')).toBeVisible()
       await expect(section.locator('h4:has-text("Theme")')).toBeVisible()
     })
 
     test('default values are selected', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupFormDemo_"][bf-r]:not([data-slot])').first()
       const radioGroups = section.locator('[data-slot="radio-group"]')
 
       // First group: "all" selected (first radio)
@@ -110,7 +110,7 @@ test.describe('RadioGroup Reference Page', () => {
     })
 
     test('independent radio groups do not interfere', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupFormDemo_"][bf-r]:not([data-slot])').first()
       const radioGroups = section.locator('[data-slot="radio-group"]')
 
       const notifyRadios = radioGroups.first().locator('button[role="radio"]')
@@ -132,7 +132,7 @@ test.describe('RadioGroup Reference Page', () => {
     })
 
     test('shows summary text', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=Notifications:')).toBeVisible()
     })
   })
@@ -140,25 +140,25 @@ test.describe('RadioGroup Reference Page', () => {
   test.describe('Card', () => {
     test('displays card example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Card")')).toBeVisible()
-      const section = page.locator('[bf-s^="RadioGroupCardDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupCardDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('has three plan radio items', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupCardDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupCardDemo_"][bf-r]:not([data-slot])').first()
       const radios = section.locator('button[role="radio"]')
       await expect(radios).toHaveCount(3)
     })
 
     test('startup plan is selected by default', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupCardDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupCardDemo_"][bf-r]:not([data-slot])').first()
       const radios = section.locator('button[role="radio"]')
       await expect(radios.first()).toHaveAttribute('aria-checked', 'true')
       await expect(section.locator('text=/Selected plan:.*startup/')).toBeVisible()
     })
 
     test('clicking another plan selects it', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupCardDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupCardDemo_"][bf-r]:not([data-slot])').first()
       const radios = section.locator('button[role="radio"]')
 
       // Click "business" (second plan)
@@ -169,7 +169,7 @@ test.describe('RadioGroup Reference Page', () => {
     })
 
     test('clicking card area selects the radio', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupCardDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupCardDemo_"][bf-r]:not([data-slot])').first()
       const radios = section.locator('button[role="radio"]')
 
       // Click on the card text area (label), not the radio button directly
@@ -183,7 +183,7 @@ test.describe('RadioGroup Reference Page', () => {
     })
 
     test('displays plan details', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadioGroupCardDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadioGroupCardDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=Startup').first()).toBeVisible()
       await expect(section.locator('text=$29/mo').first()).toBeVisible()
       await expect(section.locator('text=Business').first()).toBeVisible()

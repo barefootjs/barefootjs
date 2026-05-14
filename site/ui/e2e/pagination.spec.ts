@@ -55,19 +55,19 @@ test.describe('Pagination Documentation Page', () => {
     })
 
     test('shows current page indicator', async ({ page }) => {
-      const section = page.locator('[bf-s^="PaginationDynamicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="PaginationDynamicDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
       await expect(section.locator('text=Page 1 of 5')).toBeVisible()
     })
 
     test('page 1 is active by default', async ({ page }) => {
-      const section = page.locator('[bf-s^="PaginationDynamicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="PaginationDynamicDemo_"][bf-r]:not([data-slot])').first()
       const page1Link = section.locator('[data-slot="pagination-link"]', { hasText: '1' })
       await expect(page1Link).toHaveAttribute('data-active', 'true')
     })
 
     test('clicking page link updates active state', async ({ page }) => {
-      const section = page.locator('[bf-s^="PaginationDynamicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="PaginationDynamicDemo_"][bf-r]:not([data-slot])').first()
 
       const page2Link = section.locator('[data-slot="pagination-link"]', { hasText: '2' })
       await page2Link.click()
@@ -79,7 +79,7 @@ test.describe('Pagination Documentation Page', () => {
     })
 
     test('clicking Next button updates active state', async ({ page }) => {
-      const section = page.locator('[bf-s^="PaginationDynamicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="PaginationDynamicDemo_"][bf-r]:not([data-slot])').first()
 
       const nextBtn = section.locator('a[aria-label="Go to next page"]')
       await nextBtn.click()
@@ -89,7 +89,7 @@ test.describe('Pagination Documentation Page', () => {
     })
 
     test('data-active and aria-current update reactively on page change', async ({ page }) => {
-      const section = page.locator('[bf-s^="PaginationDynamicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="PaginationDynamicDemo_"][bf-r]:not([data-slot])').first()
 
       const page1Link = section.locator('[data-slot="pagination-link"]', { hasText: '1' })
       const page3Link = section.locator('[data-slot="pagination-link"]', { hasText: '3' })
@@ -108,13 +108,13 @@ test.describe('Pagination Documentation Page', () => {
     })
 
     test('has Previous and Next buttons', async ({ page }) => {
-      const section = page.locator('[bf-s^="PaginationDynamicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="PaginationDynamicDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('a[aria-label="Go to previous page"]')).toBeVisible()
       await expect(section.locator('a[aria-label="Go to next page"]')).toBeVisible()
     })
 
     test('has all 5 page links', async ({ page }) => {
-      const section = page.locator('[bf-s^="PaginationDynamicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="PaginationDynamicDemo_"][bf-r]:not([data-slot])').first()
       // Exclude Previous/Next which also have data-slot="pagination-link" with aria-label
       const pageLinks = section.locator('[data-slot="pagination-link"]:not([aria-label])')
       await expect(pageLinks).toHaveCount(5)

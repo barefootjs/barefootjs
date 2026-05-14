@@ -27,7 +27,7 @@ test.describe('Textarea Reference Page', () => {
 
   test.describe('Value Binding', () => {
     test('updates character count on input', async ({ page }) => {
-      const section = page.locator('[bf-s^="TextareaBindingDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="TextareaBindingDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
 
       const textarea = section.locator('textarea[data-slot="textarea"]')

@@ -7,7 +7,7 @@ test.describe('Combobox Reference Page', () => {
 
   test.describe('Basic Demo', () => {
     test('renders trigger with placeholder', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
 
       const trigger = section.locator('[data-slot="combobox-trigger"]')
@@ -16,7 +16,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('click opens dropdown', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()
@@ -28,7 +28,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('select item updates trigger label and closes dropdown', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()
@@ -44,7 +44,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('ESC closes dropdown', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()
@@ -57,7 +57,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('click outside closes dropdown', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()
@@ -70,7 +70,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('value display updates after selection', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
       const valueText = section.locator('.selected-value')
 
@@ -86,7 +86,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('selected item shows check indicator', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       // Select Next.js
@@ -103,7 +103,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('has correct ARIA roles', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await expect(trigger).toHaveAttribute('role', 'combobox')
@@ -121,7 +121,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('search filters items', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()
@@ -143,7 +143,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('empty state shows when no items match', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()
@@ -160,7 +160,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('keyboard navigation with arrow keys', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()
@@ -188,7 +188,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('Enter key selects highlighted item', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()
@@ -207,7 +207,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('search is cleared after selection', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()
@@ -234,7 +234,7 @@ test.describe('Combobox Reference Page', () => {
 
   test.describe('Form Demo', () => {
     test('displays two combobox fields', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
 
       const triggers = section.locator('[data-slot="combobox-trigger"]')
@@ -242,12 +242,12 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('shows initial summary', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('.summary-text')).toContainText('No selections yet')
     })
 
     test('selecting values updates summary', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxFormDemo_"][bf-r]:not([data-slot])').first()
       const triggers = section.locator('[data-slot="combobox-trigger"]')
       const summaryText = section.locator('.summary-text')
 
@@ -270,7 +270,7 @@ test.describe('Combobox Reference Page', () => {
 
   test.describe('Grouped Demo', () => {
     test('group headings visible', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxGroupedDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxGroupedDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
 
       const trigger = section.locator('[data-slot="combobox-trigger"]')
@@ -283,7 +283,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('separators present', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxGroupedDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxGroupedDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()
@@ -294,7 +294,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('selection from groups works', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxGroupedDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxGroupedDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
       const valueText = section.locator('.selected-timezone')
 
@@ -313,7 +313,7 @@ test.describe('Combobox Reference Page', () => {
     })
 
     test('search filters across groups', async ({ page }) => {
-      const section = page.locator('[bf-s^="ComboboxGroupedDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ComboboxGroupedDemo_"][bf-r]:not([data-slot])').first()
       const trigger = section.locator('[data-slot="combobox-trigger"]')
 
       await trigger.click()

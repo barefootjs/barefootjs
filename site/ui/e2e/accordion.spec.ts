@@ -7,7 +7,7 @@ test.describe('Accordion Documentation Page', () => {
 
   test.describe('Single Open Accordion', () => {
     test('clicking another item closes the first', async ({ page }) => {
-      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
       const secondTrigger = accordion.locator('button:has-text("Is it styled?")')
 
       // Click second item
@@ -21,7 +21,7 @@ test.describe('Accordion Documentation Page', () => {
     })
 
     test('clicking open item closes it', async ({ page }) => {
-      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
       const firstTrigger = accordion.locator('button:has-text("Is it accessible?")')
 
       // First item is open, click to close
@@ -34,7 +34,7 @@ test.describe('Accordion Documentation Page', () => {
 
   test.describe('Multiple Open Accordion', () => {
     test('can open multiple items simultaneously', async ({ page }) => {
-      const accordion = page.locator('[bf-s^="AccordionMultipleOpenDemo_"]').first()
+      const accordion = page.locator('[bf-s^="AccordionMultipleOpenDemo_"][bf-r]').first()
       const secondTrigger = accordion.locator('button:has-text("Second Item")')
 
       // Click second item to open it
@@ -48,7 +48,7 @@ test.describe('Accordion Documentation Page', () => {
 
   test.describe('Expand/Collapse Animations', () => {
     test('content expands with animation and JS state syncs', async ({ page }) => {
-      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
       const secondTrigger = accordion.locator('button:has-text("Is it styled?")')
       const secondContent = accordion.locator('[data-slot="accordion-content"]').nth(1)
 
@@ -66,7 +66,7 @@ test.describe('Accordion Documentation Page', () => {
     })
 
     test('content collapses with animation and JS state syncs', async ({ page }) => {
-      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
       const firstTrigger = accordion.locator('button:has-text("Is it accessible?")')
       const firstContent = accordion.locator('[data-slot="accordion-content"]').first()
 
@@ -84,7 +84,7 @@ test.describe('Accordion Documentation Page', () => {
     })
 
     test('rapid clicks result in correct final state', async ({ page }) => {
-      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
       const firstTrigger = accordion.locator('button:has-text("Is it accessible?")')
       const firstContent = accordion.locator('[data-slot="accordion-content"]').first()
 
@@ -102,7 +102,7 @@ test.describe('Accordion Documentation Page', () => {
     })
 
     test('multiple accordion items animate independently', async ({ page }) => {
-      const accordion = page.locator('[bf-s^="AccordionMultipleOpenDemo_"]').first()
+      const accordion = page.locator('[bf-s^="AccordionMultipleOpenDemo_"][bf-r]').first()
       const firstContent = accordion.locator('[data-slot="accordion-content"]').first()
       const secondContent = accordion.locator('[data-slot="accordion-content"]').nth(1)
       const secondTrigger = accordion.locator('button:has-text("Second Item")')
@@ -124,7 +124,7 @@ test.describe('Accordion Documentation Page', () => {
     })
 
     test('chevron rotates on expand/collapse', async ({ page }) => {
-      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+      const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
       const secondTrigger = accordion.locator('button:has-text("Is it styled?")')
       const secondChevron = secondTrigger.locator('svg')
 
@@ -210,7 +210,7 @@ test.describe('Accordion Keyboard Navigation', () => {
   })
 
   test('ArrowDown navigates to next accordion trigger', async ({ page }) => {
-    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
     const firstTrigger = accordion.locator('button:has-text("Is it accessible?")')
     const secondTrigger = accordion.locator('button:has-text("Is it styled?")')
 
@@ -226,7 +226,7 @@ test.describe('Accordion Keyboard Navigation', () => {
   })
 
   test('ArrowUp navigates to previous accordion trigger', async ({ page }) => {
-    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
     const firstTrigger = accordion.locator('button:has-text("Is it accessible?")')
     const secondTrigger = accordion.locator('button:has-text("Is it styled?")')
 
@@ -242,7 +242,7 @@ test.describe('Accordion Keyboard Navigation', () => {
   })
 
   test('ArrowDown wraps from last to first trigger', async ({ page }) => {
-    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
     const firstTrigger = accordion.locator('button:has-text("Is it accessible?")')
     const thirdTrigger = accordion.locator('button:has-text("Is it animated?")')
 
@@ -258,7 +258,7 @@ test.describe('Accordion Keyboard Navigation', () => {
   })
 
   test('ArrowUp wraps from first to last trigger', async ({ page }) => {
-    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
     const firstTrigger = accordion.locator('button:has-text("Is it accessible?")')
     const thirdTrigger = accordion.locator('button:has-text("Is it animated?")')
 
@@ -274,7 +274,7 @@ test.describe('Accordion Keyboard Navigation', () => {
   })
 
   test('Home key navigates to first trigger', async ({ page }) => {
-    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
     const firstTrigger = accordion.locator('button:has-text("Is it accessible?")')
     const thirdTrigger = accordion.locator('button:has-text("Is it animated?")')
 
@@ -289,7 +289,7 @@ test.describe('Accordion Keyboard Navigation', () => {
   })
 
   test('End key navigates to last trigger', async ({ page }) => {
-    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
     const firstTrigger = accordion.locator('button:has-text("Is it accessible?")')
     const thirdTrigger = accordion.locator('button:has-text("Is it animated?")')
 
@@ -304,7 +304,7 @@ test.describe('Accordion Keyboard Navigation', () => {
   })
 
   test('Enter/Space toggles accordion content', async ({ page }) => {
-    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"]').first()
+    const accordion = page.locator('[bf-s^="AccordionSingleOpenDemo_"][bf-r]').first()
     const secondTrigger = accordion.locator('button:has-text("Is it styled?")')
 
     // Focus on second trigger and press Enter

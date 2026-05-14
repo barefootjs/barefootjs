@@ -20,18 +20,18 @@ test.describe('Toggle Group Reference Page', () => {
   test.describe('Basic', () => {
     test('displays basic example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Basic")')).toBeVisible()
-      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('has three toggle items', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('[data-slot="toggle-group-item"]')
       await expect(items).toHaveCount(3)
     })
 
     test('center item starts selected (defaultValue)', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('[data-slot="toggle-group-item"]')
       // center is the second item (index 1)
       await expect(items.nth(1)).toHaveAttribute('aria-pressed', 'true')
@@ -39,7 +39,7 @@ test.describe('Toggle Group Reference Page', () => {
     })
 
     test('other items start unselected', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('[data-slot="toggle-group-item"]')
       await expect(items.nth(0)).toHaveAttribute('aria-pressed', 'false')
       await expect(items.nth(0)).toHaveAttribute('data-state', 'off')
@@ -48,7 +48,7 @@ test.describe('Toggle Group Reference Page', () => {
     })
 
     test('single select: clicking one deselects others', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('[data-slot="toggle-group-item"]')
 
       // Center (index 1) is initially selected
@@ -65,7 +65,7 @@ test.describe('Toggle Group Reference Page', () => {
     })
 
     test('preview text alignment changes with selection', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const preview = section.locator('[data-testid="alignment-preview"]')
       const items = section.locator('[data-slot="toggle-group-item"]')
 
@@ -85,24 +85,24 @@ test.describe('Toggle Group Reference Page', () => {
   test.describe('Outline', () => {
     test('displays outline example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Outline")')).toBeVisible()
-      const section = page.locator('[bf-s^="ToggleGroupOutlineDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupOutlineDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('has three toggle items', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupOutlineDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupOutlineDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('[data-slot="toggle-group-item"]')
       await expect(items).toHaveCount(3)
     })
 
     test('group has outline variant attribute', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupOutlineDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupOutlineDemo_"][bf-r]:not([data-slot])').first()
       const group = section.locator('[data-slot="toggle-group"]')
       await expect(group).toHaveAttribute('data-variant', 'outline')
     })
 
     test('preview font size changes with selection', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupOutlineDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupOutlineDemo_"][bf-r]:not([data-slot])').first()
       const preview = section.locator('[data-testid="fontsize-preview"]')
       const items = section.locator('[data-slot="toggle-group-item"]')
 
@@ -122,18 +122,18 @@ test.describe('Toggle Group Reference Page', () => {
   test.describe('Multiple', () => {
     test('displays multiple example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Multiple")')).toBeVisible()
-      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('has three toggle items', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('[data-slot="toggle-group-item"]')
       await expect(items).toHaveCount(3)
     })
 
     test('all items start unselected', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('[data-slot="toggle-group-item"]')
       for (let i = 0; i < 3; i++) {
         await expect(items.nth(i)).toHaveAttribute('aria-pressed', 'false')
@@ -141,7 +141,7 @@ test.describe('Toggle Group Reference Page', () => {
     })
 
     test('multiple items can be active simultaneously', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('[data-slot="toggle-group-item"]')
 
       // Click Bold and Italic
@@ -158,7 +158,7 @@ test.describe('Toggle Group Reference Page', () => {
     })
 
     test('clicking active item deselects it', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('[data-slot="toggle-group-item"]')
 
       // Select Bold
@@ -171,7 +171,7 @@ test.describe('Toggle Group Reference Page', () => {
     })
 
     test('preview text formatting changes with selection', async ({ page }) => {
-      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="ToggleGroupMultipleDemo_"][bf-r]:not([data-slot])').first()
       const preview = section.locator('[data-testid="format-preview"]')
       const items = section.locator('[data-slot="toggle-group-item"]')
 

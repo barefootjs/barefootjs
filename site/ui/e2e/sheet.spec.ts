@@ -11,7 +11,7 @@ test.describe('Sheet Reference Page', () => {
 
   test.describe('Basic Sheet', () => {
     test('opens sheet when trigger is clicked', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Sheet")')
 
       await trigger.click()
@@ -23,7 +23,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('closes sheet when close button (X) is clicked', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Sheet")')
 
       await trigger.click()
@@ -41,7 +41,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('closes sheet when SheetClose button is clicked', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Sheet")')
 
       await trigger.click()
@@ -58,7 +58,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('closes sheet when ESC key is pressed', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Sheet")')
 
       await trigger.click()
@@ -73,7 +73,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('closes sheet when overlay is clicked', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Sheet")')
 
       await trigger.click()
@@ -90,7 +90,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('has correct accessibility attributes', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Sheet")')
 
       await trigger.click()
@@ -103,7 +103,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('traps focus within sheet', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Sheet")')
 
       await trigger.click()
@@ -126,7 +126,7 @@ test.describe('Sheet Reference Page', () => {
 
   test.describe('Sheet Slide Animation', () => {
     test('right sheet slides in from right', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="SheetBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Sheet")')
 
       // Before opening, sheet should be translated off-screen (translate-x-full)
@@ -145,7 +145,7 @@ test.describe('Sheet Reference Page', () => {
 
   test.describe('Side Variants', () => {
     test('opens left sheet', async ({ page }) => {
-      const sideDemo = page.locator('[bf-s^="SheetSideDemo_"]').first()
+      const sideDemo = page.locator('[bf-s^="SheetSideDemo_"][bf-r]').first()
       const trigger = sideDemo.locator('button:has-text("Left")')
 
       await trigger.click()
@@ -159,7 +159,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('opens right sheet', async ({ page }) => {
-      const sideDemo = page.locator('[bf-s^="SheetSideDemo_"]').first()
+      const sideDemo = page.locator('[bf-s^="SheetSideDemo_"][bf-r]').first()
       const trigger = sideDemo.locator('button:has-text("Right")')
 
       await trigger.click()
@@ -173,7 +173,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('opens top sheet', async ({ page }) => {
-      const sideDemo = page.locator('[bf-s^="SheetSideDemo_"]').first()
+      const sideDemo = page.locator('[bf-s^="SheetSideDemo_"][bf-r]').first()
       const trigger = sideDemo.locator('button:has-text("Top")')
 
       await trigger.click()
@@ -187,7 +187,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('opens bottom sheet', async ({ page }) => {
-      const sideDemo = page.locator('[bf-s^="SheetSideDemo_"]').first()
+      const sideDemo = page.locator('[bf-s^="SheetSideDemo_"][bf-r]').first()
       const trigger = sideDemo.locator('button:has-text("Bottom")')
 
       await trigger.click()
@@ -201,7 +201,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('closes side sheet via ESC', async ({ page }) => {
-      const sideDemo = page.locator('[bf-s^="SheetSideDemo_"]').first()
+      const sideDemo = page.locator('[bf-s^="SheetSideDemo_"][bf-r]').first()
       const trigger = sideDemo.locator('button:has-text("Left")')
 
       await trigger.click()
@@ -218,7 +218,7 @@ test.describe('Sheet Reference Page', () => {
 
   test.describe('Form Sheet', () => {
     test('opens form sheet with input fields', async ({ page }) => {
-      const formDemo = page.locator('[bf-s^="SheetFormDemo_"]').first()
+      const formDemo = page.locator('[bf-s^="SheetFormDemo_"][bf-r]').first()
       const trigger = formDemo.locator('button:has-text("Edit Profile")')
 
       await trigger.click()
@@ -236,7 +236,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('can interact with form fields inside sheet', async ({ page }) => {
-      const formDemo = page.locator('[bf-s^="SheetFormDemo_"]').first()
+      const formDemo = page.locator('[bf-s^="SheetFormDemo_"][bf-r]').first()
       const trigger = formDemo.locator('button:has-text("Edit Profile")')
 
       await trigger.click()
@@ -252,7 +252,7 @@ test.describe('Sheet Reference Page', () => {
     })
 
     test('closes form sheet when Cancel is clicked', async ({ page }) => {
-      const formDemo = page.locator('[bf-s^="SheetFormDemo_"]').first()
+      const formDemo = page.locator('[bf-s^="SheetFormDemo_"][bf-r]').first()
       const trigger = formDemo.locator('button:has-text("Edit Profile")')
 
       await trigger.click()

@@ -7,17 +7,17 @@ test.describe('Form Validation Documentation Page', () => {
 
   test.describe('Required Field Demo', () => {
     test('displays required field demo', async ({ page }) => {
-      await expect(page.locator('[bf-s^="RequiredFieldDemo_"]')).toBeVisible()
+      await expect(page.locator('[bf-s^="RequiredFieldDemo_"][bf-r]')).toBeVisible()
     })
 
     test('shows no error initially', async ({ page }) => {
-      const demo = page.locator('[bf-s^="RequiredFieldDemo_"]')
+      const demo = page.locator('[bf-s^="RequiredFieldDemo_"][bf-r]')
       const error = demo.locator('.error-message')
       await expect(error).toHaveText('')
     })
 
     test('shows error on blur when empty', async ({ page }) => {
-      const demo = page.locator('[bf-s^="RequiredFieldDemo_"]')
+      const demo = page.locator('[bf-s^="RequiredFieldDemo_"][bf-r]')
       const input = demo.locator('input')
       const error = demo.locator('.error-message')
 
@@ -27,7 +27,7 @@ test.describe('Form Validation Documentation Page', () => {
     })
 
     test('clears error when value is entered', async ({ page }) => {
-      const demo = page.locator('[bf-s^="RequiredFieldDemo_"]')
+      const demo = page.locator('[bf-s^="RequiredFieldDemo_"][bf-r]')
       const input = demo.locator('input')
       const error = demo.locator('.error-message')
 
@@ -44,11 +44,11 @@ test.describe('Form Validation Documentation Page', () => {
 
   test.describe('Email Validation Demo', () => {
     test('displays email validation demo', async ({ page }) => {
-      await expect(page.locator('[bf-s^="EmailValidationDemo_"]')).toBeVisible()
+      await expect(page.locator('[bf-s^="EmailValidationDemo_"][bf-r]')).toBeVisible()
     })
 
     test('shows required error when empty on blur', async ({ page }) => {
-      const demo = page.locator('[bf-s^="EmailValidationDemo_"]')
+      const demo = page.locator('[bf-s^="EmailValidationDemo_"][bf-r]')
       const input = demo.locator('input')
       const error = demo.locator('.error-message')
 
@@ -58,7 +58,7 @@ test.describe('Form Validation Documentation Page', () => {
     })
 
     test('shows format error for invalid email', async ({ page }) => {
-      const demo = page.locator('[bf-s^="EmailValidationDemo_"]')
+      const demo = page.locator('[bf-s^="EmailValidationDemo_"][bf-r]')
       const input = demo.locator('input')
       const error = demo.locator('.error-message')
 
@@ -68,7 +68,7 @@ test.describe('Form Validation Documentation Page', () => {
     })
 
     test('shows valid indicator for correct email', async ({ page }) => {
-      const demo = page.locator('[bf-s^="EmailValidationDemo_"]')
+      const demo = page.locator('[bf-s^="EmailValidationDemo_"][bf-r]')
       const input = demo.locator('input')
       const error = demo.locator('.error-message')
       const valid = demo.locator('.valid-indicator')
@@ -82,11 +82,11 @@ test.describe('Form Validation Documentation Page', () => {
 
   test.describe('Password Confirmation Demo', () => {
     test('displays password confirmation demo', async ({ page }) => {
-      await expect(page.locator('[bf-s^="PasswordConfirmationDemo_"]')).toBeVisible()
+      await expect(page.locator('[bf-s^="PasswordConfirmationDemo_"][bf-r]')).toBeVisible()
     })
 
     test('shows password length error', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PasswordConfirmationDemo_"]')
+      const demo = page.locator('[bf-s^="PasswordConfirmationDemo_"][bf-r]')
       const passwordInput = demo.locator('input[type="password"]').first()
       const error = demo.locator('.password-error')
 
@@ -96,7 +96,7 @@ test.describe('Form Validation Documentation Page', () => {
     })
 
     test('shows mismatch error when passwords differ', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PasswordConfirmationDemo_"]')
+      const demo = page.locator('[bf-s^="PasswordConfirmationDemo_"][bf-r]')
       const passwordInput = demo.locator('input[type="password"]').first()
       const confirmInput = demo.locator('input[type="password"]').last()
       const confirmError = demo.locator('.confirm-error')
@@ -108,7 +108,7 @@ test.describe('Form Validation Documentation Page', () => {
     })
 
     test('shows match indicator when passwords match', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PasswordConfirmationDemo_"]')
+      const demo = page.locator('[bf-s^="PasswordConfirmationDemo_"][bf-r]')
       const passwordInput = demo.locator('input[type="password"]').first()
       const confirmInput = demo.locator('input[type="password"]').last()
       const matchIndicator = demo.locator('.match-indicator')
@@ -123,20 +123,20 @@ test.describe('Form Validation Documentation Page', () => {
 
   test.describe('Multi-Field Form Demo', () => {
     test('displays multi-field form demo', async ({ page }) => {
-      await expect(page.locator('[bf-s^="MultiFieldFormDemo_"]')).toBeVisible()
+      await expect(page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r]')).toBeVisible()
     })
 
     test('shows all field errors on submit with empty form', async ({ page }) => {
       // Use direct CSS selectors since nested locators may have issues with bf-s on children
-      const demo = page.locator('[bf-s^="MultiFieldFormDemo_"]')
+      const demo = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r]')
       await expect(demo).toBeVisible()
 
-      const submitButton = page.locator('[bf-s^="MultiFieldFormDemo_"] button')
-      const nameError = page.locator('[bf-s^="MultiFieldFormDemo_"] .name-error')
-      const emailError = page.locator('[bf-s^="MultiFieldFormDemo_"] .email-error')
-      const passwordError = page.locator('[bf-s^="MultiFieldFormDemo_"] .password-error')
-      const confirmError = page.locator('[bf-s^="MultiFieldFormDemo_"] .confirm-error')
-      const formError = page.locator('[bf-s^="MultiFieldFormDemo_"] .form-error')
+      const submitButton = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] button')
+      const nameError = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] .name-error')
+      const emailError = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] .email-error')
+      const passwordError = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] .password-error')
+      const confirmError = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] .confirm-error')
+      const formError = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] .form-error')
 
       await submitButton.click()
 
@@ -148,11 +148,11 @@ test.describe('Form Validation Documentation Page', () => {
     })
 
     test('shows name length error for short name', async ({ page }) => {
-      const demo = page.locator('[bf-s^="MultiFieldFormDemo_"]')
+      const demo = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r]')
       await expect(demo).toBeVisible()
 
-      const nameInput = page.locator('[bf-s^="MultiFieldFormDemo_"] input').first()
-      const nameError = page.locator('[bf-s^="MultiFieldFormDemo_"] .name-error')
+      const nameInput = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] input').first()
+      const nameError = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] .name-error')
 
       await nameInput.fill('A')
       await nameInput.blur()
@@ -160,16 +160,16 @@ test.describe('Form Validation Documentation Page', () => {
     })
 
     test('submits successfully with valid data', async ({ page }) => {
-      const demo = page.locator('[bf-s^="MultiFieldFormDemo_"]')
+      const demo = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r]')
       await expect(demo).toBeVisible()
 
-      const inputs = page.locator('[bf-s^="MultiFieldFormDemo_"] input')
+      const inputs = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] input')
       const nameInput = inputs.nth(0)
       const emailInput = inputs.nth(1)
       const passwordInput = inputs.nth(2)
       const confirmInput = inputs.nth(3)
-      const submitButton = page.locator('[bf-s^="MultiFieldFormDemo_"] button')
-      const successMessage = page.locator('[bf-s^="MultiFieldFormDemo_"] .success-message')
+      const submitButton = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] button')
+      const successMessage = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] .success-message')
 
       await nameInput.fill('John Doe')
       await emailInput.fill('john@example.com')
@@ -184,15 +184,15 @@ test.describe('Form Validation Documentation Page', () => {
     })
 
     test('clears errors when valid values are entered', async ({ page }) => {
-      const demo = page.locator('[bf-s^="MultiFieldFormDemo_"]')
+      const demo = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r]')
       await expect(demo).toBeVisible()
 
-      const inputs = page.locator('[bf-s^="MultiFieldFormDemo_"] input')
+      const inputs = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] input')
       const nameInput = inputs.nth(0)
       const emailInput = inputs.nth(1)
-      const nameError = page.locator('[bf-s^="MultiFieldFormDemo_"] .name-error')
-      const emailError = page.locator('[bf-s^="MultiFieldFormDemo_"] .email-error')
-      const submitButton = page.locator('[bf-s^="MultiFieldFormDemo_"] button')
+      const nameError = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] .name-error')
+      const emailError = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] .email-error')
+      const submitButton = page.locator('[bf-s^="MultiFieldFormDemo_"][bf-r] button')
 
       // Trigger errors
       await submitButton.click()
@@ -208,7 +208,7 @@ test.describe('Form Validation Documentation Page', () => {
   })
 
   test.describe('Async Availability Demo', () => {
-    const scope = '[bf-s^="AsyncFieldValidationDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="AsyncFieldValidationDemo_"][bf-r]:not([data-slot])'
 
     test('renders inline `--err` CSS variable on initial paint', async ({ page }) => {
       const demo = page.locator(scope)

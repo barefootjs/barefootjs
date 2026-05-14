@@ -9,7 +9,7 @@ test.describe('Recursive Comments Block', () => {
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="RecursiveCommentsDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="RecursiveCommentsDemo_"][bf-r]:not([data-slot])').first()
 
   // --- Initial Render ---
 

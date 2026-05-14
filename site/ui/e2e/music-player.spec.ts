@@ -7,36 +7,36 @@ test.describe('Music Player Block', () => {
 
   test.describe('Initial Rendering', () => {
     test('shows track info for first track', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('.track-title')).toHaveText('Morning Light')
       await expect(section.locator('.track-artist')).toHaveText('Solar Wave')
     })
 
     test('shows paused badge initially', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('.paused-badge')).toBeVisible()
     })
 
     test('shows playlist with 6 tracks', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('.playlist-item')
       await expect(items).toHaveCount(6)
     })
 
     test('shows initial time as 0:00', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('.current-time')).toHaveText('0:00')
     })
 
     test('shows volume at 75%', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('.volume-value')).toHaveText('75%')
     })
   })
 
   test.describe('Playback Controls', () => {
     test('clicking play starts playback and shows playing badge', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       const playBtn = section.locator('.play-btn')
 
       await playBtn.click()
@@ -49,7 +49,7 @@ test.describe('Music Player Block', () => {
     })
 
     test('clicking pause stops playback', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       const playBtn = section.locator('.play-btn')
 
       // Start playing
@@ -68,7 +68,7 @@ test.describe('Music Player Block', () => {
     })
 
     test('next track switches to second track', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
 
       await section.locator('.next-btn').click()
       await expect(section.locator('.track-title')).toHaveText('Deep Blue')
@@ -76,7 +76,7 @@ test.describe('Music Player Block', () => {
     })
 
     test('prev track from beginning stays on first track', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
 
       await section.locator('.prev-btn').click()
       await expect(section.locator('.track-title')).toHaveText('Morning Light')
@@ -85,7 +85,7 @@ test.describe('Music Player Block', () => {
 
   test.describe('Playlist Interaction', () => {
     test('clicking playlist item switches track and starts playing', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('.playlist-item')
 
       // Click third track
@@ -97,7 +97,7 @@ test.describe('Music Player Block', () => {
     })
 
     test('active track is highlighted in playlist', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       const items = section.locator('.playlist-item')
 
       // First track should have bg-accent class initially
@@ -114,7 +114,7 @@ test.describe('Music Player Block', () => {
 
   test.describe('Repeat Control', () => {
     test('cycling repeat mode changes button text', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       const repeatBtn = section.locator('.repeat-btn')
 
       // Initial: off
@@ -136,7 +136,7 @@ test.describe('Music Player Block', () => {
 
   test.describe('Timer and Effect Cleanup', () => {
     test('timer advances during playback and stops when paused', async ({ page }) => {
-      const section = page.locator('[bf-s^="MusicPlayerDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="MusicPlayerDemo_"][bf-r]:not([data-slot])').first()
       const playBtn = section.locator('.play-btn')
 
       // Start playing

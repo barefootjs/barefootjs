@@ -9,7 +9,7 @@ test.describe('Spreadsheet Block', () => {
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="SpreadsheetDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="SpreadsheetDemo_"][bf-r]:not([data-slot])').first()
 
   test.describe('Initial Render', () => {
     test('renders 5 rows', async ({ page }) => {

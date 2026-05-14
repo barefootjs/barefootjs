@@ -9,7 +9,7 @@ test.describe('File Upload Block', () => {
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="FileUploadDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="FileUploadDemo_"][bf-r]:not([data-slot])').first()
 
   test.describe('Drop Zone', () => {
     test('renders drop zone with add button', async ({ page }) => {

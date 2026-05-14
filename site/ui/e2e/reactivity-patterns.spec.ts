@@ -16,7 +16,7 @@ test.describe('Reactivity Patterns', () => {
       await page.goto('/components/checkbox#form')
 
       // Find the Form section with multiple checkboxes
-      const section = page.locator('[bf-s^="CheckboxFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxFormDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('[data-slot="checkbox"]')
       const selectedText = section.locator('text=/Selected:/')
 
@@ -39,7 +39,7 @@ test.describe('Reactivity Patterns', () => {
 
       // The CheckboxFormDemo passes `checked={desktop()}` to Checkbox
       // This tests that parent signal changes flow to child via getter
-      const section = page.locator('[bf-s^="CheckboxFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxFormDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('[data-slot="checkbox"]')
 
       // Desktop checkbox (second one) should be checked initially
@@ -65,7 +65,7 @@ test.describe('Reactivity Patterns', () => {
       await page.goto('/components/checkbox')
 
       // Use the terms demo at the top (CheckboxTermsDemo)
-      const section = page.locator('[bf-s^="CheckboxTermsDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxTermsDemo_"][bf-r]:not([data-slot])').first()
       const checkbox = section.locator('[data-slot="checkbox"]')
 
       // This checkbox is controlled (checked prop is passed)
@@ -86,7 +86,7 @@ test.describe('Reactivity Patterns', () => {
       await page.goto('/components/checkbox#basic')
 
       // The basic checkbox section has uncontrolled checkboxes
-      const section = page.locator('[bf-s^="CheckboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('[data-slot="checkbox"]')
 
       // Third checkbox is disabled - verify it renders in unchecked state
@@ -99,7 +99,7 @@ test.describe('Reactivity Patterns', () => {
     test('conditional JSX updates based on signal', async ({ page }) => {
       await page.goto('/components/checkbox#form')
 
-      const section = page.locator('[bf-s^="CheckboxFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxFormDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('[data-slot="checkbox"]')
       const selectedText = section.locator('text=/Selected:/')
 
@@ -121,7 +121,7 @@ test.describe('Reactivity Patterns', () => {
       await page.goto('/components/checkbox')
 
       // Get first checkbox (terms demo)
-      const section = page.locator('[bf-s^="CheckboxTermsDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxTermsDemo_"][bf-r]:not([data-slot])').first()
       const checkbox = section.locator('[data-slot="checkbox"]')
 
       const initialState = await checkbox.getAttribute('aria-checked')
@@ -137,7 +137,7 @@ test.describe('Reactivity Patterns', () => {
     test('data-state attribute updates reactively', async ({ page }) => {
       await page.goto('/components/checkbox')
 
-      const section = page.locator('[bf-s^="CheckboxTermsDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxTermsDemo_"][bf-r]:not([data-slot])').first()
       const checkbox = section.locator('[data-slot="checkbox"]')
 
       await expect(checkbox).toHaveAttribute('data-state', 'unchecked')
@@ -152,7 +152,7 @@ test.describe('Reactivity Patterns', () => {
     test('button disabled state updates based on checkbox', async ({ page }) => {
       await page.goto('/components/checkbox')
 
-      const section = page.locator('[bf-s^="CheckboxTermsDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxTermsDemo_"][bf-r]:not([data-slot])').first()
       const checkbox = section.locator('[data-slot="checkbox"]')
       const button = section.locator('button:has-text("Continue")')
 
@@ -177,7 +177,7 @@ test.describe('Reactivity Patterns', () => {
     test('email list checkboxes work independently', async ({ page }) => {
       await page.goto('/components/checkbox#email-list')
 
-      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('[data-slot="checkbox"]')
 
       // Initially shows "Select all"

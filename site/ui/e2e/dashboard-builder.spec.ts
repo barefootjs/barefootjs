@@ -9,11 +9,9 @@ test.describe('Dashboard Builder Block', () => {
   })
 
   const section = (page: any) =>
-    // Root scope only: per #1249, child scopes carry `bf-h`, so a
-    // `:not([bf-h])` filter excludes them. Without it the locator now
-    // over-matches because child bf-s values lead with the parent's
-    // name (no `~` prefix any more).
-    page.locator('[bf-s^="DashboardBuilderDemo_"]:not([bf-h]):not([data-slot])').first()
+    // [bf-r] root-of-client-component marker distinguishes the demo's
+    // SSR entry root from internal scopes that share its bf-s prefix.
+    page.locator('[bf-s^="DashboardBuilderDemo_"][bf-r]').first()
 
   // --- Initial Render ---
 

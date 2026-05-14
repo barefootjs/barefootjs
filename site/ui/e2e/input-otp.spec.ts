@@ -17,7 +17,7 @@ test.describe('Input OTP Reference Page', () => {
 
   test.describe('Basic', () => {
     test('renders 4 OTP slots', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputOTPBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputOTPBasicDemo_"][bf-r]:not([data-slot])').first()
       const slots = section.locator('[data-slot="input-otp-slot"]')
       await expect(slots).toHaveCount(4)
     })
@@ -25,7 +25,7 @@ test.describe('Input OTP Reference Page', () => {
 
   test.describe('Pattern', () => {
     test('accepts alphanumeric characters', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputOTPPatternDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputOTPPatternDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('input[data-otp-input]')
 
       await input.focus()
@@ -41,13 +41,13 @@ test.describe('Input OTP Reference Page', () => {
 
   test.describe('Form', () => {
     test('verify button is disabled when incomplete', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputOTPFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputOTPFormDemo_"][bf-r]:not([data-slot])').first()
       const verifyButton = section.locator('button:has-text("Verify")')
       await expect(verifyButton).toBeDisabled()
     })
 
     test('verify button enables when all 6 digits entered', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputOTPFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputOTPFormDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('input[data-otp-input]')
       const verifyButton = section.locator('button:has-text("Verify")')
 
@@ -58,7 +58,7 @@ test.describe('Input OTP Reference Page', () => {
     })
 
     test('clicking verify shows loading state and success message', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputOTPFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputOTPFormDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('input[data-otp-input]')
 
       await input.focus()
@@ -67,7 +67,7 @@ test.describe('Input OTP Reference Page', () => {
       // Use programmatic click because Playwright's CDP click
       // does not trigger onclick property handlers set by hydration
       const result = await page.evaluate(() => {
-        const section = document.querySelector('[bf-s^="InputOTPFormDemo_"]:not([data-slot])') as HTMLElement
+        const section = document.querySelector('[bf-s^="InputOTPFormDemo_"][bf-r]:not([data-slot])') as HTMLElement
         const buttons = section?.querySelectorAll('button') as NodeListOf<HTMLButtonElement>
         const verifyBtn = Array.from(buttons).find(b => b.textContent?.includes('Verify'))
         verifyBtn?.click()
@@ -79,14 +79,14 @@ test.describe('Input OTP Reference Page', () => {
     })
 
     test('clicking verify with wrong code shows error message', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputOTPFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputOTPFormDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('input[data-otp-input]')
 
       await input.focus()
       await input.pressSequentially('999999')
 
       await page.evaluate(() => {
-        const section = document.querySelector('[bf-s^="InputOTPFormDemo_"]:not([data-slot])') as HTMLElement
+        const section = document.querySelector('[bf-s^="InputOTPFormDemo_"][bf-r]:not([data-slot])') as HTMLElement
         const buttons = section?.querySelectorAll('button') as NodeListOf<HTMLButtonElement>
         const verifyBtn = Array.from(buttons).find(b => b.textContent?.includes('Verify'))
         verifyBtn?.click()
@@ -96,7 +96,7 @@ test.describe('Input OTP Reference Page', () => {
     })
 
     test('resend code button is initially enabled', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputOTPFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputOTPFormDemo_"][bf-r]:not([data-slot])').first()
       const resendButton = section.locator('button:has-text("Resend code")')
       await expect(resendButton).toBeEnabled()
     })

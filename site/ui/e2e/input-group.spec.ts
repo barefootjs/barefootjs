@@ -7,7 +7,7 @@ test.describe('InputGroup Documentation Page', () => {
 
   test.describe('Basic Demo (Prefix & Suffix)', () => {
     test('renders input groups with addons', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const groups = section.locator('[data-slot="input-group"]')
 
       // Should have 3 input groups (https://, USD, search icon)
@@ -15,7 +15,7 @@ test.describe('InputGroup Documentation Page', () => {
     })
 
     test('first group has prefix addon with text', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const firstGroup = section.locator('[data-slot="input-group"]').first()
 
       // Has addon with inline-start alignment
@@ -28,7 +28,7 @@ test.describe('InputGroup Documentation Page', () => {
     })
 
     test('second group has suffix addon', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const secondGroup = section.locator('[data-slot="input-group"]').nth(1)
 
       const addon = secondGroup.locator('[data-slot="input-group-addon"]')
@@ -36,7 +36,7 @@ test.describe('InputGroup Documentation Page', () => {
     })
 
     test('input accepts text entry', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputGroupBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputGroupBasicDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('[data-slot="input-group-control"]').first()
 
       await input.fill('mysite.com')
@@ -46,7 +46,7 @@ test.describe('InputGroup Documentation Page', () => {
 
   test.describe('Button Demo', () => {
     test('renders input groups with buttons', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputGroupButtonDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputGroupButtonDemo_"][bf-r]:not([data-slot])').first()
       const buttons = section.locator('[data-slot="input-group-button"]')
 
       // Should have buttons (Copy button + icon button)
@@ -54,7 +54,7 @@ test.describe('InputGroup Documentation Page', () => {
     })
 
     test('copy button is clickable', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputGroupButtonDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputGroupButtonDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('[data-slot="input-group-control"]').first()
       const copyButton = section.locator('[data-slot="input-group-button"]').first()
 
@@ -65,14 +65,14 @@ test.describe('InputGroup Documentation Page', () => {
 
   test.describe('Password Demo', () => {
     test('input starts as password type', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputGroupPasswordDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputGroupPasswordDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('[data-slot="input-group-control"]')
 
       await expect(input).toHaveAttribute('type', 'password')
     })
 
     test('clicking toggle button changes input type to text', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputGroupPasswordDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputGroupPasswordDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('[data-slot="input-group-control"]')
       const toggleButton = section.locator('[data-slot="input-group-button"]')
 
@@ -81,7 +81,7 @@ test.describe('InputGroup Documentation Page', () => {
     })
 
     test('clicking toggle button twice reverts to password', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputGroupPasswordDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputGroupPasswordDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('[data-slot="input-group-control"]')
       const toggleButton = section.locator('[data-slot="input-group-button"]')
 

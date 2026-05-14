@@ -6,7 +6,7 @@ test.describe('Radial Chart Reference Page', () => {
   })
 
   test.describe('Preview', () => {
-    const scope = '[bf-s^="RadialChartPreviewDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="RadialChartPreviewDemo_"][bf-r]:not([data-slot])'
 
     test('renders an SVG chart', async ({ page }) => {
       const container = page.locator(scope)
@@ -79,7 +79,7 @@ test.describe('Radial Chart Reference Page', () => {
 
   test.describe('Basic', () => {
     test('renders an SVG with arcs', async ({ page }) => {
-      const container = page.locator('[bf-s^="RadialChartBasicDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="RadialChartBasicDemo_"][bf-r]:not([data-slot])')
       await expect(container.locator('svg')).toBeVisible()
       const arcs = container.locator('path[data-key="visitors"]')
       await expect(arcs).toHaveCount(5)
@@ -88,7 +88,7 @@ test.describe('Radial Chart Reference Page', () => {
 
   test.describe('Label', () => {
     test('renders center label', async ({ page }) => {
-      const container = page.locator('[bf-s^="RadialChartLabelDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="RadialChartLabelDemo_"][bf-r]:not([data-slot])')
       await expect(container.locator('svg')).toBeVisible()
       const label = container.locator('.chart-radial-label')
       await expect(label).toBeVisible()
@@ -97,7 +97,7 @@ test.describe('Radial Chart Reference Page', () => {
 
   test.describe('Half Circle', () => {
     test('renders half-circle radial chart', async ({ page }) => {
-      const container = page.locator('[bf-s^="RadialChartHalfDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="RadialChartHalfDemo_"][bf-r]:not([data-slot])')
       await expect(container.locator('svg')).toBeVisible()
       const arcs = container.locator('path[data-key="visitors"]')
       await expect(arcs).toHaveCount(5)
@@ -106,7 +106,7 @@ test.describe('Radial Chart Reference Page', () => {
 
   test.describe('Interactive', () => {
     test('switching data set updates the chart', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadialChartInteractiveDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadialChartInteractiveDemo_"][bf-r]:not([data-slot])').first()
 
       // Initially shows all 5 browsers
       await expect(section.locator('path[data-key="visitors"]')).toHaveCount(5)

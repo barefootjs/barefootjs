@@ -6,7 +6,7 @@ test.describe('Line Chart Reference Page', () => {
   })
 
   test.describe('Preview', () => {
-    const scope = '[bf-s^="LineChartPreviewDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="LineChartPreviewDemo_"][bf-r]:not([data-slot])'
 
     test('renders an SVG chart', async ({ page }) => {
       const container = page.locator(scope)
@@ -103,7 +103,7 @@ test.describe('Line Chart Reference Page', () => {
 
   test.describe('Basic', () => {
     test('renders an SVG with a line path', async ({ page }) => {
-      const container = page.locator('[bf-s^="LineChartBasicDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="LineChartBasicDemo_"][bf-r]:not([data-slot])')
       await expect(container.locator('svg')).toBeVisible()
       const path = container.locator('path[data-key="desktop"]')
       await expect(path).toHaveCount(1)
@@ -112,7 +112,7 @@ test.describe('Line Chart Reference Page', () => {
 
   test.describe('Multiple', () => {
     test('renders both desktop and mobile lines', async ({ page }) => {
-      const container = page.locator('[bf-s^="LineChartMultipleDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="LineChartMultipleDemo_"][bf-r]:not([data-slot])')
       const desktopPath = container.locator('path[data-key="desktop"]')
       const mobilePath = container.locator('path[data-key="mobile"]')
       await expect(desktopPath).toHaveCount(1)
@@ -122,7 +122,7 @@ test.describe('Line Chart Reference Page', () => {
 
   test.describe('Interactive', () => {
     test('switching category updates the chart', async ({ page }) => {
-      const section = page.locator('[bf-s^="LineChartInteractiveDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="LineChartInteractiveDemo_"][bf-r]:not([data-slot])').first()
 
       // Initially shows desktop line
       await expect(section.locator('path[data-key="desktop"]')).toHaveCount(1)
@@ -139,7 +139,7 @@ test.describe('Line Chart Reference Page', () => {
 
   test.describe('Tooltip', () => {
     test('tooltip appears on dot hover', async ({ page }) => {
-      const container = page.locator('[bf-s^="LineChartPreviewDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="LineChartPreviewDemo_"][bf-r]:not([data-slot])')
       const tooltip = container.locator('.chart-tooltip')
 
       // Tooltip should be hidden initially
@@ -155,7 +155,7 @@ test.describe('Line Chart Reference Page', () => {
   })
 
   test.describe('Zoom', () => {
-    const scope = '[bf-s^="LineChartZoomDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="LineChartZoomDemo_"][bf-r]:not([data-slot])'
 
     test('renders the full 12-month window on first paint', async ({ page }) => {
       const container = page.locator(scope)

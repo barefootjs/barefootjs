@@ -9,7 +9,7 @@ test.describe('State Machine Playground Block', () => {
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="StateMachinePlaygroundDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="StateMachinePlaygroundDemo_"][bf-r]:not([data-slot])').first()
 
   // --- Initial Render ---
 

@@ -16,7 +16,7 @@ test.describe('Async Infinite Scroll Block', () => {
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="InfiniteScrollDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="InfiniteScrollDemo_"][bf-r]:not([data-slot])').first()
 
   // --- Initial Render ---
 

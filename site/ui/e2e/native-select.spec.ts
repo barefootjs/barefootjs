@@ -38,12 +38,12 @@ test.describe('NativeSelect Reference Page', () => {
   test.describe('Value Binding', () => {
     test('displays value binding section', async ({ page }) => {
       await expect(page.locator('h3:has-text("Value Binding")')).toBeVisible()
-      const section = page.locator('[bf-s^="NativeSelectBindingDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="NativeSelectBindingDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('updates output when selecting', async ({ page }) => {
-      const section = page.locator('[bf-s^="NativeSelectBindingDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="NativeSelectBindingDemo_"][bf-r]:not([data-slot])').first()
       const select = section.locator('select[data-slot="native-select"]')
       const output = section.locator('.selected-value')
 
@@ -55,12 +55,12 @@ test.describe('NativeSelect Reference Page', () => {
   test.describe('Form', () => {
     test('displays form example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Form")')).toBeVisible()
-      const section = page.locator('[bf-s^="NativeSelectFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="NativeSelectFormDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('updates role when changed', async ({ page }) => {
-      const section = page.locator('[bf-s^="NativeSelectFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="NativeSelectFormDemo_"][bf-r]:not([data-slot])').first()
       const selects = section.locator('select[data-slot="native-select"]')
       const roleOutput = section.locator('.form-role')
 
@@ -69,7 +69,7 @@ test.describe('NativeSelect Reference Page', () => {
     })
 
     test('updates theme when changed', async ({ page }) => {
-      const section = page.locator('[bf-s^="NativeSelectFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="NativeSelectFormDemo_"][bf-r]:not([data-slot])').first()
       const selects = section.locator('select[data-slot="native-select"]')
       const themeOutput = section.locator('.form-theme')
 

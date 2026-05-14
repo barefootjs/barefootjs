@@ -6,7 +6,7 @@ test.describe('Radar Chart Reference Page', () => {
   })
 
   test.describe('Preview', () => {
-    const scope = '[bf-s^="RadarChartPreviewDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="RadarChartPreviewDemo_"][bf-r]:not([data-slot])'
 
     test('renders an SVG chart', async ({ page }) => {
       const container = page.locator(scope)
@@ -103,7 +103,7 @@ test.describe('Radar Chart Reference Page', () => {
 
   test.describe('Basic', () => {
     test('renders an SVG with radar polygon', async ({ page }) => {
-      const container = page.locator('[bf-s^="RadarChartBasicDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="RadarChartBasicDemo_"][bf-r]:not([data-slot])')
       await expect(container.locator('svg')).toBeVisible()
       const polygon = container.locator('polygon[data-key="desktop"]')
       await expect(polygon).toHaveCount(1)
@@ -112,7 +112,7 @@ test.describe('Radar Chart Reference Page', () => {
 
   test.describe('Multiple', () => {
     test('renders both desktop and mobile radar polygons', async ({ page }) => {
-      const container = page.locator('[bf-s^="RadarChartMultipleDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="RadarChartMultipleDemo_"][bf-r]:not([data-slot])')
       const desktopPolygon = container.locator('polygon[data-key="desktop"]')
       const mobilePolygon = container.locator('polygon[data-key="mobile"]')
       await expect(desktopPolygon).toHaveCount(1)
@@ -122,7 +122,7 @@ test.describe('Radar Chart Reference Page', () => {
 
   test.describe('Interactive', () => {
     test('switching category updates the chart', async ({ page }) => {
-      const section = page.locator('[bf-s^="RadarChartInteractiveDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="RadarChartInteractiveDemo_"][bf-r]:not([data-slot])').first()
 
       // Initially shows desktop polygon
       await expect(section.locator('polygon[data-key="desktop"]')).toHaveCount(1)
@@ -139,7 +139,7 @@ test.describe('Radar Chart Reference Page', () => {
 
   test.describe('Tooltip', () => {
     test('tooltip appears on dot hover', async ({ page }) => {
-      const container = page.locator('[bf-s^="RadarChartPreviewDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="RadarChartPreviewDemo_"][bf-r]:not([data-slot])')
       const tooltip = container.locator('.chart-tooltip')
 
       // Tooltip should be hidden initially

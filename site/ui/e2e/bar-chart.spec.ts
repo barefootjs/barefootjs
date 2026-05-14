@@ -6,7 +6,7 @@ test.describe('Bar Chart Reference Page', () => {
   })
 
   test.describe('Preview', () => {
-    const scope = '[bf-s^="BarChartPreviewDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="BarChartPreviewDemo_"][bf-r]:not([data-slot])'
 
     test('renders an SVG chart', async ({ page }) => {
       const container = page.locator(scope)
@@ -98,7 +98,7 @@ test.describe('Bar Chart Reference Page', () => {
 
   test.describe('Basic', () => {
     test('renders an SVG with bars', async ({ page }) => {
-      const container = page.locator('[bf-s^="BarChartBasicDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="BarChartBasicDemo_"][bf-r]:not([data-slot])')
       await expect(container.locator('svg')).toBeVisible()
       const bars = container.locator('rect[data-key="desktop"]')
       await expect(bars).toHaveCount(6)
@@ -107,7 +107,7 @@ test.describe('Bar Chart Reference Page', () => {
 
   test.describe('Multiple', () => {
     test('renders both desktop and mobile bars', async ({ page }) => {
-      const container = page.locator('[bf-s^="BarChartMultipleDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="BarChartMultipleDemo_"][bf-r]:not([data-slot])')
       const desktopBars = container.locator('rect[data-key="desktop"]')
       const mobileBars = container.locator('rect[data-key="mobile"]')
       await expect(desktopBars).toHaveCount(6)
@@ -117,7 +117,7 @@ test.describe('Bar Chart Reference Page', () => {
 
   test.describe('Interactive', () => {
     test('switching category updates the chart', async ({ page }) => {
-      const section = page.locator('[bf-s^="BarChartInteractiveDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="BarChartInteractiveDemo_"][bf-r]:not([data-slot])').first()
 
       // Initially shows desktop bars
       await expect(section.locator('rect[data-key="desktop"]')).toHaveCount(6)
@@ -134,7 +134,7 @@ test.describe('Bar Chart Reference Page', () => {
 
   test.describe('Tooltip', () => {
     test('tooltip appears on bar hover', async ({ page }) => {
-      const container = page.locator('[bf-s^="BarChartPreviewDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="BarChartPreviewDemo_"][bf-r]:not([data-slot])')
       const tooltip = container.locator('.chart-tooltip')
 
       // Tooltip should be hidden initially

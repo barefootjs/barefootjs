@@ -11,7 +11,7 @@ test.describe('Drawer Reference Page', () => {
 
   test.describe('Basic Drawer', () => {
     test('opens drawer when trigger is clicked', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Drawer")')
 
       await trigger.click()
@@ -23,7 +23,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('closes drawer when DrawerClose button is clicked', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Drawer")')
 
       await trigger.click()
@@ -40,7 +40,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('closes drawer when ESC key is pressed', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Drawer")')
 
       await trigger.click()
@@ -55,7 +55,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('closes drawer when overlay is clicked', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Drawer")')
 
       await trigger.click()
@@ -72,7 +72,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('has correct accessibility attributes', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Drawer")')
 
       await trigger.click()
@@ -85,7 +85,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('displays handle bar', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Drawer")')
 
       await trigger.click()
@@ -98,7 +98,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('does not show X close button', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Drawer")')
 
       await trigger.click()
@@ -112,7 +112,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('traps focus within drawer', async ({ page }) => {
-      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"]').first()
+      const basicDemo = page.locator('[bf-s^="DrawerBasicDemo_"][bf-r]').first()
       const trigger = basicDemo.locator('button:has-text("Open Drawer")')
 
       await trigger.click()
@@ -135,7 +135,7 @@ test.describe('Drawer Reference Page', () => {
 
   test.describe('Direction Variants', () => {
     test('opens bottom drawer', async ({ page }) => {
-      const directionDemo = page.locator('[bf-s^="DrawerDirectionDemo_"]').first()
+      const directionDemo = page.locator('[bf-s^="DrawerDirectionDemo_"][bf-r]').first()
       const trigger = directionDemo.locator('button:has-text("Bottom")')
 
       await trigger.click()
@@ -149,7 +149,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('opens top drawer', async ({ page }) => {
-      const directionDemo = page.locator('[bf-s^="DrawerDirectionDemo_"]').first()
+      const directionDemo = page.locator('[bf-s^="DrawerDirectionDemo_"][bf-r]').first()
       const trigger = directionDemo.locator('button:has-text("Top")')
 
       await trigger.click()
@@ -163,7 +163,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('opens right drawer', async ({ page }) => {
-      const directionDemo = page.locator('[bf-s^="DrawerDirectionDemo_"]').first()
+      const directionDemo = page.locator('[bf-s^="DrawerDirectionDemo_"][bf-r]').first()
       const trigger = directionDemo.locator('button:has-text("Right")')
 
       await trigger.click()
@@ -177,7 +177,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('opens left drawer', async ({ page }) => {
-      const directionDemo = page.locator('[bf-s^="DrawerDirectionDemo_"]').first()
+      const directionDemo = page.locator('[bf-s^="DrawerDirectionDemo_"][bf-r]').first()
       const trigger = directionDemo.locator('button:has-text("Left")')
 
       await trigger.click()
@@ -191,7 +191,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('closes direction drawer via ESC', async ({ page }) => {
-      const directionDemo = page.locator('[bf-s^="DrawerDirectionDemo_"]').first()
+      const directionDemo = page.locator('[bf-s^="DrawerDirectionDemo_"][bf-r]').first()
       const trigger = directionDemo.locator('button:has-text("Left")')
 
       await trigger.click()
@@ -208,7 +208,7 @@ test.describe('Drawer Reference Page', () => {
 
   test.describe('Form Drawer', () => {
     test('opens form drawer with goal controls', async ({ page }) => {
-      const formDemo = page.locator('[bf-s^="DrawerFormDemo_"]').first()
+      const formDemo = page.locator('[bf-s^="DrawerFormDemo_"][bf-r]').first()
       const trigger = formDemo.locator('button:has-text("Set Goal")')
 
       await trigger.click()
@@ -223,7 +223,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('can adjust goal with buttons', async ({ page }) => {
-      const formDemo = page.locator('[bf-s^="DrawerFormDemo_"]').first()
+      const formDemo = page.locator('[bf-s^="DrawerFormDemo_"][bf-r]').first()
       const trigger = formDemo.locator('button:has-text("Set Goal")')
 
       await trigger.click()
@@ -240,7 +240,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('closes form drawer when Cancel is clicked', async ({ page }) => {
-      const formDemo = page.locator('[bf-s^="DrawerFormDemo_"]').first()
+      const formDemo = page.locator('[bf-s^="DrawerFormDemo_"][bf-r]').first()
       const trigger = formDemo.locator('button:has-text("Set Goal")')
 
       await trigger.click()
@@ -256,7 +256,7 @@ test.describe('Drawer Reference Page', () => {
     })
 
     test('closes form drawer when Submit is clicked', async ({ page }) => {
-      const formDemo = page.locator('[bf-s^="DrawerFormDemo_"]').first()
+      const formDemo = page.locator('[bf-s^="DrawerFormDemo_"][bf-r]').first()
       const trigger = formDemo.locator('button:has-text("Set Goal")')
 
       await trigger.click()

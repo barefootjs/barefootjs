@@ -36,7 +36,7 @@ test.describe('Empty Reference Page', () => {
     })
 
     test('interactive demo renders with add item button', async ({ page }) => {
-      const demo = page.locator('[bf-s^="EmptyDemo_"]:not([data-slot])')
+      const demo = page.locator('[bf-s^="EmptyDemo_"][bf-r]:not([data-slot])')
 
       // Initially shows empty state with title and add button
       await expect(demo.locator('[data-slot="empty-title"]')).toContainText('No items yet')
