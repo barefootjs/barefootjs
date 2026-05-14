@@ -742,22 +742,23 @@ export class GoTemplateAdapter extends BaseAdapter {
             // shadcn-style variant lookup (`record-index-lookup-via-child-prop`)
             // which `resolveDynamicPropValue` can't represent.
             const parts =
-              prop.value.kind === 'template'
+              prop.value.kind === 'template' || prop.value.kind === 'expression'
                 ? prop.value.parts
-                : prop.value.kind === 'expression'
-                  ? prop.value.parts
-                  : undefined
+                : undefined
             if (parts) {
               const goExpr = this.templatePartsToGoCode(parts, ir.metadata.propsParams)
               if (goExpr !== null) {
+                // Parts path succeeded — emit and move on.
                 lines.push(`\t\t\t${this.capitalizeFieldName(prop.name)}: ${goExpr},`)
                 break
               }
+              // Parts exist but templatePartsToGoCode opted out (unsupported
+              // part kind). Fall through to the bare-expression path below.
             }
 
-            const exprText = prop.value.kind === 'template'
-              ? '' // template literals collapse to runtime expressions; resolveDynamicPropValue does not handle them yet
-              : prop.value.expr
+            // Bare-expression fallback. `template` kind has no raw expr string
+            // (its JS was discarded in favour of the parts structure), so skip.
+            const exprText = prop.value.kind === 'template' ? '' : prop.value.expr
             if (!exprText) break
             const resolvedValue = this.resolveDynamicPropValue(
               exprText,
@@ -1130,9 +1131,14 @@ export class GoTemplateAdapter extends BaseAdapter {
     const segments: string[] = []
     for (const part of parts) {
       if (part.type === 'string') {
-        // The IR analyzer already inlined identifier references; raw
-        // `${ident}` slips remain only when resolution failed. Emit
-        // the text verbatim — adapters can refine substitution later.
+        // The IR analyzer already inlined identifier references into the
+        // `lookup` part shape. Residual `${ident}` slips in a `string`
+        // part only occur when resolution failed (e.g. a destructured
+        // prop the analyzer couldn't trace). Emit verbatim for now —
+        // the Mojo adapter substitutes these via
+        // `substituteJsInterpolationsToPerl`; a Go equivalent would
+        // walk the string and emit `in.FieldName` references, but that
+        // path is not yet hit by the conformance suite.
         segments.push(JSON.stringify(part.value))
         continue
       }
