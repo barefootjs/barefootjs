@@ -270,11 +270,11 @@ function hydrateCommentScope(comment: Comment): void {
   if (!value?.startsWith(BF_SCOPE_COMMENT_PREFIX)) return
 
   const rest = value.slice(BF_SCOPE_COMMENT_PREFIX.length)
-  // Comment-scope child detection: the comment value's first segment
-  // (before `|`) holds host metadata when this is a child fragment scope.
-  // Today the segment encodes `h=<hostBfs>` for child scopes; root scopes
-  // start straight with the component name.
-  if (rest.startsWith('h=')) return
+  // Comment-scope child detection: child fragment scopes embed host metadata
+  // as a `|h=<hostBfs>|m=<slot>` segment after the scope id. Their parent's
+  // initChild call owns hydration; the walker must skip them.
+  // Root scopes have only `|<propsJson>` (no `h=` segment).
+  if (rest.includes('|h=')) return
 
   const flagged = comment as unknown as { __bfInitialized?: boolean }
   if (flagged.__bfInitialized) return
