@@ -375,8 +375,15 @@ export class GoTemplateAdapter extends BaseAdapter {
           if (inLoop && relativeImports.has(comp.name)) {
             this.errors.push({
               code: 'BF103',
-              severity: 'error',
-              message: `Component <${comp.name}> is imported from a sibling module and used inside a loop, but the Go template adapter cannot register the child template alongside the parent.`,
+              // Warning, not error: the barefoot CLI compiles all sibling
+              // .tsx files together and registers their templates on the
+              // same `*template.Template` instance, so the cross-template
+              // call resolves correctly. The warning still surfaces the
+              // contract for users on a bespoke build pipeline that
+              // compiles parent and child separately, where the cross-
+              // template lookup silently 500s at request time.
+              severity: 'warning',
+              message: `Component <${comp.name}> is imported from a sibling module and used inside a loop. The Go template adapter emits a cross-template call ({{template "${comp.name}" .}}); make sure the child template is registered on the same *template.Template instance at render time (the barefoot CLI handles this automatically).`,
               loc: comp.loc ?? this.makeLoc(),
               suggestion: {
                 message:

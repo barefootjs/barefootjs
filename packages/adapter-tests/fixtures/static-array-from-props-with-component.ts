@@ -69,11 +69,11 @@ export function Tag(props: { id: string; variant: 'on' | 'off' }) {
   `,
   expectedDiagnostics: {
     'go-template': [
-      { code: 'BF103', severity: 'error' },
+      { code: 'BF103', severity: 'warning' },
       { code: 'BF104', severity: 'error' },
     ],
     mojo: [
-      { code: 'BF103', severity: 'error' },
+      { code: 'BF103', severity: 'warning' },
       { code: 'BF104', severity: 'error' },
     ],
   },
