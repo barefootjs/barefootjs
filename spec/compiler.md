@@ -270,6 +270,7 @@ Helpers exported from `@barefootjs/jsx`:
    | `bf-s` | Component scope boundary + addressable scope ID | `bf-s="Counter_a1b2"` |
    | `bf-h` | Host scope ID — present on child scopes only | `bf-h="App_root"` |
    | `bf-m` | Slot ID in the host where the child is mounted | `bf-m="s10"` |
+   | `bf-r` | Root-of-client-component marker (no value) — for e2e locator distinction | `bf-r=""` |
    | `bf` | Interactive element (host-side slot position) | `bf="s0"` |
    | `bf-p` | Serialized props JSON | `bf-p='{"initial":5}'` |
    | `bf-c` | Conditional element | `bf-c="s2"` |
@@ -280,12 +281,26 @@ Helpers exported from `@barefootjs/jsx`:
 
    **Slot identity (#1249).** A slot-attached child component scope is
    identified by the `(bf-h, bf-m)` pair — unique by construction at
-   SSR emit time. The slot-resolver's primary (and only) lookup is
-   `[bf-h="<host>"][bf-m="<slot>"]`; there is no suffix or name-prefix
-   fallback. `bf-s` carries the scope's own addressable id used by
-   portals (`bf-po`), context lookups, and the hydration walker — but
-   not slot identity. `bf-s` values do **not** carry a `~` child
-   prefix; child-scope status is signalled by `bf-h` presence.
+   SSR emit time. The slot-resolver's primary lookup is
+   `[bf-h="<host>"][bf-m="<slot>"]`; bf-s suffix and name-prefix
+   selectors remain as fallbacks for adapters whose SSR output predates
+   the (bf-h, bf-m) emission (go-template, mojolicious). `bf-s` carries
+   the scope's own addressable id used by portals (`bf-po`), context
+   lookups, and the hydration walker — but **not** slot identity.
+
+   **Root distinction.** A demo's SSR entry root (mounted as a slot of
+   a page but the target of its own client-side init) carries `bf-r`,
+   so e2e locators of the form `[bf-s^="FooDemo_"][bf-r]` address only
+   the demo's root, not an internal child scope that happens to share
+   the bf-s name prefix.
+
+   **`~` child prefix (legacy).** The Hono adapter and the client
+   runtime's `createComponent` / `renderChild` no longer emit the `~`
+   value prefix on child bf-s values. The Go-template and mojolicious
+   adapters still emit it; the runtime's `startsWith('~')` checks in
+   the hydration walker / `initChild` keep that path working until the
+   Go and Perl adapters also gain `bf-h` / `bf-m` / `bf-r` emission
+   (tracked as a follow-up).
 
 2. **Client JS**: Minimal JavaScript for reactivity
    - Uses `createEffect` for reactive updates
