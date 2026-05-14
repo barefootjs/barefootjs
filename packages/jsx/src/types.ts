@@ -1319,6 +1319,14 @@ export interface CompileOptions {
    * any other adapter that bakes the URL at codegen time.
    */
   scriptBaseName?: string
+  /**
+   * Caller guarantees that every sibling `.tsx` file's generated
+   * template will be registered on the same template instance at
+   * render time. Forwarded verbatim to `adapter.generate(...,
+   * { siblingTemplatesRegistered })`; see that field's docstring
+   * on `AdapterGenerateOptions` for the full semantics.
+   */
+  siblingTemplatesRegistered?: boolean
 }
 
 export interface FileOutput {

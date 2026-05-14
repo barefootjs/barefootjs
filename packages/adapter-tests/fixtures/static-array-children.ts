@@ -15,14 +15,15 @@ import { createFixture } from '../src/types'
  * succeeds and the request returns 500 with
  * `template: "ListItem" is undefined`.
  *
- * The Go and Mojo adapters now emit `BF103` (warning, not error) for
- * this shape at build time (#1266); the `expectedDiagnostics` entry
- * pins that contract. Severity is `warning` because the barefoot CLI
- * compiles sibling .tsx files together and registers their templates
- * alongside the parent, so the runtime resolves correctly under the
- * CLI's normal build pipeline. The warning surfaces the contract for
- * users on a bespoke build pipeline where the cross-template lookup
- * would otherwise silently 500.
+ * The Go and Mojo adapters now emit `BF103` at build time for this
+ * shape (#1266); the `expectedDiagnostics` entry pins that contract.
+ * Severity is `error` so silent request-time failures aren't possible
+ * on a bespoke build pipeline. The barefoot CLI passes
+ * `siblingTemplatesRegistered: true` when invoking the adapter
+ * (because it compiles every source-dir file together and registers
+ * their templates on the same template instance), which suppresses
+ * the diagnostic for CLI-managed builds — so user code routed
+ * through the CLI keeps working without any change.
  */
 export const fixture = createFixture({
   id: 'static-array-children',
@@ -54,7 +55,7 @@ export function ListItem({ label, className }: { label: string; className?: stri
     </ul>
   `,
   expectedDiagnostics: {
-    'go-template': [{ code: 'BF103', severity: 'warning' }],
-    mojo: [{ code: 'BF103', severity: 'warning' }],
+    'go-template': [{ code: 'BF103', severity: 'error' }],
+    mojo: [{ code: 'BF103', severity: 'error' }],
   },
 })

@@ -45,6 +45,20 @@ export interface AdapterGenerateOptions {
   skipScriptRegistration?: boolean
   /** Base name for script registration (for non-default exports sharing parent's .client.js) */
   scriptBaseName?: string
+  /**
+   * Caller guarantees that every sibling `.tsx` file's generated template
+   * will be registered on the same template instance at render time
+   * (e.g. the barefoot CLI compiles all source-dir files together and
+   * registers them on the same `*template.Template` instance / Mojo
+   * equivalent).
+   *
+   * Adapters use this to suppress diagnostics about cross-template
+   * lookups that would otherwise be silent failures at request time
+   * — see `BF103` in the Go template / Mojo adapters. Defaults to
+   * `false`: stand-alone `compileJSX` callers (e.g. the conformance
+   * runner) get the loud build-time error.
+   */
+  siblingTemplatesRegistered?: boolean
 }
 
 /**

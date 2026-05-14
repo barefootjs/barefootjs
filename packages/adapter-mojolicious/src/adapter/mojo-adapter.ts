@@ -128,8 +128,13 @@ export class MojoAdapter extends BaseAdapter {
     // has compiled the sibling file and registered the resulting
     // template alongside the parent. When that doesn't happen the
     // failure is silent at build time and surfaces at request time —
-    // surface it loudly here so the user can act on it.
-    this.checkImportedLoopChildComponents(ir)
+    // surface it loudly here so the user can act on it. Suppressed
+    // when the caller (e.g. the barefoot CLI) guarantees that all
+    // sibling templates are registered on the same template instance
+    // at render time.
+    if (!options?.siblingTemplatesRegistered) {
+      this.checkImportedLoopChildComponents(ir)
+    }
 
     const templateBody = ir.root.type === 'if-statement'
       ? this.renderIfStatement(ir.root as IRIfStatement)
@@ -363,14 +368,8 @@ export class MojoAdapter extends BaseAdapter {
           if (inLoop && relativeImports.has(comp.name)) {
             this.errors.push({
               code: 'BF103',
-              // Warning, not error: the barefoot CLI compiles sibling
-              // .tsx files together and registers their Mojo templates
-              // alongside the parent at render time. The warning still
-              // surfaces the contract for users on a bespoke build
-              // pipeline where the cross-template lookup silently 500s
-              // at request time.
-              severity: 'warning',
-              message: `Component <${comp.name}> is imported from a sibling module and used inside a loop. The Mojo adapter emits a cross-template call; make sure the child template is registered alongside the parent at render time (the barefoot CLI handles this automatically).`,
+              severity: 'error',
+              message: `Component <${comp.name}> is imported from a sibling module and used inside a loop. The Mojo adapter emits a cross-template call; the child template must be registered alongside the parent at render time.`,
               loc: comp.loc ?? loc,
               suggestion: {
                 message:

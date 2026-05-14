@@ -208,7 +208,17 @@ export class GoTemplateAdapter extends BaseAdapter {
     // that's the natural Hono-style pattern (factor a list item
     // into a sibling file, .map() over data) and is where users
     // are most likely to hit the request-time failure unawares.
-    this.checkImportedLoopChildComponents(ir)
+    //
+    // The barefoot CLI passes `siblingTemplatesRegistered: true`
+    // because it compiles every source-dir file together and
+    // registers them all on the same `*template.Template` instance —
+    // for that caller the cross-template lookup always resolves, so
+    // the diagnostic would be noise. Stand-alone `compileJSX` callers
+    // (conformance runner, third-party tooling) leave the flag unset
+    // and get the loud build-time error.
+    if (!options?.siblingTemplatesRegistered) {
+      this.checkImportedLoopChildComponents(ir)
+    }
 
     const hasInteractivity = this.hasClientInteractivity(ir)
     const isRootComponent = ir.root.type === 'component'
@@ -378,15 +388,8 @@ export class GoTemplateAdapter extends BaseAdapter {
           if (inLoop && relativeImports.has(comp.name)) {
             this.errors.push({
               code: 'BF103',
-              // Warning, not error: the barefoot CLI compiles all sibling
-              // .tsx files together and registers their templates on the
-              // same `*template.Template` instance, so the cross-template
-              // call resolves correctly. The warning still surfaces the
-              // contract for users on a bespoke build pipeline that
-              // compiles parent and child separately, where the cross-
-              // template lookup silently 500s at request time.
-              severity: 'warning',
-              message: `Component <${comp.name}> is imported from a sibling module and used inside a loop. The Go template adapter emits a cross-template call ({{template "${comp.name}" .}}); make sure the child template is registered on the same *template.Template instance at render time (the barefoot CLI handles this automatically).`,
+              severity: 'error',
+              message: `Component <${comp.name}> is imported from a sibling module and used inside a loop. The Go template adapter emits a cross-template call ({{template "${comp.name}" .}}); the child template must be registered on the same *template.Template instance at render time.`,
               loc: comp.loc ?? this.makeLoc(),
               suggestion: {
                 message:

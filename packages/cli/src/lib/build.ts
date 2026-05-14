@@ -1237,6 +1237,12 @@ async function compileEntry(args: CompileEntryArgs): Promise<CompileEntryOutcome
       // bake the URL at codegen time (e.g. go-template's
       // `Scripts.Register`) point at the file we actually emit.
       scriptBaseName: baseNameNoExt,
+      // The CLI compiles every .tsx under the configured source dirs
+      // in one pass and registers all generated templates on the same
+      // template instance at render time, so the cross-template
+      // lookups BF103 warns about resolve correctly. Tell the adapter
+      // it can suppress that diagnostic for CLI-managed builds.
+      siblingTemplatesRegistered: true,
     },
   )
 
