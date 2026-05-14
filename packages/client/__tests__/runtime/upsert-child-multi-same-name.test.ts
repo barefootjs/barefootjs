@@ -12,7 +12,7 @@
  *
  * Before the fix, `findSsrScopeBySlotIn`'s name-prefix last-resort
  * fallback (`[bf-s^="~Button_"], [bf-s^="Button_"]`) over-matched. After
- * the first upsertChild stamped `<button bf-s="~Button_xxx" bf-mount="s10">`
+ * the first upsertChild stamped `<button bf-s="~Button_xxx" bf-m="s10">`
  * into the parent, subsequent calls for `s13` / `s14` returned the
  * already-mounted `s10` element and ran `initChild` on it — leaving the
  * actual `data-bf-ph="s13"` / `s14` placeholders orphaned. The Kanban
@@ -52,7 +52,7 @@ describe('upsertChild — multiple same-name children at distinct slots', () => 
     // distinct slot ids. The parent (loop body root) carries a
     // `bf-s="ProductivityBoardDemo_xxx"`-shaped scope so `parentScopeOf`
     // can derive a non-empty `parentBfs` and the primary
-    // `[bf-parent][bf-mount]` lookup is exercised first.
+    // `[bf-h][bf-m]` lookup is exercised first.
     const anchor = document.createElement('div')
     anchor.setAttribute('bf-s', 'ProductivityBoardDemo_test')
     document.body.appendChild(anchor)
@@ -76,7 +76,7 @@ describe('upsertChild — multiple same-name children at distinct slots', () => 
     expect(e1).not.toBeNull()
     expect(e1!.tagName).toBe('BUTTON')
     expect(e1!.textContent).toBe('X')
-    expect(e1!.getAttribute('bf-mount')).toBe('s10')
+    expect(e1!.getAttribute('bf-m')).toBe('s10')
 
     // Second call — the s13 placeholder must still be present and must
     // be replaced, NOT the already-mounted s10 element. This is the
@@ -85,18 +85,18 @@ describe('upsertChild — multiple same-name children at distinct slots', () => 
     expect(phS13Before).not.toBeNull()
     const e2 = upsertChild(card, 'SmallButton', 's13', { children: 'L' }, undefined, anchor)
     expect(e2).not.toBeNull()
-    expect(e2!.getAttribute('bf-mount')).toBe('s13')
+    expect(e2!.getAttribute('bf-m')).toBe('s13')
     expect(e2!.textContent).toBe('L')
     // Critically: s10 keeps its content, s13 placeholder is gone, both
     // buttons exist side-by-side.
     expect(card.querySelector('[data-bf-ph="s13"]')).toBeNull()
     expect(e1!.textContent).toBe('X')
-    expect(e1!.getAttribute('bf-mount')).toBe('s10')
+    expect(e1!.getAttribute('bf-m')).toBe('s10')
 
     // Third call — same again for s14.
     const e3 = upsertChild(card, 'SmallButton', 's14', { children: 'R' }, undefined, anchor)
     expect(e3).not.toBeNull()
-    expect(e3!.getAttribute('bf-mount')).toBe('s14')
+    expect(e3!.getAttribute('bf-m')).toBe('s14')
     expect(e3!.textContent).toBe('R')
     expect(card.querySelector('[data-bf-ph="s14"]')).toBeNull()
 
@@ -109,12 +109,12 @@ describe('upsertChild — multiple same-name children at distinct slots', () => 
   })
 
   test('legacy SSR with two same-name children (bf-s suffixes only) — each slot resolves correctly', () => {
-    // Predates the bf-parent/bf-mount markers — only bf-s suffix info
+    // Predates the bf-h/bf-m markers — only bf-s suffix info
     // survives. Two same-name children at distinct slot ids must each
     // resolve to their OWN suffix-matched SSR scope. The suffix selector
     // (`[bf-s$="_<slotId>"]`) is unique enough to disambiguate; the fix
-    // adds belt-and-braces filtering via `bf-mount` which is irrelevant
-    // here (no bf-mount in legacy markup), so resolution still works.
+    // adds belt-and-braces filtering via `bf-m` which is irrelevant
+    // here (no bf-m in legacy markup), so resolution still works.
     hydrate('Item', {
       init: () => {},
       template: () => '<i bf="s0"></i>',
@@ -126,7 +126,7 @@ describe('upsertChild — multiple same-name children at distinct slots', () => 
     document.body.appendChild(anchor)
 
     const host = document.createElement('div')
-    // Two SSR scopes already in tree (legacy shape, no bf-mount).
+    // Two SSR scopes already in tree (legacy shape, no bf-m).
     host.innerHTML =
       '<i class="a" bf-s="~Item_legacy_s10"></i>' +
       '<i class="b" bf-s="~Item_legacy_s11"></i>'

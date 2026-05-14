@@ -533,8 +533,8 @@ export class HonoAdapter extends JsxAdapter {
       // __bfMount). Used by upsertChild to locate the SSR scope by parent
       // identity + slot id, replacing the bf-s suffix lookup that broke
       // for self-referential recursive components.
-      hydrationAttrs += ' {...(__bfParent ? { "bf-parent": __bfParent } : {})}'
-      hydrationAttrs += ' {...(__bfMount ? { "bf-mount": __bfMount } : {})}'
+      hydrationAttrs += ' {...(__bfParent ? { "bf-h": __bfParent } : {})}'
+      hydrationAttrs += ' {...(__bfMount ? { "bf-m": __bfMount } : {})}'
       if (this.currentComponentHasProps) {
         // Only emit bf-p on root components (not children).
         // Child components receive props from parent via initChild().
@@ -756,7 +756,7 @@ export class HonoAdapter extends JsxAdapter {
     // Add __bfChild when parent has client interactivity (will call initChild)
     const bfChildAttr = (comp.slotId && this.hasClientInteractivity) ? ' __bfChild={true}' : ''
     // Pass __bfParent (parent's bf-s without ~) and __bfMount (slot id) so
-    // upsertChild can locate the SSR scope via [bf-parent][bf-mount] without
+    // upsertChild can locate the SSR scope via [bf-h][bf-m] without
     // relying on bf-s suffix matching. This is the post-#1220 replacement
     // for the chained `_<slotId>` suffix lookup, which broke for self-
     // referential recursive components (every depth got the same chain

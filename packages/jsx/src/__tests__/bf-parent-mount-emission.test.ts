@@ -1,10 +1,10 @@
 /**
- * BarefootJS Compiler — bf-parent / bf-mount emission
+ * BarefootJS Compiler — bf-h / bf-m emission
  *
  * Asserts that the Hono adapter:
  *   1. Threads `__bfParent` / `__bfMount` props through each child-component
  *      JSX call so the child template can pick them up.
- *   2. Emits `bf-parent` / `bf-mount` attributes on the child component's
+ *   2. Emits `bf-h` / `bf-m` attributes on the child component's
  *      root element.
  *   3. Passes the parent's `__scope` as the 6th argument to `upsertChild`
  *      (and `upsertChildItem`) so the runtime can derive parent identity
@@ -22,8 +22,8 @@ import { HonoAdapter } from '../../../../packages/adapter-hono/src/adapter/hono-
 
 const adapter = new HonoAdapter()
 
-describe('bf-parent / bf-mount emission (Hono adapter)', () => {
-  test('child component receives __bfParent / __bfMount and stamps bf-parent / bf-mount on root', () => {
+describe('bf-h / bf-m emission (Hono adapter)', () => {
+  test('child component receives __bfParent / __bfMount and stamps bf-h / bf-m on root', () => {
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -51,10 +51,10 @@ describe('bf-parent / bf-mount emission (Hono adapter)', () => {
     expect(ssrTemplate!.content).toContain('__bfParent={__scopeId}')
     expect(ssrTemplate!.content).toContain("__bfMount={'s")
 
-    // 2. The child's root element emits bf-parent / bf-mount when those
+    // 2. The child's root element emits bf-h / bf-m when those
     //    props are present (rendered conditionally via {...(__bfParent ? ... : {})}).
-    expect(ssrTemplate!.content).toContain('"bf-parent": __bfParent')
-    expect(ssrTemplate!.content).toContain('"bf-mount": __bfMount')
+    expect(ssrTemplate!.content).toContain('"bf-h": __bfParent')
+    expect(ssrTemplate!.content).toContain('"bf-m": __bfMount')
   })
 
   test('child component inside a reactive .map() loop body passes __scope to upsertChild', () => {
@@ -84,7 +84,7 @@ describe('bf-parent / bf-mount emission (Hono adapter)', () => {
     expect(clientJs).toBeDefined()
 
     // upsertChild call is emitted with __scope as the 6th argument so the
-    // runtime can derive bf-parent context for the freshly-cloned <li>.
+    // runtime can derive bf-h context for the freshly-cloned <li>.
     expect(clientJs!.content).toMatch(/upsertChild\(.*__scope\)/)
   })
 

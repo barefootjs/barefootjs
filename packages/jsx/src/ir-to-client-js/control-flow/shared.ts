@@ -268,7 +268,7 @@ export function emitComponentAndEventSetup(
     const keyProp = comp.props.find(p => p.name === 'key')
     const keyArg = keyProp ? `, ${wrap(attrValueToString(keyProp.value) ?? 'undefined')}` : ', undefined'
     // Pass the surrounding component's __scope so upsertChild can derive
-    // bf-parent / bf-mount even when the loop-item element (`elVar`) is a
+    // bf-h / bf-m even when the loop-item element (`elVar`) is a
     // freshly-created detached fragment. Without this anchor, the new
     // CSR-mounted child wouldn't carry slot-relationship markers and any
     // future upsertChild lookup against it would fail.
