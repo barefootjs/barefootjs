@@ -19,6 +19,12 @@ runAdapterConformanceTests({
   render: renderMojoComponent,
   // Dynamic style objects (non-static values) require Perl template
   // interpolation support for JS object literals, not yet implemented.
+  // Mojo currently emits invalid Perl silently for this shape — the
+  // Go adapter records BF101 via `convertExpressionToGo()` for the
+  // same fixture (now contracted via `expectedDiagnostics`), but the
+  // Mojo adapter's expression gate doesn't yet lift the same
+  // failure into a `CompilerError`, so the fixture stays on `skipJsx`
+  // until that gate is extended (#1266 follow-up).
   // `logical-or-jsx`, `nullish-coalescing-jsx`, `branch-map` reference
   // a prop directly inside a conditional branch (`$label`, `$banner`,
   // `$active`). The Mojo adapter emits these as bare Perl variables
@@ -31,8 +37,15 @@ runAdapterConformanceTests({
   // `return-logical-or` / `return-nullish-coalescing` reference
   // `$label` / `$banner` directly; `return-map` iterates over `$items`
   // without a `my` declaration.
+  //
+  // `static-array-children` / `static-array-from-props` /
+  // `static-array-from-props-with-component` are no longer here —
+  // they're covered by `expectedDiagnostics` (BF103 / BF104) on the
+  // fixtures, asserting that the Mojo adapter emits a build-time
+  // `CompilerError` for the cross-template-call shape and the
+  // array-destructure loop param instead of shipping invalid Perl
+  // or unresolved cross-template references (#1266).
   skipJsx: [
-    'static-array-children',
     'style-object-dynamic',
     'logical-or-jsx',
     'nullish-coalescing-jsx',
@@ -40,12 +53,6 @@ runAdapterConformanceTests({
     'return-logical-or',
     'return-nullish-coalescing',
     'return-map',
-    // Same JS-only `Object.entries(...).filter(...)` shape the Go
-    // adapter skips. The CSR self-heal (#1247, #1268) covers the bug
-    // on the JS side; the Perl SSR side would need bespoke helpers
-    // to materialise the loop at request time.
-    'static-array-from-props',
-    'static-array-from-props-with-component',
   ],
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `MojoAdapter.templatePrimitives` (#1189). The two remaining
