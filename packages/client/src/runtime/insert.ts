@@ -9,7 +9,7 @@
 import { createEffect, untrack } from '@barefootjs/client/reactive'
 import { find } from './query'
 import { setParentScopeId, parseHTML } from './component'
-import { BF_COND, BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
+import { BF_COND, BF_SCOPE } from '@barefootjs/shared'
 
 /**
  * Result returned by a branch's `template()` when the template captures
@@ -112,11 +112,8 @@ export function insert(
 
   // Extract parent scope ID for renderChild context.
   // When branch templates call renderChild(), it needs the parent scope ID
-  // to generate child scope IDs matching the SSR convention.
-  const rawScopeId = scope.getAttribute(BF_SCOPE)
-  const parentScopeId = rawScopeId
-    ? (rawScopeId.startsWith(BF_CHILD_PREFIX) ? rawScopeId.slice(1) : rawScopeId)
-    : null
+  // so child mounts can stamp `bf-h` / `bf-m` for slot-resolver lookups.
+  const parentScopeId = scope.getAttribute(BF_SCOPE)
 
   // Check if either branch uses fragment conditional (comment markers).
   // Both branches need to be checked because SSR may render either branch.
@@ -184,7 +181,7 @@ export function insert(
           // Skip the swap when the SSR signature already matches the active
           // branch — the SSR DOM is correct, and replacing it would re-render
           // via the registered child template, which doesn't reproduce the
-          // bf-parent / bf-mount markers set by the parent's JSX scope chain.
+          // bf-h / bf-m markers set by the parent's JSX scope chain.
           updateFragmentConditional(scope, id, result)
         } else if (!isFragmentCond && expectedSig && existingSig && expectedSig !== existingSig) {
           // DOM doesn't match expected branch - need to swap

@@ -7,7 +7,7 @@
  * API inspired by React's createPortal(children, domNode).
  */
 
-import { BF_SCOPE, BF_PORTAL_ID, BF_PORTAL_OWNER, BF_PORTAL_PLACEHOLDER, BF_CHILD_PREFIX } from '@barefootjs/shared'
+import { BF_SCOPE, BF_PORTAL_ID, BF_PORTAL_OWNER, BF_PORTAL_PLACEHOLDER } from '@barefootjs/shared'
 import { parseHTML } from './component'
 import { getPortalScopeId } from './scope'
 
@@ -112,9 +112,8 @@ export function findSiblingSlot(el: HTMLElement, slotSelector: string): HTMLElem
   const ownerScopeId = portalWrapper.getAttribute(BF_PORTAL_OWNER)
   if (!ownerScopeId) return null
 
-  // Find owner scope element, trying both direct and child-prefix patterns
+  // Find owner scope element by exact bf-s match (per #1249, no more ~ prefix).
   const ownerScope = document.querySelector(`[${BF_SCOPE}="${ownerScopeId}"]`)
-    ?? document.querySelector(`[${BF_SCOPE}="${BF_CHILD_PREFIX}${ownerScopeId}"]`)
   if (!ownerScope) return null
 
   return ownerScope.querySelector(slotSelector) as HTMLElement | null
@@ -152,8 +151,7 @@ export function createPortal(
   // Set portal owner for scope-based find()
   if (options?.ownerScope) {
     // Check bf-s attribute first, then fall back to comment scope registry
-    const raw = (options.ownerScope as HTMLElement).getAttribute?.(BF_SCOPE)
-    let scopeId = raw?.startsWith(BF_CHILD_PREFIX) ? raw.slice(1) : raw
+    let scopeId: string | null = (options.ownerScope as HTMLElement).getAttribute?.(BF_SCOPE) ?? null
     if (!scopeId) {
       scopeId = getPortalScopeId(options.ownerScope) ?? null
     }

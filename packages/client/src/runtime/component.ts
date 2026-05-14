@@ -11,7 +11,7 @@ import { getRegisteredDef } from './hydrate'
 import { hydratedScopes } from './hydration-state'
 import { untrack } from '@barefootjs/client/reactive'
 import { setCurrentScope } from './context'
-import { BF_SCOPE, BF_KEY, BF_PARENT, BF_MOUNT } from '@barefootjs/shared'
+import { BF_SCOPE, BF_KEY, BF_HOST, BF_AT } from '@barefootjs/shared'
 import type { ComponentDef } from './types'
 
 // Parent scope ID context for renderChild() inside insert() branch templates.
@@ -67,7 +67,7 @@ const propsMap = new WeakMap<HTMLElement, Record<string, unknown>>()
  *   1. The new component is mounted as a CHILD inside another component's
  *      scope (so its bf-s gets the `~` child prefix and `initChild`'s
  *      re-entry guard kicks in on subsequent reconciles).
- *   2. The new component records `bf-parent` / `bf-mount` so future
+ *   2. The new component records `bf-h` / `bf-m` so future
  *      `upsertChild` lookups can locate it via the slot-relationship
  *      markers.
  *
@@ -176,8 +176,8 @@ export function createComponent(
     element.setAttribute(BF_SCOPE, scopeId)
   }
   if (slot) {
-    element.setAttribute(BF_PARENT, slot.parent)
-    element.setAttribute(BF_MOUNT, slot.mount)
+    element.setAttribute(BF_HOST, slot.parent)
+    element.setAttribute(BF_AT, slot.mount)
   }
   if (key !== undefined) {
     element.setAttribute(BF_KEY, String(key))
@@ -284,14 +284,14 @@ export function renderChild(
     ? _parentScopeId
     : `${name}_${generateId()}`
   const keyAttr = key !== undefined ? ` ${BF_KEY}="${key}"` : ''
-  // Slot-relationship markers: bf-parent (parent's scope id, no `~`) and
-  // bf-mount (slot id within parent). upsertChild uses these to find the
+  // Slot-relationship markers: bf-h (parent's scope id, no `~`) and
+  // bf-m (slot id within parent). upsertChild uses these to find the
   // SSR scope without relying on bf-s suffix matching, which can't tell
   // direct children apart from descendants for self-referential recursive
   // components. Only emit when both pieces are known — top-level renders
   // without parent context skip them.
   const slotAttrs = (_parentScopeId && slotSuffix)
-    ? ` ${BF_PARENT}="${_parentScopeId}" ${BF_MOUNT}="${slotSuffix}"`
+    ? ` ${BF_HOST}="${_parentScopeId}" ${BF_AT}="${slotSuffix}"`
     : ''
 
   if (!templateFn) {

@@ -8,31 +8,26 @@
 
 import { commentScopeRegistry, getCommentScopeBoundary } from './scope'
 import { hydratedScopes } from './hydration-state'
-import { BF_SCOPE, BF_SLOT, BF_CHILD_PREFIX, BF_PORTAL_OWNER, BF_PARENT_OWNED_PREFIX, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
+import { BF_SCOPE, BF_SLOT, BF_PORTAL_OWNER, BF_PARENT_OWNED_PREFIX, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
 
 // --- helpers ---
 
-/** Strip the child component prefix (~) from a scope ID. */
-function stripChildPrefix(raw: string): string {
-  return raw.startsWith(BF_CHILD_PREFIX) ? raw.slice(1) : raw
-}
-
-/** Read bf-s attribute and strip child prefix. Returns null when absent. */
+/** Read bf-s attribute. Returns null when absent.
+ *  Per #1249, bf-s values are addressable IDs without prefix — no stripping. */
 function getScopeId(el: Element | null): string | null {
-  const raw = el?.getAttribute(BF_SCOPE)
-  return raw ? stripChildPrefix(raw) : null
+  return el?.getAttribute(BF_SCOPE) ?? null
 }
 
 /** Comments already processed by findScopeByComment. */
 const initializedComments = new WeakSet<Comment>()
 
 /**
- * Parse scope ID from a comment value like "bf-scope:~Name_xxx|propsJson".
- * Strips the prefix, child prefix (~), and props JSON suffix (|...).
+ * Parse scope ID from a comment value like "bf-scope:Name_xxx|propsJson".
+ * Strips the prefix and props JSON suffix (|...).
  */
 function parseCommentScopeId(value: string, prefix: string): string | null {
   if (!value.startsWith(prefix)) return null
-  let id = stripChildPrefix(value.slice(prefix.length))
+  let id = value.slice(prefix.length)
   const pipeIdx = id.indexOf('|')
   if (pipeIdx >= 0) id = id.slice(0, pipeIdx)
   return id
@@ -445,8 +440,9 @@ function $cSingle(scope: Element | null, id: string): Element | null {
 
   // --- Component name path (unambiguous) ---
   if (!/^s\d/.test(cleanId)) {
-    const selector = `[${BF_SCOPE}^="${BF_CHILD_PREFIX}${cleanId}_"], [${BF_SCOPE}^="${cleanId}_"]`
-    return findChildScope(scope, selector)
+    // Per #1249, bf-s values no longer carry the `~` child prefix, so a
+    // single name-prefix selector suffices.
+    return findChildScope(scope, `[${BF_SCOPE}^="${cleanId}_"]`)
   }
 
   // --- Slot ID path: precise suffix match using parent scope ID ---

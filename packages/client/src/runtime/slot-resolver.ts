@@ -1,7 +1,7 @@
 /**
  * Shared slot-relationship resolver — identifies the SSR scope of a child
  * component mounted at slot `<sN>` inside its parent component, using the
- * `bf-parent` / `bf-mount` markers (preferred) and falling back to the
+ * `bf-h` / `bf-m` markers (preferred) and falling back to the
  * legacy `bf-s` suffix lookup for SSR output produced before the markers
  * were introduced.
  *
@@ -11,7 +11,7 @@
  * loop-item root elements; the actual lookup logic is identical.
  */
 
-import { BF_SCOPE, BF_CHILD_PREFIX, BF_PARENT, BF_MOUNT } from '@barefootjs/shared'
+import { BF_SCOPE, BF_HOST, BF_AT } from '@barefootjs/shared'
 
 /** Recognises bf-s values whose final segment is a nested-slot path
  *  (`…_sM_sN`). These show up when a synthesized component (e.g.
@@ -22,7 +22,7 @@ import { BF_SCOPE, BF_CHILD_PREFIX, BF_PARENT, BF_MOUNT } from '@barefootjs/shar
 const NESTED_SLOT_SUFFIX = /_s\d+_s\d+$/
 
 /** A candidate element is "claimed for a different slot" when it already
- *  carries a `bf-mount` attribute that doesn't match the slot we're
+ *  carries a `bf-m` attribute that doesn't match the slot we're
  *  looking for. That can only happen when a previous `upsertChild` in
  *  the SAME parent has CSR-replaced a sibling placeholder and stamped
  *  the new component's metadata onto it. Without this filter the
@@ -33,22 +33,23 @@ const NESTED_SLOT_SUFFIX = /_s\d+_s\d+$/
  *  multiple child components of the same name (#135 board demo:
  *  delete-task + move-left + move-right Buttons inside one task card). */
 function isClaimedForOtherSlot(candidate: Element, slotId: string): boolean {
-  const mount = candidate.getAttribute(BF_MOUNT)
+  const mount = candidate.getAttribute(BF_AT)
   return mount !== null && mount !== slotId
 }
 
-/** Resolve the parent component scope id (without the `~` child prefix)
- *  for a slot lookup. Prefers the explicit `anchorScope` because the
- *  immediate `parent` element may be a freshly-created detached fragment
- *  whose `closest()` returns null. */
+/** Resolve the parent component scope id for a slot lookup. Prefers the
+ *  explicit `anchorScope` because the immediate `parent` element may be a
+ *  freshly-created detached fragment whose `closest()` returns null.
+ *
+ *  Per #1249 the `bf-s` value no longer carries a child prefix — the value
+ *  IS the scope id, so it can be used as-is for `bf-h` lookups. */
 export function parentScopeOf(parent: Element, anchorScope?: Element | null): string {
   const ancestor = anchorScope ?? parent.closest(`[${BF_SCOPE}]`)
   if (!ancestor) return ''
-  const bfs = ancestor.getAttribute(BF_SCOPE) ?? ''
-  return bfs.startsWith(BF_CHILD_PREFIX) ? bfs.slice(1) : bfs
+  return ancestor.getAttribute(BF_SCOPE) ?? ''
 }
 
-/** Build the bf-parent / bf-mount metadata for a fresh component about to
+/** Build the bf-h / bf-m metadata for a fresh component about to
  *  be mounted at `slotId`. `createComponent` stamps these onto the new
  *  element so subsequent `upsertChild` lookups can find it via the
  *  slot-relationship markers. Returns `undefined` when no parent scope
@@ -65,12 +66,12 @@ export function buildSlotInfo(
 
 /**
  * Find the SSR scope element for a child component at `slotId` inside
- * `parent`, using `bf-parent` / `bf-mount` markers as the primary lookup.
+ * `parent`, using `bf-h` / `bf-m` markers as the primary lookup.
  *
  * Strategy:
  *   1. Walk up from `parent` (or use `anchorScope` directly) to derive the
  *      parent component's bf-s value (without the `~` child prefix).
- *   2. Search `parent` for a descendant whose `bf-parent` and `bf-mount`
+ *   2. Search `parent` for a descendant whose `bf-h` and `bf-m`
  *      both match. There can be at most one such direct child for a given
  *      (parent scope, slot) pair, so this returns immediately on first
  *      match.
@@ -98,7 +99,7 @@ export function findSsrScopeBySlotIn(
     const escaped = (CSS as { escape?: (s: string) => string }).escape
       ? CSS.escape(parentBfs)
       : parentBfs.replace(/"/g, '\\"')
-    const selector = `[${BF_PARENT}="${escaped}"][${BF_MOUNT}="${slotId}"]`
+    const selector = `[${BF_HOST}="${escaped}"][${BF_AT}="${slotId}"]`
     if (selfMatch && parent.matches(selector)) return parent as HTMLElement
     const direct = parent.querySelector(selector) as HTMLElement | null
     if (direct) return direct
