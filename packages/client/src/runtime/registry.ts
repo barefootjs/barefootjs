@@ -136,11 +136,16 @@ export function upsertChild(
   anchorScope?: Element | null,
 ): HTMLElement | null {
   // SSR: scope element is already in the tree.
+  // With slotId: (bf-h, bf-m) primary lookup (unique by construction).
+  // Without slotId: name-prefix bf-s scan — used for top-level component
+  // lookup where there's no per-slot anchor; per #1249 bf-s values no
+  // longer carry the `~` child prefix, so a single name-prefix selector
+  // suffices.
   let ssr: HTMLElement | null = null
   if (slotId) {
     ssr = findSsrScopeBySlotIn(parent, name, slotId, anchorScope, /* selfMatch */ false)
   } else {
-    ssr = parent.querySelector(`[${BF_SCOPE}^="~${name}_"], [${BF_SCOPE}^="${name}_"]`) as HTMLElement | null
+    ssr = parent.querySelector(`[${BF_SCOPE}^="${name}_"]`) as HTMLElement | null
   }
   if (ssr) {
     initChild(name, ssr, props)

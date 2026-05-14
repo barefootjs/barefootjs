@@ -166,17 +166,19 @@ export function createComponent(
   const def = getRegisteredDef(name)
   const isCommentWrapper = def?.comment === true
   if (!isCommentWrapper) {
-    // Mark with `~` child prefix when this component is being mounted as a
-    // child (slot info present) so initChild's re-entry guard kicks in. The
-    // SSR-rendered scopes carry the same prefix; without it on freshly-
-    // created CSR components, every reconcile would re-run init() and
-    // multiply effects, producing the recursive-component duplication bug.
-    const childPrefix = slot ? '~' : ''
-    const scopeId = `${childPrefix}${name}_${generateId()}`
-    element.setAttribute(BF_SCOPE, scopeId)
+    // Per #1249, bf-s no longer carries the `~` child prefix — child-scope
+    // status is signalled by the presence of `bf-h` below. The SSR-rendered
+    // shape matches: roots emit `bf-s="<name>_<id>"`, children additionally
+    // stamp `bf-h="<host>"` and `bf-m="<slot>"`.
+    element.setAttribute(BF_SCOPE, `${name}_${generateId()}`)
   }
+  // Stamp slot-relationship markers for any CSR child mount. `bf-m` is
+  // always set when a slot is provided so the resolver's
+  // `isClaimedForOtherSlot` filter can never be a no-op (#1249 AC). `bf-h`
+  // is set only when the host scope is resolvable — top-level CSR mounts
+  // outside any surrounding scope legitimately lack a host.
   if (slot) {
-    element.setAttribute(BF_HOST, slot.parent)
+    if (slot.parent) element.setAttribute(BF_HOST, slot.parent)
     element.setAttribute(BF_AT, slot.mount)
   }
   if (key !== undefined) {
