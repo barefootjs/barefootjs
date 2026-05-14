@@ -8,7 +8,7 @@
 
 import { describe, test, expect } from 'bun:test'
 import { jsxFixtures } from '../../fixtures'
-import { normalizeHTML } from '../jsx-runner'
+import { normalizeHTML, stripConditionalMarkersForCrossAdapter } from '../jsx-runner'
 import { renderCsrComponent } from '../csr-render'
 
 describe('CSR Conformance Tests', () => {
@@ -74,14 +74,15 @@ describe('CSR Conformance Tests', () => {
 
       expect(html).toBeTruthy()
 
-      // Both sides go through `normalizeHTML` so cross-adapter
-      // canonicalisation rules (e.g. stripping the conditional-marker
-      // divergence introduced in #1266) apply symmetrically — without
-      // this the actual output loses `bf-c="sN"` attributes but the
-      // fixture's expectedHtml retains them, causing every conditional
-      // fixture to fail.
-      const normalizedHtml = normalizeHTML(html)
-      const normalizedExpected = normalizeHTML(fixture.expectedHtml!)
+      // Strip the conditional-branch marker divergence (#1266) on both
+      // sides so the Go comment-pair form and the Hono bf-c attribute
+      // form collapse to the same canonical shape. `normalizeHTML`
+      // intentionally preserves both forms so the canonical fixture
+      // HTML (and the SSR-hydration contract test that reads it) keeps
+      // the SSR-side markers; cross-adapter collapsing happens only
+      // here at compare time.
+      const normalizedHtml = stripConditionalMarkersForCrossAdapter(normalizeHTML(html))
+      const normalizedExpected = stripConditionalMarkersForCrossAdapter(normalizeHTML(fixture.expectedHtml!))
       expect(normalizedHtml).toBe(normalizedExpected)
     })
   }
