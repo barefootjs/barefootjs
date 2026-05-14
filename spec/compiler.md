@@ -267,14 +267,25 @@ Helpers exported from `@barefootjs/jsx`:
 
    | Marker | Purpose | Example |
    |--------|---------|---------|
-   | `bf-s` | Component scope boundary (`~` prefix = child) | `bf-s="Counter_a1b2"`, `bf-s="~Item_c3d4"` |
-   | `bf` | Interactive element (slot) | `bf="s0"` |
+   | `bf-s` | Component scope boundary + addressable scope ID | `bf-s="Counter_a1b2"` |
+   | `bf-h` | Host scope ID — present on child scopes only | `bf-h="App_root"` |
+   | `bf-m` | Slot ID in the host where the child is mounted | `bf-m="s10"` |
+   | `bf` | Interactive element (host-side slot position) | `bf="s0"` |
    | `bf-p` | Serialized props JSON | `bf-p='{"initial":5}'` |
    | `bf-c` | Conditional element | `bf-c="s2"` |
    | `bf-po` | Portal owner scope ID | `bf-po="Dialog_a1b2"` |
    | `bf-pi` | Portal container ID | `bf-pi="bf-portal-1"` |
    | `bf-pp` | Portal placeholder | `bf-pp="bf-portal-1"` |
    | `bf-i` | List item marker | `bf-i` |
+
+   **Slot identity (#1249).** A slot-attached child component scope is
+   identified by the `(bf-h, bf-m)` pair — unique by construction at
+   SSR emit time. The slot-resolver's primary (and only) lookup is
+   `[bf-h="<host>"][bf-m="<slot>"]`; there is no suffix or name-prefix
+   fallback. `bf-s` carries the scope's own addressable id used by
+   portals (`bf-po`), context lookups, and the hydration walker — but
+   not slot identity. `bf-s` values do **not** carry a `~` child
+   prefix; child-scope status is signalled by `bf-h` presence.
 
 2. **Client JS**: Minimal JavaScript for reactivity
    - Uses `createEffect` for reactive updates
