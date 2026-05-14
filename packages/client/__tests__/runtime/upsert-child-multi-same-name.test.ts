@@ -108,6 +108,103 @@ describe('upsertChild — multiple same-name children at distinct slots', () => 
     expect(buttons[2].textContent).toBe('R')
   })
 
+  test('three same-name children with stale sibling — primary lookup ignores cross-slot stale element (#1249)', () => {
+    // #1249 AC: even when a stale element under a sibling slot exists
+    // (e.g. a previous mount that did not get reclaimed), the resolver
+    // primary lookup `[bf-h][bf-m]` selects the correct element by
+    // construction. Without this isolation a name-prefix fallback would
+    // pick the stale element first by document order.
+    hydrate('SmallButton', {
+      init: () => {},
+      template: (props) => `<button bf="s0">${props.children as string}</button>`,
+    })
+    flushHydration()
+
+    const anchor = document.createElement('div')
+    anchor.setAttribute('bf-s', 'Host_test')
+    document.body.appendChild(anchor)
+
+    const card = document.createElement('div')
+    // Three CSR placeholders + ONE stale SSR scope with the same name
+    // and a non-matching bf-m. The stale element used to come first in
+    // document order; the primary (bf-h, bf-m) lookup must skip it.
+    card.innerHTML =
+      '<button class="stale" bf-s="SmallButton_stale" bf-h="Host_test" bf-m="s99">old</button>' +
+      '<div data-bf-ph="s10"></div>' +
+      '<div data-bf-ph="s11"></div>' +
+      '<div data-bf-ph="s12"></div>'
+    anchor.appendChild(card)
+
+    const e1 = upsertChild(card, 'SmallButton', 's10', { children: 'X' }, undefined, anchor)
+    const e2 = upsertChild(card, 'SmallButton', 's11', { children: 'L' }, undefined, anchor)
+    const e3 = upsertChild(card, 'SmallButton', 's12', { children: 'R' }, undefined, anchor)
+
+    expect(e1!.textContent).toBe('X')
+    expect(e1!.getAttribute('bf-m')).toBe('s10')
+    expect(e2!.textContent).toBe('L')
+    expect(e2!.getAttribute('bf-m')).toBe('s11')
+    expect(e3!.textContent).toBe('R')
+    expect(e3!.getAttribute('bf-m')).toBe('s12')
+
+    // The stale element is untouched — never reclaimed by any of the
+    // three upsert calls.
+    const stale = card.querySelector('.stale')
+    expect(stale).not.toBeNull()
+    expect(stale!.textContent).toBe('old')
+    expect(stale!.getAttribute('bf-m')).toBe('s99')
+  })
+
+  test('hybrid SSR/CSR — pre-rendered + placeholder children both resolve by their own slot (#1249)', () => {
+    // #1249 AC: a card with one SSR-rendered child scope and two
+    // pure-CSR placeholders should yield three same-name children each
+    // mounted at its own slot. The pre-existing fragility was that
+    // the CSR mounts could re-attach to the SSR scope via the legacy
+    // name-prefix fallback.
+    hydrate('SmallButton', {
+      init: () => {},
+      template: (props) => `<button bf="s0">${props.children as string}</button>`,
+    })
+    flushHydration()
+
+    const anchor = document.createElement('div')
+    anchor.setAttribute('bf-s', 'HybridHost_test')
+    document.body.appendChild(anchor)
+
+    const card = document.createElement('div')
+    // SSR scope already mounted for s10; s11 + s12 are CSR placeholders.
+    card.innerHTML =
+      '<button class="ssr" bf-s="SmallButton_ssr" bf-h="HybridHost_test" bf-m="s10">PRE</button>' +
+      '<div data-bf-ph="s11"></div>' +
+      '<div data-bf-ph="s12"></div>'
+    anchor.appendChild(card)
+
+    // s10 hits the SSR scope path (initChild on the existing element).
+    const e1 = upsertChild(card, 'SmallButton', 's10', { children: 'X' }, undefined, anchor)
+    expect(e1).not.toBeNull()
+    expect(e1!.classList.contains('ssr')).toBe(true)
+    // SSR text is preserved (initChild doesn't replace it without an effect).
+    expect(e1!.textContent).toBe('PRE')
+
+    // s11 / s12 hit the CSR placeholder-replacement path. Each fresh
+    // mount must stamp its own bf-h + bf-m (the #1249 always-stamp
+    // requirement), so subsequent reconciles continue to find them by
+    // primary lookup.
+    const e2 = upsertChild(card, 'SmallButton', 's11', { children: 'L' }, undefined, anchor)
+    expect(e2!.tagName).toBe('BUTTON')
+    expect(e2!.getAttribute('bf-h')).toBe('HybridHost_test')
+    expect(e2!.getAttribute('bf-m')).toBe('s11')
+
+    const e3 = upsertChild(card, 'SmallButton', 's12', { children: 'R' }, undefined, anchor)
+    expect(e3!.tagName).toBe('BUTTON')
+    expect(e3!.getAttribute('bf-h')).toBe('HybridHost_test')
+    expect(e3!.getAttribute('bf-m')).toBe('s12')
+
+    // All three live side-by-side, each addressable by its slot.
+    expect(card.querySelectorAll('button').length).toBe(3)
+    expect(card.querySelector('[data-bf-ph="s11"]')).toBeNull()
+    expect(card.querySelector('[data-bf-ph="s12"]')).toBeNull()
+  })
+
   test('SSR with two same-name children at distinct slots — (bf-h, bf-m) resolves each correctly', () => {
     // Post-#1249: identity is the (bf-h, bf-m) pair. Two same-name
     // children of the same host with distinct slot ids each carry their
