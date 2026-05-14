@@ -80,6 +80,10 @@ export function normalizeHTML(html: string): string {
     // conformance keeps the comparison apples-to-apples.
     .replace(/\s*bf-h="[^"]*"/g, '')
     .replace(/\s*bf-m="[^"]*"/g, '')
+    // bf-r is the Hono-specific root-of-client-component marker for e2e
+    // locator distinction (#1249). Other adapters don't emit it, so strip
+    // for cross-adapter conformance comparisons.
+    .replace(/\s*bf-r=""/g, '')
     // Strip Hono's scope-init comments (`<!--bf-scope:...-->`). Same
     // motivation as the bf-h / bf-m strips above: only Hono's
     // JS-runtime hydration path uses them, so removing them keeps
