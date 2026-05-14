@@ -71,12 +71,13 @@ function buildSingleCompPlan(
 ): SingleCompInitPlan {
   const { name, props, slotId } = childComponent
   // JS source expression embedded verbatim into the generated code.
-  // Per #1249, slot-attached children are addressed by the (bf-h, bf-m)
-  // pair, evaluated at runtime against the enclosing parent's __scopeId.
-  // Top-level cases (no slotId) fall back to a bf-s name-prefix scan.
+  // Primary (bf-h, bf-m) addressing per #1249, with a `[bf-s$="_<slot>"]
+  // :not([bf-h])` loop-body fallback for renderChild-mounted children
+  // that don't carry host metadata (mapArray's renderItem callback runs
+  // outside any `setParentScopeId` context — follow-up to propagate it).
   const childSelector = slotId
-    ? `\`[bf-h="\${__scopeId}"][bf-m="${slotId}"]\``
-    : `'[bf-s^="${name}_"]'`
+    ? `\`[bf-h="\${__scopeId}"][bf-m="${slotId}"], [bf-s$="_${slotId}"]:not([bf-h])\``
+    : `'[bf-s^="~${name}_"], [bf-s^="${name}_"]'`
 
   return {
     kind: 'single-comp',

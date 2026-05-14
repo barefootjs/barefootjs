@@ -534,9 +534,10 @@ export class HonoAdapter extends JsxAdapter {
     // Add hydration markers
     let hydrationAttrs = ''
     if (element.needsScope) {
-      // bf-s is just the addressable scope id now (#1249) — no `~` prefix.
-      // Child-scope status is signalled by bf-h presence below.
-      hydrationAttrs += ' bf-s={__scopeId}'
+      // bf-s uses the `~` prefix for child scopes as a shape convention so
+      // selectors like `[bf-s^="ParentName_"]` keep matching only the root.
+      // Semantic child-scope detection (walker / resolver) uses bf-h.
+      hydrationAttrs += ' bf-s={__bfChild ? `~${__scopeId}` : __scopeId}'
       // Slot-relationship markers (set when the parent passed __bfParent /
       // __bfMount). The (bf-h, bf-m) pair is the authoritative identity of a
       // slot-attached child scope; upsertChild's primary lookup queries on
@@ -783,10 +784,9 @@ export class HonoAdapter extends JsxAdapter {
         scopeAttr = ` __instanceId={__scopeId}${propsPassAttr}`
       }
       // Also pass bf-s for asChild/Slot patterns where the component forwards
-      // props to a DOM element via {...props}. The final element gets a bare
-      // addressable scope id; child-scope status is carried by bf-h (passed
-      // separately as __bfParent in the bfMountAttr block).
-      scopeAttr += ' bf-s={__scopeId}'
+      // props to a DOM element via {...props}. Use the same `~` prefix
+      // convention as the JSX-emit path above so locators are consistent.
+      scopeAttr += ' bf-s={__bfChild ? `~${__scopeId}` : __scopeId}'
     } else if (ctx?.isInsideLoop) {
       // Components inside loops should generate their own unique scope IDs
       // Pass __bfScope so they use it as fallback but generate unique IDs

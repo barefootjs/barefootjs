@@ -207,8 +207,8 @@ function emitEventSetup(
  */
 export function buildCompSelector(comp: { slotId?: string | null; name: string }): string {
   return comp.slotId
-    ? `\`[bf-h="\${__scopeId}"][bf-m="${comp.slotId}"]\``
-    : `'[bf-s^="${comp.name}_"]'`
+    ? `\`[bf-h="\${__scopeId}"][bf-m="${comp.slotId}"], [bf-s$="_${comp.slotId}"]:not([bf-h])\``
+    : `'[bf-s^="~${comp.name}_"], [bf-s^="${comp.name}_"]'`
 }
 
 /**

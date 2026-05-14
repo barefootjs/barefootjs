@@ -246,9 +246,11 @@ function hydrateElementScope(el: Element): void {
 
   const bfs = el.getAttribute(BF_SCOPE)
   if (!bfs) return
-  // Child scopes (carrying `bf-h`) are claimed by their parent's initChild
-  // call; the walker must skip them so the parent owns lifecycle.
-  if (el.hasAttribute(BF_HOST)) return
+  // Skip child scopes — parent's initChild call owns their lifecycle.
+  // Child detection accepts either signal: the structural marker bf-h
+  // (the #1249 contract) or the legacy `~` value prefix on bf-s for
+  // loop-body / pre-#1249 SSR paths that don't stamp bf-h yet.
+  if (el.hasAttribute(BF_HOST) || bfs.startsWith('~')) return
 
   const name = scopeName(bfs)
   if (!name) return

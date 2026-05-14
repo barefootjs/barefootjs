@@ -17,12 +17,14 @@ import { BF_SCOPE, BF_HOST, BF_AT } from '@barefootjs/shared'
  *  explicit `anchorScope` because the immediate `parent` element may be a
  *  freshly-created detached fragment whose `closest()` returns null.
  *
- *  Per #1249 the `bf-s` value no longer carries a child prefix — the value
- *  IS the scope id, so it can be used as-is for `bf-h` lookups. */
+ *  Strips the `~` child-prefix convention from the returned value so the
+ *  result is what bf-h would carry (the host's own scope id, without the
+ *  child marker). */
 export function parentScopeOf(parent: Element, anchorScope?: Element | null): string {
   const ancestor = anchorScope ?? parent.closest(`[${BF_SCOPE}]`)
   if (!ancestor) return ''
-  return ancestor.getAttribute(BF_SCOPE) ?? ''
+  const bfs = ancestor.getAttribute(BF_SCOPE) ?? ''
+  return bfs.startsWith('~') ? bfs.slice(1) : bfs
 }
 
 /** Build the bf-h / bf-m metadata for a fresh component about to be

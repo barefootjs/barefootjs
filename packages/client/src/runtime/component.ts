@@ -166,11 +166,12 @@ export function createComponent(
   const def = getRegisteredDef(name)
   const isCommentWrapper = def?.comment === true
   if (!isCommentWrapper) {
-    // Per #1249, bf-s no longer carries the `~` child prefix — child-scope
-    // status is signalled by the presence of `bf-h` below. The SSR-rendered
-    // shape matches: roots emit `bf-s="<name>_<id>"`, children additionally
-    // stamp `bf-h="<host>"` and `bf-m="<slot>"`.
-    element.setAttribute(BF_SCOPE, `${name}_${generateId()}`)
+    // Child scopes get the `~` prefix as a visual + locator convention so
+    // selectors like `[bf-s^="ParentName_"]` keep matching the root only.
+    // Semantic child-scope detection (in the hydration walker / resolver)
+    // uses bf-h presence per #1249; the prefix is a shape detail.
+    const childPrefix = slot ? '~' : ''
+    element.setAttribute(BF_SCOPE, `${childPrefix}${name}_${generateId()}`)
   }
   // Stamp slot-relationship markers for any CSR child mount. `bf-m` is
   // always set when a slot is provided so the resolver's
@@ -296,25 +297,25 @@ export function renderChild(
     ? ` ${BF_HOST}="${_parentScopeId}" ${BF_AT}="${slotSuffix}"`
     : ''
 
+  // Visual / locator convention: child scopes keep a `~` prefix on bf-s
+  // so existing `[bf-s^="ParentName_"]` selectors continue to address only
+  // the root. Semantic child detection uses bf-h presence (#1249); the
+  // prefix is purely a shape detail to preserve test/CSS compatibility.
+  const childMark = slotSuffix ? '~' : ''
+
   if (!templateFn) {
-    // Fallback: empty placeholder (for components without registered templates).
-    // Per #1249, child-scope status is signalled by bf-h presence (set in
-    // slotAttrs when this is a slot-attached mount), not by a `~` prefix.
-    return `<div bf-s="${scopePrefix}${suffix}"${slotAttrs}${keyAttr}></div>`
+    return `<div bf-s="${childMark}${scopePrefix}${suffix}"${slotAttrs}${keyAttr}></div>`
   }
 
   const html = templateFn(props).trim()
-  // Inject bf-s scope attribute into the first element tag. The slot
-  // markers (bf-h / bf-m, in slotAttrs) signal child-scope status to
-  // `hydrate.ts::hydrateElementScope`, which skips elements carrying
-  // bf-h so the parent's initChild owns lifecycle. Templates may start
-  // with comment markers (e.g. <!--bf-cond-start:...-->), so we find
+  // Inject bf-s scope attribute into the first element tag. Templates may
+  // start with comment markers (e.g. <!--bf-cond-start:...-->), so we find
   // the first element tag rather than assuming it's at position 0.
   const firstElMatch = html.match(/<(\w+)/)
   if (!firstElMatch) return html
   const insertPos = html.indexOf(firstElMatch[0])
   return html.slice(0, insertPos) +
-    html.slice(insertPos).replace(/^(<\w+)/, `$1 bf-s="${scopePrefix}${suffix}"${slotAttrs}${keyAttr}`)
+    html.slice(insertPos).replace(/^(<\w+)/, `$1 bf-s="${childMark}${scopePrefix}${suffix}"${slotAttrs}${keyAttr}`)
 }
 
 /**

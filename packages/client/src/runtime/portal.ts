@@ -112,8 +112,9 @@ export function findSiblingSlot(el: HTMLElement, slotSelector: string): HTMLElem
   const ownerScopeId = portalWrapper.getAttribute(BF_PORTAL_OWNER)
   if (!ownerScopeId) return null
 
-  // Find owner scope element by exact bf-s match (per #1249, no more ~ prefix).
+  // Find owner scope, accepting both root (no prefix) and child (`~`) shapes.
   const ownerScope = document.querySelector(`[${BF_SCOPE}="${ownerScopeId}"]`)
+    ?? document.querySelector(`[${BF_SCOPE}="~${ownerScopeId}"]`)
   if (!ownerScope) return null
 
   return ownerScope.querySelector(slotSelector) as HTMLElement | null
@@ -150,8 +151,13 @@ export function createPortal(
 
   // Set portal owner for scope-based find()
   if (options?.ownerScope) {
-    // Check bf-s attribute first, then fall back to comment scope registry
-    let scopeId: string | null = (options.ownerScope as HTMLElement).getAttribute?.(BF_SCOPE) ?? null
+    // Check bf-s attribute first, then fall back to comment scope registry.
+    // Strip the `~` child prefix so the stored owner id matches the host's
+    // own scope value (used as the bf-po reference target).
+    const raw = (options.ownerScope as HTMLElement).getAttribute?.(BF_SCOPE)
+    let scopeId: string | null = raw
+      ? (raw.startsWith('~') ? raw.slice(1) : raw)
+      : null
     if (!scopeId) {
       scopeId = getPortalScopeId(options.ownerScope) ?? null
     }

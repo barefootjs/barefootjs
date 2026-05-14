@@ -136,12 +136,15 @@ export function buildBranchChildComponentInitsPlan(
   const inits: BranchChildComponentInit[] = []
   for (const comp of components) {
     // Per #1249, slot-attached children are addressed by the (bf-h, bf-m)
-    // pair against the enclosing parent's __scopeId. Same-name siblings at
-    // different slots can no longer collide. Top-level (no slotId) falls
-    // back to a bf-s name-prefix scan.
+    // pair against the enclosing parent's __scopeId. The second clause is
+    // a loop-body fallback: child mounts that came through `renderChild`
+    // inside a mapArray callback lack bf-h (the renderItem path doesn't
+    // propagate host context yet), so we accept bf-s suffix on elements
+    // without bf-h. `:not([bf-h])` ensures the fallback can't reclaim a
+    // sibling slot's already-bound child.
     const selector = comp.slotId
-      ? `\`[bf-h="\${__scopeId}"][bf-m="${comp.slotId}"]\``
-      : `'[bf-s^="${comp.name}_"]'`
+      ? `\`[bf-h="\${__scopeId}"][bf-m="${comp.slotId}"], [bf-s$="_${comp.slotId}"]:not([bf-h])\``
+      : `'[bf-s^="~${comp.name}_"], [bf-s^="${comp.name}_"]'`
 
     const propsEntries = comp.props
       .filter(p => p.name !== 'key')
