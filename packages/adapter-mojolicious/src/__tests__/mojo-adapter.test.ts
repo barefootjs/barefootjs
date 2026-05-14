@@ -19,6 +19,12 @@ runAdapterConformanceTests({
   render: renderMojoComponent,
   // Dynamic style objects (non-static values) require Perl template
   // interpolation support for JS object literals, not yet implemented.
+  // Mojo currently emits invalid Perl silently for this shape — the
+  // Go adapter records BF101 via `convertExpressionToGo()` for the
+  // same fixture (now contracted via `expectedDiagnostics`), but the
+  // Mojo adapter's expression gate doesn't yet lift the same
+  // failure into a `CompilerError`, so the fixture stays on `skipJsx`
+  // until that gate is extended (#1266 follow-up).
   // `logical-or-jsx`, `nullish-coalescing-jsx`, `branch-map` reference
   // a prop directly inside a conditional branch (`$label`, `$banner`,
   // `$active`). The Mojo adapter emits these as bare Perl variables
@@ -31,8 +37,14 @@ runAdapterConformanceTests({
   // `return-logical-or` / `return-nullish-coalescing` reference
   // `$label` / `$banner` directly; `return-map` iterates over `$items`
   // without a `my` declaration.
+  //
+  // `static-array-children` / `static-array-from-props` /
+  // `static-array-from-props-with-component` are no longer here —
+  // they're covered by `expectedDiagnostics` below, asserting that
+  // the adapter emits `BF103` / `BF104` at build time instead of
+  // silently emitting invalid Perl / unresolved cross-template
+  // references (#1266).
   skipJsx: [
-    'static-array-children',
     'style-object-dynamic',
     'logical-or-jsx',
     'nullish-coalescing-jsx',
@@ -40,13 +52,26 @@ runAdapterConformanceTests({
     'return-logical-or',
     'return-nullish-coalescing',
     'return-map',
-    // Same JS-only `Object.entries(...).filter(...)` shape the Go
-    // adapter skips. The CSR self-heal (#1247, #1268) covers the bug
-    // on the JS side; the Perl SSR side would need bespoke helpers
-    // to materialise the loop at request time.
-    'static-array-from-props',
-    'static-array-from-props-with-component',
   ],
+  // Per-fixture build-time contracts for shapes the Mojo adapter
+  // intentionally refuses to lower. Owned by this adapter test file
+  // (not by the shared fixtures) so adding a new adapter doesn't
+  // require touching any cross-adapter file.
+  expectedDiagnostics: {
+    // Sibling-imported child component in a loop body: Mojo emits
+    // a cross-template call that needs separate registration. BF103
+    // makes the requirement loud. (The barefoot CLI passes
+    // `siblingTemplatesRegistered: true` so CLI builds suppress it.)
+    'static-array-children': [{ code: 'BF103', severity: 'error' }],
+    // Array-destructure loop param (`([k, v]) => ...`) lowers to
+    // invalid Perl (`% my $[k, v] = $entries->[$_i];`).
+    'static-array-from-props': [{ code: 'BF104', severity: 'error' }],
+    // Both BF103 (imported child) and BF104 (destructure) fire.
+    'static-array-from-props-with-component': [
+      { code: 'BF103', severity: 'error' },
+      { code: 'BF104', severity: 'error' },
+    ],
+  },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `MojoAdapter.templatePrimitives` (#1189). The two remaining
   // cases stay skipped because the V1 registry is identifier-path-

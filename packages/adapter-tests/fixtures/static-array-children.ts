@@ -1,5 +1,19 @@
 import { createFixture } from '../src/types'
 
+/**
+ * Static array of child components imported from a sibling .tsx file.
+ *
+ * Hono renders the JSX directly — the child component reference
+ * resolves to the imported function symbol at request time, so the
+ * output is the fully materialised HTML. SSR text-template adapters
+ * emit a cross-template call (e.g. `{{template "ListItem" .}}`) that
+ * resolves only if the user has compiled the sibling file and
+ * registered the resulting template on the same template instance —
+ * otherwise the request fails with `template: "ListItem" is undefined`
+ * or the adapter's equivalent. Adapters that can't transparently
+ * handle that assert the corresponding refusal via
+ * `expectedDiagnostics` on their own test file (#1266).
+ */
 export const fixture = createFixture({
   id: 'static-array-children',
   description: 'Static array with child components preserves className (#483)',

@@ -3,8 +3,27 @@
  */
 
 /**
+ * A single compile-time diagnostic the fixture is expected to emit.
+ *
+ * Used in `JSXFixture.expectedDiagnostics` per adapter to assert the
+ * compiler is loud about an unsupported pattern, rather than silently
+ * emitting broken template output that only fails at request time.
+ */
+export interface ExpectedDiagnostic {
+  /** Error code (e.g. `'BF101'`, `'BF103'`). */
+  code: string
+  /** Severity to match against `CompilerError.severity`. */
+  severity: 'error' | 'warning'
+}
+
+/**
  * A JSX fixture defines a component source and optional props for rendering.
  * Used by the JSX conformance runner to compile and render across adapters.
+ *
+ * Fixtures intentionally carry no adapter-specific knowledge — diagnostic
+ * expectations live on the adapter side (`runAdapterConformanceTests`
+ * `expectedDiagnostics`), so adding a new adapter doesn't require touching
+ * any fixture.
  */
 export interface JSXFixture {
   /** Unique fixture identifier, e.g., "counter" */

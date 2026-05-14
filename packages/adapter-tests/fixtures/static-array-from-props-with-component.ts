@@ -20,6 +20,12 @@ import { createFixture } from '../src/types'
  * covered by the runtime regression test in
  * `packages/client/__tests__/runtime/static-loop-csr-materialize.test.ts`
  * since the harness here only evaluates the `template:` lambda.
+ *
+ * This fixture combines two SSR refusal shapes: a sibling-imported
+ * child component (Tag from `./tag`) AND an array-destructure loop
+ * param (`([id, t]) => ...`). Adapters that can't lower either
+ * declare the matching diagnostics via `expectedDiagnostics` on
+ * their own test file (#1266).
  */
 export const fixture = createFixture({
   id: 'static-array-from-props-with-component',

@@ -196,6 +196,30 @@ export class GoTemplateAdapter extends BaseAdapter {
     this.errors = []
     this.propsObjectName = ir.metadata.propsObjectName
 
+    // Surface loop-body usages of components imported from sibling
+    // .tsx files. The adapter emits `{{template "X" .}}` for these,
+    // which Go's template engine resolves only if the user has
+    // compiled the sibling file with the same adapter and registered
+    // the resulting `{{define "X"}}` block on the same Template
+    // instance. When that doesn't happen, the failure is silent at
+    // build time and surfaces as a `template: "X" is undefined` at
+    // request time — the exact "silent-when-should-be-loud" shape
+    // #1266 calls out. The check is scoped to loop bodies because
+    // that's the natural Hono-style pattern (factor a list item
+    // into a sibling file, .map() over data) and is where users
+    // are most likely to hit the request-time failure unawares.
+    //
+    // The barefoot CLI passes `siblingTemplatesRegistered: true`
+    // because it compiles every source-dir file together and
+    // registers them all on the same `*template.Template` instance —
+    // for that caller the cross-template lookup always resolves, so
+    // the diagnostic would be noise. Stand-alone `compileJSX` callers
+    // (conformance runner, third-party tooling) leave the flag unset
+    // and get the loud build-time error.
+    if (!options?.siblingTemplatesRegistered) {
+      this.checkImportedLoopChildComponents(ir)
+    }
+
     const hasInteractivity = this.hasClientInteractivity(ir)
     const isRootComponent = ir.root.type === 'component'
     const isIfStatement = ir.root.type === 'if-statement'
@@ -323,6 +347,103 @@ export class GoTemplateAdapter extends BaseAdapter {
         this.collectChildComponentNames(ifStmt.alternate, names)
       }
     }
+  }
+
+  /**
+   * Push a `BF103` diagnostic for every component reference inside a
+   * loop body whose name is imported from a relative-path module
+   * (i.e. a sibling .tsx file). The Go adapter renders these as
+   * `{{template "X" .}}` calls, which Go's template engine resolves
+   * only against templates registered on the same `*template.Template`
+   * — so a user who factored a list item into `./list-item.tsx` and
+   * mapped over it gets a working build and a `template: "X" is
+   * undefined` at request time. Surfacing this at build time matches
+   * the louder-over-silent contract (#1266).
+   *
+   * Scoped to loop bodies because that's the natural Hono-style
+   * pattern the issue calls out; static (non-loop) usage of imported
+   * components is left alone so existing static-layout patterns
+   * keep working without noise.
+   */
+  private checkImportedLoopChildComponents(ir: ComponentIR): void {
+    // Collect every name imported from a relative-path module (no
+    // case filter — `IRComponent` nodes only exist for PascalCase JSX
+    // usages, so a lowercase utility import in the set can't match
+    // anyway, and any heuristic on the import name itself would be
+    // strictly less robust than the structural IR check below).
+    const relativeImports = new Set<string>()
+    for (const imp of ir.metadata.templateImports ?? ir.metadata.imports ?? []) {
+      if (!imp.source.startsWith('./') && !imp.source.startsWith('../')) continue
+      if (imp.isTypeOnly) continue
+      for (const spec of imp.specifiers) {
+        relativeImports.add(spec.alias ?? spec.name)
+      }
+    }
+    if (relativeImports.size === 0) return
+
+    const visit = (node: IRNode, inLoop: boolean): void => {
+      switch (node.type) {
+        case 'component': {
+          const comp = node as IRComponent
+          if (inLoop && relativeImports.has(comp.name)) {
+            this.errors.push({
+              code: 'BF103',
+              severity: 'error',
+              message: `Component <${comp.name}> is imported from a sibling module and used inside a loop. The Go template adapter emits a cross-template call ({{template "${comp.name}" .}}); the child template must be registered on the same *template.Template instance at render time.`,
+              loc: comp.loc ?? this.makeLoc(),
+              suggestion: {
+                message:
+                  `Options:\n` +
+                  `  1. Compile '${comp.name}' (its source file) with the same adapter and register the resulting {{define "${comp.name}"}} on the same *template.Template instance at render time.\n` +
+                  `  2. Inline <${comp.name}> directly inside the loop body so no cross-file template lookup is needed.\n` +
+                  `  3. Mark the loop position as @client-only so the template is materialised on the client instead of at SSR time.`,
+              },
+            })
+          }
+          for (const child of comp.children) visit(child, inLoop)
+          break
+        }
+        case 'element': {
+          const el = node as IRElement
+          for (const child of el.children) visit(child, inLoop)
+          break
+        }
+        case 'fragment': {
+          const frag = node as IRFragment
+          for (const child of frag.children) visit(child, inLoop)
+          break
+        }
+        case 'conditional': {
+          const cond = node as IRConditional
+          visit(cond.whenTrue, inLoop)
+          if (cond.whenFalse) visit(cond.whenFalse, inLoop)
+          break
+        }
+        case 'loop': {
+          const loop = node as IRLoop
+          for (const child of loop.children) visit(child, true)
+          break
+        }
+        case 'if-statement': {
+          const stmt = node as IRIfStatement
+          visit(stmt.consequent, inLoop)
+          if (stmt.alternate) visit(stmt.alternate, inLoop)
+          break
+        }
+        case 'provider': {
+          const p = node as IRProvider
+          for (const child of p.children) visit(child, inLoop)
+          break
+        }
+        case 'async': {
+          const a = node as IRAsync
+          visit(a.fallback, inLoop)
+          for (const child of a.children) visit(child, inLoop)
+          break
+        }
+      }
+    }
+    visit(ir.root, false)
   }
 
   /**
@@ -2698,6 +2819,36 @@ export class GoTemplateAdapter extends BaseAdapter {
     // The marker id disambiguates sibling `.map()` calls under the same parent (#1087).
     if (loop.clientOnly) {
       return `{{bfComment "loop:${loop.markerId}"}}{{bfComment "/loop:${loop.markerId}"}}`
+    }
+
+    // An array/object-destructure loop param (`([emoji, users]) => ...`
+    // or `({ name, age }) => ...`) requires multi-variable
+    // `{{range $k, $v := ...}}` semantics that Go templates don't
+    // provide for arbitrary tuples — the adapter would otherwise emit
+    // `{{range $_, $[emoji, users] := .Entries}}`, which is invalid Go
+    // template syntax. Surface this at build time (#1266) instead of
+    // shipping the broken `{{range}}` line for the user to discover at
+    // request time.
+    //
+    // Check the IR's structured `paramBindings` field rather than
+    // string-matching `loop.param`: Phase 1 populates `paramBindings`
+    // iff the param is a destructure pattern (array or object); a
+    // simple identifier leaves it `undefined`. The structured check is
+    // robust to whitespace / formatting variants in the source.
+    if (loop.paramBindings && loop.paramBindings.length > 0) {
+      this.errors.push({
+        code: 'BF104',
+        severity: 'error',
+        message: `Loop callback uses an array/object destructure pattern (\`${loop.param}\`) that the Go template adapter cannot lower — Go's \`{{range}}\` only supports single-name bindings.`,
+        loc: loop.loc ?? this.makeLoc(),
+        suggestion: {
+          message:
+            `Options:\n` +
+            `  1. Rename the parameter to a single name and access tuple elements with index syntax in the body (e.g. \`entry => entry[0]\` instead of \`([k, v]) => ...\`).\n` +
+            `  2. Mark the loop position as @client-only so the destructure runs in JS on the client.\n` +
+            `  3. Move the loop into a primitive that the adapter registers explicitly.`,
+        },
+      })
     }
 
     let goArray = this.convertExpressionToGo(loop.array)

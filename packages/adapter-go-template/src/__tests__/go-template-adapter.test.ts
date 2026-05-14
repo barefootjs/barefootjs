@@ -17,35 +17,64 @@ runAdapterConformanceTests({
   name: 'go-template',
   factory: () => new GoTemplateAdapter(),
   render: renderGoTemplateComponent,
-  // Static array with child components from separate files is not yet
-  // supported by the Go template renderer (child templates are not
-  // registered). Dynamic style objects (non-static values) require Go
-  // template interpolation support for JS template literals, which is
-  // not yet implemented.
-  // `branch-self-closing` / `nullish-coalescing-jsx` /
-  // `return-nullish-coalescing` diverge on conditional marker strategy:
-  // the Go adapter emits `<!--bf-cond-start:sN-->` / `<!--bf-cond-end:sN-->`
-  // comment pairs around the active branch, while Hono places a
-  // `bf-c="sN"` attribute on the single element. Both are valid
-  // hydration markers — the runtime accepts either — but the literal
-  // HTML differs, so the Hono-derived `expectedHtml` doesn't match.
-  // `return-map` uses the `data-key` serialisation that differs
-  // between Hono (runtime helper) and Go (template variable).
+  // `branch-self-closing` no longer needs a skip — the conditional-
+  // marker divergence (Hono `bf-c="sN"` attribute vs Go
+  // `<!--bf-cond-start:sN-->` / `<!--bf-cond-end:sN-->` comment pairs)
+  // is now collapsed by `normalizeHTML` in adapter-tests (#1266).
+  //
+  // `nullish-coalescing-jsx` / `return-nullish-coalescing` have a
+  // separate semantic divergence: the Go template's `{{if ne .Banner
+  // ""}}` condition treats an unset `Banner` (Go nil) as `!= ""` and
+  // takes the truthy branch with empty content, while Hono's JS
+  // `??` operator falls through to the JSX default. That's a Go-
+  // adapter branch-selection bug — fixing it is out of scope for
+  // #1266.
+  //
+  // `return-map` uses a `data-key` serialisation shape that differs
+  // between Hono (runtime helper) and Go (template variable) in a
+  // way that isn't structural — leaving it on `skipJsx` until a
+  // normaliser for the `data-key` shape lands or the fixture splits
+  // into per-adapter `expectedHtml`.
+  //
+  // `style-object-dynamic`, `static-array-children`,
+  // `static-array-from-props`, and `static-array-from-props-with-component`
+  // are no longer here — they're covered by `expectedDiagnostics`
+  // below, asserting that the adapter emits `BF101` / `BF103` /
+  // `BF104` at build time instead of silently emitting invalid
+  // template syntax (#1266).
   skipJsx: [
-    'static-array-children',
-    'style-object-dynamic',
-    'branch-self-closing',
     'nullish-coalescing-jsx',
     'return-nullish-coalescing',
     'return-map',
-    // `Object.entries(props.x).filter(...)` is JS-only — the Go
-    // renderer would need a dedicated `bf_entries` primitive plus
-    // multi-binding range support to materialise the loop at SSR
-    // time. The CSR self-heal (#1247, #1268) is unrelated to the Go
-    // path, so the JS-only fixtures stay Hono/CSR-only for now.
-    'static-array-from-props',
-    'static-array-from-props-with-component',
   ],
+  // Per-fixture build-time contracts for shapes the Go template
+  // adapter intentionally refuses to lower. Lives here (not on the
+  // shared fixtures) so adding a new adapter doesn't require touching
+  // any cross-adapter file — every adapter declares its own
+  // refusal set against the canonical fixture corpus.
+  expectedDiagnostics: {
+    // JS object literal in attribute position: `convertExpressionToGo`
+    // can't lower into Go template syntax — surfaces as BF101 with an
+    // @client suggestion.
+    'style-object-dynamic': [{ code: 'BF101', severity: 'error' }],
+    // Sibling-imported child component inside a loop body: the adapter
+    // emits `{{template "X" .}}` which only resolves if the user has
+    // compiled the sibling file and registered the template on the
+    // same instance. BF103 makes that requirement loud. (The barefoot
+    // CLI passes `siblingTemplatesRegistered: true` so CLI builds
+    // suppress the diagnostic — see compileJSX `siblingTemplatesRegistered`.)
+    'static-array-children': [{ code: 'BF103', severity: 'error' }],
+    // Array-destructure loop param (`([k, v]) => ...`): Go's `{{range
+    // $a, $b := ...}}` only supports single-name bindings, so the
+    // adapter would otherwise emit invalid template syntax.
+    'static-array-from-props': [{ code: 'BF104', severity: 'error' }],
+    // Same destructure shape with a child component body — fires both
+    // BF103 (imported child in loop) and BF104 (destructure param).
+    'static-array-from-props-with-component': [
+      { code: 'BF103', severity: 'error' },
+      { code: 'BF104', severity: 'error' },
+    ],
+  },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `GoTemplateAdapter.templatePrimitives` (#1188). The two
   // remaining cases stay skipped because the V1 registry is

@@ -200,7 +200,10 @@ function compileMultipleComponents(
     const scriptBaseName =
       options.scriptBaseName ??
       (!componentIR.metadata.hasDefaultExport && defaultExportName ? defaultExportName : undefined)
-    const adapterOutput = adapter.generate(componentIR, { scriptBaseName })
+    const adapterOutput = adapter.generate(componentIR, {
+      scriptBaseName,
+      siblingTemplatesRegistered: options.siblingTemplatesRegistered,
+    })
     const moduleExports = generateModuleExports(componentIR, fileWideInlineExported)
 
     let imports: string
@@ -559,7 +562,10 @@ export function compileJSX(
   }
 
   const adapter = options.adapter
-  const adapterOutput = adapter.generate(componentIR, { scriptBaseName: options.scriptBaseName })
+  const adapterOutput = adapter.generate(componentIR, {
+    scriptBaseName: options.scriptBaseName,
+    siblingTemplatesRegistered: options.siblingTemplatesRegistered,
+  })
   const moduleExports = generateModuleExports(componentIR)
 
   // Use structured sections if available, otherwise fall back to template
