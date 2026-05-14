@@ -40,11 +40,10 @@ runAdapterConformanceTests({
   //
   // `static-array-children` / `static-array-from-props` /
   // `static-array-from-props-with-component` are no longer here —
-  // they're covered by `expectedDiagnostics` (BF103 / BF104) on the
-  // fixtures, asserting that the Mojo adapter emits a build-time
-  // `CompilerError` for the cross-template-call shape and the
-  // array-destructure loop param instead of shipping invalid Perl
-  // or unresolved cross-template references (#1266).
+  // they're covered by `expectedDiagnostics` below, asserting that
+  // the adapter emits `BF103` / `BF104` at build time instead of
+  // silently emitting invalid Perl / unresolved cross-template
+  // references (#1266).
   skipJsx: [
     'style-object-dynamic',
     'logical-or-jsx',
@@ -54,6 +53,25 @@ runAdapterConformanceTests({
     'return-nullish-coalescing',
     'return-map',
   ],
+  // Per-fixture build-time contracts for shapes the Mojo adapter
+  // intentionally refuses to lower. Owned by this adapter test file
+  // (not by the shared fixtures) so adding a new adapter doesn't
+  // require touching any cross-adapter file.
+  expectedDiagnostics: {
+    // Sibling-imported child component in a loop body: Mojo emits
+    // a cross-template call that needs separate registration. BF103
+    // makes the requirement loud. (The barefoot CLI passes
+    // `siblingTemplatesRegistered: true` so CLI builds suppress it.)
+    'static-array-children': [{ code: 'BF103', severity: 'error' }],
+    // Array-destructure loop param (`([k, v]) => ...`) lowers to
+    // invalid Perl (`% my $[k, v] = $entries->[$_i];`).
+    'static-array-from-props': [{ code: 'BF104', severity: 'error' }],
+    // Both BF103 (imported child) and BF104 (destructure) fire.
+    'static-array-from-props-with-component': [
+      { code: 'BF103', severity: 'error' },
+      { code: 'BF104', severity: 'error' },
+    ],
+  },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `MojoAdapter.templatePrimitives` (#1189). The two remaining
   // cases stay skipped because the V1 registry is identifier-path-

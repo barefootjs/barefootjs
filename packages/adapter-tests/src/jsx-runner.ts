@@ -27,23 +27,26 @@ export interface RunJSXConformanceOptions {
   createAdapter: () => TemplateAdapter
   /** Render compiled template to HTML */
   render: (options: RenderOptions) => Promise<string>
-  /**
-   * Adapter name — must match the key used in
-   * `JSXFixture.expectedDiagnostics`. When a fixture declares expected
-   * diagnostics for this adapter, the runner compiles the fixture,
-   * asserts the listed diagnostics fired, and skips HTML comparison.
-   *
-   * Required to enable the `expectedDiagnostics` mechanism; when
-   * omitted, the runner falls back to legacy render-only behavior
-   * (no diagnostic assertions).
-   */
-  adapterName?: string
   /** Factory to create the reference adapter (optional). If provided, HTML output is compared. */
   referenceAdapter?: () => TemplateAdapter
   /** Render function for reference adapter (required if referenceAdapter is set) */
   referenceRender?: (options: RenderOptions) => Promise<string>
   /** Fixture IDs to skip */
   skip?: string[]
+  /**
+   * Per-fixture diagnostic expectations for the adapter under test.
+   *
+   * Keyed by `JSXFixture.id`. When a fixture has an entry here, the
+   * runner compiles the fixture, asserts each `{ code, severity }`
+   * appears in `ir.errors`, and **skips HTML comparison** for that
+   * fixture. Fixtures without an entry render normally.
+   *
+   * Owned by the adapter test file (not by the fixture) so adding a
+   * new adapter doesn't require touching shared fixtures: each adapter
+   * declares its own contract for the fixtures it intentionally
+   * refuses to lower.
+   */
+  expectedDiagnostics?: Record<string, ReadonlyArray<ExpectedDiagnostic>>
   /** Optional error handler for render failures. Return true to skip the test. */
   onRenderError?: (err: Error, fixtureId: string) => boolean
 }
@@ -177,7 +180,7 @@ function assertExpectedDiagnostics(
 }
 
 export function runJSXConformanceTests(options: RunJSXConformanceOptions): void {
-  const { createAdapter, render, referenceAdapter, referenceRender, skip = [], adapterName } = options
+  const { createAdapter, render, referenceAdapter, referenceRender, skip = [], expectedDiagnostics: diagnosticsMap } = options
   const skipSet = new Set(skip)
 
   describe('JSX Conformance Tests', () => {
@@ -186,15 +189,12 @@ export function runJSXConformanceTests(options: RunJSXConformanceOptions): void 
 
       test(`[${fixture.id}] ${fixture.description}`, async () => {
         // expectedDiagnostics path: compile-only, no HTML comparison.
-        // Patterns the adapter intentionally rejects at build time
-        // (e.g. Object.entries-derived loop arrays for the Go template
-        // adapter) declare their expected codes per-adapter on the
-        // fixture. We assert those fired and skip rendering — the
-        // adapter would either throw or emit invalid template syntax.
-        const expectedDiagnostics =
-          adapterName && fixture.expectedDiagnostics
-            ? fixture.expectedDiagnostics[adapterName]
-            : undefined
+        // The adapter test file declares the contract per fixture id
+        // (e.g. `static-array-children` → BF103 for this adapter).
+        // We assert those diagnostics fired and skip rendering —
+        // the adapter would either throw or emit invalid template
+        // syntax for these intentionally-refused shapes.
+        const expectedDiagnostics = diagnosticsMap?.[fixture.id]
         if (expectedDiagnostics && expectedDiagnostics.length > 0) {
           const adapter = createAdapter()
           const diagnostics = collectFixtureDiagnostics({

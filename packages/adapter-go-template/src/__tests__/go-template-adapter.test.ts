@@ -38,15 +38,43 @@ runAdapterConformanceTests({
   //
   // `style-object-dynamic`, `static-array-children`,
   // `static-array-from-props`, and `static-array-from-props-with-component`
-  // are no longer here — they're covered by `expectedDiagnostics` on
-  // the fixtures, asserting that the Go adapter emits `BF101` /
-  // `BF103` / `BF104` at build time instead of silently emitting
-  // invalid template syntax (#1266).
+  // are no longer here — they're covered by `expectedDiagnostics`
+  // below, asserting that the adapter emits `BF101` / `BF103` /
+  // `BF104` at build time instead of silently emitting invalid
+  // template syntax (#1266).
   skipJsx: [
     'nullish-coalescing-jsx',
     'return-nullish-coalescing',
     'return-map',
   ],
+  // Per-fixture build-time contracts for shapes the Go template
+  // adapter intentionally refuses to lower. Lives here (not on the
+  // shared fixtures) so adding a new adapter doesn't require touching
+  // any cross-adapter file — every adapter declares its own
+  // refusal set against the canonical fixture corpus.
+  expectedDiagnostics: {
+    // JS object literal in attribute position: `convertExpressionToGo`
+    // can't lower into Go template syntax — surfaces as BF101 with an
+    // @client suggestion.
+    'style-object-dynamic': [{ code: 'BF101', severity: 'error' }],
+    // Sibling-imported child component inside a loop body: the adapter
+    // emits `{{template "X" .}}` which only resolves if the user has
+    // compiled the sibling file and registered the template on the
+    // same instance. BF103 makes that requirement loud. (The barefoot
+    // CLI passes `siblingTemplatesRegistered: true` so CLI builds
+    // suppress the diagnostic — see compileJSX `siblingTemplatesRegistered`.)
+    'static-array-children': [{ code: 'BF103', severity: 'error' }],
+    // Array-destructure loop param (`([k, v]) => ...`): Go's `{{range
+    // $a, $b := ...}}` only supports single-name bindings, so the
+    // adapter would otherwise emit invalid template syntax.
+    'static-array-from-props': [{ code: 'BF104', severity: 'error' }],
+    // Same destructure shape with a child component body — fires both
+    // BF103 (imported child in loop) and BF104 (destructure param).
+    'static-array-from-props-with-component': [
+      { code: 'BF103', severity: 'error' },
+      { code: 'BF104', severity: 'error' },
+    ],
+  },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `GoTemplateAdapter.templatePrimitives` (#1188). The two
   // remaining cases stay skipped because the V1 registry is

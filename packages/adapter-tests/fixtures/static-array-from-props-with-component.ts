@@ -21,12 +21,11 @@ import { createFixture } from '../src/types'
  * `packages/client/__tests__/runtime/static-loop-csr-materialize.test.ts`
  * since the harness here only evaluates the `template:` lambda.
  *
- * The Go template adapter additionally surfaces `BF103` (Tag is
- * imported from a sibling .tsx, and the adapter can't register the
- * child template alongside the parent) plus `BF104` (the loop param
- * is an array destructure) at build time (#1266). The Mojo adapter
- * surfaces `BF104` for the same destructure shape. The
- * `expectedDiagnostics` entries pin those contracts.
+ * This fixture combines two SSR refusal shapes: a sibling-imported
+ * child component (Tag from `./tag`) AND an array-destructure loop
+ * param (`([id, t]) => ...`). Adapters that can't lower either
+ * declare the matching diagnostics via `expectedDiagnostics` on
+ * their own test file (#1266).
  */
 export const fixture = createFixture({
   id: 'static-array-from-props-with-component',
@@ -67,14 +66,4 @@ export function Tag(props: { id: string; variant: 'on' | 'off' }) {
       <span class="tag-on" bf-s="Tag_*" data-key="c" bf="s1"><!--bf:s0-->c<!--/--></span>
     </ul>
   `,
-  expectedDiagnostics: {
-    'go-template': [
-      { code: 'BF103', severity: 'error' },
-      { code: 'BF104', severity: 'error' },
-    ],
-    mojo: [
-      { code: 'BF103', severity: 'error' },
-      { code: 'BF104', severity: 'error' },
-    ],
-  },
 })

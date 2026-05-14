@@ -5,25 +5,14 @@ import { createFixture } from '../src/types'
  *
  * Hono renders the JSX directly — the child component reference
  * resolves to the imported function symbol at request time, so the
- * output is the fully materialised HTML. The Go template adapter
- * emits `{{template "ListItem" .}}` for the same reference; the
- * template only resolves if the user has compiled `./list-item.tsx`
- * with the same adapter and registered the resulting
- * `{{define "ListItem"}}` on the same `*template.Template`. When
- * that doesn't happen (the common case for a user just adopting the
- * Hono-style "factor into a sibling file" pattern), the build
- * succeeds and the request returns 500 with
- * `template: "ListItem" is undefined`.
- *
- * The Go and Mojo adapters now emit `BF103` at build time for this
- * shape (#1266); the `expectedDiagnostics` entry pins that contract.
- * Severity is `error` so silent request-time failures aren't possible
- * on a bespoke build pipeline. The barefoot CLI passes
- * `siblingTemplatesRegistered: true` when invoking the adapter
- * (because it compiles every source-dir file together and registers
- * their templates on the same template instance), which suppresses
- * the diagnostic for CLI-managed builds — so user code routed
- * through the CLI keeps working without any change.
+ * output is the fully materialised HTML. SSR text-template adapters
+ * emit a cross-template call (e.g. `{{template "ListItem" .}}`) that
+ * resolves only if the user has compiled the sibling file and
+ * registered the resulting template on the same template instance —
+ * otherwise the request fails with `template: "ListItem" is undefined`
+ * or the adapter's equivalent. Adapters that can't transparently
+ * handle that assert the corresponding refusal via
+ * `expectedDiagnostics` on their own test file (#1266).
  */
 export const fixture = createFixture({
   id: 'static-array-children',
@@ -54,8 +43,4 @@ export function ListItem({ label, className }: { label: string; className?: stri
       <li class="text-sm" bf-s="ListItem_*" data-key="Beta" bf="s1"><!--bf:s0-->Beta<!--/--></li>
     </ul>
   `,
-  expectedDiagnostics: {
-    'go-template': [{ code: 'BF103', severity: 'error' }],
-    mojo: [{ code: 'BF103', severity: 'error' }],
-  },
 })

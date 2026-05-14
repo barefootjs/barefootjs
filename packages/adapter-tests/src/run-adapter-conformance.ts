@@ -25,6 +25,7 @@
 import type { TemplateAdapter } from '../../jsx/src/types'
 import { runJSXConformanceTests, type RenderOptions } from './jsx-runner'
 import { runConformanceSuite } from './conformance'
+import type { ExpectedDiagnostic } from './types'
 import {
   templatePrimitiveCases,
   runTemplatePrimitiveCase,
@@ -58,6 +59,14 @@ export interface RunAdapterConformanceOptions {
    */
   skipJsx?: ReadonlyArray<string>
   skipTemplatePrimitives?: ReadonlySet<TemplatePrimitiveCaseId>
+  /**
+   * Per-fixture diagnostic contracts owned by this adapter. Keyed by
+   * `JSXFixture.id`; the runner compiles the fixture and asserts each
+   * `{ code, severity }` appears in `ir.errors`, then skips HTML
+   * comparison. Lives on the adapter side (not on the shared fixture)
+   * so adding a new adapter doesn't touch any fixture file.
+   */
+  expectedDiagnostics?: Record<string, ReadonlyArray<ExpectedDiagnostic>>
 }
 
 export function runAdapterConformanceTests(
@@ -66,11 +75,11 @@ export function runAdapterConformanceTests(
   runJSXConformanceTests({
     createAdapter: opts.factory,
     render: opts.render,
-    adapterName: opts.name,
     referenceAdapter: opts.referenceAdapter,
     referenceRender: opts.referenceRender,
     onRenderError: opts.onRenderError,
     skip: opts.skipJsx ? [...opts.skipJsx] : undefined,
+    expectedDiagnostics: opts.expectedDiagnostics,
   })
 
   runConformanceSuite<TemplatePrimitiveCaseId, TemplatePrimitiveInput, string>({
