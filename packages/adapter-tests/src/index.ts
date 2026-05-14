@@ -24,3 +24,7 @@ export {
 export type { TemplatePrimitiveInput } from './cases/template-primitives'
 export { runAdapterConformanceTests } from './run-adapter-conformance'
 export type { RunAdapterConformanceOptions } from './run-adapter-conformance'
+export { assertDevReloadContract } from './dev-reload.contract'
+export type { DevReloadFacts } from './dev-reload.contract'
+export { assertScaffoldContract } from './scaffold.contract'
+export type { ScaffoldFacts } from './scaffold.contract'
