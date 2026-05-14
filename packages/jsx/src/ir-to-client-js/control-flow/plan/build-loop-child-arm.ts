@@ -143,8 +143,8 @@ export function buildBranchChildComponentInitsPlan(
     // without bf-h. `:not([bf-h])` ensures the fallback can't reclaim a
     // sibling slot's already-bound child.
     const selector = comp.slotId
-      ? `\`[bf-h="\${__scopeId}"][bf-m="${comp.slotId}"], [bf-s$="_${comp.slotId}"], [bf-s^="~${comp.name}_"]:not([bf-h])\``
-      : `'[bf-s^="~${comp.name}_"], [bf-s^="${comp.name}_"]'`
+      ? `\`[bf-h="\${__scopeId}"][bf-m="${comp.slotId}"], [bf-s$="_${comp.slotId}"]\``
+      : `'[bf-s^="${comp.name}_"]'`
 
     const propsEntries = comp.props
       .filter(p => p.name !== 'key')

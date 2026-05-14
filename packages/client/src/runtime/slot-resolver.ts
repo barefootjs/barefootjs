@@ -13,18 +13,13 @@
 
 import { BF_SCOPE, BF_HOST, BF_AT } from '@barefootjs/shared'
 
-/** Resolve the parent component scope id for a slot lookup. Prefers the
- *  explicit `anchorScope` because the immediate `parent` element may be a
- *  freshly-created detached fragment whose `closest()` returns null.
- *
- *  Strips the `~` child-prefix convention from the returned value so the
- *  result is what bf-h would carry (the host's own scope id, without the
- *  child marker). */
+/** Resolve the host scope id for a slot lookup. Prefers the explicit
+ *  `anchorScope` because the immediate `parent` element may be a freshly-
+ *  created detached fragment whose `closest()` returns null. */
 export function parentScopeOf(parent: Element, anchorScope?: Element | null): string {
   const ancestor = anchorScope ?? parent.closest(`[${BF_SCOPE}]`)
   if (!ancestor) return ''
-  const bfs = ancestor.getAttribute(BF_SCOPE) ?? ''
-  return bfs.startsWith('~') ? bfs.slice(1) : bfs
+  return ancestor.getAttribute(BF_SCOPE) ?? ''
 }
 
 /** Build the bf-h / bf-m metadata for a fresh component about to be
@@ -87,21 +82,12 @@ export function findSsrScopeBySlotIn(
     if (direct) return direct
   }
 
-  // Suffix lookup: matches the parent-anchored bf-s shape used by Hono
-  // SSR (`~Parent_xxx_sN`) and by renderChild when invoked with a
-  // _parentScopeId context. Cross-scope collision protection comes from
-  // the search-root scoping — slot suffix is unique within `parent`.
+  // Suffix lookup: matches the parent-anchored bf-s shape used by
+  // `renderChild` when invoked with a `_parentScopeId` context, where
+  // bf-h might not be stamped. Cross-scope collision protection comes
+  // from search-root scoping — slot suffix is unique within `parent`.
+  void name
   const suffixSelector = `[${BF_SCOPE}$="_${slotId}"]`
   if (selfMatch && parent.matches(suffixSelector)) return parent as HTMLElement
-  const suffixMatch = parent.querySelector(suffixSelector) as HTMLElement | null
-  if (suffixMatch) return suffixMatch
-
-  // Name-prefix scan: for adapters that emit random-anchored child
-  // scopes (`~Name_<rand>` without slot suffix — go-template /
-  // mojolicious). `:not([bf-h])` excludes scopes that already have a
-  // host marker — those are claim-able only through their own primary
-  // (bf-h, bf-m) query, never via name-prefix fallback.
-  const nameSelector = `[${BF_SCOPE}^="~${name}_"]:not([${BF_HOST}])`
-  if (selfMatch && parent.matches(nameSelector)) return parent as HTMLElement
-  return parent.querySelector(nameSelector) as HTMLElement | null
+  return parent.querySelector(suffixSelector) as HTMLElement | null
 }

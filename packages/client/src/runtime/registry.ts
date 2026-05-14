@@ -88,17 +88,12 @@ export function initChild(
   }
 
   // Child scopes are owned by their parent's initChild entirely — once
-  // we've run their init, never re-enter. Top-level scopes (no child
-  // marker) reach this path through `upsertChild` during reconcile,
-  // where re-invoking init is the documented way to deliver fresh
-  // closure-captured callback props to the child. Child detection
-  // accepts either signal: the structural bf-h or the legacy `~` value
-  // prefix on bf-s.
-  if (hydratedScopes.has(childScope)) {
-    const bfs = childScope.getAttribute(BF_SCOPE) ?? ''
-    if (childScope.hasAttribute(BF_HOST) || bfs.startsWith('~')) {
-      return
-    }
+  // we've run their init, never re-enter. Top-level scopes (no `bf-h`)
+  // reach this path through `upsertChild` during reconcile, where
+  // re-invoking init is the documented way to deliver fresh
+  // closure-captured callback props to the child.
+  if (hydratedScopes.has(childScope) && childScope.hasAttribute(BF_HOST)) {
+    return
   }
 
   const prevScope = setCurrentScope(childScope)
@@ -141,16 +136,12 @@ export function upsertChild(
 ): HTMLElement | null {
   // SSR: scope element is already in the tree.
   // With slotId: (bf-h, bf-m) primary lookup (unique by construction).
-  // Without slotId: name-prefix bf-s scan — used for top-level component
-  // lookup where there's no per-slot anchor. Both `~Name_` (child) and
-  // `Name_` (root) shapes are accepted.
+  // Without slotId: name-prefix bf-s scan for top-level component lookup.
   let ssr: HTMLElement | null = null
   if (slotId) {
     ssr = findSsrScopeBySlotIn(parent, name, slotId, anchorScope, /* selfMatch */ false)
   } else {
-    ssr = parent.querySelector(
-      `[${BF_SCOPE}^="~${name}_"], [${BF_SCOPE}^="${name}_"]`
-    ) as HTMLElement | null
+    ssr = parent.querySelector(`[${BF_SCOPE}^="${name}_"]`) as HTMLElement | null
   }
   if (ssr) {
     initChild(name, ssr, props)

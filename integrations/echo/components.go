@@ -20,6 +20,8 @@ func randomID(n int) string {
 // PortalExampleInput is the user-facing input type.
 type PortalExampleInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 }
 
 // PortalExampleProps is the props type for the PortalExample component.
@@ -27,6 +29,8 @@ type PortalExampleProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Open bool `json:"open"`
 }
@@ -42,6 +46,8 @@ type Todo struct {
 // TodoItemInput is the user-facing input type.
 type TodoItemInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 	Todo Todo
 	OnToggle interface{}
 	OnDelete interface{}
@@ -54,6 +60,8 @@ type TodoItemProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Todo Todo `json:"todo"`
 	OnToggle interface{} `json:"onToggle"`
@@ -68,6 +76,8 @@ type Filter = string
 // TodoAppInput is the user-facing input type.
 type TodoAppInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 	InitialTodos []Todo
 }
 
@@ -76,6 +86,8 @@ type TodoAppProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	InitialTodos []Todo `json:"initialTodos"`
 	Todos []Todo `json:"todos"`
@@ -87,6 +99,8 @@ type TodoAppProps struct {
 // CounterInput is the user-facing input type.
 type CounterInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 	Initial int
 }
 
@@ -95,6 +109,8 @@ type CounterProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Initial int `json:"initial"`
 	Count int `json:"count"`
@@ -111,6 +127,8 @@ type Message struct {
 // AIChatInteractiveInput is the user-facing input type.
 type AIChatInteractiveInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 }
 
 // AIChatInteractiveProps is the props type for the AIChatInteractive component.
@@ -118,6 +136,8 @@ type AIChatInteractiveProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Messages []Message `json:"messages"`
 	Input string `json:"input"`
@@ -128,6 +148,8 @@ type AIChatInteractiveProps struct {
 // ReactiveChildInput is the user-facing input type.
 type ReactiveChildInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 	Value int
 	Label string
 	OnIncrement interface{}
@@ -138,6 +160,8 @@ type ReactiveChildProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Value int `json:"value"`
 	Label string `json:"label"`
@@ -147,6 +171,8 @@ type ReactiveChildProps struct {
 // ReactivePropsInput is the user-facing input type.
 type ReactivePropsInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 }
 
 // ReactivePropsProps is the props type for the ReactiveProps component.
@@ -154,6 +180,8 @@ type ReactivePropsProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Count int `json:"count"`
 	Doubled int `json:"doubled"`
@@ -164,6 +192,8 @@ type ReactivePropsProps struct {
 // PropsStyleChildInput is the user-facing input type.
 type PropsStyleChildInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 	Value int
 	Label string
 }
@@ -173,6 +203,8 @@ type PropsStyleChildProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Value int `json:"value"`
 	Label string `json:"label"`
@@ -182,6 +214,8 @@ type PropsStyleChildProps struct {
 // DestructuredStyleChildInput is the user-facing input type.
 type DestructuredStyleChildInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 	Value interface{}
 	Label interface{}
 }
@@ -191,6 +225,8 @@ type DestructuredStyleChildProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Value interface{} `json:"value"`
 	Label interface{} `json:"label"`
@@ -200,6 +236,8 @@ type DestructuredStyleChildProps struct {
 // PropsReactivityComparisonInput is the user-facing input type.
 type PropsReactivityComparisonInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 }
 
 // PropsReactivityComparisonProps is the props type for the PropsReactivityComparison component.
@@ -207,6 +245,8 @@ type PropsReactivityComparisonProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Count int `json:"count"`
 	PropsStyleChildSlot3 PropsStyleChildProps `json:"-"`
@@ -216,6 +256,8 @@ type PropsReactivityComparisonProps struct {
 // ConditionalReturnInput is the user-facing input type.
 type ConditionalReturnInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 	Variant string
 }
 
@@ -224,6 +266,8 @@ type ConditionalReturnProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Variant string `json:"variant"`
 	Count int `json:"count"`
@@ -232,6 +276,8 @@ type ConditionalReturnProps struct {
 // TodoAppSSRInput is the user-facing input type.
 type TodoAppSSRInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 	InitialTodos []Todo
 }
 
@@ -240,6 +286,8 @@ type TodoAppSSRProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	InitialTodos []Todo `json:"initialTodos"`
 	Todos []Todo `json:"todos"`
@@ -251,6 +299,8 @@ type TodoAppSSRProps struct {
 // ToggleItemInput is the user-facing input type.
 type ToggleItemInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 	Label string
 	DefaultOn bool
 }
@@ -260,6 +310,8 @@ type ToggleItemProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Label string `json:"label"`
 	DefaultOn bool `json:"defaultOn"`
@@ -269,6 +321,8 @@ type ToggleItemProps struct {
 // ToggleInput is the user-facing input type.
 type ToggleInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 	ToggleItems []ToggleItemInput
 }
 
@@ -277,6 +331,8 @@ type ToggleProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	ToggleItems []ToggleItemProps `json:"toggleItems"`
 }
@@ -284,6 +340,8 @@ type ToggleProps struct {
 // FormInput is the user-facing input type.
 type FormInput struct {
 	ScopeID string // Optional: if empty, random ID is generated
+	BfParent string // Optional: parent scope id
+	BfMount string // Optional: slot id in parent
 }
 
 // FormProps is the props type for the Form component.
@@ -291,6 +349,8 @@ type FormProps struct {
 	ScopeID string `json:"scopeID"`
 	BfIsRoot bool `json:"-"`
 	BfIsChild bool `json:"-"`
+	BfParent string `json:"-"`
+	BfMount string `json:"-"`
 	Scripts *bf.ScriptCollector `json:"-"`
 	Accepted bool `json:"accepted"`
 }
@@ -304,6 +364,8 @@ func NewPortalExampleProps(in PortalExampleInput) PortalExampleProps {
 
 	return PortalExampleProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Open: false,
 	}
 }
@@ -317,6 +379,8 @@ func NewTodoItemProps(in TodoItemInput) TodoItemProps {
 
 	return TodoItemProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Todo: in.Todo,
 		OnToggle: in.OnToggle,
 		OnDelete: in.OnDelete,
@@ -334,6 +398,8 @@ func NewTodoAppProps(in TodoAppInput) TodoAppProps {
 
 	return TodoAppProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		InitialTodos: in.InitialTodos,
 		Todos: in.InitialTodos,
 		NewText: "",
@@ -350,6 +416,8 @@ func NewCounterProps(in CounterInput) CounterProps {
 
 	return CounterProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Initial: in.Initial,
 		Count: in.Initial,
 		Doubled: in.Initial * 2,
@@ -365,6 +433,8 @@ func NewAIChatInteractiveProps(in AIChatInteractiveInput) AIChatInteractiveProps
 
 	return AIChatInteractiveProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Messages: nil,
 		Input: "",
 		StreamingText: "",
@@ -381,6 +451,8 @@ func NewReactiveChildProps(in ReactiveChildInput) ReactiveChildProps {
 
 	return ReactiveChildProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Value: in.Value,
 		Label: in.Label,
 		OnIncrement: in.OnIncrement,
@@ -396,15 +468,21 @@ func NewReactivePropsProps(in ReactivePropsInput) ReactivePropsProps {
 
 	return ReactivePropsProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Count: 0,
 		Doubled: 0 * 2,
 		ReactiveChildSlot5: NewReactiveChildProps(ReactiveChildInput{
 			ScopeID: scopeID + "_s5",
+			BfParent: scopeID,
+			BfMount: "s5",
 			Value: 0,
 			Label: "Child A",
 		}),
 		ReactiveChildSlot6: NewReactiveChildProps(ReactiveChildInput{
 			ScopeID: scopeID + "_s6",
+			BfParent: scopeID,
+			BfMount: "s6",
 			Value: 0 * 2,
 			Label: "Child B (doubled)",
 		}),
@@ -420,6 +498,8 @@ func NewPropsStyleChildProps(in PropsStyleChildInput) PropsStyleChildProps {
 
 	return PropsStyleChildProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Value: in.Value,
 		Label: in.Label,
 		DisplayValue: in.Value * 10,
@@ -435,6 +515,8 @@ func NewDestructuredStyleChildProps(in DestructuredStyleChildInput) Destructured
 
 	return DestructuredStyleChildProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Value: in.Value,
 		Label: in.Label,
 		DisplayValue: in.Value.(int) * 10,
@@ -450,14 +532,20 @@ func NewPropsReactivityComparisonProps(in PropsReactivityComparisonInput) PropsR
 
 	return PropsReactivityComparisonProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Count: 1,
 		PropsStyleChildSlot3: NewPropsStyleChildProps(PropsStyleChildInput{
 			ScopeID: scopeID + "_s3",
+			BfParent: scopeID,
+			BfMount: "s3",
 			Value: 1,
 			Label: "Props Style",
 		}),
 		DestructuredStyleChildSlot4: NewDestructuredStyleChildProps(DestructuredStyleChildInput{
 			ScopeID: scopeID + "_s4",
+			BfParent: scopeID,
+			BfMount: "s4",
 			Value: 1,
 			Label: "Destructured",
 		}),
@@ -473,6 +561,8 @@ func NewConditionalReturnProps(in ConditionalReturnInput) ConditionalReturnProps
 
 	return ConditionalReturnProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Variant: in.Variant,
 		Count: 0,
 	}
@@ -487,6 +577,8 @@ func NewTodoAppSSRProps(in TodoAppSSRInput) TodoAppSSRProps {
 
 	return TodoAppSSRProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		InitialTodos: in.InitialTodos,
 		Todos: in.InitialTodos,
 		NewText: "",
@@ -503,6 +595,8 @@ func NewToggleItemProps(in ToggleItemInput) ToggleItemProps {
 
 	return ToggleItemProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Label: in.Label,
 		DefaultOn: in.DefaultOn,
 		On: in.DefaultOn,
@@ -519,10 +613,14 @@ func NewToggleProps(in ToggleInput) ToggleProps {
 	toggleItems := make([]ToggleItemProps, len(in.ToggleItems))
 	for i, item := range in.ToggleItems {
 		toggleItems[i] = NewToggleItemProps(item)
+		toggleItems[i].BfParent = scopeID
+		toggleItems[i].BfMount = "s0"
 	}
 
 	return ToggleProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		ToggleItems: toggleItems,
 	}
 }
@@ -536,6 +634,8 @@ func NewFormProps(in FormInput) FormProps {
 
 	return FormProps{
 		ScopeID: scopeID,
+		BfParent: in.BfParent,
+		BfMount: in.BfMount,
 		Accepted: false,
 	}
 }

@@ -188,7 +188,7 @@ describe('mapArray multi-root (#1212)', () => {
 
     const primary = document.createElement('div')
     const extra = document.createElement('div')
-    extra.setAttribute('bf-s', '~SibChild_abc')
+    extra.setAttribute('bf-s', 'SibChild_abc')
     ;(primary as unknown as { __bfExtras: HTMLElement[] }).__bfExtras = [extra]
 
     const result = upsertChildItem(primary, 'SibChild', null, {})

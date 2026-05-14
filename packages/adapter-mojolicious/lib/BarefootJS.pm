@@ -14,6 +14,8 @@ has '_scripts' => sub { [] };
 has '_script_seen' => sub { {} };
 has '_scope_id';
 has '_is_child' => 0;
+has '_bf_parent';  # Host scope id when this scope is a slot-attached child
+has '_bf_mount';   # Slot id in host
 has '_props';
 
 sub new ($class, $c, $config = {}) {
@@ -28,12 +30,35 @@ sub new ($class, $c, $config = {}) {
 # ---------------------------------------------------------------------------
 
 sub scope_attr ($self) {
-    # Hono adapter has migrated to bf-h/bf-m for slot identity (#1249);
-    # mojolicious still emits the legacy `~` value prefix on child scopes
-    # until it gains its own bf-h/bf-m / bf-r emission. The runtime's
-    # `startsWith('~')` detection keeps mojolicious SSR working.
-    my $scope_id = $self->_scope_id // '';
-    return $self->_is_child ? "~$scope_id" : $scope_id;
+    # Per #1249, bf-s is the addressable scope id only. Identity / root
+    # distinction lives on (bf-h, bf-m, bf-r) — see hydration_attrs.
+    return $self->_scope_id // '';
+}
+
+sub hydration_attrs ($self) {
+    # Emits the slot-identity + root marker attribute string:
+    #   bf-h="<host>" bf-m="<slot>" bf-r=""
+    # Each part is conditional:
+    #   - bf-h / bf-m emitted when this scope is a slot-attached child
+    #     (_bf_parent / _bf_mount present)
+    #   - bf-r emitted when this scope is NOT a delegated child
+    #     (the SSR entry root of a client component, regardless of
+    #     whether it sits at a slot of an outer page).
+    my @parts;
+    my $host  = $self->_bf_parent;
+    my $mount = $self->_bf_mount;
+    if (defined $host && length $host) {
+        my $h = $host =~ s/"/&quot;/gr;
+        push @parts, qq{bf-h="$h"};
+    }
+    if (defined $mount && length $mount) {
+        my $m = $mount =~ s/"/&quot;/gr;
+        push @parts, qq{bf-m="$m"};
+    }
+    unless ($self->_is_child) {
+        push @parts, q{bf-r=""};
+    }
+    return join(' ', @parts);
 }
 
 sub props_attr ($self) {
@@ -61,12 +86,23 @@ sub text_end ($self) {
 }
 
 sub scope_comment ($self) {
-    my $scope_id = $self->scope_attr;
+    # Per #1249, the comment-scope value mirrors the element-scope shape:
+    #   Root:  <!--bf-scope:ScopeID|PropsJSON-->
+    #   Child: <!--bf-scope:ScopeID|h=Host|m=Slot|PropsJSON-->
+    # The leading scope id is bare (no `~` prefix); child status is
+    # detected by the `|h=` segment.
+    my $scope_id = $self->_scope_id // '';
+    my $host_segment = '';
+    my $host  = $self->_bf_parent;
+    my $mount = $self->_bf_mount;
+    if (defined $host && length $host) {
+        $host_segment = "|h=$host|m=" . ($mount // '');
+    }
     my $props_json = '';
     if ($self->_props && %{$self->_props}) {
         $props_json = '|' . to_json($self->_props);
     }
-    return "<!--bf-scope:$scope_id$props_json-->";
+    return "<!--bf-scope:$scope_id$host_segment$props_json-->";
 }
 
 # ---------------------------------------------------------------------------
@@ -152,6 +188,12 @@ sub register_components_from_manifest ($self, $manifest, %opts) {
                          : $template_name . '_' . substr(rand() =~ s/^0\.//r, 0, 6)
             );
             $child_bf->_is_child(1);
+            # (#1249) Slot identity: host scope + slot id. Emitted as
+            # bf-h / bf-m attributes by hydration_attrs.
+            if ($slot_id) {
+                $child_bf->_bf_parent($parent_scope);
+                $child_bf->_bf_mount($slot_id);
+            }
             $child_bf->_scripts($parent->_scripts);
             $child_bf->_script_seen($parent->_script_seen);
 

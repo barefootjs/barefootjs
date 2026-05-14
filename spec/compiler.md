@@ -294,13 +294,12 @@ Helpers exported from `@barefootjs/jsx`:
    the demo's root, not an internal child scope that happens to share
    the bf-s name prefix.
 
-   **`~` child prefix (legacy).** The Hono adapter and the client
-   runtime's `createComponent` / `renderChild` no longer emit the `~`
-   value prefix on child bf-s values. The Go-template and mojolicious
-   adapters still emit it; the runtime's `startsWith('~')` checks in
-   the hydration walker / `initChild` keep that path working until the
-   Go and Perl adapters also gain `bf-h` / `bf-m` / `bf-r` emission
-   (tracked as a follow-up).
+   **`~` child prefix (removed).** Earlier shape iterations distinguished
+   root vs child scopes by a `~` value prefix on bf-s. All three adapters
+   (Hono, Go-template, mojolicious) and the client runtime
+   (`createComponent` / `renderChild`) now emit only the bare scope id;
+   slot identity moves to (bf-h, bf-m) and root distinction moves to bf-r.
+   The runtime no longer checks for the `~` prefix anywhere.
 
 2. **Client JS**: Minimal JavaScript for reactivity
    - Uses `createEffect` for reactive updates

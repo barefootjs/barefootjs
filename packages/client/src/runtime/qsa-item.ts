@@ -109,7 +109,7 @@ export function upsertChildItem(
       if (found) { ssr = found; break }
     }
   } else {
-    ssr = qsaItem(primaryEl, `[bf-s^="~${name}_"], [bf-s^="${name}_"]`) as HTMLElement | null
+    ssr = qsaItem(primaryEl, `[bf-s^="${name}_"]`) as HTMLElement | null
   }
   if (ssr) {
     initChild(name, ssr, props)

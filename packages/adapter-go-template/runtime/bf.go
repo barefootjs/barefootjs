@@ -67,8 +67,11 @@ func FuncMap() template.FuncMap {
 		// Script collection
 		"bfScripts": BfScripts,
 
-		// Scope attribute value (prepends ~ for child components)
+		// Scope attribute value (#1249: bare scope id, no `~` prefix)
 		"bfScopeAttr": ScopeAttr,
+
+		// Slot-identity markers (#1249): bf-h, bf-m, bf-r
+		"bfHydrationAttrs": HydrationAttrs,
 
 		// Child component marker (kept for backward compatibility)
 		"bfIsChild": IsChild,
@@ -85,22 +88,36 @@ func FuncMap() template.FuncMap {
 }
 
 // ScopeAttr returns the scope attribute value for bf-s.
-// The Hono adapter has migrated to bf-h/bf-m for slot identity (#1249);
-// go-template still emits the `~` value prefix on child scopes until
-// it gains its own bf-h/bf-m / bf-r emission — until then, runtime
-// detection via `startsWith('~')` is what keeps go-template SSR working.
+// Per #1249, bf-s is the addressable scope id only — slot identity moves
+// to the (bf-h, bf-m) pair via HydrationAttrs, and root-vs-child
+// distinction for e2e locators uses bf-r. The legacy `~` value prefix
+// on child scopes is no longer emitted.
 func ScopeAttr(props interface{}) string {
-	scopeID := getStringField(props, "ScopeID")
-	if getBoolField(props, "BfIsChild") {
-		return "~" + scopeID
+	return getStringField(props, "ScopeID")
+}
+
+// HydrationAttrs returns the slot-identity / root marker attribute
+// string `bf-h="<host>" bf-m="<slot>" bf-r=""` for the given props.
+// Each part is conditional:
+//   - bf-h / bf-m emitted when BfParent / BfMount are non-empty
+//     (slot-attached child scope, #1249)
+//   - bf-r emitted when BfIsChild is false (this scope is the SSR
+//     entry root of a client component — for e2e locator distinction)
+func HydrationAttrs(props interface{}) template.HTMLAttr {
+	parts := []string{}
+	if host := getStringField(props, "BfParent"); host != "" {
+		parts = append(parts, fmt.Sprintf(`bf-h="%s"`, template.HTMLEscapeString(host)))
 	}
-	// Fallback: check scopeID pattern for single child slots (e.g., "Parent_abc123_s4")
-	for i := 0; i < len(scopeID)-2; i++ {
-		if scopeID[i] == '_' && scopeID[i+1] == 's' && scopeID[i+2] >= '0' && scopeID[i+2] <= '9' {
-			return "~" + scopeID
-		}
+	if mount := getStringField(props, "BfMount"); mount != "" {
+		parts = append(parts, fmt.Sprintf(`bf-m="%s"`, template.HTMLEscapeString(mount)))
 	}
-	return scopeID
+	if !getBoolField(props, "BfIsChild") {
+		parts = append(parts, `bf-r=""`)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return template.HTMLAttr(strings.Join(parts, " "))
 }
 
 // IsChild returns empty string. Child status is now merged into bf-s attribute value via ~ prefix.
@@ -663,26 +680,32 @@ func TextEnd() template.HTML {
 }
 
 // ScopeComment outputs a comment-based scope marker for fragment root components.
-// Format: <!--bf-scope:ScopeID--> or <!--bf-scope:~ScopeID|PropsJSON-->
-// Uses the same logic as ScopeAttr for child prefix and BfPropsAttr for props.
+// Format (#1249, matches Hono's shape):
+//   Root:  <!--bf-scope:ScopeID|PropsJSON-->
+//   Child: <!--bf-scope:ScopeID|h=Host|m=Slot|PropsJSON-->
 //
-// Returns the marshal error so a `template.Execute` call fails
-// loudly on bad props — same loud-failure policy as `JSON` /
-// `BfPropsAttr`. Without this propagation a cycle in props would
-// silently drop the |PropsJSON suffix from the scope comment,
-// breaking client-side hydration without a visible diagnostic.
+// The leading `<ScopeID>` is always bare (no `~` prefix); child status
+// is detected by the runtime via the `|h=` segment
+// (`hydrate.ts::hydrateCommentScope`).
+//
+// Returns the marshal error so a `template.Execute` call fails loudly
+// on bad props — same policy as `JSON` / `BfPropsAttr`.
 func ScopeComment(props interface{}) (template.HTML, error) {
-	scopeAttr := ScopeAttr(props)
+	scopeID := getStringField(props, "ScopeID")
+	hostSegment := ""
+	if host := getStringField(props, "BfParent"); host != "" {
+		mount := getStringField(props, "BfMount")
+		hostSegment = "|h=" + host + "|m=" + mount
+	}
 	propsJSON := ""
 	if getBoolField(props, "BfIsRoot") {
-		// Build flat props JSON (same as BfPropsAttr but without the attribute wrapper)
 		pJSON, err := json.Marshal(props)
 		if err != nil {
 			return "", err
 		}
 		propsJSON = "|" + string(pJSON)
 	}
-	return template.HTML("<!--bf-scope:" + scopeAttr + propsJSON + "-->"), nil
+	return template.HTML("<!--bf-scope:" + scopeID + hostSegment + propsJSON + "-->"), nil
 }
 
 // PortalHTML parses and executes a template string with the provided data.

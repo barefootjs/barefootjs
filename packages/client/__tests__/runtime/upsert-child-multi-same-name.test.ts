@@ -12,7 +12,7 @@
  *
  * Before the fix, `findSsrScopeBySlotIn`'s name-prefix last-resort
  * fallback (`[bf-s^="~Button_"], [bf-s^="Button_"]`) over-matched. After
- * the first upsertChild stamped `<button bf-s="~Button_xxx" bf-m="s10">`
+ * the first upsertChild stamped `<button bf-s="Button_xxx" bf-m="s10">`
  * into the parent, subsequent calls for `s13` / `s14` returned the
  * already-mounted `s10` element and ran `initChild` on it — leaving the
  * actual `data-bf-ph="s13"` / `s14` placeholders orphaned. The Kanban

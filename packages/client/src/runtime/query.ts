@@ -17,15 +17,10 @@ const cssEscape: (s: string) => string =
 
 // --- helpers ---
 
-/** Strip the `~` child-prefix shape convention from a scope ID. */
-function stripChildPrefix(raw: string): string {
-  return raw.startsWith('~') ? raw.slice(1) : raw
-}
-
-/** Read bf-s attribute and strip the child prefix. Returns null when absent. */
+/** Read bf-s attribute. Returns null when absent.
+ *  Per #1249, bf-s is the bare addressable id — no stripping needed. */
 function getScopeId(el: Element | null): string | null {
-  const raw = el?.getAttribute(BF_SCOPE)
-  return raw ? stripChildPrefix(raw) : null
+  return el?.getAttribute(BF_SCOPE) ?? null
 }
 
 /** Comments already processed by findScopeByComment. */
@@ -33,11 +28,11 @@ const initializedComments = new WeakSet<Comment>()
 
 /**
  * Parse scope ID from a comment value like "bf-scope:Name_xxx|propsJson".
- * Strips the prefix, optional `~` child marker, and props JSON suffix.
+ * Strips the prefix and props JSON suffix.
  */
 function parseCommentScopeId(value: string, prefix: string): string | null {
   if (!value.startsWith(prefix)) return null
-  let id = stripChildPrefix(value.slice(prefix.length))
+  let id = value.slice(prefix.length)
   const pipeIdx = id.indexOf('|')
   if (pipeIdx >= 0) id = id.slice(0, pipeIdx)
   return id
@@ -535,11 +530,7 @@ function $cSingle(scope: Element | null, id: string): Element | null {
 
   // --- Component name path (unambiguous) ---
   if (!/^s\d/.test(cleanId)) {
-    // Accept both `~Name_` (child scopes) and `Name_` (root scopes).
-    return findChildScope(
-      scope,
-      `[${BF_SCOPE}^="~${cleanId}_"], [${BF_SCOPE}^="${cleanId}_"]`,
-    )
+    return findChildScope(scope, `[${BF_SCOPE}^="${cleanId}_"]`)
   }
 
   // --- Slot ID path: precise suffix match using parent scope ID ---
