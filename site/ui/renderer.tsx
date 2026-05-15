@@ -86,6 +86,11 @@ export const renderer = jsxRenderer(
 
     const pageTitle = title || 'BarefootJS Components'
 
+    const baseUrl = hostname === 'localhost' ? 'http://localhost:3002' : 'https://ui.barefootjs.dev'
+    const ogTitle = title ?? 'BarefootJS Components'
+    const ogDescription = description ?? 'TSX in. Your stack out.'
+    const ogImageUrl = `${baseUrl}/og?title=${encodeURIComponent(ogTitle)}`
+
     // Resolve prev/next links for mobile page navigation
     const slugMatch = currentPath.match(/\/(?:docs\/)?components\/([^/]+)/)
     const navLinks = slugMatch ? getNavLinks(slugMatch[1]) : {}
@@ -106,6 +111,15 @@ export const renderer = jsxRenderer(
             <link rel="icon" type="image/png" sizes="64x64" href="/static/icon-64.png" />
             <title>{pageTitle}</title>
             {description && <meta name="description" content={description} />}
+            <meta property="og:title" content={ogTitle} />
+            <meta property="og:description" content={ogDescription} />
+            <meta property="og:type" content="website" />
+            <meta property="og:image" content={ogImageUrl} />
+            <meta property="og:site_name" content="BarefootJS Components" />
+            <meta name="twitter:card" content="summary_large_image" />
+            <meta name="twitter:title" content={ogTitle} />
+            <meta name="twitter:description" content={ogDescription} />
+            <meta name="twitter:image" content={ogImageUrl} />
             <link rel="author" href="https://kobaken.co" />
             <meta name="author" content="kobaken a.k.a @kfly8" />
             <meta name="creator" content="kobaken a.k.a @kfly8" />

@@ -122,6 +122,11 @@ export const renderer = jsxRenderer(
     const pageTitle = title ? `${title} — BarefootJS` : 'BarefootJS Documentation'
     const currentSlug = slug || ''
 
+    const baseUrl = hostname === 'localhost' ? 'http://localhost:3000' : 'https://barefootjs.dev'
+    const ogTitle = title ?? 'BarefootJS'
+    const ogDescription = description ?? 'TSX in. Your stack out.'
+    const ogImageUrl = `${baseUrl}/og?title=${encodeURIComponent(ogTitle)}`
+
     return (
       <WithPredictableIds>
         <html lang="en">
@@ -133,6 +138,15 @@ export const renderer = jsxRenderer(
             <link rel="icon" type="image/png" sizes="64x64" href="/static/icon-64.png" />
             <title>{pageTitle}</title>
             {description && <meta name="description" content={description} />}
+            <meta property="og:title" content={ogTitle} />
+            <meta property="og:description" content={ogDescription} />
+            <meta property="og:type" content="website" />
+            <meta property="og:image" content={ogImageUrl} />
+            <meta property="og:site_name" content="BarefootJS" />
+            <meta name="twitter:card" content="summary_large_image" />
+            <meta name="twitter:title" content={ogTitle} />
+            <meta name="twitter:description" content={ogDescription} />
+            <meta name="twitter:image" content={ogImageUrl} />
             {meta && Object.entries(meta).map(([key, value]) => {
               if (key.startsWith('og:')) {
                 return <meta property={key} content={value} />
