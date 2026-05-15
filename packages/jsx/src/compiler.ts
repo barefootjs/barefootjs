@@ -196,49 +196,14 @@ function compileMultipleComponents(
     })
     const moduleExports = generateModuleExports(componentIR, fileWideInlineExported)
 
-    let imports: string
-    let types: string
-    let component: string
-
-    if (adapterOutput.sections) {
-      // Use structured sections directly — no string parsing needed
-      const s = adapterOutput.sections
-      imports = s.imports
-      types = s.types
-      component = s.component + (s.defaultExport || '')
-      const mc = s.moduleConstants
-      if (mc && !moduleConstantsSet.has(mc)) {
-        moduleConstantsSet.add(mc)
-        moduleConstantsOrdered.push(mc)
-      }
-    } else {
-      // Fallback: parse template string (for adapters without sections)
-      const lines = adapterOutput.template.split('\n')
-      const importLines: string[] = []
-      const typeLines: string[] = []
-      const componentLines: string[] = []
-      let inComponent = false
-
-      for (const line of lines) {
-        if (line.startsWith('export function ') || line.startsWith('function ')) {
-          const funcName = line.match(/^(?:export )?function (\w+)/)?.[1]
-          if (funcName && componentNames.includes(funcName)) {
-            inComponent = true
-          }
-        }
-
-        if (inComponent) {
-          componentLines.push(line)
-        } else if (line.startsWith('import ')) {
-          importLines.push(line)
-        } else if (line.trim()) {
-          typeLines.push(line)
-        }
-      }
-
-      imports = importLines.join('\n')
-      types = typeLines.join('\n')
-      component = componentLines.join('\n')
+    const s = adapterOutput.sections
+    const imports = s.imports
+    const types = s.types
+    const component = s.component + (s.defaultExport || '')
+    const mc = s.moduleConstants
+    if (mc && !moduleConstantsSet.has(mc)) {
+      moduleConstantsSet.add(mc)
+      moduleConstantsOrdered.push(mc)
     }
 
     allOutputs.push({
@@ -558,15 +523,9 @@ export function compileJSX(
   })
   const moduleExports = generateModuleExports(componentIR)
 
-  // Use structured sections if available, otherwise fall back to template
-  let content: string
-  if (adapterOutput.sections) {
-    const s = adapterOutput.sections
-    content = [s.imports, s.moduleConstants ?? '', s.types, moduleExports, s.component]
-      .filter(Boolean).join('\n\n') + (s.defaultExport || '')
-  } else {
-    content = adapterOutput.template
-  }
+  const s = adapterOutput.sections
+  const content = [s.imports, s.moduleConstants ?? '', s.types, moduleExports, s.component]
+    .filter(Boolean).join('\n\n') + (s.defaultExport || '')
 
   files.push({
     path: filePath.replace(/\.tsx?$/, adapter.extension),

@@ -31,11 +31,11 @@ export interface TemplateSections {
 }
 
 export interface AdapterOutput {
-  /** Complete assembled template string (backward compat for external consumers) */
+  /** Complete assembled template string (kept for external consumers and debugging). */
   template: string
-  /** Structured sections for compiler assembly. When present, compiler uses these
-   *  instead of re-parsing template. */
-  sections?: TemplateSections
+  /** Structured sections used by the compiler to assemble the final module
+   *  file. Required: the compiler does not parse the raw `template`. */
+  sections: TemplateSections
   types?: string // Generated types (for typed languages)
   extension: string
 }
