@@ -449,7 +449,7 @@ IR (ComponentIR)
  └─→ ir-to-client-js: Client JS (adapter-independent)
 ```
 
-The **hydration contract** between template and client JS is maintained through shared marker constants (`bf-s`, `bf`, `bf-c`). The cross-adapter conformance suite (`packages/adapter-tests/src/__tests__/cross-adapter-conformance.test.ts`) compiles every JSX fixture through every shipped adapter and asserts that slot-id, conditional-id, and loop-id sets are byte-identical across them. New adapters must pass this suite before merge.
+The **hydration contract** between template and client JS is maintained through shared marker constants (`bf-s`, `bf`, `bf-c`). The marker conformance suite (`packages/adapter-tests/src/marker-conformance.ts`, wired up by `runAdapterConformanceTests`) compiles every shared JSX fixture through the adapter under test and asserts the slot / conditional / loop ids the template emits match the set the IR computed. Each adapter package runs the suite against its own adapter; the shared layer never imports concrete adapters, so adding a new one is a one-package edit.
 
 ### Available Adapters
 
