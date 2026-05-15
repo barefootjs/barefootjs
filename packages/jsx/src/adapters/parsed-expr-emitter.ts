@@ -1,0 +1,131 @@
+/**
+ * Shared ParsedExpr emitter (#1250 phase 1).
+ *
+ * Each adapter used to carry its own `renderParsedExpr` switch over
+ * every `ParsedExpr.kind` (identifier, literal, call, member, binary,
+ * unary, logical, conditional, template-literal, higher-order, …). Two
+ * problems followed:
+ *
+ *  1. Drift: adding a new kind required editing every adapter's switch.
+ *     The TS compiler couldn't enforce that every adapter handled it;
+ *     a forgotten case fell through to a default branch and emitted
+ *     placeholder garbage at runtime.
+ *  2. Duplication: the recursive traversal — paren wrapping, child
+ *     emission, kind-discrimination — was identical across adapters
+ *     and rewritten each time.
+ *
+ * The fix is a single recursion in the compiler that dispatches each
+ * kind to a method on an adapter-provided `ParsedExprEmitter`. Every
+ * `ParsedExpr.kind` maps to exactly one interface method, so a new
+ * kind becomes a TS compile error in every adapter that hasn't been
+ * updated. Adapters keep ownership of the target-language details
+ * (operator names, capitalisation, primitive registry) because those
+ * are not shareable.
+ *
+ * Method receives:
+ *   - The structured children directly (`left`, `right`, `args`, …),
+ *     not pre-rendered strings — that lets an emitter inspect a child
+ *     before emitting (e.g. Go's `find().prop` short-circuit).
+ *   - An `emit` callback to recurse into a child node when it does
+ *     want the default rendering. Passing `emit` (rather than letting
+ *     emitters call a global) keeps the recursion in this module's
+ *     control so future hooks (depth limits, source-map tracking) can
+ *     be added in one place.
+ */
+
+import type { ParsedExpr, TemplatePart } from '../expression-parser'
+
+export type HigherOrderMethod = 'filter' | 'every' | 'some' | 'find' | 'findIndex'
+
+export type LiteralType = 'string' | 'number' | 'boolean' | 'null'
+
+/**
+ * Adapter-side ParsedExpr lowering surface. One method per
+ * `ParsedExpr.kind`. The shared `emitParsedExpr` runner dispatches
+ * here based on `expr.kind`.
+ *
+ * Each method receives the structured children (not pre-rendered) so
+ * the emitter can inspect their kinds before deciding how to lower
+ * them, plus an `emit` callback to recurse on any child it wants the
+ * default rendering for.
+ */
+export interface ParsedExprEmitter {
+  identifier(name: string): string
+  literal(value: string | number | boolean | null, literalType: LiteralType): string
+  call(callee: ParsedExpr, args: ParsedExpr[], emit: (e: ParsedExpr) => string): string
+  member(
+    object: ParsedExpr,
+    property: string,
+    computed: boolean,
+    emit: (e: ParsedExpr) => string,
+  ): string
+  binary(op: string, left: ParsedExpr, right: ParsedExpr, emit: (e: ParsedExpr) => string): string
+  unary(op: string, argument: ParsedExpr, emit: (e: ParsedExpr) => string): string
+  logical(
+    op: '&&' | '||' | '??',
+    left: ParsedExpr,
+    right: ParsedExpr,
+    emit: (e: ParsedExpr) => string,
+  ): string
+  conditional(
+    test: ParsedExpr,
+    consequent: ParsedExpr,
+    alternate: ParsedExpr,
+    emit: (e: ParsedExpr) => string,
+  ): string
+  templateLiteral(parts: TemplatePart[], emit: (e: ParsedExpr) => string): string
+  arrowFn(param: string, body: ParsedExpr, emit: (e: ParsedExpr) => string): string
+  higherOrder(
+    method: HigherOrderMethod,
+    object: ParsedExpr,
+    param: string,
+    predicate: ParsedExpr,
+    emit: (e: ParsedExpr) => string,
+  ): string
+  unsupported(raw: string, reason: string): string
+}
+
+/**
+ * Single point of dispatch from `ParsedExpr.kind` to the adapter's
+ * method. Adapters call this once at their entry point; the recursion
+ * threads the `emit` callback for child nodes.
+ *
+ * The `assertNever` default arm makes adding a new `ParsedExpr.kind`
+ * a TS compile error here — and, transitively, in every adapter that
+ * hasn't extended its `ParsedExprEmitter` implementation.
+ */
+export function emitParsedExpr(expr: ParsedExpr, emitter: ParsedExprEmitter): string {
+  const emit = (child: ParsedExpr): string => emitParsedExpr(child, emitter)
+  switch (expr.kind) {
+    case 'identifier':
+      return emitter.identifier(expr.name)
+    case 'literal':
+      return emitter.literal(expr.value, expr.literalType)
+    case 'call':
+      return emitter.call(expr.callee, expr.args, emit)
+    case 'member':
+      return emitter.member(expr.object, expr.property, expr.computed, emit)
+    case 'binary':
+      return emitter.binary(expr.op, expr.left, expr.right, emit)
+    case 'unary':
+      return emitter.unary(expr.op, expr.argument, emit)
+    case 'logical':
+      return emitter.logical(expr.op, expr.left, expr.right, emit)
+    case 'conditional':
+      return emitter.conditional(expr.test, expr.consequent, expr.alternate, emit)
+    case 'template-literal':
+      return emitter.templateLiteral(expr.parts, emit)
+    case 'arrow-fn':
+      return emitter.arrowFn(expr.param, expr.body, emit)
+    case 'higher-order':
+      return emitter.higherOrder(expr.method, expr.object, expr.param, expr.predicate, emit)
+    case 'unsupported':
+      return emitter.unsupported(expr.raw, expr.reason)
+    default: {
+      const _exhaustive: never = expr
+      throw new Error(
+        `emitParsedExpr: unhandled ParsedExpr kind ${(_exhaustive as { kind: string }).kind}`,
+      )
+    }
+  }
+}

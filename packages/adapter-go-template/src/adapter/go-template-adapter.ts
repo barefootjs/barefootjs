@@ -23,12 +23,26 @@ import type {
   SourceLocation,
   ParsedExpr,
   ParsedStatement,
+  TemplatePart,
   IRIfStatement,
   IRProvider,
   IRAsync,
   TemplatePrimitiveRegistry,
 } from '@barefootjs/jsx'
-import { BaseAdapter, type AdapterOutput, type AdapterGenerateOptions, type TemplateSections, isBooleanAttr, parseExpression, isSupported, identifierPath } from '@barefootjs/jsx'
+import {
+  BaseAdapter,
+  type AdapterOutput,
+  type AdapterGenerateOptions,
+  type TemplateSections,
+  type ParsedExprEmitter,
+  type HigherOrderMethod,
+  type LiteralType,
+  isBooleanAttr,
+  parseExpression,
+  isSupported,
+  identifierPath,
+  emitParsedExpr,
+} from '@barefootjs/jsx'
 
 /**
  * Extended nested component info that tracks whether the component
@@ -112,7 +126,7 @@ const GO_TEMPLATE_PRIMITIVES: Record<string, PrimitiveSpec> = {
   'Math.round':     { arity: 1, emit: (args) => `bf_round ${args[0]}` },
 }
 
-export class GoTemplateAdapter extends BaseAdapter {
+export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter {
   name = 'go-template'
   extension = '.tmpl'
 
@@ -1717,222 +1731,219 @@ export class GoTemplateAdapter extends BaseAdapter {
   }
 
   /**
-   * Render a ParsedExpr to Go template syntax.
+   * Render a ParsedExpr to Go template syntax via the shared
+   * dispatcher (#1250 phase 1). The per-kind logic lives in the
+   * `ParsedExprEmitter` methods below; this method is a thin wrapper
+   * so existing call sites keep working.
    */
   private renderParsedExpr(expr: ParsedExpr): string {
-    switch (expr.kind) {
-      case 'identifier':
-        return `.${this.capitalizeFieldName(expr.name)}`
+    return emitParsedExpr(expr, this)
+  }
 
-      case 'literal':
-        if (expr.literalType === 'string') {
-          return `"${expr.value}"`
-        }
-        if (expr.literalType === 'null') {
-          return '""'
-        }
-        return String(expr.value)
+  // ===========================================================================
+  // ParsedExprEmitter implementation (Go template syntax)
+  // ===========================================================================
 
-      case 'call': {
-        // Handle signal calls: count() -> .Count
-        if (expr.callee.kind === 'identifier' && expr.args.length === 0) {
-          return `.${this.capitalizeFieldName(expr.callee.name)}`
-        }
-        // Identifier-path primitive callee (#1188): if the JS call
-        // resolves to a path registered on `templatePrimitives`
-        // (e.g. `JSON.stringify`, `Math.floor`), substitute the Go
-        // template form. The emit fn receives args already rendered
-        // to Go template syntax. Wrap in parens to preserve operator
-        // precedence in the surrounding expression (e.g. `bf_floor x`
-        // composed inside `gt (bf_floor x) 3`).
-        //
-        // Arity is checked against `templatePrimitiveArities` so a
-        // wrong-arity call (`JSON.stringify()`, `JSON.stringify(x,
-        // replacer)`) falls through to the standard BF101 path
-        // instead of emitting invalid Go template syntax via
-        // `args[0]` on a missing or extra argument.
-        const path = identifierPath(expr.callee)
-        if (path && this.templatePrimitives[path]) {
-          const expected = this.templatePrimitiveArities[path]
-          if (expected === undefined || expr.args.length === expected) {
-            const renderedArgs = expr.args.map(a => this.renderParsedExpr(a))
-            return `(${this.templatePrimitives[path](renderedArgs)})`
-          }
-          // Arity mismatch — record a diagnostic and continue to the
-          // generic call rendering (which will surface a BF101 if
-          // `convertExpressionToGo`'s `isSupported` rejects the
-          // shape). We don't return here so the fallback path runs.
-          this.errors.push({
-            code: 'BF101',
-            severity: 'error',
-            message: `templatePrimitive '${path}' expects ${expected} arg(s), got ${expr.args.length}`,
-            loc: this.makeLoc(),
-            suggestion: {
-              message: `Call '${path}' with exactly ${expected} argument(s), or wrap the JSX expression in /* @client */ to defer evaluation.`,
-            },
-          })
-        }
-        // Handle method calls on objects: items().length is handled by member
-        // For other calls, render callee and args
-        const callee = this.renderParsedExpr(expr.callee)
-        if (expr.args.length === 0) {
-          return callee
-        }
-        // Function calls with args - this is unusual in templates
-        const args = expr.args.map(a => this.renderParsedExpr(a)).join(' ')
-        return `${callee} ${args}`
-      }
+  identifier(name: string): string {
+    return `.${this.capitalizeFieldName(name)}`
+  }
 
-      case 'member': {
-        // Handle .length with higher-order filter → len (bf_filter ...)
-        if (expr.property === 'length' && expr.object.kind === 'higher-order') {
-          const result = this.renderFilterLengthExpr(expr.object, e => this.renderParsedExpr(e))
-          if (result) {
-            return result
-          }
-        }
+  literal(value: string | number | boolean | null, literalType: LiteralType): string {
+    if (literalType === 'string') return `"${value}"`
+    if (literalType === 'null') return '""'
+    return String(value)
+  }
 
-        // Handle find().property → {{with bf_find ...}}{{.Property}}{{end}}
-        if (expr.object.kind === 'higher-order' && expr.object.method === 'find') {
-          const findResult = this.renderHigherOrderExpr(expr.object, e => this.renderParsedExpr(e))
-          if (findResult) {
-            return `{{with ${findResult}}}{{.${this.capitalizeFieldName(expr.property)}}}{{end}}`
-          }
-          // Fall back to template iteration for complex predicates
-          const templateBlock = this.renderFindTemplateBlock(
-            expr.object, e => this.renderParsedExpr(e), this.capitalizeFieldName(expr.property)
-          )
-          if (templateBlock) return templateBlock
-        }
-
-        // Handle SolidJS-style props pattern: props.xxx -> .Xxx
-        // When object is the propsObjectName (e.g., "props"), skip the object part
-        // and directly access the property on the root context
-        if (expr.object.kind === 'identifier' && this.propsObjectName && expr.object.name === this.propsObjectName) {
-          return `.${this.capitalizeFieldName(expr.property)}`
-        }
-
-        // Inside a loop, the loop param variable refers to the current item (dot).
-        // e.g., `msg.role` inside `{{range $_, $msg := .Messages}}` → `.Role`
-        const currentLoopParam = this.loopParamStack[this.loopParamStack.length - 1]
-        if (expr.object.kind === 'identifier' && currentLoopParam && expr.object.name === currentLoopParam) {
-          return `.${this.capitalizeFieldName(expr.property)}`
-        }
-
-        const obj = this.renderParsedExpr(expr.object)
-        // Handle .length -> len
-        if (expr.property === 'length') {
-          return `len ${obj}`
-        }
-        // Normal property access: .User.Name
-        return `${obj}.${this.capitalizeFieldName(expr.property)}`
-      }
-
-      case 'binary': {
-        const left = this.renderParsedExpr(expr.left)
-        const right = this.renderParsedExpr(expr.right)
-
-        // Comparison operators -> Go template functions
-        switch (expr.op) {
-          case '===':
-          case '==':
-            return `eq ${left} ${right}`
-          case '!==':
-          case '!=':
-            return `ne ${left} ${right}`
-          case '>':
-            return `gt ${left} ${right}`
-          case '<':
-            return `lt ${left} ${right}`
-          case '>=':
-            return `ge ${left} ${right}`
-          case '<=':
-            return `le ${left} ${right}`
-
-          // Arithmetic operators -> runtime functions
-          case '+':
-            return `bf_add ${left} ${right}`
-          case '-':
-            return `bf_sub ${left} ${right}`
-          case '*':
-            return `bf_mul ${left} ${right}`
-          case '/':
-            return `bf_div ${left} ${right}`
-          case '%':
-            return `bf_mod ${left} ${right}`
-
-          default:
-            return `${left} ${expr.op} ${right}`
-        }
-      }
-
-      case 'unary': {
-        const arg = this.renderParsedExpr(expr.argument)
-        if (expr.op === '!') {
-          return `not ${arg}`
-        }
-        if (expr.op === '-') {
-          return `bf_neg ${arg}`
-        }
-        return arg
-      }
-
-      case 'logical': {
-        const left = this.renderParsedExpr(expr.left)
-        const right = this.renderParsedExpr(expr.right)
-        // Wrap in parentheses if needed for complex expressions
-        const wrapLeft = this.needsParens(expr.left) ? `(${left})` : left
-        const wrapRight = this.needsParens(expr.right) ? `(${right})` : right
-        if (expr.op === '&&') {
-          return `and ${wrapLeft} ${wrapRight}`
-        }
-        return `or ${wrapLeft} ${wrapRight}`
-      }
-
-      case 'conditional': {
-        const test = this.renderParsedExpr(expr.test)
-        // Nested conditionals already return complete {{if}}...{{end}} blocks
-        // Literals return bare text (used within attributes)
-        const consequent = this.renderConditionalBranch(expr.consequent)
-        const alternate = this.renderConditionalBranch(expr.alternate)
-        return `{{if ${test}}}${consequent}{{else}}${alternate}{{end}}`
-      }
-
-      case 'template-literal': {
-        let result = ''
-        for (const part of expr.parts) {
-          if (part.type === 'string') {
-            result += part.value
-          } else {
-            const partExpr = this.renderParsedExpr(part.expr)
-            result += `{{${partExpr}}}`
-          }
-        }
-        return result
-      }
-
-      case 'arrow-fn':
-        // Arrow functions shouldn't appear standalone in rendering
-        return `[ARROW-FN: ${expr.param} => ...]`
-
-      case 'higher-order': {
-        const result = this.renderHigherOrderExpr(expr, e => this.renderParsedExpr(e))
-        if (result) return result
-        if (expr.method === 'find' || expr.method === 'findIndex') {
-          const templateBlock = this.renderFindTemplateBlock(expr, e => this.renderParsedExpr(e))
-          if (templateBlock) return templateBlock
-        }
-        if (expr.method === 'every' || expr.method === 'some') {
-          const templateBlock = this.renderEverySomeTemplateBlock(expr, e => this.renderParsedExpr(e))
-          if (templateBlock) return templateBlock
-        }
-        return `[UNSUPPORTED: ${expr.method}]`
-      }
-
-      case 'unsupported':
-        // This should not happen if isSupported was checked
-        return `[UNSUPPORTED: ${expr.raw}]`
+  call(callee: ParsedExpr, args: ParsedExpr[], emit: (e: ParsedExpr) => string): string {
+    // Signal call: count() -> .Count
+    if (callee.kind === 'identifier' && args.length === 0) {
+      return `.${this.capitalizeFieldName(callee.name)}`
     }
+    // Identifier-path primitive callee (#1188): if the JS call resolves
+    // to a path registered on `templatePrimitives` (e.g. `JSON.stringify`,
+    // `Math.floor`), substitute the Go template form. The emit fn
+    // receives args already rendered to Go template syntax. Wrap in
+    // parens to preserve operator precedence in the surrounding
+    // expression (e.g. `bf_floor x` composed inside `gt (bf_floor x) 3`).
+    //
+    // Arity is checked against `templatePrimitiveArities` so a wrong-arity
+    // call (`JSON.stringify()`, `JSON.stringify(x, replacer)`) falls
+    // through to the standard BF101 path instead of emitting invalid
+    // Go template syntax via `args[0]` on a missing or extra argument.
+    const path = identifierPath(callee)
+    if (path && this.templatePrimitives[path]) {
+      const expected = this.templatePrimitiveArities[path]
+      if (expected === undefined || args.length === expected) {
+        const renderedArgs = args.map(emit)
+        return `(${this.templatePrimitives[path](renderedArgs)})`
+      }
+      this.errors.push({
+        code: 'BF101',
+        severity: 'error',
+        message: `templatePrimitive '${path}' expects ${expected} arg(s), got ${args.length}`,
+        loc: this.makeLoc(),
+        suggestion: {
+          message: `Call '${path}' with exactly ${expected} argument(s), or wrap the JSX expression in /* @client */ to defer evaluation.`,
+        },
+      })
+    }
+    // Generic call: render callee and args.
+    const calleeStr = emit(callee)
+    if (args.length === 0) return calleeStr
+    const argsStr = args.map(emit).join(' ')
+    return `${calleeStr} ${argsStr}`
+  }
+
+  member(
+    object: ParsedExpr,
+    property: string,
+    _computed: boolean,
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    // .length on higher-order filter → len (bf_filter ...)
+    if (property === 'length' && object.kind === 'higher-order') {
+      const result = this.renderFilterLengthExpr(object, emit)
+      if (result) return result
+    }
+
+    // find().property → {{with bf_find ...}}{{.Property}}{{end}}
+    if (object.kind === 'higher-order' && object.method === 'find') {
+      const findResult = this.renderHigherOrderExpr(object, emit)
+      if (findResult) {
+        return `{{with ${findResult}}}{{.${this.capitalizeFieldName(property)}}}{{end}}`
+      }
+      const templateBlock = this.renderFindTemplateBlock(
+        object, emit, this.capitalizeFieldName(property),
+      )
+      if (templateBlock) return templateBlock
+    }
+
+    // SolidJS-style props pattern: props.xxx -> .Xxx
+    if (object.kind === 'identifier' && this.propsObjectName && object.name === this.propsObjectName) {
+      return `.${this.capitalizeFieldName(property)}`
+    }
+
+    // Inside a loop, the loop param variable refers to the current item
+    // (dot). e.g. `msg.role` inside `{{range $_, $msg := .Messages}}` → `.Role`
+    const currentLoopParam = this.loopParamStack[this.loopParamStack.length - 1]
+    if (object.kind === 'identifier' && currentLoopParam && object.name === currentLoopParam) {
+      return `.${this.capitalizeFieldName(property)}`
+    }
+
+    const obj = emit(object)
+    if (property === 'length') return `len ${obj}`
+    return `${obj}.${this.capitalizeFieldName(property)}`
+  }
+
+  binary(op: string, left: ParsedExpr, right: ParsedExpr, emit: (e: ParsedExpr) => string): string {
+    const l = emit(left)
+    const r = emit(right)
+    switch (op) {
+      case '===':
+      case '==':
+        return `eq ${l} ${r}`
+      case '!==':
+      case '!=':
+        return `ne ${l} ${r}`
+      case '>':
+        return `gt ${l} ${r}`
+      case '<':
+        return `lt ${l} ${r}`
+      case '>=':
+        return `ge ${l} ${r}`
+      case '<=':
+        return `le ${l} ${r}`
+      case '+':
+        return `bf_add ${l} ${r}`
+      case '-':
+        return `bf_sub ${l} ${r}`
+      case '*':
+        return `bf_mul ${l} ${r}`
+      case '/':
+        return `bf_div ${l} ${r}`
+      case '%':
+        return `bf_mod ${l} ${r}`
+      default:
+        return `${l} ${op} ${r}`
+    }
+  }
+
+  unary(op: string, argument: ParsedExpr, emit: (e: ParsedExpr) => string): string {
+    const arg = emit(argument)
+    if (op === '!') return `not ${arg}`
+    if (op === '-') return `bf_neg ${arg}`
+    return arg
+  }
+
+  logical(
+    op: '&&' | '||' | '??',
+    left: ParsedExpr,
+    right: ParsedExpr,
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    const l = emit(left)
+    const r = emit(right)
+    const wrapLeft = this.needsParens(left) ? `(${l})` : l
+    const wrapRight = this.needsParens(right) ? `(${r})` : r
+    if (op === '&&') return `and ${wrapLeft} ${wrapRight}`
+    return `or ${wrapLeft} ${wrapRight}`
+  }
+
+  conditional(
+    test: ParsedExpr,
+    consequent: ParsedExpr,
+    alternate: ParsedExpr,
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    const t = emit(test)
+    // Nested conditionals already return complete {{if}}...{{end}} blocks;
+    // literals return bare text (used within attributes).
+    const c = this.renderConditionalBranch(consequent)
+    const a = this.renderConditionalBranch(alternate)
+    return `{{if ${t}}}${c}{{else}}${a}{{end}}`
+  }
+
+  templateLiteral(parts: TemplatePart[], emit: (e: ParsedExpr) => string): string {
+    let result = ''
+    for (const part of parts) {
+      if (part.type === 'string') {
+        result += part.value
+      } else {
+        result += `{{${emit(part.expr)}}}`
+      }
+    }
+    return result
+  }
+
+  arrowFn(param: string, _body: ParsedExpr, _emit: (e: ParsedExpr) => string): string {
+    // Arrow functions shouldn't appear standalone in rendering.
+    return `[ARROW-FN: ${param} => ...]`
+  }
+
+  higherOrder(
+    method: HigherOrderMethod,
+    object: ParsedExpr,
+    param: string,
+    predicate: ParsedExpr,
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    const reconstructed = { kind: 'higher-order' as const, method, object, param, predicate }
+    const result = this.renderHigherOrderExpr(reconstructed, emit)
+    if (result) return result
+    if (method === 'find' || method === 'findIndex') {
+      const templateBlock = this.renderFindTemplateBlock(reconstructed, emit)
+      if (templateBlock) return templateBlock
+    }
+    if (method === 'every' || method === 'some') {
+      const templateBlock = this.renderEverySomeTemplateBlock(reconstructed, emit)
+      if (templateBlock) return templateBlock
+    }
+    return `[UNSUPPORTED: ${method}]`
+  }
+
+  unsupported(raw: string, _reason: string): string {
+    // Should not happen if `isSupported` was checked at parse time.
+    return `[UNSUPPORTED: ${raw}]`
   }
 
   /**
