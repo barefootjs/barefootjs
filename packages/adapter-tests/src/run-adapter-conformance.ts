@@ -25,6 +25,7 @@
 import type { TemplateAdapter } from '../../jsx/src/types'
 import { runJSXConformanceTests, type RenderOptions } from './jsx-runner'
 import { runConformanceSuite } from './conformance'
+import { runMarkerConformance } from './marker-conformance'
 import type { ExpectedDiagnostic } from './types'
 import {
   templatePrimitiveCases,
@@ -60,6 +61,18 @@ export interface RunAdapterConformanceOptions {
   skipJsx?: ReadonlyArray<string>
   skipTemplatePrimitives?: ReadonlySet<TemplatePrimitiveCaseId>
   /**
+   * Fixture ids whose marker shape is consciously drifting on this
+   * adapter (e.g. a marker the adapter does not yet emit). Each entry
+   * should be paired with a comment naming the missing marker and the
+   * follow-up issue; missing entries default to "skip nothing".
+   *
+   * Marker conformance asserts that for each fixture, the IR layer's
+   * slot / conditional / loop ids appear in the adapter's emitted
+   * template — different syntactic shapes (attribute vs comment) are
+   * allowed, missing ids are not. See `marker-conformance.ts`.
+   */
+  skipMarkerConformance?: ReadonlySet<string>
+  /**
    * Per-fixture diagnostic contracts owned by this adapter. Keyed by
    * `JSXFixture.id`; the runner compiles the fixture and asserts each
    * `{ code, severity }` appears in `ir.errors`, then skips HTML
@@ -92,5 +105,11 @@ export function runAdapterConformanceTests(
     },
     cases: templatePrimitiveCases,
     run: runTemplatePrimitiveCase,
+  })
+
+  runMarkerConformance({
+    name: opts.name,
+    factory: opts.factory,
+    skipFixtures: opts.skipMarkerConformance,
   })
 }

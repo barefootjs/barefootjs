@@ -88,6 +88,17 @@ runAdapterConformanceTests({
     TemplatePrimitiveCaseId.USER_IMPORT_VIA_CONST,
     TemplatePrimitiveCaseId.NO_DOUBLE_REWRITE_OF_PROPS_OBJECT,
   ]),
+  // Mojo `renderLoop` does not yet emit the `bf->comment("loop:<id>")`
+  // boundary markers when the loop is `@client` (Hono and Go both do).
+  // The client runtime relies on these markers to locate the insertion
+  // anchor when hydrating the array; without them, mapArray() resolves
+  // anchor = null and appends after sibling markers (#872 parity).
+  // Tracked as a follow-up; remove from this set when Mojo emits the
+  // boundary pair for clientOnly loops too.
+  skipMarkerConformance: new Set([
+    'client-only',
+    'client-only-loop-with-sibling-cond',
+  ]),
   onRenderError: (err, id) => {
     if (err instanceof PerlNotAvailableError) {
       console.log(`Skipping [${id}]: ${err.message}`)
