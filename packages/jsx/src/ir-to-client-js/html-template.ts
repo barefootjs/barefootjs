@@ -257,10 +257,11 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
       const propsExpr = propsEntries.length > 0 ? `{${propsEntries.join(', ')}}` : '{}'
       const keyProp = node.props.find(p => p.name === 'key')
       const keyArg = keyProp ? `, ${attrValueToString(keyProp.value) ?? 'undefined'}` : ''
-      // Pass slotId as suffix so $c() can find the child component by slot after branch swap.
-      // Inside a loop body each iteration owns a separate scope (identified by
-      // `data-key`), so the parent-slot suffix is dropped — matching the
-      // SSR template's loop component emit in `generateCsrTemplate` (#1268).
+      // Pass slotId as suffix so $c() can find the child component by slot
+      // after branch swap. Inside a loop body each iteration owns a
+      // separate scope (identified by `data-key`), so the parent-slot
+      // suffix is dropped to avoid anchoring a deeply-nested child to a
+      // wrong component-wrapper scope (#1268).
       const slotArg = (!insideLoop && node.slotId) ? `, '${node.slotId}'` : ''
       return `\${renderChild('${nameForRegistryRef(node.name)}', ${propsExpr}${keyArg || (slotArg ? ', undefined' : '')}${slotArg})}`
     }

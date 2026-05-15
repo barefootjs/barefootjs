@@ -9,7 +9,7 @@ test.describe('Theme Customizer Block', () => {
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="ThemeCustomizerDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="ThemeCustomizerDemo_"][bf-r]:not([data-slot])').first()
 
   // --- Initial Render ---
 

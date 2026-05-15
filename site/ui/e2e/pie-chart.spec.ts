@@ -6,7 +6,7 @@ test.describe('Pie Chart Reference Page', () => {
   })
 
   test.describe('Preview', () => {
-    const scope = '[bf-s^="PieChartPreviewDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="PieChartPreviewDemo_"][bf-r]:not([data-slot])'
 
     test('renders an SVG chart', async ({ page }) => {
       const container = page.locator(scope)
@@ -60,7 +60,7 @@ test.describe('Pie Chart Reference Page', () => {
 
   test.describe('Basic', () => {
     test('renders an SVG with pie slices', async ({ page }) => {
-      const container = page.locator('[bf-s^="PieChartBasicDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="PieChartBasicDemo_"][bf-r]:not([data-slot])')
       await expect(container.locator('svg')).toBeVisible()
       const slices = container.locator('path[data-key="tasks"]')
       await expect(slices).toHaveCount(4)
@@ -69,7 +69,7 @@ test.describe('Pie Chart Reference Page', () => {
 
   test.describe('Donut', () => {
     test('renders a donut chart with inner radius', async ({ page }) => {
-      const container = page.locator('[bf-s^="PieChartDonutDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="PieChartDonutDemo_"][bf-r]:not([data-slot])')
       const slices = container.locator('path[data-key="tasks"]')
       await expect(slices).toHaveCount(4)
     })
@@ -77,7 +77,7 @@ test.describe('Pie Chart Reference Page', () => {
 
   test.describe('Interactive', () => {
     test('switching metric updates the chart', async ({ page }) => {
-      const section = page.locator('[bf-s^="PieChartInteractiveDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="PieChartInteractiveDemo_"][bf-r]:not([data-slot])').first()
 
       // Initially shows tasks data
       await expect(section.locator('path[data-key="tasks"]')).toHaveCount(4)
@@ -92,7 +92,7 @@ test.describe('Pie Chart Reference Page', () => {
   })
 
   test.describe('Animated', () => {
-    const scope = '[bf-s^="PieChartAnimatedDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="PieChartAnimatedDemo_"][bf-r]:not([data-slot])'
 
     test('renders 4 slices with reactive stroke + fill-opacity attributes', async ({ page }) => {
       const container = page.locator(scope)
@@ -172,7 +172,7 @@ test.describe('Pie Chart Reference Page', () => {
 
   test.describe('Tooltip', () => {
     test('tooltip appears on slice hover', async ({ page }) => {
-      const container = page.locator('[bf-s^="PieChartPreviewDemo_"]:not([data-slot])')
+      const container = page.locator('[bf-s^="PieChartPreviewDemo_"][bf-r]:not([data-slot])')
       const tooltip = container.locator('.chart-tooltip')
 
       // Tooltip should be hidden initially

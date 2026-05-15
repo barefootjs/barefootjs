@@ -154,7 +154,7 @@ describe('hydrate walks elements in document order', () => {
 
     document.body.innerHTML =
       `<!--bf-scope:DocOrderCommentParent_root|{"DocOrderCommentParent":{}}-->` +
-      `<div bf-s="~DocOrderCommentParent_root_proxy">` +
+      `<div bf-s="DocOrderCommentParent_root_proxy">` +
         `<div bf-s="DocOrderCommentChild_leaf"></div>` +
       `</div>`
 

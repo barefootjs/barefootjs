@@ -7,7 +7,7 @@ test.describe('Navigation Menu Documentation Page', () => {
 
   test.describe('Basic Demo', () => {
     test('opens content on trigger click', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const gsTrigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Getting Started' })
 
       await gsTrigger.click()
@@ -19,7 +19,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('has ARIA attributes on trigger', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const trigger = nav.locator('[data-slot="navigation-menu-trigger"]').first()
 
       await expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
@@ -30,7 +30,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('closes content on ESC', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const trigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Getting Started' })
 
       await trigger.click()
@@ -43,7 +43,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('closes content on click outside', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const trigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Getting Started' })
 
       await trigger.click()
@@ -56,7 +56,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('contains chevron SVG in trigger', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const trigger = nav.locator('[data-slot="navigation-menu-trigger"]').first()
 
       const chevron = trigger.locator('[data-slot="navigation-menu-chevron"]')
@@ -64,7 +64,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('renders NavigationMenuLink as <a> with href', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const trigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Getting Started' })
 
       await trigger.click()
@@ -80,7 +80,7 @@ test.describe('Navigation Menu Documentation Page', () => {
 
   test.describe('Hover Behavior', () => {
     test('opens content on hover with delay', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const trigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Getting Started' })
 
       await trigger.hover()
@@ -91,7 +91,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('content stays open when mouse moves to it', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const trigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Getting Started' })
 
       // Open via click for reliability
@@ -108,7 +108,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('roving hover: hovering another trigger switches content', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const gsTrigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Getting Started' })
       const compTrigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Components' })
 
@@ -126,7 +126,7 @@ test.describe('Navigation Menu Documentation Page', () => {
 
   test.describe('Keyboard Navigation', () => {
     test('ArrowRight on trigger navigates to next trigger', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const gsTrigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Getting Started' })
       const compTrigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Components' })
 
@@ -136,7 +136,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('ArrowLeft on trigger navigates to previous trigger', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const gsTrigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Getting Started' })
       const compTrigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Components' })
 
@@ -146,7 +146,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('ArrowRight with open menu switches to next menu', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuBasicDemo_"][bf-r]').first()
       const gsTrigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Getting Started' })
 
       // Open Getting Started
@@ -163,7 +163,7 @@ test.describe('Navigation Menu Documentation Page', () => {
 
   test.describe('With Links Demo', () => {
     test('renders direct links without trigger', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuWithLinksDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuWithLinksDemo_"][bf-r]').first()
       const blogLink = nav.locator('[data-slot="navigation-menu-link"]').filter({ hasText: 'Blog' })
 
       await expect(blogLink).toBeVisible()
@@ -171,7 +171,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('active link has aria-current=page', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuWithLinksDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuWithLinksDemo_"][bf-r]').first()
       const docsTrigger = nav.locator('[data-slot="navigation-menu-trigger"]').filter({ hasText: 'Documentation' })
 
       await docsTrigger.click()
@@ -182,7 +182,7 @@ test.describe('Navigation Menu Documentation Page', () => {
     })
 
     test('mixes trigger items and direct link items', async ({ page }) => {
-      const nav = page.locator('[bf-s^="NavigationMenuWithLinksDemo_"]').first()
+      const nav = page.locator('[bf-s^="NavigationMenuWithLinksDemo_"][bf-r]').first()
 
       // Should have trigger
       const trigger = nav.locator('[data-slot="navigation-menu-trigger"]')

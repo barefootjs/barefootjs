@@ -7,7 +7,7 @@ test.describe('Menubar Reference Page', () => {
 
   test.describe('Basic Demo', () => {
     test('opens menu on trigger click', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: 'File' })
 
       await fileTrigger.click()
@@ -20,7 +20,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('has ARIA attributes on trigger', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"][bf-r]').first()
       const trigger = menubar.locator('[data-slot="menubar-trigger"]').first()
 
       await expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
@@ -31,7 +31,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('closes menu on item click', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"][bf-r]').first()
       const trigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: 'File' })
 
       await trigger.click()
@@ -43,7 +43,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('closes menu on ESC', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"][bf-r]').first()
       const trigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: 'File' })
 
       await trigger.click()
@@ -56,7 +56,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('closes menu on click outside', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"][bf-r]').first()
       const trigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: 'File' })
 
       await trigger.click()
@@ -69,7 +69,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('displays keyboard shortcuts', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarBasicDemo_"][bf-r]').first()
       const trigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: 'File' })
 
       await trigger.click()
@@ -83,7 +83,7 @@ test.describe('Menubar Reference Page', () => {
   test.describe('Menu Roving', () => {
     // Use the Application demo (first MenubarApplicationDemo on page = preview)
     test('hover opens adjacent menu when one is already open', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
       const editTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^Edit$/ })
 
@@ -99,7 +99,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('ArrowRight on trigger navigates to next trigger', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
       const editTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^Edit$/ })
 
@@ -109,7 +109,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('ArrowLeft on trigger navigates to previous trigger', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
       const editTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^Edit$/ })
 
@@ -119,7 +119,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('ArrowRight in content navigates to next menu trigger', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
 
       // Open File menu and focus content
@@ -139,7 +139,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('ArrowLeft in content navigates to previous menu trigger', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const editTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^Edit$/ })
 
       // Open Edit menu
@@ -158,7 +158,7 @@ test.describe('Menubar Reference Page', () => {
 
   test.describe('Keyboard Navigation within Content', () => {
     test('ArrowDown/Up navigates items', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
 
       await fileTrigger.click()
@@ -182,7 +182,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('Home/End key navigation', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
 
       await fileTrigger.click()
@@ -205,7 +205,7 @@ test.describe('Menubar Reference Page', () => {
 
   test.describe('Checkbox Items', () => {
     test('toggles checkbox on click', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const viewTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^View$/ })
 
       await viewTrigger.click()
@@ -225,7 +225,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('checkbox item does not close menu', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const viewTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^View$/ })
 
       await viewTrigger.click()
@@ -247,7 +247,7 @@ test.describe('Menubar Reference Page', () => {
 
   test.describe('Radio Items', () => {
     test('selects radio item on click', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const profilesTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^Profiles$/ })
 
       await profilesTrigger.click()
@@ -270,7 +270,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('radio items are mutually exclusive', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const profilesTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^Profiles$/ })
 
       await profilesTrigger.click()
@@ -286,7 +286,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('radio item does not close menu', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const profilesTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^Profiles$/ })
 
       await profilesTrigger.click()
@@ -302,7 +302,7 @@ test.describe('Menubar Reference Page', () => {
 
   test.describe('Submenus', () => {
     test('opens submenu on hover', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
 
       await fileTrigger.click()
@@ -322,7 +322,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('opens submenu with ArrowRight key', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
 
       await fileTrigger.click()
@@ -338,7 +338,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('closes submenu with ArrowLeft key', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
 
       await fileTrigger.click()
@@ -364,7 +364,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('ESC closes only submenu, not parent menu', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
 
       await fileTrigger.click()
@@ -390,7 +390,7 @@ test.describe('Menubar Reference Page', () => {
     })
 
     test('sub trigger has chevron icon and aria attributes', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
 
       await fileTrigger.click()
@@ -406,7 +406,7 @@ test.describe('Menubar Reference Page', () => {
 
   test.describe('Disabled Items', () => {
     test('disabled item is not interactive', async ({ page }) => {
-      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"]').first()
+      const menubar = page.locator('[bf-s^="MenubarApplicationDemo_"][bf-r]').first()
       const fileTrigger = menubar.locator('[data-slot="menubar-trigger"]').filter({ hasText: /^File$/ })
 
       await fileTrigger.click()

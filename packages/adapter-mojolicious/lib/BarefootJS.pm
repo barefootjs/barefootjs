@@ -14,6 +14,8 @@ has '_scripts' => sub { [] };
 has '_script_seen' => sub { {} };
 has '_scope_id';
 has '_is_child' => 0;
+has '_bf_parent';  # Host scope id when this scope is a slot-attached child
+has '_bf_mount';   # Slot id in host
 has '_props';
 
 sub new ($class, $c, $config = {}) {
@@ -28,8 +30,28 @@ sub new ($class, $c, $config = {}) {
 # ---------------------------------------------------------------------------
 
 sub scope_attr ($self) {
-    my $scope_id = $self->_scope_id // '';
-    return $self->_is_child ? "~$scope_id" : $scope_id;
+    # bf-s is the addressable scope id only (#1249).
+    return $self->_scope_id // '';
+}
+
+# Emits `bf-h="<host>" bf-m="<slot>" bf-r=""` conditionally.
+# See spec/compiler.md "Slot identity".
+sub hydration_attrs ($self) {
+    my @parts;
+    my $host  = $self->_bf_parent;
+    my $mount = $self->_bf_mount;
+    if (defined $host && length $host) {
+        my $h = $host =~ s/"/&quot;/gr;
+        push @parts, qq{bf-h="$h"};
+    }
+    if (defined $mount && length $mount) {
+        my $m = $mount =~ s/"/&quot;/gr;
+        push @parts, qq{bf-m="$m"};
+    }
+    unless ($self->_is_child) {
+        push @parts, q{bf-r=""};
+    }
+    return join(' ', @parts);
 }
 
 sub props_attr ($self) {
@@ -56,13 +78,20 @@ sub text_end ($self) {
     return "<!--/-->";
 }
 
+# See spec/compiler.md "Slot identity" for the comment-scope wire format.
 sub scope_comment ($self) {
-    my $scope_id = $self->scope_attr;
+    my $scope_id = $self->_scope_id // '';
+    my $host_segment = '';
+    my $host  = $self->_bf_parent;
+    my $mount = $self->_bf_mount;
+    if (defined $host && length $host) {
+        $host_segment = "|h=$host|m=" . ($mount // '');
+    }
     my $props_json = '';
     if ($self->_props && %{$self->_props}) {
         $props_json = '|' . to_json($self->_props);
     }
-    return "<!--bf-scope:$scope_id$props_json-->";
+    return "<!--bf-scope:$scope_id$host_segment$props_json-->";
 }
 
 # ---------------------------------------------------------------------------
@@ -148,6 +177,12 @@ sub register_components_from_manifest ($self, $manifest, %opts) {
                          : $template_name . '_' . substr(rand() =~ s/^0\.//r, 0, 6)
             );
             $child_bf->_is_child(1);
+            # (#1249) Slot identity: host scope + slot id. Emitted as
+            # bf-h / bf-m attributes by hydration_attrs.
+            if ($slot_id) {
+                $child_bf->_bf_parent($parent_scope);
+                $child_bf->_bf_mount($slot_id);
+            }
             $child_bf->_scripts($parent->_scripts);
             $child_bf->_script_seen($parent->_script_seen);
 

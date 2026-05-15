@@ -105,11 +105,11 @@ export function upsertChildItem(
   let ssr: HTMLElement | null = null
   if (slotId) {
     for (const root of itemRootElements(primaryEl)) {
-      const found = findSsrScopeBySlotIn(root, name, slotId, anchorScope, /* selfMatch */ true)
+      const found = findSsrScopeBySlotIn(root, slotId, anchorScope, /* selfMatch */ true)
       if (found) { ssr = found; break }
     }
   } else {
-    ssr = qsaItem(primaryEl, `[bf-s^="~${name}_"], [bf-s^="${name}_"]`) as HTMLElement | null
+    ssr = qsaItem(primaryEl, `[bf-s^="${name}_"]`) as HTMLElement | null
   }
   if (ssr) {
     initChild(name, ssr, props)

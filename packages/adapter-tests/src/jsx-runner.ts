@@ -73,23 +73,31 @@ export function normalizeHTML(html: string): string {
     .replace(/<!--bf-\/?loop(?::l\d+)?-->|<!--bf-loop-i-->/g, '')
     // Remove bf-p attribute (Hono uses JSON serialization, Go uses struct fields)
     .replace(/\s*bf-p="[^"]*"/g, '')
-    // Remove bf-parent / bf-mount slot-relationship markers. Hono emits them
-    // for upsertChild's bf-parent + bf-mount lookup against the @barefootjs
+    // Remove bf-h / bf-m slot-relationship markers. Hono emits them
+    // for upsertChild's bf-h + bf-m lookup against the @barefootjs
     // client runtime. Other SSR adapters (Mojo, Go template) don't pair with
     // that runtime and don't emit them, so excluding from cross-adapter
     // conformance keeps the comparison apples-to-apples.
-    .replace(/\s*bf-parent="[^"]*"/g, '')
-    .replace(/\s*bf-mount="[^"]*"/g, '')
+    .replace(/\s*bf-h="[^"]*"/g, '')
+    .replace(/\s*bf-m="[^"]*"/g, '')
+    // bf-r is the Hono-specific root-of-client-component marker for e2e
+    // locator distinction (#1249). Other adapters don't emit it, so strip
+    // for cross-adapter conformance comparisons.
+    .replace(/\s*bf-r=""/g, '')
     // Strip Hono's scope-init comments (`<!--bf-scope:...-->`). Same
-    // motivation as the bf-parent / bf-mount strips above: only Hono's
+    // motivation as the bf-h / bf-m strips above: only Hono's
     // JS-runtime hydration path uses them, so removing them keeps
     // cross-adapter conformance comparisons apples-to-apples.
     .replace(/<!--bf-scope:[^>]*-->/g, '')
     // Normalize child scope ID prefix: bf-s="~parentId_sN" → bf-s="parentId_sN"
     .replace(/bf-s="~([^"]*)"/g, 'bf-s="$1"')
-    // Normalize non-deterministic child scope IDs (hash derived from file path):
-    // bf-s="ComponentName_abc123" → bf-s="ComponentName_*"
-    .replace(/bf-s="([A-Z][a-zA-Z]*)_[a-z0-9]+"/g, 'bf-s="$1_*"')
+    // Normalize non-deterministic child scope IDs. Keep the trailing
+    // `_sN` slot suffix intact so the SSR-hydration contract test can
+    // still pair renderChild('Name', ..., 'sN') with `_sN` in HTML.
+    //   bf-s="ComponentName_abc123"          → bf-s="ComponentName_*"
+    //   bf-s="ComponentName_abc123_s10"      → bf-s="ComponentName_*_s10"
+    //   bf-s="ParentName_xyz_s10"            → bf-s="ParentName_*_s10"
+    .replace(/bf-s="([A-Z][a-zA-Z]*)_[a-z0-9]+((?:_s\d+)*)"/g, 'bf-s="$1_*$2"')
     // Normalize void element self-closing: <br/> or <br /> → <br>
     .replace(new RegExp(`<(${VOID_ELEMENTS})(\\s[^>]*?)?\\s*/>`, 'g'), '<$1$2>')
     // Remove trailing whitespace before >

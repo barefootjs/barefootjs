@@ -56,7 +56,7 @@ describe('createComponent + comment: true wrapper (#1222)', () => {
         innerInitCalls.push({ id: p?.id, sawScope: !!scope })
       },
       template: (p: any) =>
-        `<div bf-s="~Inner_test1222_${Math.random().toString(36).slice(2, 8)}_s0" data-id="${p.id}"></div>`,
+        `<div bf-s="Inner_test1222_${Math.random().toString(36).slice(2, 8)}_s0" data-id="${p.id}"></div>`,
     })
 
     // Wrapper: comment-mode (transparent). Its body is just the inner.
@@ -72,7 +72,7 @@ describe('createComponent + comment: true wrapper (#1222)', () => {
         // Mirror the compiler's "comment: true" template shape:
         // pure renderChild interpolation with no enclosing element.
         const innerScope = `Inner_test1222_${Math.random().toString(36).slice(2, 8)}`
-        return `<div bf-s="~${innerScope}_s0" data-id="${p.id}"></div>`
+        return `<div bf-s="${innerScope}_s0" data-id="${p.id}"></div>`
       },
       comment: true,
     })
@@ -85,7 +85,7 @@ describe('createComponent + comment: true wrapper (#1222)', () => {
     // The element's bf-s should still be the inner's child-prefixed scope,
     // not the wrapper's. This is what lets `$c(scope, 's0')` self-match.
     const bfs = el.getAttribute('bf-s')
-    expect(bfs).toMatch(/^~Inner_test1222_/)
+    expect(bfs).toMatch(/^Inner_test1222_/)
   })
 
   test('regular (non-comment) wrappers still get their bf-s overwritten as before', async () => {

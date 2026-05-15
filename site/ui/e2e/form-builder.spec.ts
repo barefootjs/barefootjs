@@ -6,7 +6,7 @@ test.describe('Form Builder Block', () => {
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="FormBuilderDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="FormBuilderDemo_"][bf-r]:not([data-slot])').first()
 
   // Helper: select an option from a custom <Select> component by value
   const selectTypeOption = async (page: any, trigger: any, value: string) => {

@@ -8,7 +8,7 @@
  * A global store is kept as a fallback for non-scoped usage.
  */
 
-import { BF_PORTAL_OWNER, BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
+import { BF_PORTAL_OWNER, BF_SCOPE } from '@barefootjs/shared'
 import type { Context } from '../context'
 
 export { createContext, type Context } from '../context'
@@ -60,7 +60,7 @@ export function useContext<T>(context: Context<T>): T {
       // Follow portal owner chain: if this element has bf-po, jump to the owner scope
       const portalOwnerId: string | null = el.getAttribute(BF_PORTAL_OWNER)
       if (portalOwnerId) {
-        const ownerEl: Element | null = document.querySelector(`[${BF_SCOPE}="${BF_CHILD_PREFIX}${portalOwnerId}"], [${BF_SCOPE}="${portalOwnerId}"]`)
+        const ownerEl: Element | null = document.querySelector(`[${BF_SCOPE}="${portalOwnerId}"]`)
         if (ownerEl && ownerEl !== el) {
           el = ownerEl
           continue

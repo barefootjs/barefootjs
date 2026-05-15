@@ -9,7 +9,7 @@ test.describe('Pivot Table Block', () => {
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="PivotTableDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="PivotTableDemo_"][bf-r]:not([data-slot])').first()
 
   test.describe('Initial Render', () => {
     test('renders four axis zones', async ({ page }) => {

@@ -86,14 +86,14 @@ test.describe('Carousel Reference Page', () => {
   test.describe('Orientation Example', () => {
     test('vertical carousel has correct orientation', async ({ page }) => {
       // Scope to CarouselOrientationDemo to avoid the Playground's hidden vertical carousel
-      const demo = page.locator('[bf-s^="CarouselOrientationDemo_"]')
+      const demo = page.locator('[bf-s^="CarouselOrientationDemo_"][bf-r]')
       const verticalCarousel = demo.locator('[data-slot="carousel"][data-orientation="vertical"]')
 
       await expect(verticalCarousel).toBeVisible()
     })
 
     test('vertical carousel content uses flex-col', async ({ page }) => {
-      const demo = page.locator('[bf-s^="CarouselOrientationDemo_"]')
+      const demo = page.locator('[bf-s^="CarouselOrientationDemo_"][bf-r]')
       const verticalCarousel = demo.locator('[data-slot="carousel"][data-orientation="vertical"]')
       const content = verticalCarousel.locator('[data-slot="carousel-content"]')
 
@@ -101,7 +101,7 @@ test.describe('Carousel Reference Page', () => {
     })
 
     test('clicking next in vertical carousel navigates', async ({ page }) => {
-      const demo = page.locator('[bf-s^="CarouselOrientationDemo_"]')
+      const demo = page.locator('[bf-s^="CarouselOrientationDemo_"][bf-r]')
       const verticalCarousel = demo.locator('[data-slot="carousel"][data-orientation="vertical"]')
       const nextBtn = verticalCarousel.locator('[data-slot="carousel-next"]')
       const prevBtn = verticalCarousel.locator('[data-slot="carousel-previous"]')

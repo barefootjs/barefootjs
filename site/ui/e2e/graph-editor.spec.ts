@@ -9,11 +9,11 @@ test.describe('Graph Editor Block', () => {
     // The demo lives below the page header / overview on /xyflow/introduction.
     // page.mouse uses viewport coords, so the canvas needs to be on-screen
     // before any drag-based test samples a boundingBox.
-    await page.locator('[bf-s^="GraphEditorDemo_"]:not([data-slot])').first().scrollIntoViewIfNeeded()
+    await page.locator('[bf-s^="GraphEditorDemo_"][bf-r]:not([data-slot])').first().scrollIntoViewIfNeeded()
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="GraphEditorDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="GraphEditorDemo_"][bf-r]:not([data-slot])').first()
 
   // --- Initial Render ---
 

@@ -9,7 +9,7 @@ test.describe('Permission Matrix Block', () => {
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="PermissionMatrixDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="PermissionMatrixDemo_"][bf-r]:not([data-slot])').first()
 
   test.describe('Initial Render', () => {
     test('renders all four role headers', async ({ page }) => {

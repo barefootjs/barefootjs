@@ -9,7 +9,7 @@ test.describe('Toast Queue Block', () => {
   })
 
   const demo = (page: any) =>
-    page.locator('[bf-s^="ToastQueueDemo_"]:not([data-slot])').first()
+    page.locator('[bf-s^="ToastQueueDemo_"][bf-r]:not([data-slot])').first()
 
   const toastProvider = (page: any) =>
     page.locator('body > [data-slot="toast-provider"]')

@@ -42,7 +42,7 @@ import { commentScopeRegistry } from './scope'
 import { hydratedScopes } from './hydration-state'
 import { registerComponent } from './registry'
 import { registerTemplate } from './template'
-import { BF_SCOPE, BF_PROPS, BF_CHILD_PREFIX, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
+import { BF_SCOPE, BF_PROPS, BF_HOST, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
 import type { ComponentDef } from './types'
 
 /**
@@ -245,7 +245,10 @@ function hydrateElementScope(el: Element): void {
   if (hydratedScopes.has(el)) return
 
   const bfs = el.getAttribute(BF_SCOPE)
-  if (!bfs || bfs.startsWith(BF_CHILD_PREFIX)) return
+  if (!bfs) return
+  // Skip child scopes — parent's initChild call owns their lifecycle.
+  // Child detection uses bf-h presence (#1249).
+  if (el.hasAttribute(BF_HOST)) return
 
   const name = scopeName(bfs)
   if (!name) return
@@ -267,7 +270,11 @@ function hydrateCommentScope(comment: Comment): void {
   if (!value?.startsWith(BF_SCOPE_COMMENT_PREFIX)) return
 
   const rest = value.slice(BF_SCOPE_COMMENT_PREFIX.length)
-  if (rest.startsWith(BF_CHILD_PREFIX)) return
+  // Comment-scope child detection: child fragment scopes embed host metadata
+  // as a `|h=<hostBfs>|m=<slot>` segment after the scope id. Their parent's
+  // initChild call owns hydration; the walker must skip them.
+  // Root scopes have only `|<propsJson>` (no `h=` segment).
+  if (rest.includes('|h=')) return
 
   const flagged = comment as unknown as { __bfInitialized?: boolean }
   if (flagged.__bfInitialized) return

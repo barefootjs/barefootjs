@@ -690,7 +690,9 @@ export class MojoAdapter extends BaseAdapter {
   // ===========================================================================
 
   renderScopeMarker(_instanceIdExpr: string): string {
-    return `bf-s="<%= bf->scope_attr %>" <%== bf->props_attr %>`
+    // bf-s is the addressable scope id (#1249 — bare, no `~` prefix).
+    // hydration_attrs adds bf-h / bf-m / bf-r conditionally.
+    return `bf-s="<%= bf->scope_attr %>" <%== bf->hydration_attrs %> <%== bf->props_attr %>`
   }
 
   renderSlotMarker(slotId: string): string {

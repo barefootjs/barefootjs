@@ -8,31 +8,32 @@
 
 import { commentScopeRegistry, getCommentScopeBoundary } from './scope'
 import { hydratedScopes } from './hydration-state'
-import { BF_SCOPE, BF_SLOT, BF_CHILD_PREFIX, BF_PORTAL_OWNER, BF_PARENT_OWNED_PREFIX, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
+import { BF_SCOPE, BF_SLOT, BF_PORTAL_OWNER, BF_PARENT_OWNED_PREFIX, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
+
+/** CSS attribute-value escape with a fallback for environments lacking CSS.escape. */
+export const cssEscape: (s: string) => string =
+  typeof CSS !== 'undefined' && (CSS as { escape?: (s: string) => string }).escape
+    ? (s) => CSS.escape(s)
+    : (s) => s.replace(/"/g, '\\"')
 
 // --- helpers ---
 
-/** Strip the child component prefix (~) from a scope ID. */
-function stripChildPrefix(raw: string): string {
-  return raw.startsWith(BF_CHILD_PREFIX) ? raw.slice(1) : raw
-}
-
-/** Read bf-s attribute and strip child prefix. Returns null when absent. */
+/** Read bf-s attribute. Returns null when absent.
+ *  Per #1249, bf-s is the bare addressable id — no stripping needed. */
 function getScopeId(el: Element | null): string | null {
-  const raw = el?.getAttribute(BF_SCOPE)
-  return raw ? stripChildPrefix(raw) : null
+  return el?.getAttribute(BF_SCOPE) ?? null
 }
 
 /** Comments already processed by findScopeByComment. */
 const initializedComments = new WeakSet<Comment>()
 
 /**
- * Parse scope ID from a comment value like "bf-scope:~Name_xxx|propsJson".
- * Strips the prefix, child prefix (~), and props JSON suffix (|...).
+ * Parse scope ID from a comment value like "bf-scope:Name_xxx|propsJson".
+ * Strips the prefix and props JSON suffix.
  */
 function parseCommentScopeId(value: string, prefix: string): string | null {
   if (!value.startsWith(prefix)) return null
-  let id = stripChildPrefix(value.slice(prefix.length))
+  let id = value.slice(prefix.length)
   const pipeIdx = id.indexOf('|')
   if (pipeIdx >= 0) id = id.slice(0, pipeIdx)
   return id
@@ -140,7 +141,6 @@ function findScopeByComment(
     const value = comment.nodeValue
     if (!value?.startsWith(prefix)) continue
 
-    // Parse scope ID from comment: "bf-scope:Name_xxx" or "bf-scope:~Name_xxx|propsJson"
     const scopeId = parseCommentScopeId(value, prefix)
     if (!scopeId?.startsWith(`${name}_`)) continue
     if (initializedComments.has(comment)) continue
@@ -318,16 +318,49 @@ function findInPortals(scopeId: string, selector: string): Element | null {
  */
 export function qsa(el: Element | null, selector: string): Element | null {
   if (!el) return null
-  // #1220 cross-binding skip: when the selector is a bare slot-suffix
-  // lookup `[bf-s$="_<slotId>"]`, defer to `qsaChildScope` so candidates
-  // whose bf-s ends in a deeper `_sN_sN` path (a synthesized child's
-  // nested scope, e.g. `~BFInlineJsxCallback_<hash>_sM_<slotId>`) are
-  // skipped. For every other selector this is just match-self-or-descendant.
+
+  // Comma-separated selectors are tried in priority order (left-to-right)
+  // rather than relying on `querySelector`'s document-order semantics —
+  // the compiler-emitted slot-child selector
+  // `[bf-h="X"][bf-m="sN"], [bf-s$="_sN"]` resolves to the most specific
+  // match (#1249).
+  if (selector.includes(',')) {
+    for (const clause of splitTopLevelCommas(selector)) {
+      const c = clause.trim()
+      if (!c) continue
+      const hit = qsa(el, c)
+      if (hit) return hit
+    }
+    return null
+  }
+
+  // #1220 cross-binding skip: bare slot-suffix lookups defer to
+  // `qsaChildScope` so candidates whose bf-s already carries a deeper
+  // `_sN_sN` path (synthesized child's nested scope) are skipped.
   if (SLOT_SUFFIX_SELECTOR.test(selector)) {
     return qsaChildScope(el, selector)
   }
   if (el.matches(selector)) return el
   return el.querySelector(selector)
+}
+
+/** Split a CSS selector list on top-level commas, ignoring commas inside
+ *  `[…]` attribute selectors or `(…)` pseudo-class arguments. */
+function splitTopLevelCommas(selector: string): string[] {
+  const out: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < selector.length; i++) {
+    const ch = selector.charCodeAt(i)
+    if (ch === 0x5b /* [ */ || ch === 0x28 /* ( */) depth++
+    else if (ch === 0x5d /* ] */ || ch === 0x29 /* ) */) depth--
+    else if (ch === 0x2c /* , */ && depth === 0) {
+      out.push(selector.slice(start, i))
+      start = i + 1
+    }
+  }
+  out.push(selector.slice(start))
+  return out
 }
 
 /**
@@ -347,7 +380,7 @@ const SLOT_SUFFIX_SELECTOR = /^\[bf-s\$="_s\d+"\]$/
  * `initChild` never fires (#1220).
  *
  * Why this is a safe filter: legitimate child shapes anchored on a
- * stateful intermediate parent (e.g. `~Card_<rand>_<slot>`) have exactly
+ * stateful intermediate parent (e.g. `Card_<rand>_<slot>`) have exactly
  * one trailing `_sN`. The two-segment shape only arises when a
  * stateless-only stack of intermediate components nests further, which
  * never happens by design — `_parentScopeId` is set only by `insert()`
@@ -445,8 +478,7 @@ function $cSingle(scope: Element | null, id: string): Element | null {
 
   // --- Component name path (unambiguous) ---
   if (!/^s\d/.test(cleanId)) {
-    const selector = `[${BF_SCOPE}^="${BF_CHILD_PREFIX}${cleanId}_"], [${BF_SCOPE}^="${cleanId}_"]`
-    return findChildScope(scope, selector)
+    return findChildScope(scope, `[${BF_SCOPE}^="${cleanId}_"]`)
   }
 
   // --- Slot ID path: precise suffix match using parent scope ID ---

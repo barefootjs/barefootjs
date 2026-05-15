@@ -11,7 +11,7 @@ import { getRegisteredDef } from './hydrate'
 import { hydratedScopes } from './hydration-state'
 import { untrack } from '@barefootjs/client/reactive'
 import { setCurrentScope } from './context'
-import { BF_SCOPE, BF_KEY, BF_PARENT, BF_MOUNT } from '@barefootjs/shared'
+import { BF_SCOPE, BF_KEY, BF_HOST, BF_AT } from '@barefootjs/shared'
 import type { ComponentDef } from './types'
 
 // Parent scope ID context for renderChild() inside insert() branch templates.
@@ -60,26 +60,15 @@ const propsMap = new WeakMap<HTMLElement, Record<string, unknown>>()
  * or from a ComponentDef (CSR mode, no registry needed).
  */
 /**
- * Slot-relationship metadata stamped onto a freshly-created component.
- *
- * Passing `slot` carries two coupled meanings; the API treats them as one
- * because they are always correlated in practice:
- *   1. The new component is mounted as a CHILD inside another component's
- *      scope (so its bf-s gets the `~` child prefix and `initChild`'s
- *      re-entry guard kicks in on subsequent reconciles).
- *   2. The new component records `bf-parent` / `bf-mount` so future
- *      `upsertChild` lookups can locate it via the slot-relationship
- *      markers.
- *
- * Top-level CSR mounts (e.g. user-code calling `createComponent` outside
- * any parent component) intentionally pass no `slot` — they own their
- * own hydration lifecycle and `initChild` should be free to re-bind
- * fresh callback closures on every reconcile call.
+ * Slot-relationship metadata stamped onto a freshly-created component as
+ * `bf-h` / `bf-m`. Top-level CSR mounts pass no `slot` — they own their
+ * own hydration lifecycle and `initChild` re-binds callbacks freely on
+ * each reconcile.
  */
 export interface CreateComponentSlotInfo {
-  /** Parent component scope id (without the `~` child prefix) */
+  /** Host scope id (this child's `bf-h` value). */
   parent: string
-  /** Slot id where this component is mounted in its parent */
+  /** Slot id in the host (this child's `bf-m` value). */
   mount: string
 }
 
@@ -149,35 +138,17 @@ export function createComponent(
   // 6. Set scope ID and key attributes.
   //
   // `comment: true` components (synthesized inline-JSX-callback wrappers
-  // from #1211, etc.) render as transparent shells: the template body
-  // is `${renderChild('Inner', ...)}` with no enclosing element of
-  // their own, so the parsed `firstChild` is actually the Inner
-  // component's root with its `~Inner_..._s0` scope marker. Overwriting
-  // that `bf-s` here strands `$c(__scope, 's0')` lookups in the
-  // wrapper's init — `_s0` resolves to null, the Inner's `initChild`
-  // call bails, and the Inner's body never runs.
-  //
-  // For comment-mode components we leave the original child-prefixed
-  // `bf-s` in place; `$cSingle`'s self-match fallback
-  // (`scope.matches('[bf-s$="_s0"]')`) then returns the scope element
-  // itself, so the wrapper's `initChild('Inner', _s0, ...)` mounts the
-  // Inner correctly. The `key` attribute still goes on for list
-  // reconciliation.
+  // from #1211) render as transparent shells — the parsed `firstChild` is
+  // already the inner component's root with its own bf-s. Don't overwrite
+  // it, or `$c(__scope, 's0')` from the wrapper's init resolves to null.
   const def = getRegisteredDef(name)
   const isCommentWrapper = def?.comment === true
   if (!isCommentWrapper) {
-    // Mark with `~` child prefix when this component is being mounted as a
-    // child (slot info present) so initChild's re-entry guard kicks in. The
-    // SSR-rendered scopes carry the same prefix; without it on freshly-
-    // created CSR components, every reconcile would re-run init() and
-    // multiply effects, producing the recursive-component duplication bug.
-    const childPrefix = slot ? '~' : ''
-    const scopeId = `${childPrefix}${name}_${generateId()}`
-    element.setAttribute(BF_SCOPE, scopeId)
+    element.setAttribute(BF_SCOPE, `${name}_${generateId()}`)
   }
   if (slot) {
-    element.setAttribute(BF_PARENT, slot.parent)
-    element.setAttribute(BF_MOUNT, slot.mount)
+    if (slot.parent) element.setAttribute(BF_HOST, slot.parent)
+    element.setAttribute(BF_AT, slot.mount)
   }
   if (key !== undefined) {
     element.setAttribute(BF_KEY, String(key))
@@ -284,34 +255,25 @@ export function renderChild(
     ? _parentScopeId
     : `${name}_${generateId()}`
   const keyAttr = key !== undefined ? ` ${BF_KEY}="${key}"` : ''
-  // Slot-relationship markers: bf-parent (parent's scope id, no `~`) and
-  // bf-mount (slot id within parent). upsertChild uses these to find the
-  // SSR scope without relying on bf-s suffix matching, which can't tell
-  // direct children apart from descendants for self-referential recursive
-  // components. Only emit when both pieces are known — top-level renders
-  // without parent context skip them.
+  // Slot-relationship markers — only emitted when both host and slot are
+  // known; top-level renders without parent context omit them.
   const slotAttrs = (_parentScopeId && slotSuffix)
-    ? ` ${BF_PARENT}="${_parentScopeId}" ${BF_MOUNT}="${slotSuffix}"`
+    ? ` ${BF_HOST}="${_parentScopeId}" ${BF_AT}="${slotSuffix}"`
     : ''
+  const bfsAttr = `${BF_SCOPE}="${scopePrefix}${suffix}"`
 
   if (!templateFn) {
-    // Fallback: empty placeholder (for components without registered templates)
-    // Use ~ prefix to mark as child component (prevents hydrate() re-initialization)
-    return `<div bf-s="~${scopePrefix}${suffix}"${slotAttrs}${keyAttr}></div>`
+    return `<div ${bfsAttr}${slotAttrs}${keyAttr}></div>`
   }
 
   const html = templateFn(props).trim()
-  // Inject bf-s scope attribute with ~ child prefix into the first element tag.
-  // The ~ prefix marks this as a child component so hydrate()'s requestAnimationFrame
-  // re-check skips it (the parent initializes it via initChild instead).
-  // The optional slot suffix (e.g., "_s5") enables $c() slot-based lookup from the parent.
-  // Templates may start with comment markers (e.g., <!--bf-cond-start:...-->),
-  // so we find the first element tag rather than assuming it's at position 0.
+  // Templates may start with comment markers (e.g. <!--bf-cond-start:...-->)
+  // so we find the first element tag rather than assuming index 0.
   const firstElMatch = html.match(/<(\w+)/)
   if (!firstElMatch) return html
   const insertPos = html.indexOf(firstElMatch[0])
   return html.slice(0, insertPos) +
-    html.slice(insertPos).replace(/^(<\w+)/, `$1 bf-s="~${scopePrefix}${suffix}"${slotAttrs}${keyAttr}`)
+    html.slice(insertPos).replace(/^(<\w+)/, `$1 ${bfsAttr}${slotAttrs}${keyAttr}`)
 }
 
 /**

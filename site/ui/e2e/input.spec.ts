@@ -45,12 +45,12 @@ test.describe('Input Reference Page', () => {
   test.describe('Value Binding', () => {
     test('displays value binding section', async ({ page }) => {
       await expect(page.locator('h3:has-text("Value Binding")')).toBeVisible()
-      const section = page.locator('[bf-s^="InputBindingDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputBindingDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
     })
 
     test('updates output when typing', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputBindingDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputBindingDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('input[data-slot="input"]')
       const output = section.locator('.typed-value')
 
@@ -62,13 +62,13 @@ test.describe('Input Reference Page', () => {
   test.describe('Focus State', () => {
     test('displays focus state example', async ({ page }) => {
       await expect(page.locator('h3:has-text("Focus State")')).toBeVisible()
-      const section = page.locator('[bf-s^="InputFocusDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputFocusDemo_"][bf-r]:not([data-slot])').first()
       await expect(section).toBeVisible()
       await expect(section.locator('.focus-status')).toBeVisible()
     })
 
     test('shows focused state on focus', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputFocusDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputFocusDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('input[data-slot="input"]')
       const status = section.locator('.focus-status')
 
@@ -78,7 +78,7 @@ test.describe('Input Reference Page', () => {
     })
 
     test('shows not focused state on blur', async ({ page }) => {
-      const section = page.locator('[bf-s^="InputFocusDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="InputFocusDemo_"][bf-r]:not([data-slot])').first()
       const input = section.locator('input[data-slot="input"]')
       const status = section.locator('.focus-status')
 

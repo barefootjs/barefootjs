@@ -57,7 +57,8 @@ function wrapAttrValueExpression(value: AttrValue, wrap: (s: string) => string):
       return AttrValueOf.spread(wrap(value.expr), value.templateExpr ? wrap(value.templateExpr) : undefined)
   }
 }
-import { destructureLoopParam, loopKeyFn } from '../shared'
+import { destructureLoopParam, loopKeyFn, buildCompSelector } from '../shared'
+import { BF_HOST, BF_AT } from '@barefootjs/shared'
 import type {
   BranchChildComponentInit,
   BranchChildComponentInitsPlan,
@@ -135,14 +136,7 @@ export function buildBranchChildComponentInitsPlan(
   const { components, wrap } = args
   const inits: BranchChildComponentInit[] = []
   for (const comp of components) {
-    // Use slotId suffix match when available so two siblings of the same
-    // component type with different slotIds don't collide. The #1220
-    // cross-binding (a sibling's `_sN_sN` nested scope coincidentally
-    // matching this suffix) is filtered at runtime by `qsa` — see
-    // packages/client/src/runtime/query.ts.
-    const selector = comp.slotId
-      ? `'[bf-s$="_${comp.slotId}"]'`
-      : `'[bf-s^="~${comp.name}_"]'`
+    const selector = buildCompSelector(comp)
 
     const propsEntries = comp.props
       .filter(p => p.name !== 'key')
@@ -227,8 +221,10 @@ export function buildBranchInnerLoopsPlan(
     const wrapBoth = (expr: string) => wrapLoopParamAsAccessor(wrapOuter(expr), inner.param, inner.paramBindings)
 
     const csl = inner.containerSlotId
+    // Inner loop's container: host-side `bf="<slot>"` slot marker first,
+    // then (bf-h, bf-m) when the container is itself a child scope.
     const containerExpr = csl
-      ? `(${scopeVar}.querySelector('[bf="${csl}"]') ?? ${scopeVar}.querySelector('[bf-s$="_${csl}"]') ?? ${scopeVar})`
+      ? `(${scopeVar}.querySelector('[bf="${csl}"]') ?? ${scopeVar}.querySelector(\`[${BF_HOST}="\${__scopeId}"][${BF_AT}="${csl}"]\`) ?? ${scopeVar})`
       : scopeVar
 
     const { head: paramHead, unwrap: paramUnwrap } = destructureLoopParam(inner.param, inner.paramBindings)

@@ -9,7 +9,9 @@ test.describe('Dashboard Builder Block', () => {
   })
 
   const section = (page: any) =>
-    page.locator('[bf-s^="DashboardBuilderDemo_"]:not([data-slot])').first()
+    // [bf-r] root-of-client-component marker distinguishes the demo's
+    // SSR entry root from internal scopes that share its bf-s prefix.
+    page.locator('[bf-s^="DashboardBuilderDemo_"][bf-r]').first()
 
   // --- Initial Render ---
 

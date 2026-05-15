@@ -267,14 +267,39 @@ Helpers exported from `@barefootjs/jsx`:
 
    | Marker | Purpose | Example |
    |--------|---------|---------|
-   | `bf-s` | Component scope boundary (`~` prefix = child) | `bf-s="Counter_a1b2"`, `bf-s="~Item_c3d4"` |
-   | `bf` | Interactive element (slot) | `bf="s0"` |
+   | `bf-s` | Component scope boundary + addressable scope ID | `bf-s="Counter_a1b2"` |
+   | `bf-h` | Host scope ID — present on child scopes only | `bf-h="App_root"` |
+   | `bf-m` | Slot ID in the host where the child is mounted | `bf-m="s10"` |
+   | `bf-r` | Root-of-client-component marker (no value) — for e2e locator distinction | `bf-r=""` |
+   | `bf` | Interactive element (host-side slot position) | `bf="s0"` |
    | `bf-p` | Serialized props JSON | `bf-p='{"initial":5}'` |
    | `bf-c` | Conditional element | `bf-c="s2"` |
    | `bf-po` | Portal owner scope ID | `bf-po="Dialog_a1b2"` |
    | `bf-pi` | Portal container ID | `bf-pi="bf-portal-1"` |
    | `bf-pp` | Portal placeholder | `bf-pp="bf-portal-1"` |
    | `bf-i` | List item marker | `bf-i` |
+
+   **Slot identity (#1249).** A slot-attached child component scope is
+   identified by the `(bf-h, bf-m)` pair — unique by construction at
+   SSR emit time. The slot-resolver's primary lookup is
+   `[bf-h="<host>"][bf-m="<slot>"]`; bf-s suffix and name-prefix
+   selectors remain as fallbacks for adapters whose SSR output predates
+   the (bf-h, bf-m) emission (go-template, mojolicious). `bf-s` carries
+   the scope's own addressable id used by portals (`bf-po`), context
+   lookups, and the hydration walker — but **not** slot identity.
+
+   **Root distinction.** A demo's SSR entry root (mounted as a slot of
+   a page but the target of its own client-side init) carries `bf-r`,
+   so e2e locators of the form `[bf-s^="FooDemo_"][bf-r]` address only
+   the demo's root, not an internal child scope that happens to share
+   the bf-s name prefix.
+
+   **`~` child prefix (removed).** Earlier shape iterations distinguished
+   root vs child scopes by a `~` value prefix on bf-s. All three adapters
+   (Hono, Go-template, mojolicious) and the client runtime
+   (`createComponent` / `renderChild`) now emit only the bare scope id;
+   slot identity moves to (bf-h, bf-m) and root distinction moves to bf-r.
+   The runtime no longer checks for the `~` prefix anywhere.
 
 2. **Client JS**: Minimal JavaScript for reactivity
    - Uses `createEffect` for reactive updates

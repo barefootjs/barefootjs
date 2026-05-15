@@ -7,7 +7,7 @@ test.describe('ContextMenu Reference Page', () => {
 
   test.describe('Basic Demo', () => {
     test('opens menu on right-click and shows items', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuBasicDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuBasicDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       // Right-click to open
@@ -21,7 +21,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('displays keyboard shortcuts', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuBasicDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuBasicDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -32,7 +32,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('closes on item click', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuBasicDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuBasicDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -44,7 +44,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('closes on ESC', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuBasicDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuBasicDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -57,7 +57,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('closes on click outside', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuBasicDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuBasicDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -73,7 +73,7 @@ test.describe('ContextMenu Reference Page', () => {
 
   test.describe('Checkbox Demo', () => {
     test('opens menu and shows checkbox items', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuCheckboxDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuCheckboxDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -86,7 +86,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('toggles checkbox on click', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuCheckboxDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuCheckboxDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -106,7 +106,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('checkbox item does not close menu', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuCheckboxDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuCheckboxDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -128,7 +128,7 @@ test.describe('ContextMenu Reference Page', () => {
 
   test.describe('Full Demo', () => {
     test('opens menu on right-click', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -141,7 +141,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('keyboard navigation with arrow keys', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -165,7 +165,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('Home/End key navigation', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -188,7 +188,7 @@ test.describe('ContextMenu Reference Page', () => {
 
   test.describe('Submenu', () => {
     test('opens submenu on hover', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -210,7 +210,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('opens submenu with ArrowRight key', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -227,7 +227,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('closes submenu with ArrowLeft key', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -253,7 +253,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('ESC closes only submenu, not parent menu', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -279,7 +279,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('sub trigger has chevron icon and aria attributes', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -297,7 +297,7 @@ test.describe('ContextMenu Reference Page', () => {
 
   test.describe('Checkbox Items (Full)', () => {
     test('toggles checkbox item on click', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -321,7 +321,7 @@ test.describe('ContextMenu Reference Page', () => {
 
   test.describe('Radio Items', () => {
     test('selects radio item on click', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -344,7 +344,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('radio items are mutually exclusive', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })
@@ -363,7 +363,7 @@ test.describe('ContextMenu Reference Page', () => {
     })
 
     test('radio item does not close menu', async ({ page }) => {
-      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"]').first()
+      const demo = page.locator('[bf-s^="ContextMenuFullDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="context-menu-trigger"]')
 
       await trigger.click({ button: 'right' })

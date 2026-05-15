@@ -73,8 +73,8 @@ export function stringifyCompositeLoop(lines: string[], plan: CompositeLoopPlan)
     //
     // **DO NOT remove the `!__bfFirstRun` guard.** On the first hydration
     // pass `bindEvents` is called against the SSR-rendered branch element,
-    // whose children already match the data and carry `bf-parent` /
-    // `bf-mount` markers wired to the active scope chain. Wiping there
+    // whose children already match the data and carry `bf-h` /
+    // `bf-m` markers wired to the active scope chain. Wiping there
     // forces every loop item through the CSR `createComponent` path; for
     // self-referential recursive components (e.g. <CommentNode> rendering
     // <CommentNode>) every reactive update would then duplicate the

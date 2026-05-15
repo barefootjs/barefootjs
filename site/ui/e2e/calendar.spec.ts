@@ -19,7 +19,7 @@ test.describe('Calendar Reference Page', () => {
 
   test.describe('Basic Example', () => {
     test('renders calendar with month navigation', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarBasicDemo_"][bf-r]:not([data-slot])').first()
       const calendar = section.locator('[data-slot="calendar"]')
       await expect(calendar).toBeVisible()
 
@@ -33,12 +33,12 @@ test.describe('Calendar Reference Page', () => {
     })
 
     test('shows "No date selected" initially', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarBasicDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=No date selected')).toBeVisible()
     })
 
     test('clicking a day selects it and shows formatted date', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarBasicDemo_"][bf-r]:not([data-slot])').first()
       const calendar = section.locator('[data-slot="calendar"]')
 
       const dayButton = calendar.locator('[data-slot="calendar-day-button"]:not([data-outside]):not([data-disabled])').nth(14)
@@ -50,7 +50,7 @@ test.describe('Calendar Reference Page', () => {
     })
 
     test('clicking a selected day deselects it', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarBasicDemo_"][bf-r]:not([data-slot])').first()
       const calendar = section.locator('[data-slot="calendar"]')
 
       const dayButton = calendar.locator('[data-slot="calendar-day-button"]:not([data-outside]):not([data-disabled])').nth(5)
@@ -65,7 +65,7 @@ test.describe('Calendar Reference Page', () => {
 
   test.describe('Month Navigation', () => {
     test('clicking next month changes the displayed month', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarBasicDemo_"][bf-r]:not([data-slot])').first()
       const calendar = section.locator('[data-slot="calendar"]')
       const title = calendar.locator('[data-slot="calendar-month-title"]')
       const nextBtn = calendar.locator('[data-slot="calendar-nav-next"]')
@@ -77,7 +77,7 @@ test.describe('Calendar Reference Page', () => {
     })
 
     test('clicking prev month changes the displayed month', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarBasicDemo_"][bf-r]:not([data-slot])').first()
       const calendar = section.locator('[data-slot="calendar"]')
       const title = calendar.locator('[data-slot="calendar-month-title"]')
       const prevBtn = calendar.locator('[data-slot="calendar-nav-prev"]')
@@ -91,13 +91,13 @@ test.describe('Calendar Reference Page', () => {
 
   test.describe('Form Example', () => {
     test('submit button is disabled without name and date', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarFormDemo_"][bf-r]:not([data-slot])').first()
       const submitBtn = section.locator('button:has-text("Book Appointment")')
       await expect(submitBtn).toBeDisabled()
     })
 
     test('past dates are disabled', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarFormDemo_"][bf-r]:not([data-slot])').first()
       const calendar = section.locator('[data-slot="calendar"]')
 
       const prevBtn = calendar.locator('[data-slot="calendar-nav-prev"]')
@@ -111,7 +111,7 @@ test.describe('Calendar Reference Page', () => {
 
   test.describe('Constraints Example', () => {
     test('weekends are disabled', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarWithConstraintsDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarWithConstraintsDemo_"][bf-r]:not([data-slot])').first()
       const calendar = section.locator('[data-slot="calendar"]')
 
       const disabledDays = calendar.locator('[data-slot="calendar-day-button"][data-disabled]:not([data-outside])')
@@ -120,12 +120,12 @@ test.describe('Calendar Reference Page', () => {
     })
 
     test('shows "Select a weekday" initially', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarWithConstraintsDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarWithConstraintsDemo_"][bf-r]:not([data-slot])').first()
       await expect(section.locator('text=Select a weekday')).toBeVisible()
     })
 
     test('clicking a weekday selects it', async ({ page }) => {
-      const section = page.locator('[bf-s^="CalendarWithConstraintsDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CalendarWithConstraintsDemo_"][bf-r]:not([data-slot])').first()
       const calendar = section.locator('[data-slot="calendar"]')
 
       const availableDay = calendar.locator('[data-slot="calendar-day-button"]:not([data-outside]):not([data-disabled])').first()

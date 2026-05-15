@@ -7,13 +7,13 @@ test.describe('Checkbox Documentation Page', () => {
 
   test.describe('Preview (Terms Demo)', () => {
     test('button is disabled when unchecked', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxTermsDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxTermsDemo_"][bf-r]:not([data-slot])').first()
       const button = section.locator('button:has-text("Continue")')
       await expect(button).toBeDisabled()
     })
 
     test('button enables when checkbox is checked', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxTermsDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxTermsDemo_"][bf-r]:not([data-slot])').first()
       const checkbox = section.locator('button[role="checkbox"]')
       const button = section.locator('button:has-text("Continue")')
 
@@ -22,7 +22,7 @@ test.describe('Checkbox Documentation Page', () => {
     })
 
     test('clicking label shows checkmark SVG in checkbox', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxTermsDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxTermsDemo_"][bf-r]:not([data-slot])').first()
       const checkbox = section.locator('button[role="checkbox"]')
       const label = section.locator('text=I agree to the terms and conditions')
 
@@ -43,7 +43,7 @@ test.describe('Checkbox Documentation Page', () => {
 
   test.describe('Basic', () => {
     test('clicking toggles checkbox state', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxBasicDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxBasicDemo_"][bf-r]:not([data-slot])').first()
       const checkbox = section.locator('button[role="checkbox"]').first()
 
       // Initially unchecked
@@ -61,7 +61,7 @@ test.describe('Checkbox Documentation Page', () => {
 
   test.describe('Form', () => {
     test('updates selection when checkboxes are toggled', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxFormDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxFormDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
       const selectedText = section.locator('text=/Selected:/')
 
@@ -74,7 +74,7 @@ test.describe('Checkbox Documentation Page', () => {
 
   test.describe('Email List', () => {
     test('can select individual emails', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
       // First checkbox is "select all", second is first email
@@ -86,7 +86,7 @@ test.describe('Checkbox Documentation Page', () => {
     })
 
     test('select all shows checkmark SVG in all email checkboxes', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
       // Click "Select all" checkbox (first one)
@@ -109,7 +109,7 @@ test.describe('Checkbox Documentation Page', () => {
 
   test.describe('Email List Detailed Behavior', () => {
     test('selecting 1 email shows "1 selected"', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
       await checkboxes.nth(1).click()
@@ -117,7 +117,7 @@ test.describe('Checkbox Documentation Page', () => {
     })
 
     test('selecting 2 emails shows "2 selected"', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
       await checkboxes.nth(1).click()
@@ -126,7 +126,7 @@ test.describe('Checkbox Documentation Page', () => {
     })
 
     test('selecting all 3 emails shows "3 selected" and checks "Select all"', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
       await checkboxes.nth(1).click()
@@ -138,7 +138,7 @@ test.describe('Checkbox Documentation Page', () => {
     })
 
     test('unselecting one email updates count', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
       // Select 2
@@ -152,7 +152,7 @@ test.describe('Checkbox Documentation Page', () => {
     })
 
     test('unselecting all returns to "Select all"', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
       // Select 1, then unselect
@@ -163,7 +163,7 @@ test.describe('Checkbox Documentation Page', () => {
     })
 
     test('clicking "Select all" when partially selected selects all', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
       // Select 1 email first
@@ -181,7 +181,7 @@ test.describe('Checkbox Documentation Page', () => {
     })
 
     test('"Mark as read" appears only when selection > 0', async ({ page }) => {
-      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"]:not([data-slot])').first()
+      const section = page.locator('[bf-s^="CheckboxEmailListDemo_"][bf-r]:not([data-slot])').first()
       const checkboxes = section.locator('button[role="checkbox"]')
 
       // Initially hidden

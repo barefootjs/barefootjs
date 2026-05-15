@@ -7,7 +7,7 @@ test.describe('Popover Reference Page', () => {
 
   test.describe('Preview Demo', () => {
     test('opens popover on trigger click', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="popover-trigger"]')
 
       await trigger.click()
@@ -18,7 +18,7 @@ test.describe('Popover Reference Page', () => {
     })
 
     test('closes on ESC', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="popover-trigger"]')
 
       await trigger.click()
@@ -31,7 +31,7 @@ test.describe('Popover Reference Page', () => {
     })
 
     test('closes on click outside', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="popover-trigger"]')
 
       await trigger.click()
@@ -45,7 +45,7 @@ test.describe('Popover Reference Page', () => {
     })
 
     test('has correct data-state transitions', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="popover-trigger"]')
 
       // Initially closed
@@ -62,7 +62,7 @@ test.describe('Popover Reference Page', () => {
     })
 
     test('has correct aria-expanded on trigger', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="popover-trigger"]')
 
       await expect(trigger).toHaveAttribute('aria-expanded', 'false')
@@ -75,7 +75,7 @@ test.describe('Popover Reference Page', () => {
     })
 
     test('contains form fields', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"]').first()
+      const demo = page.locator('[bf-s^="PopoverPreviewDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="popover-trigger"]')
 
       await trigger.click()
@@ -88,7 +88,7 @@ test.describe('Popover Reference Page', () => {
 
   test.describe('Basic Demo', () => {
     test('opens and shows content', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PopoverBasicDemo_"]').first()
+      const demo = page.locator('[bf-s^="PopoverBasicDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="popover-trigger"]')
 
       await trigger.click()
@@ -101,7 +101,7 @@ test.describe('Popover Reference Page', () => {
 
   test.describe('Form Demo', () => {
     test('opens and shows form', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PopoverFormDemo_"]').first()
+      const demo = page.locator('[bf-s^="PopoverFormDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="popover-trigger"]')
 
       await trigger.click()
@@ -112,7 +112,7 @@ test.describe('Popover Reference Page', () => {
     })
 
     test('PopoverClose button closes popover', async ({ page }) => {
-      const demo = page.locator('[bf-s^="PopoverFormDemo_"]').first()
+      const demo = page.locator('[bf-s^="PopoverFormDemo_"][bf-r]').first()
       const trigger = demo.locator('[data-slot="popover-trigger"]')
 
       await trigger.click()

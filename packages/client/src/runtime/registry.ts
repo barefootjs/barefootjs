@@ -5,7 +5,7 @@
  * Each component registers its init function so parents can initialize children with props.
  */
 
-import { BF_SCOPE, BF_CHILD_PREFIX } from '@barefootjs/shared'
+import { BF_SCOPE, BF_HOST } from '@barefootjs/shared'
 import { hydratedScopes } from './hydration-state'
 import { setCurrentScope } from './context'
 import { createComponent } from './component'
@@ -87,15 +87,12 @@ export function initChild(
     return
   }
 
-  // Child-prefixed scopes (`~Foo_xxx`) are owned by the parent's initChild
-  // entirely — once we've run their init, never re-enter. Top-level scopes
-  // (no `~`) reach this path through `upsertChild` during reconcile, where
-  // re-invoking init is the documented way to deliver fresh closure-captured
-  // callback props to the child. So only short-circuit the prefixed case.
-  if (
-    hydratedScopes.has(childScope) &&
-    childScope.getAttribute(BF_SCOPE)?.startsWith(BF_CHILD_PREFIX)
-  ) {
+  // Child scopes are owned by their parent's initChild entirely — once
+  // we've run their init, never re-enter. Top-level scopes (no `bf-h`)
+  // reach this path through `upsertChild` during reconcile, where
+  // re-invoking init is the documented way to deliver fresh
+  // closure-captured callback props to the child.
+  if (hydratedScopes.has(childScope) && childScope.hasAttribute(BF_HOST)) {
     return
   }
 
@@ -119,7 +116,7 @@ export function initChild(
  * CSR shape at runtime in one place — so the compiler doesn't need a
  * `mode: 'csr' | 'ssr'` argument for child component emission.
  *
- *   1. SSR: a `[bf-parent][bf-mount]` element exists for this (parent,
+ *   1. SSR: a `[bf-h][bf-m]` element exists for this (parent,
  *      slot). Initialise it via initChild and return it.
  *   2. CSR: a `[data-bf-ph="<slotId|name>"]` placeholder exists. Replace it
  *      with `createComponent(name, props, key)` and return the new element.
@@ -138,11 +135,13 @@ export function upsertChild(
   anchorScope?: Element | null,
 ): HTMLElement | null {
   // SSR: scope element is already in the tree.
+  // With slotId: (bf-h, bf-m) primary lookup (unique by construction).
+  // Without slotId: name-prefix bf-s scan for top-level component lookup.
   let ssr: HTMLElement | null = null
   if (slotId) {
-    ssr = findSsrScopeBySlotIn(parent, name, slotId, anchorScope, /* selfMatch */ false)
+    ssr = findSsrScopeBySlotIn(parent, slotId, anchorScope, /* selfMatch */ false)
   } else {
-    ssr = parent.querySelector(`[${BF_SCOPE}^="~${name}_"], [${BF_SCOPE}^="${name}_"]`) as HTMLElement | null
+    ssr = parent.querySelector(`[${BF_SCOPE}^="${name}_"]`) as HTMLElement | null
   }
   if (ssr) {
     initChild(name, ssr, props)

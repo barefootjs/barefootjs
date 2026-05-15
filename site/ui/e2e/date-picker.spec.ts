@@ -7,7 +7,7 @@ test.describe('DatePicker Reference Page', () => {
 
   test.describe('Preview', () => {
     // PreviewDemo renders DatePicker directly (no wrapper), so scope IS the data-slot element
-    const previewScope = '[bf-s^="DatePickerPreviewDemo_"]'
+    const previewScope = '[bf-s^="DatePickerPreviewDemo_"][bf-r]'
 
     test('shows placeholder text when no date selected', async ({ page }) => {
       await expect(page.locator(`${previewScope} button:has-text("Pick a date")`)).toBeVisible()
@@ -48,7 +48,7 @@ test.describe('DatePicker Reference Page', () => {
   })
 
   test.describe('Basic', () => {
-    const basicScope = '[bf-s^="DatePickerBasicDemo_"]'
+    const basicScope = '[bf-s^="DatePickerBasicDemo_"][bf-r]'
 
     test('displays selected date text after selection', async ({ page }) => {
       // Initially shows "No date selected"
@@ -89,7 +89,7 @@ test.describe('DatePicker Reference Page', () => {
     })
 
     test('recalculates day count when end date is re-selected', async ({ page }) => {
-      const formScope = '[bf-s^="DatePickerFormDemo_"]'
+      const formScope = '[bf-s^="DatePickerFormDemo_"][bf-r]'
       const startPicker = page.locator(`${formScope} [data-slot="date-picker"]`).first()
       const endPicker = page.locator(`${formScope} [data-slot="date-picker"]`).nth(1)
       const dayCount = page.locator('[data-testid="day-count"]')
@@ -122,7 +122,7 @@ test.describe('DatePicker Reference Page', () => {
   })
 
   test.describe('Date Range', () => {
-    const rangeScope = '[bf-s^="DateRangePickerDemo_"]'
+    const rangeScope = '[bf-s^="DateRangePickerDemo_"][bf-r]'
 
     test('shows placeholder when no range selected', async ({ page }) => {
       await expect(page.locator(`${rangeScope} button:has-text("Pick a date range")`)).toBeVisible()
@@ -156,7 +156,7 @@ test.describe('DatePicker Reference Page', () => {
   })
 
   test.describe('Presets', () => {
-    const presetsScope = '[bf-s^="DatePickerPresetsDemo_"]'
+    const presetsScope = '[bf-s^="DatePickerPresetsDemo_"][bf-r]'
 
     test('preset button sets the date', async ({ page }) => {
       // Click "Today" preset button

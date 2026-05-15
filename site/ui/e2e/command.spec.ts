@@ -7,7 +7,7 @@ test.describe('Command Reference Page', () => {
 
   test.describe('Preview Demo', () => {
     test('filtering hides non-matching items', async ({ page }) => {
-      const section = page.locator('[bf-s^="CommandPreviewDemo_"]').first()
+      const section = page.locator('[bf-s^="CommandPreviewDemo_"][bf-r]').first()
       const input = section.locator('input[data-slot="command-input"]')
 
       await input.fill('cal')
@@ -20,7 +20,7 @@ test.describe('Command Reference Page', () => {
     })
 
     test('filtering shows empty state when no matches', async ({ page }) => {
-      const section = page.locator('[bf-s^="CommandPreviewDemo_"]').first()
+      const section = page.locator('[bf-s^="CommandPreviewDemo_"][bf-r]').first()
       const input = section.locator('input[data-slot="command-input"]')
 
       await input.fill('zzzzz')
@@ -30,7 +30,7 @@ test.describe('Command Reference Page', () => {
     })
 
     test('arrow key navigation changes selected item', async ({ page }) => {
-      const section = page.locator('[bf-s^="CommandPreviewDemo_"]').first()
+      const section = page.locator('[bf-s^="CommandPreviewDemo_"][bf-r]').first()
       const input = section.locator('input[data-slot="command-input"]')
 
       // Type something to trigger auto-selection, then clear

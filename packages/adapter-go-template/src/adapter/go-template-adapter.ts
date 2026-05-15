@@ -640,6 +640,10 @@ export class GoTemplateAdapter extends BaseAdapter {
     lines.push(`// ${inputTypeName} is the user-facing input type.`)
     lines.push(`type ${inputTypeName} struct {`)
     lines.push('\tScopeID string // Optional: if empty, random ID is generated')
+    // (#1249) Slot identity for child scopes mounted as a slot of an
+    // outer component. Forwarded to Props's BfParent / BfMount.
+    lines.push('\tBfParent string // Optional: parent scope id')
+    lines.push('\tBfMount string // Optional: slot id in parent')
 
     // Static nested components appear in Input; dynamic ones are template-only
     const staticNested = nestedComponents.filter(n => !n.isDynamic)
@@ -680,6 +684,10 @@ export class GoTemplateAdapter extends BaseAdapter {
     lines.push('\tScopeID string `json:"scopeID"`')
     lines.push('\tBfIsRoot bool `json:"-"`')
     lines.push('\tBfIsChild bool `json:"-"`')
+    // (#1249) Slot identity for child scopes: host scope id + slot id.
+    // Emitted as bf-h / bf-m HTML attributes by `bfHydrationAttrs`.
+    lines.push('\tBfParent string `json:"-"`')
+    lines.push('\tBfMount string `json:"-"`')
 
     // Add Scripts field for dynamic script collection
     lines.push('\tScripts *bf.ScriptCollector `json:"-"`')
@@ -789,6 +797,10 @@ export class GoTemplateAdapter extends BaseAdapter {
         lines.push(`\t${varName} := make([]${nested.name}Props, len(in.${nested.name}s))`)
         lines.push(`\tfor i, item := range in.${nested.name}s {`)
         lines.push(`\t\t${varName}[i] = New${nested.name}Props(item)`)
+        // (#1249) Stamp slot identity on each child item so bf-h / bf-m
+        // mark it as a slot-attached child of this scope.
+        lines.push(`\t\t${varName}[i].BfParent = scopeID`)
+        lines.push(`\t\t${varName}[i].BfMount = "${nested.slotId}"`)
         lines.push('\t}')
         lines.push('')
       }
@@ -796,6 +808,10 @@ export class GoTemplateAdapter extends BaseAdapter {
 
     lines.push(`\treturn ${propsTypeName}{`)
     lines.push('\t\tScopeID: scopeID,')
+    // (#1249) Forward host context for when *this* component is itself a
+    // slot-attached child of an outer page/component.
+    lines.push('\t\tBfParent: in.BfParent,')
+    lines.push('\t\tBfMount: in.BfMount,')
 
     // Collect nested component array field names
     const nestedArrayFields = new Set(nestedComponents.map(n => `${n.name}s`))
@@ -843,6 +859,10 @@ export class GoTemplateAdapter extends BaseAdapter {
     for (const child of staticChildren) {
       lines.push(`\t\t${child.fieldName}: New${child.name}Props(${child.name}Input{`)
       lines.push(`\t\t\tScopeID: scopeID + "_${child.slotId}",`)
+      // (#1249) Slot identity stamps onto the child's Props via its
+      // own NewProps (BfParent/BfMount fields).
+      lines.push(`\t\t\tBfParent: scopeID,`)
+      lines.push(`\t\t\tBfMount: "${child.slotId}",`)
       // Add prop values
       for (const prop of child.props) {
         switch (prop.value.kind) {
@@ -3184,8 +3204,10 @@ export class GoTemplateAdapter extends BaseAdapter {
   }
 
   renderScopeMarker(_instanceIdExpr: string): string {
-    // bfScopeAttr returns scopeID with ~ prefix for child components
-    return `bf-s="{{bfScopeAttr .}}" {{bfPropsAttr .}}`
+    // bfScopeAttr returns the bare scope id (#1249 — no `~` prefix).
+    // bfHydrationAttrs emits bf-h / bf-m / bf-r conditionally (slot
+    // identity + root-of-client-component marker).
+    return `bf-s="{{bfScopeAttr .}}" {{bfHydrationAttrs .}} {{bfPropsAttr .}}`
   }
 
   renderSlotMarker(slotId: string): string {

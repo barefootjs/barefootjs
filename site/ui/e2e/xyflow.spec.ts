@@ -24,7 +24,7 @@ test.describe('xyflow Reference Page', () => {
 
   // ------------------------------------------------------------
   test.describe('Preview', () => {
-    const scope = '[bf-s^="XyflowPreviewDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="XyflowPreviewDemo_"][bf-r]:not([data-slot])'
 
     test('renders the .bf-flow root', async ({ page }) => {
       const container = firstScope(page, scope)
@@ -61,7 +61,7 @@ test.describe('xyflow Reference Page', () => {
 
   // ------------------------------------------------------------
   test.describe('Background Plugin', () => {
-    const scope = '[bf-s^="XyflowPreviewDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="XyflowPreviewDemo_"][bf-r]:not([data-slot])'
 
     test('renders an SVG <pattern>', async ({ page }) => {
       const container = firstScope(page, scope)
@@ -85,7 +85,7 @@ test.describe('xyflow Reference Page', () => {
 
   // ------------------------------------------------------------
   test.describe('Controls Plugin', () => {
-    const scope = '[bf-s^="XyflowPreviewDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="XyflowPreviewDemo_"][bf-r]:not([data-slot])'
 
     test('renders four control buttons', async ({ page }) => {
       const container = firstScope(page, scope)
@@ -110,7 +110,7 @@ test.describe('xyflow Reference Page', () => {
 
   // ------------------------------------------------------------
   test.describe('MiniMap Plugin', () => {
-    const scope = '[bf-s^="XyflowPreviewDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="XyflowPreviewDemo_"][bf-r]:not([data-slot])'
 
     test('renders the minimap container', async ({ page }) => {
       const container = firstScope(page, scope)
@@ -133,7 +133,7 @@ test.describe('xyflow Reference Page', () => {
 
   // ------------------------------------------------------------
   test.describe('Background Variants Demo', () => {
-    const scope = '[bf-s^="XyflowBackgroundVariantsDemo_"]:not([data-slot])'
+    const scope = '[bf-s^="XyflowBackgroundVariantsDemo_"][bf-r]:not([data-slot])'
 
     test('renders three Flow containers', async ({ page }) => {
       const container = firstScope(page, scope)
@@ -159,21 +159,21 @@ test.describe('xyflow Reference Page', () => {
     })
 
     test('pill bodies hydrate without [object HTMLDivElement]', async ({ page }) => {
-      const container = firstScope(page, '[bf-s^="XyflowCustomBodyDemo_"]:not([data-slot])')
+      const container = firstScope(page, '[bf-s^="XyflowCustomBodyDemo_"][bf-r]:not([data-slot])')
       await expect(container).toBeAttached()
       const text = await container.innerText()
       expect(text).not.toContain('[object')
     })
 
     test('pill nodes carry both source and target handles', async ({ page }) => {
-      const container = firstScope(page, '[bf-s^="XyflowCustomBodyDemo_"]:not([data-slot])')
+      const container = firstScope(page, '[bf-s^="XyflowCustomBodyDemo_"][bf-r]:not([data-slot])')
       await expect(container.locator('.bf-flow__node')).toHaveCount(3)
       await expect(container.locator('.bf-flow__handle--source')).toHaveCount(3)
       await expect(container.locator('.bf-flow__handle--target')).toHaveCount(3)
     })
 
     test('fan router exposes top/right/bottom handles', async ({ page }) => {
-      const container = firstScope(page, '[bf-s^="XyflowCustomHandlesDemo_"]:not([data-slot])')
+      const container = firstScope(page, '[bf-s^="XyflowCustomHandlesDemo_"][bf-r]:not([data-slot])')
       await expect(container.locator('[data-handleid="top"]')).toBeAttached()
       await expect(container.locator('[data-handleid="right"]')).toBeAttached()
       await expect(container.locator('[data-handleid="bottom"]')).toBeAttached()

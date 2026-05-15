@@ -258,7 +258,7 @@ describe('find', () => {
       // in the comment range — should be searchable for its own slots
       document.body.innerHTML = `
         <!--bf-scope:FragComp_abc-->
-        <div bf-s="~Child_xyz">
+        <div bf-s="Child_xyz">
           <button bf="s0">Click</button>
         </div>
       `
@@ -299,7 +299,7 @@ describe('find', () => {
       // Proxy element has bf-s AND matches the slot selector
       document.body.innerHTML = `
         <!--bf-scope:FragComp_abc-->
-        <div bf-s="~Child_xyz" bf="s0">Proxy with slot</div>
+        <div bf-s="Child_xyz" bf="s0">Proxy with slot</div>
       `
       const scope = findScope('FragComp', 0, null, true)
       const el = find(scope, '[bf="s0"]')
@@ -343,7 +343,7 @@ describe('$', () => {
   test('finds ^-prefixed slot inside child scope', () => {
     document.body.innerHTML = `
       <div bf-s="Parent_abc">
-        <div bf-s="~Child_xyz">
+        <div bf-s="Child_xyz">
           <button bf="^s3">Click</button>
         </div>
       </div>
@@ -357,8 +357,8 @@ describe('$', () => {
   test('finds ^-prefixed slot in deeply nested child scopes', () => {
     document.body.innerHTML = `
       <div bf-s="Parent_abc">
-        <div bf-s="~Child_xyz">
-          <div bf-s="~GrandChild_def">
+        <div bf-s="Child_xyz">
+          <div bf-s="GrandChild_def">
             <input bf="^s5" type="text" />
           </div>
         </div>
@@ -389,7 +389,7 @@ describe('$', () => {
     document.body.innerHTML = `
       <div bf-s="Parent_abc">
         <button bf="s0">regular</button>
-        <div bf-s="~Child_xyz">
+        <div bf-s="Child_xyz">
           <span bf="^s1">parent-owned</span>
         </div>
       </div>
@@ -403,7 +403,7 @@ describe('$', () => {
   test('does NOT find regular slot in child scope', () => {
     document.body.innerHTML = `
       <div bf-s="Parent_abc">
-        <div bf-s="~Child_xyz">
+        <div bf-s="Child_xyz">
           <button bf="s3">Click</button>
         </div>
       </div>
@@ -484,25 +484,25 @@ describe('$c', () => {
   test('strips ^ prefix defensively for slot IDs', () => {
     document.body.innerHTML = `
       <div bf-s="Parent_abc">
-        <div bf-s="~DialogTrigger_Parent_abc_s0">trigger</div>
+        <div bf-s="DialogTrigger_Parent_abc_s0">trigger</div>
       </div>
     `
     const scope = document.querySelector('[bf-s="Parent_abc"]')!
     const [result] = $c(scope, '^s0')
     expect(result).not.toBeNull()
-    expect(result?.getAttribute('bf-s')).toBe('~DialogTrigger_Parent_abc_s0')
+    expect(result?.getAttribute('bf-s')).toBe('DialogTrigger_Parent_abc_s0')
   })
 
   test('strips ^ prefix defensively for component name IDs', () => {
     document.body.innerHTML = `
       <div bf-s="App_root">
-        <div bf-s="~Counter_abc123">counter</div>
+        <div bf-s="Counter_abc123">counter</div>
       </div>
     `
     const scope = document.querySelector('[bf-s="App_root"]')!
     const [result] = $c(scope, '^Counter')
     expect(result).not.toBeNull()
-    expect(result?.getAttribute('bf-s')).toBe('~Counter_abc123')
+    expect(result?.getAttribute('bf-s')).toBe('Counter_abc123')
   })
 
   test('finds multiple child scopes', () => {
@@ -522,7 +522,7 @@ describe('$c', () => {
     document.body.innerHTML = `
       <div bf-s="App_abc">
         <div bf-s="App_abc_s0">slot</div>
-        <div bf-s="~Counter_xyz">counter</div>
+        <div bf-s="Counter_xyz">counter</div>
       </div>
     `
     const scope = document.querySelector('[bf-s="App_abc"]')!
@@ -583,13 +583,13 @@ describe('$c', () => {
     test('finds child-prefixed scope by component name', () => {
       document.body.innerHTML = `
         <div bf-s="App_root">
-          <div bf-s="~Dialog_abc">dialog</div>
+          <div bf-s="Dialog_abc">dialog</div>
         </div>
       `
       const scope = document.querySelector('[bf-s="App_root"]')!
       const [result] = $c(scope, 'Dialog')
       expect(result).not.toBeNull()
-      expect(result?.getAttribute('bf-s')).toBe('~Dialog_abc')
+      expect(result?.getAttribute('bf-s')).toBe('Dialog_abc')
     })
 
     test('finds non-prefixed scope by component name', () => {
@@ -686,7 +686,7 @@ describe('$t', () => {
   test('finds ^-prefixed marker (parent-owned)', () => {
     document.body.innerHTML = `
       <div bf-s="Parent_abc">
-        <div bf-s="~Child_xyz"><!--bf:^s1-->owned<!--/--></div>
+        <div bf-s="Child_xyz"><!--bf:^s1-->owned<!--/--></div>
       </div>
     `
     const scope = document.querySelector('[bf-s="Parent_abc"]')
