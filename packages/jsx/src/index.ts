@@ -65,6 +65,8 @@ export type {
 export { JsxAdapter } from './adapters/jsx-adapter'
 export type { JsxAdapterConfig } from './adapters/jsx-adapter'
 export { rewriteImportsForTemplate } from './adapters/template-imports'
+export { emitParsedExpr } from './adapters/parsed-expr-emitter'
+export type { ParsedExprEmitter, HigherOrderMethod, LiteralType } from './adapters/parsed-expr-emitter'
 
 // Client JS Generator
 export { generateClientJs, generateClientJsWithSourceMap, analyzeClientNeeds } from './ir-to-client-js'
