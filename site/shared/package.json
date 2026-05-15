@@ -11,7 +11,7 @@
     "./lib/*": "./lib/*",
     "./lib/theme-init": "./lib/theme-init.ts",
     "./lib/og-image": "./lib/og-image.ts",
-    "./fonts/inter-regular": "./fonts/inter-regular.ts",
+    "./fonts/inter-bold": "./fonts/inter-bold.ts",
     "./tokens": "./tokens/index.ts"
   },
   "dependencies": {

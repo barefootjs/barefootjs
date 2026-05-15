@@ -31,7 +31,7 @@ export function buildOgSvg(title: string): string {
     x="80"
     y="220"
     font-family="Inter"
-    font-size="56"
+    font-size="84"
     font-weight="bold"
     fill="#ffffff"
   >${safeTitle}</text>
