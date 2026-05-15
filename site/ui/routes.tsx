@@ -127,6 +127,24 @@ import { FieldArraysPage } from './pages/forms/field-arrays'
 
 import { HomeShowcase } from '@/components/home-showcase'
 
+import { componentEntries, blockEntries } from './components/shared/component-registry'
+
+// Lookup maps for component / block meta (title + description) by slug.
+// Used to forward per-page meta to the renderer for <title> and OGP tags.
+const componentMetaBySlug = new Map(componentEntries.map(e => [e.slug, e]))
+const blockMetaBySlug = new Map(blockEntries.map(e => [e.slug, e]))
+
+function componentMeta(slug: string): { title: string; description: string } {
+  const entry = componentMetaBySlug.get(slug)
+  if (!entry) throw new Error(`Missing component registry entry for slug "${slug}"`)
+  return { title: entry.title, description: entry.description }
+}
+
+function blockMeta(slug: string): { title: string; description: string } {
+  const entry = blockMetaBySlug.get(slug)
+  if (!entry) throw new Error(`Missing block registry entry for slug "${slug}"`)
+  return { title: entry.title, description: entry.description }
+}
 
 /**
  * Create the documentation app with all routes.
@@ -167,167 +185,167 @@ export function createApp() {
 
   // Studio - design system builder (#516)
   app.get('/studio', (c) => {
-    return c.render(<StudioPage />)
+    return c.render(<StudioPage />, { title: 'Studio', description: 'Design system builder for BarefootJS components.' })
   })
 
   // Component catalog - visual card grid (#517)
   app.get('/components', (c) => {
-    return c.render(<ComponentCatalogPage />)
+    return c.render(<ComponentCatalogPage />, { title: 'Components', description: 'Browse the BarefootJS component catalog.' })
   })
 
   // Aspect Ratio reference page
   app.get('/components/aspect-ratio', (c) => {
-    return c.render(<AspectRatioRefPage />)
+    return c.render(<AspectRatioRefPage />, componentMeta('aspect-ratio'))
   })
 
   // Alert reference page
   app.get('/components/alert', (c) => {
-    return c.render(<AlertRefPage />)
+    return c.render(<AlertRefPage />, componentMeta('alert'))
   })
 
   // Alert Dialog reference page
   app.get('/components/alert-dialog', (c) => {
-    return c.render(<AlertDialogRefPage />)
+    return c.render(<AlertDialogRefPage />, componentMeta('alert-dialog'))
   })
 
   // Badge reference page
   app.get('/components/badge', (c) => {
-    return c.render(<BadgeRefPage />)
+    return c.render(<BadgeRefPage />, componentMeta('badge'))
   })
 
   // Button reference page (redesigned #515)
   app.get('/components/button', (c) => {
-    return c.render(<ButtonRefPage />)
+    return c.render(<ButtonRefPage />, componentMeta('button'))
   })
 
   // Button Group reference page
   app.get('/components/button-group', (c) => {
-    return c.render(<ButtonGroupRefPage />)
+    return c.render(<ButtonGroupRefPage />, componentMeta('button-group'))
   })
 
   // Combobox reference page (redesigned #515)
   app.get('/components/combobox', (c) => {
-    return c.render(<ComboboxRefPage />)
+    return c.render(<ComboboxRefPage />, componentMeta('combobox'))
   })
 
   // Field reference page
   app.get('/components/field', (c) => {
-    return c.render(<FieldRefPage />)
+    return c.render(<FieldRefPage />, componentMeta('field'))
   })
 
   // Label reference page (redesigned #515)
   app.get('/components/label', (c) => {
-    return c.render(<LabelRefPage />)
+    return c.render(<LabelRefPage />, componentMeta('label'))
   })
 
   // Select reference page (redesigned #515)
   app.get('/components/select', (c) => {
-    return c.render(<SelectRefPage />)
+    return c.render(<SelectRefPage />, componentMeta('select'))
   })
 
   // Textarea reference page (redesigned #515)
   app.get('/components/textarea', (c) => {
-    return c.render(<TextareaRefPage />)
+    return c.render(<TextareaRefPage />, componentMeta('textarea'))
   })
 
   // Toggle reference page (redesigned #515)
   app.get('/components/toggle', (c) => {
-    return c.render(<ToggleRefPage />)
+    return c.render(<ToggleRefPage />, componentMeta('toggle'))
   })
 
   // Avatar reference page (redesigned #515)
   app.get('/components/avatar', (c) => {
-    return c.render(<AvatarRefPage />)
+    return c.render(<AvatarRefPage />, componentMeta('avatar'))
   })
 
   // Calendar reference page (redesigned #515)
   app.get('/components/calendar', (c) => {
-    return c.render(<CalendarRefPage />)
+    return c.render(<CalendarRefPage />, componentMeta('calendar'))
   })
 
   // Card reference page (redesigned #515)
   app.get('/components/card', (c) => {
-    return c.render(<CardRefPage />)
+    return c.render(<CardRefPage />, componentMeta('card'))
   })
 
   // Carousel reference page (redesigned #515)
   app.get('/components/carousel', (c) => {
-    return c.render(<CarouselRefPage />)
+    return c.render(<CarouselRefPage />, componentMeta('carousel'))
   })
 
   // Data Table reference page (redesigned #515)
   app.get('/components/data-table', (c) => {
-    return c.render(<DataTableRefPage />)
+    return c.render(<DataTableRefPage />, componentMeta('data-table'))
   })
 
   // Skeleton reference page (redesigned #515)
   app.get('/components/skeleton', (c) => {
-    return c.render(<SkeletonRefPage />)
+    return c.render(<SkeletonRefPage />, componentMeta('skeleton'))
   })
 
   // Table reference page (redesigned #515)
   app.get('/components/table', (c) => {
-    return c.render(<TableRefPage />)
+    return c.render(<TableRefPage />, componentMeta('table'))
   })
 
   // Breadcrumb reference page
   app.get('/components/breadcrumb', (c) => {
-    return c.render(<BreadcrumbRefPage />)
+    return c.render(<BreadcrumbRefPage />, componentMeta('breadcrumb'))
   })
 
   // Collapsible reference page
   app.get('/components/collapsible', (c) => {
-    return c.render(<CollapsibleRefPage />)
+    return c.render(<CollapsibleRefPage />, componentMeta('collapsible'))
   })
 
   // Command reference page
   app.get('/components/command', (c) => {
-    return c.render(<CommandRefPage />)
+    return c.render(<CommandRefPage />, componentMeta('command'))
   })
 
   // Checkbox reference page
   app.get('/components/checkbox', (c) => {
-    return c.render(<CheckboxRefPage />)
+    return c.render(<CheckboxRefPage />, componentMeta('checkbox'))
   })
 
   // Input reference page (redesigned #515)
   app.get('/components/input', (c) => {
-    return c.render(<InputRefPage />)
+    return c.render(<InputRefPage />, componentMeta('input'))
   })
 
   // Input Group reference page
   app.get('/components/input-group', (c) => {
-    return c.render(<InputGroupRefPage />)
+    return c.render(<InputGroupRefPage />, componentMeta('input-group'))
   })
 
   // Empty reference page
   app.get('/components/empty', (c) => {
-    return c.render(<EmptyRefPage />)
+    return c.render(<EmptyRefPage />, componentMeta('empty'))
   })
 
   // Kbd reference page
   app.get('/components/kbd', (c) => {
-    return c.render(<KbdRefPage />)
+    return c.render(<KbdRefPage />, componentMeta('kbd'))
   })
 
   // Native Select reference page
   app.get('/components/native-select', (c) => {
-    return c.render(<NativeSelectRefPage />)
+    return c.render(<NativeSelectRefPage />, componentMeta('native-select'))
   })
 
   // Item reference page
   app.get('/components/item', (c) => {
-    return c.render(<ItemRefPage />)
+    return c.render(<ItemRefPage />, componentMeta('item'))
   })
 
   // Spinner reference page
   app.get('/components/spinner', (c) => {
-    return c.render(<SpinnerRefPage />)
+    return c.render(<SpinnerRefPage />, componentMeta('spinner'))
   })
 
   // Typography reference page
   app.get('/components/typography', (c) => {
-    return c.render(<TypographyRefPage />)
+    return c.render(<TypographyRefPage />, componentMeta('typography'))
   })
 
   // xyflow — Introduction, Nodes, Edges, Components. The previous
@@ -348,195 +366,195 @@ export function createApp() {
 
   // Switch reference page
   app.get('/components/switch', (c) => {
-    return c.render(<SwitchRefPage />)
+    return c.render(<SwitchRefPage />, componentMeta('switch'))
   })
 
   // Accordion reference page
   app.get('/components/accordion', (c) => {
-    return c.render(<AccordionRefPage />)
+    return c.render(<AccordionRefPage />, componentMeta('accordion'))
   })
 
   // Tabs reference page (migrated from /docs/components/tabs)
   app.get('/components/tabs', (c) => {
-    return c.render(<TabsRefPage />)
+    return c.render(<TabsRefPage />, componentMeta('tabs'))
   })
 
   // Date Picker reference page
   app.get('/components/date-picker', (c) => {
-    return c.render(<DatePickerRefPage />)
+    return c.render(<DatePickerRefPage />, componentMeta('date-picker'))
   })
 
   // Dialog reference page
   app.get('/components/dialog', (c) => {
-    return c.render(<DialogRefPage />)
+    return c.render(<DialogRefPage />, componentMeta('dialog'))
   })
 
   // Context Menu reference page
   app.get('/components/context-menu', (c) => {
-    return c.render(<ContextMenuRefPage />)
+    return c.render(<ContextMenuRefPage />, componentMeta('context-menu'))
   })
 
 // Dropdown Menu reference page
   app.get('/components/dropdown-menu', (c) => {
-    return c.render(<DropdownMenuRefPage />)
+    return c.render(<DropdownMenuRefPage />, componentMeta('dropdown-menu'))
   })
 
   // Toast reference page
   app.get('/components/toast', (c) => {
-    return c.render(<ToastRefPage />)
+    return c.render(<ToastRefPage />, componentMeta('toast'))
   })
 
   // Radio Group reference page (redesigned #515)
   app.get('/components/radio-group', (c) => {
-    return c.render(<RadioGroupRefPage />)
+    return c.render(<RadioGroupRefPage />, componentMeta('radio-group'))
   })
 
   // Input OTP reference page (redesigned #515)
   app.get('/components/input-otp', (c) => {
-    return c.render(<InputOTPRefPage />)
+    return c.render(<InputOTPRefPage />, componentMeta('input-otp'))
   })
 
   // Slider reference page (redesigned #515)
   app.get('/components/slider', (c) => {
-    return c.render(<SliderRefPage />)
+    return c.render(<SliderRefPage />, componentMeta('slider'))
   })
 
   // Toggle Group reference page (redesigned #515)
   app.get('/components/toggle-group', (c) => {
-    return c.render(<ToggleGroupRefPage />)
+    return c.render(<ToggleGroupRefPage />, componentMeta('toggle-group'))
   })
 
   // Tooltip reference page
   app.get('/components/tooltip', (c) => {
-    return c.render(<TooltipRefPage />)
+    return c.render(<TooltipRefPage />, componentMeta('tooltip'))
   })
 
 
   // Separator reference page
   app.get('/components/separator', (c) => {
-    return c.render(<SeparatorRefPage />)
+    return c.render(<SeparatorRefPage />, componentMeta('separator'))
   })
 
 
   // Portal reference page
   app.get('/components/portal', (c) => {
-    return c.render(<PortalRefPage />)
+    return c.render(<PortalRefPage />, componentMeta('portal'))
   })
 
   // Menubar reference page
   app.get('/components/menubar', (c) => {
-    return c.render(<MenubarRefPage />)
+    return c.render(<MenubarRefPage />, componentMeta('menubar'))
   })
 
   // Navigation Menu reference page
   app.get('/components/navigation-menu', (c) => {
-    return c.render(<NavigationMenuRefPage />)
+    return c.render(<NavigationMenuRefPage />, componentMeta('navigation-menu'))
   })
 
   // Pagination reference page
   app.get('/components/pagination', (c) => {
-    return c.render(<PaginationRefPage />)
+    return c.render(<PaginationRefPage />, componentMeta('pagination'))
   })
 
   // Popover reference page
   app.get('/components/popover', (c) => {
-    return c.render(<PopoverRefPage />)
+    return c.render(<PopoverRefPage />, componentMeta('popover'))
   })
 
   // Progress reference page
   app.get('/components/progress', (c) => {
-    return c.render(<ProgressRefPage />)
+    return c.render(<ProgressRefPage />, componentMeta('progress'))
   })
 
 
   // Hover Card reference page
   app.get('/components/hover-card', (c) => {
-    return c.render(<HoverCardRefPage />)
+    return c.render(<HoverCardRefPage />, componentMeta('hover-card'))
   })
 
   // Resizable reference page
   app.get('/components/resizable', (c) => {
-    return c.render(<ResizableRefPage />)
+    return c.render(<ResizableRefPage />, componentMeta('resizable'))
   })
 
   // Scroll Area reference page (redesigned #515)
   app.get('/components/scroll-area', (c) => {
-    return c.render(<ScrollAreaRefPage />)
+    return c.render(<ScrollAreaRefPage />, componentMeta('scroll-area'))
   })
 
   // Direction reference page
   app.get('/components/direction', (c) => {
-    return c.render(<DirectionRefPage />)
+    return c.render(<DirectionRefPage />, componentMeta('direction'))
   })
 
   // Drawer reference page (migrated from /docs/components/drawer)
   app.get('/components/drawer', (c) => {
-    return c.render(<DrawerRefPage />)
+    return c.render(<DrawerRefPage />, componentMeta('drawer'))
   })
 
   // Sheet reference page (redesigned)
   app.get('/components/sheet', (c) => {
-    return c.render(<SheetRefPage />)
+    return c.render(<SheetRefPage />, componentMeta('sheet'))
   })
 
   // Music Player block page
   app.get('/components/music-player', (c) => {
-    return c.render(<MusicPlayerRefPage />)
+    return c.render(<MusicPlayerRefPage />, blockMeta('music-player'))
   })
 
   // File Upload block page
   app.get('/components/file-upload', (c) => {
-    return c.render(<FileUploadRefPage />)
+    return c.render(<FileUploadRefPage />, blockMeta('file-upload'))
   })
 
   // Spreadsheet block page
   app.get('/components/spreadsheet', (c) => {
-    return c.render(<SpreadsheetRefPage />)
+    return c.render(<SpreadsheetRefPage />, blockMeta('spreadsheet'))
   })
 
   // Permission Matrix block page
   app.get('/components/permission-matrix', (c) => {
-    return c.render(<PermissionMatrixRefPage />)
+    return c.render(<PermissionMatrixRefPage />, blockMeta('permission-matrix'))
   })
 
   // Form Builder block page
   app.get('/components/form-builder', (c) => {
-    return c.render(<FormBuilderRefPage />)
+    return c.render(<FormBuilderRefPage />, blockMeta('form-builder'))
   })
 
   // Pivot Table block page
   app.get('/components/pivot-table', (c) => {
-    return c.render(<PivotTableRefPage />)
+    return c.render(<PivotTableRefPage />, blockMeta('pivot-table'))
   })
 
   // Dashboard Builder block page
   app.get('/components/dashboard-builder', (c) => {
-    return c.render(<DashboardBuilderRefPage />)
+    return c.render(<DashboardBuilderRefPage />, blockMeta('dashboard-builder'))
   })
 
   // State Machine Playground block page
   app.get('/components/state-machine-playground', (c) => {
-    return c.render(<StateMachinePlaygroundRefPage />)
+    return c.render(<StateMachinePlaygroundRefPage />, blockMeta('state-machine-playground'))
   })
 
   // Theme Customizer block page
   app.get('/components/theme-customizer', (c) => {
-    return c.render(<ThemeCustomizerRefPage />)
+    return c.render(<ThemeCustomizerRefPage />, blockMeta('theme-customizer'))
   })
 
   // Async Infinite Scroll block page
   app.get('/components/infinite-scroll', (c) => {
-    return c.render(<InfiniteScrollRefPage />)
+    return c.render(<InfiniteScrollRefPage />, blockMeta('infinite-scroll'))
   })
 
   // Toast Queue block page
   app.get('/components/toast-queue', (c) => {
-    return c.render(<ToastQueueRefPage />)
+    return c.render(<ToastQueueRefPage />, blockMeta('toast-queue'))
   })
 
   // Recursive Comments block page
   app.get('/components/recursive-comments', (c) => {
-    return c.render(<RecursiveCommentsRefPage />)
+    return c.render(<RecursiveCommentsRefPage />, blockMeta('recursive-comments'))
   })
 
   // Gallery — Admin app (Phase 9 pilot)
