@@ -39,12 +39,14 @@ import {
   type LiteralType,
   type IRNodeEmitter,
   type EmitIRNode,
+  type AttrValueEmitter,
   isBooleanAttr,
   parseExpression,
   isSupported,
   identifierPath,
   emitParsedExpr,
   emitIRNode,
+  emitAttrValue,
 } from '@barefootjs/jsx'
 
 /**
@@ -3091,53 +3093,51 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
   }
 
+  /**
+   * AttrValue lowering for intrinsic-element attributes (Go templates).
+   * Per-kind logic that used to live in a `switch (v.kind)` inside
+   * `renderAttributes`; routed through the shared dispatcher so a new
+   * AttrValue kind becomes a TS compile error here (#1290 step 2).
+   *
+   * Components have no equivalent AttrValueEmitter on this adapter:
+   * Go templates pass component-instance props as Go struct fields
+   * (`collectStaticChildInstances` builds them), not as string-emitted
+   * markup, so that path does not share a contract with the
+   * intrinsic-attribute one.
+   */
+  private readonly elementAttrEmitter: AttrValueEmitter = {
+    emitLiteral: (value, name) => `${name}="${value.value}"`,
+    emitExpression: (value, name) => {
+      if (isBooleanAttr(name) || value.presenceOrUndefined) {
+        const { condition: goCond, preamble } = this.convertConditionToGo(value.expr)
+        return `${preamble}{{if ${goCond}}}${name}{{end}}`
+      }
+      const parsed = parseExpression(value.expr.trim())
+      if (parsed.kind === 'conditional' || parsed.kind === 'template-literal') {
+        // Inline Go template syntax with embedded `{{...}}` actions.
+        return `${name}="${this.renderParsedExpr(parsed)}"`
+      }
+      return `${name}="{{${this.convertExpressionToGo(value.expr)}}}"`
+    },
+    emitBooleanAttr: (_value, name) => name,
+    // Spread attributes are not directly supported in Go templates —
+    // return empty so the caller skips the entry. Matches pre-#1290
+    // `continue` behavior.
+    emitSpread: () => '',
+    emitTemplate: (value, name) => `${name}="${this.renderTemplateLiteralParts(value.parts)}"`,
+    // Neither variant is legal on intrinsic elements.
+    emitBooleanShorthand: () => '',
+    emitJsxChildren: () => '',
+  }
+
   private renderAttributes(element: IRElement): string {
     const parts: string[] = []
 
     for (const attr of element.attrs) {
       // Convert JSX className to HTML class attribute
       const attrName = attr.name === 'className' ? 'class' : attr.name
-      const v = attr.value
-
-      switch (v.kind) {
-        case 'spread':
-          // Spread attributes not directly supported in Go templates
-          continue
-        case 'boolean-attr':
-          parts.push(attrName)
-          break
-        case 'literal':
-          parts.push(`${attrName}="${v.value}"`)
-          break
-        case 'template': {
-          const output = this.renderTemplateLiteralParts(v.parts)
-          parts.push(`${attrName}="${output}"`)
-          break
-        }
-        case 'expression': {
-          if (isBooleanAttr(attrName) || v.presenceOrUndefined) {
-            // Boolean attrs: render attr name only when truthy, omit when falsy
-            const { condition: goCond, preamble } = this.convertConditionToGo(v.expr)
-            parts.push(`${preamble}{{if ${goCond}}}${attrName}{{end}}`)
-          } else {
-            // Check for ternary/conditional or template literal expressions using the parser
-            const parsed = parseExpression(v.expr.trim())
-            if (parsed.kind === 'conditional' || parsed.kind === 'template-literal') {
-              // These produce inline Go template syntax with embedded {{...}} actions
-              const goValue = this.renderParsedExpr(parsed)
-              parts.push(`${attrName}="${goValue}"`)
-            } else {
-              const goValue = this.convertExpressionToGo(v.expr)
-              parts.push(`${attrName}="{{${goValue}}}"`)
-            }
-          }
-          break
-        }
-        case 'boolean-shorthand':
-        case 'jsx-children':
-          // Neither variant is legal on intrinsic elements. Skip silently.
-          break
-      }
+      const lowered = emitAttrValue(attr.value, this.elementAttrEmitter, attrName)
+      if (lowered) parts.push(lowered)
     }
 
     return parts.length > 0 ? ' ' + parts.join(' ') : ''

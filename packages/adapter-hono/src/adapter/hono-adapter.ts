@@ -26,10 +26,12 @@ import {
   type JsxAdapterConfig,
   type IRNodeEmitter,
   type EmitIRNode,
+  type AttrValueEmitter,
   JsxAdapter,
   isBooleanAttr,
   rewriteImportsForTemplate,
   emitIRNode,
+  emitAttrValue,
 } from '@barefootjs/jsx'
 
 /**
@@ -871,42 +873,63 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
   // Attribute Rendering
   // ===========================================================================
 
+  /**
+   * AttrValue lowering for intrinsic-element attributes (Hono JSX).
+   * Per-kind logic that used to live in a `switch (v.kind)` inside
+   * `renderAttributes`; routed through the shared dispatcher so a new
+   * AttrValue kind becomes a TS compile error here (#1290 step 2).
+   */
+  private readonly elementAttrEmitter: AttrValueEmitter = {
+    emitLiteral: (value, name) => `${name}="${value.value}"`,
+    emitExpression: (value, name) => {
+      // Boolean attrs / presence-folded expressions: pass `undefined` when
+      // falsy so Hono omits the attribute. Wrap in parens to keep `??`
+      // operators inside `expr` from breaking the surrounding `|| undefined`.
+      if (isBooleanAttr(name) || value.presenceOrUndefined) {
+        return `${name}={(${value.expr}) || undefined}`
+      }
+      return `${name}={${value.expr}}`
+    },
+    emitBooleanAttr: (_value, name) => name,
+    emitBooleanShorthand: () => '',
+    emitTemplate: (value, name) => `${name}={${this.renderTemplateLiteralParts(value.parts)}}`,
+    emitSpread: (value) => `{...${value.expr}}`,
+    // Neither boolean-shorthand nor jsx-children is legal on intrinsic
+    // elements. Returning empty string drops the entry silently — matches
+    // pre-#1290 behavior.
+    emitJsxChildren: () => '',
+  }
+
+  /**
+   * AttrValue lowering for component-invocation props (Hono JSX).
+   * Component props differ from intrinsic attrs in several places —
+   * `jsx-children` is rendered as `<>…</>`, `expression` skips the
+   * boolean-attr fold, etc. Kept as a separate emitter so each method
+   * does one thing.
+   */
+  private readonly componentPropEmitter: AttrValueEmitter = {
+    emitLiteral: (value, name) =>
+      // IR-authoritative string literal: `<X fill="var(--c)" />`.
+      // Emitting verbatim is what distinguishes a CSS-shaped value
+      // (`var(...)`, `url(...)`, `calc(...)`) from a JS expression.
+      `${name}="${value.value}"`,
+    emitExpression: (value, name) => `${name}={${value.expr}}`,
+    emitBooleanAttr: (_value, name) => name,
+    emitBooleanShorthand: (_value, name) => name,
+    emitTemplate: (value, name) => `${name}={${this.renderTemplateLiteralParts(value.parts)}}`,
+    emitSpread: (value) => `{...${value.expr}}`,
+    emitJsxChildren: (value, name) => {
+      const rendered = value.children.map((c) => this.renderNode(c)).join('')
+      return `${name}={<>${rendered}</>}`
+    },
+  }
+
   private renderAttributes(element: IRElement): string {
     const parts: string[] = []
 
     for (const attr of element.attrs) {
-      const attrName = attr.name
-      const v = attr.value
-
-      switch (v.kind) {
-        case 'spread':
-          parts.push(`{...${v.expr}}`)
-          break
-        case 'boolean-attr':
-          parts.push(attrName)
-          break
-        case 'literal':
-          parts.push(`${attrName}="${v.value}"`)
-          break
-        case 'template': {
-          const output = this.renderTemplateLiteralParts(v.parts)
-          parts.push(`${attrName}={${output}}`)
-          break
-        }
-        case 'expression':
-          if (isBooleanAttr(attrName) || v.presenceOrUndefined) {
-            // Boolean attrs: pass undefined when falsy so Hono omits the attribute
-            // Wrap in parentheses to avoid syntax error when value contains ?? operator
-            parts.push(`${attrName}={(${v.expr}) || undefined}`)
-          } else {
-            parts.push(`${attrName}={${v.expr}}`)
-          }
-          break
-        case 'boolean-shorthand':
-        case 'jsx-children':
-          // Neither variant is legal on intrinsic elements. Skip silently.
-          break
-      }
+      const lowered = emitAttrValue(attr.value, this.elementAttrEmitter, attr.name)
+      if (lowered) parts.push(lowered)
     }
 
     // Add event handlers (as no-op for SSR)
@@ -923,16 +946,6 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     let keyValue: string | null = null
 
     for (const prop of comp.props) {
-      if (prop.value.kind === 'jsx-children') {
-        // JSX prop: render children inline as JSX fragment
-        const rendered = prop.value.children.map(c => this.renderNode(c)).join('')
-        parts.push(`${prop.name}={<>${rendered}</>}`)
-        continue
-      }
-      if (prop.value.kind === 'spread') {
-        parts.push(`{...${prop.value.expr}}`)
-        continue
-      }
       if (prop.name === 'key') {
         // JSX key → data-key only. Hono JSX strips `key` from HTML output
         // (delete props["key"]), so emitting key={} is a no-op. We only need
@@ -940,28 +953,8 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
         keyValue = this.attrValueToJsExpr(prop.value)
         continue
       }
-      switch (prop.value.kind) {
-        case 'expression':
-          parts.push(`${prop.name}={${prop.value.expr}}`)
-          break
-        case 'template':
-          parts.push(`${prop.name}={${this.renderTemplateLiteralParts(prop.value.parts)}}`)
-          break
-        case 'literal':
-          // IR-authoritative string literal: <X fill="var(--c)" />. Emitting
-          // this verbatim is what distinguishes a CSS-shaped value (`var(...)`,
-          // `url(...)`, `calc(...)`) from a JS expression.
-          parts.push(`${prop.name}="${prop.value.value}"`)
-          break
-        case 'boolean-shorthand':
-          // <X disabled /> → emit bare `disabled`
-          parts.push(prop.name)
-          break
-        case 'boolean-attr':
-          // Element-only variant; component props use boolean-shorthand. Defensive.
-          parts.push(prop.name)
-          break
-      }
+      const lowered = emitAttrValue(prop.value, this.componentPropEmitter, prop.name)
+      if (lowered) parts.push(lowered)
     }
 
     // Add data-key prop when key is present for client-side reconciliation

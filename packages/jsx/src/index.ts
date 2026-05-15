@@ -69,6 +69,8 @@ export { emitParsedExpr } from './adapters/parsed-expr-emitter'
 export type { ParsedExprEmitter, HigherOrderMethod, LiteralType } from './adapters/parsed-expr-emitter'
 export { emitIRNode } from './adapters/ir-node-emitter'
 export type { IRNodeEmitter, EmitIRNode } from './adapters/ir-node-emitter'
+export { emitAttrValue } from './adapters/attr-value-emitter'
+export type { AttrValueEmitter } from './adapters/attr-value-emitter'
 
 // Client JS Generator
 export { generateClientJs, generateClientJsWithSourceMap, analyzeClientNeeds } from './ir-to-client-js'

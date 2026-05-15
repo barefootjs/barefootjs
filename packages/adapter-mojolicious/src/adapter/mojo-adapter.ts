@@ -33,12 +33,14 @@ import {
   type LiteralType,
   type IRNodeEmitter,
   type EmitIRNode,
+  type AttrValueEmitter,
   isBooleanAttr,
   parseExpression,
   identifierPath,
   stringifyParsedExpr,
   emitParsedExpr,
   emitIRNode,
+  emitAttrValue,
 } from '@barefootjs/jsx'
 
 /**
@@ -574,52 +576,55 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
   // Component Rendering
   // ===========================================================================
 
+  /**
+   * AttrValue lowering for component invocation props (Mojo / Perl
+   * named-arg form). Routed through the shared dispatcher so a new
+   * AttrValue kind becomes a TS compile error here (#1290 step 2).
+   *
+   * `jsx-children` returns empty — children are captured via Mojo's
+   * `begin %>…<% end` block below, not threaded through the
+   * `render_child` named-arg list.
+   */
+  private readonly componentPropEmitter: AttrValueEmitter = {
+    emitLiteral: (value, name) => `${name} => '${value.value}'`,
+    emitExpression: (value, name) => {
+      // The IR producer collapses component-prop `template` kinds
+      // into `expression` for client-runtime reasons but preserves
+      // the parsed parts on `v.parts`. Prefer the structured form
+      // when available — the bare-expression path can't handle
+      // `${MAP[KEY]}` shapes (the JS object literal leaks into the
+      // Perl template).
+      if (value.parts) {
+        return `${name} => ${this.convertTemplateLiteralPartsToPerl(value.parts)}`
+      }
+      return `${name} => ${this.convertExpressionToPerl(value.expr)}`
+    },
+    emitSpread: (value) => {
+      // Perl has no JS-style spread — emit the source as a hash
+      // dereference so its entries flatten into the named-arg list
+      // `render_child` accepts. `$props` already comes in as a hashref
+      // by `render_child`'s calling convention; deref with `%{}`. If
+      // `convertExpressionToPerl` already produced a hash variable
+      // (`%foo`), leave as-is.
+      const perlExpr = this.convertExpressionToPerl(value.expr)
+      return perlExpr.startsWith('%') ? perlExpr : `%{${perlExpr}}`
+    },
+    emitTemplate: (value, name) =>
+      `${name} => ${this.convertTemplateLiteralPartsToPerl(value.parts)}`,
+    emitBooleanAttr: (_value, name) => `${name} => 1`,
+    emitBooleanShorthand: (_value, name) => `${name} => 1`,
+    // JSX children flow through Mojo's `begin %>…<% end` capture
+    // below; they're not part of the named-arg list.
+    emitJsxChildren: () => '',
+  }
+
   renderComponent(comp: IRComponent): string {
     const propParts: string[] = []
     for (const p of comp.props) {
-      const v = p.value
       // Skip callback props (onXxx) — event handlers are client-only for SSR.
-      if (p.name.match(/^on[A-Z]/) && v.kind === 'expression') continue
-      switch (v.kind) {
-        case 'literal':
-          propParts.push(`${p.name} => '${v.value}'`)
-          break
-        case 'expression':
-          // The IR producer collapses component-prop `template` kinds
-          // into `expression` for client-runtime reasons but preserves
-          // the parsed parts on `v.parts`. Prefer the structured form
-          // when available — the bare-expression path can't handle
-          // `${MAP[KEY]}` shapes (the JS object literal leaks into the
-          // Perl template).
-          if (v.parts) {
-            propParts.push(`${p.name} => ${this.convertTemplateLiteralPartsToPerl(v.parts)}`)
-          } else {
-            propParts.push(`${p.name} => ${this.convertExpressionToPerl(v.expr)}`)
-          }
-          break
-        case 'spread': {
-          // Perl has no JS-style spread operator — emit the source as
-          // a hash dereference so its entries flatten into the named-arg
-          // list `render_child` accepts. The placeholder `p.name` is
-          // typically `'...'` for spreads and must NOT appear as a key.
-          const perlExpr = this.convertExpressionToPerl(v.expr)
-          // `$props` already comes in as a hashref in `render_child`'s
-          // calling convention; deref with `%{}`. If `convertExpressionToPerl`
-          // produced a hash variable (`%foo`) we leave it as-is.
-          propParts.push(perlExpr.startsWith('%') ? perlExpr : `%{${perlExpr}}`)
-          break
-        }
-        case 'template':
-          propParts.push(`${p.name} => ${this.convertTemplateLiteralPartsToPerl(v.parts)}`)
-          break
-        case 'boolean-shorthand':
-        case 'boolean-attr':
-          propParts.push(`${p.name} => 1`)
-          break
-        case 'jsx-children':
-          // JSX children are handled via the captured render below.
-          break
-      }
+      if (p.name.match(/^on[A-Z]/) && p.value.kind === 'expression') continue
+      const lowered = emitAttrValue(p.value, this.componentPropEmitter, p.name)
+      if (lowered) propParts.push(lowered)
     }
     // Pass slot ID so the child renderer can set correct scope ID for hydration
     // Skip for loop children — they use ComponentName_random pattern instead
@@ -710,41 +715,36 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
   // Attribute Rendering
   // ===========================================================================
 
+  /**
+   * AttrValue lowering for intrinsic-element attributes (Mojo / EP
+   * template). Routed through the shared dispatcher (#1290 step 2).
+   */
+  private readonly elementAttrEmitter: AttrValueEmitter = {
+    emitLiteral: (value, name) => `${name}="${value.value}"`,
+    emitExpression: (value, name) => {
+      if (isBooleanAttr(name) || value.presenceOrUndefined) {
+        // Boolean attributes: render conditionally (present or absent).
+        return `<%= ${this.convertExpressionToPerl(value.expr)} ? '${name}' : '' %>`
+      }
+      return `${name}="<%= ${this.convertExpressionToPerl(value.expr)} %>"`
+    },
+    emitBooleanAttr: (_value, name) => name,
+    emitTemplate: (value, name) =>
+      `${name}="<%= ${this.convertTemplateLiteralPartsToPerl(value.parts)} %>"`,
+    // Spread attributes are not directly supported on intrinsic elements yet.
+    emitSpread: () => '',
+    // Neither variant is legal on intrinsic elements.
+    emitBooleanShorthand: () => '',
+    emitJsxChildren: () => '',
+  }
+
   private renderAttributes(element: IRElement): string {
     const parts: string[] = []
 
     for (const attr of element.attrs) {
       const attrName = attr.name === 'className' ? 'class' : attr.name
-      const v = attr.value
-
-      switch (v.kind) {
-        case 'spread':
-          // Spread attributes — skip for now
-          continue
-        case 'boolean-attr':
-          parts.push(attrName)
-          break
-        case 'literal':
-          parts.push(`${attrName}="${v.value}"`)
-          break
-        case 'template': {
-          const perlExpr = this.convertTemplateLiteralPartsToPerl(v.parts)
-          parts.push(`${attrName}="<%= ${perlExpr} %>"`)
-          break
-        }
-        case 'expression':
-          if (isBooleanAttr(attrName) || v.presenceOrUndefined) {
-            // Boolean attributes: render conditionally (present or absent)
-            parts.push(`<%= ${this.convertExpressionToPerl(v.expr)} ? '${attrName}' : '' %>`)
-          } else {
-            parts.push(`${attrName}="<%= ${this.convertExpressionToPerl(v.expr)} %>"`)
-          }
-          break
-        case 'boolean-shorthand':
-        case 'jsx-children':
-          // Neither variant is legal on intrinsic elements. Skip silently.
-          break
-      }
+      const lowered = emitAttrValue(attr.value, this.elementAttrEmitter, attrName)
+      if (lowered) parts.push(lowered)
     }
 
     return parts.length > 0 ? ' ' + parts.join(' ') : ''
