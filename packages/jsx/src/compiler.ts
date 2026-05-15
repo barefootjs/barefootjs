@@ -86,16 +86,6 @@ function specKey(s: ImportSpecifier): string {
   return `${s.isDefault ? 'd' : ''}${s.isNamespace ? 'n' : ''}:${s.name}:${s.alias ?? ''}`
 }
 
-/**
- * Add 'export' keyword to the component function declaration if needed.
- * Adapters emit plain `function Name(...)` — the compiler adds module-level export.
- */
-function applyExportKeyword(component: string, ir: ComponentIR): string {
-  if (ir.metadata.isExported === false) return component
-  // Prepend 'export ' to the first 'function' declaration
-  return component.replace(/^function /, 'export function ')
-}
-
 // =============================================================================
 // Multiple Component Compilation
 // =============================================================================
@@ -215,7 +205,7 @@ function compileMultipleComponents(
       const s = adapterOutput.sections
       imports = s.imports
       types = s.types
-      component = applyExportKeyword(s.component, componentIR) + (s.defaultExport || '')
+      component = s.component + (s.defaultExport || '')
       const mc = s.moduleConstants
       if (mc && !moduleConstantsSet.has(mc)) {
         moduleConstantsSet.add(mc)
@@ -572,8 +562,7 @@ export function compileJSX(
   let content: string
   if (adapterOutput.sections) {
     const s = adapterOutput.sections
-    const component = applyExportKeyword(s.component, componentIR)
-    content = [s.imports, s.moduleConstants ?? '', s.types, moduleExports, component]
+    content = [s.imports, s.moduleConstants ?? '', s.types, moduleExports, s.component]
       .filter(Boolean).join('\n\n') + (s.defaultExport || '')
   } else {
     content = adapterOutput.template

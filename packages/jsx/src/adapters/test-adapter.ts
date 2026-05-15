@@ -134,8 +134,10 @@ export class TestAdapter extends JsxAdapter {
     const fullPropsDestructure = `{ ${parts.join(', ')} }`
 
     const lines: string[] = []
-    // Adapter always emits without 'export'; compiler handles export keywords
-    lines.push(`function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
+    // Module-export keyword belongs to the adapter: it knows the target language
+    // and whether the source declared the component as exported.
+    const exportPrefix = ir.metadata.isExported === false ? '' : 'export '
+    lines.push(`${exportPrefix}function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
 
     // Generate scope ID
     if (hasClientInteractivity) {
