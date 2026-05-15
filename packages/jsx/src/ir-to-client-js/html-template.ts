@@ -399,7 +399,6 @@ export function irToPlaceholderTemplate(node: IRNode, restSpreadNames?: Set<stri
       return node.children.map(recurse).join('')
 
     case 'slot':
-      // Hosted by the parent template; emits nothing in the placeholder body.
       return ''
 
     default:
@@ -740,7 +739,6 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
       return node.children.map(recurse).join('')
 
     case 'slot':
-      // Hosted by the parent template.
       return ''
 
     default:
@@ -1113,7 +1111,6 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
       return node.children.map(recurse).join('')
 
     case 'slot':
-      // Hosted by the parent template.
       return ''
 
     default:
