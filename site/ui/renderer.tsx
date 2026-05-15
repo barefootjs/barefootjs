@@ -84,10 +84,10 @@ export const renderer = jsxRenderer(
     const playgroundHref = hostname === 'localhost' ? 'http://localhost:4000/playground' : 'https://barefootjs.dev/playground'
     const integrationsHref = hostname === 'localhost' ? 'http://localhost:4000/integrations' : 'https://barefootjs.dev/integrations'
 
-    const pageTitle = title || 'BarefootJS Components'
+    const pageTitle = title ? `${title} | Barefoot.js UI` : 'Barefoot.js UI'
 
     const baseUrl = hostname === 'localhost' ? 'http://localhost:3002' : 'https://ui.barefootjs.dev'
-    const ogTitle = title ?? 'BarefootJS Components'
+    const ogTitle = title ?? 'Barefoot.js UI'
     const ogDescription = description ?? 'TSX in. Your stack out.'
     const ogImageUrl = `${baseUrl}/og?title=${encodeURIComponent(ogTitle)}`
 
@@ -115,7 +115,7 @@ export const renderer = jsxRenderer(
             <meta property="og:description" content={ogDescription} />
             <meta property="og:type" content="website" />
             <meta property="og:image" content={ogImageUrl} />
-            <meta property="og:site_name" content="BarefootJS Components" />
+            <meta property="og:site_name" content="Barefoot.js UI" />
             <meta name="twitter:card" content="summary_large_image" />
             <meta name="twitter:title" content={ogTitle} />
             <meta name="twitter:description" content={ogDescription} />
