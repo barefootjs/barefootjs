@@ -10,6 +10,7 @@
     "./components/*": "./components/*",
     "./lib/*": "./lib/*",
     "./lib/theme-init": "./lib/theme-init.ts",
+    "./lib/og-image": "./lib/og-image.ts",
     "./tokens": "./tokens/index.ts"
   },
   "dependencies": {

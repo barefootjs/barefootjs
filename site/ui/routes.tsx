@@ -7,6 +7,7 @@
 
 import { Hono } from 'hono'
 import { renderer } from './renderer'
+import { createOgRoute } from './og-route'
 
 // Component pages
 import { AspectRatioRefPage } from './pages/components/aspect-ratio'
@@ -135,6 +136,9 @@ export function createApp() {
   const app = new Hono()
 
   app.use(renderer)
+
+  // OG image generator (GET /og?title=...)
+  app.route('/og', createOgRoute())
 
   // Home - Hero + navigation links + showcase
   app.get('/', (c) => {

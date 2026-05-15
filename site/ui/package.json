@@ -19,6 +19,7 @@
     "@barefootjs/hono": "workspace:*",
     "@barefootjs/site-shared": "workspace:*",
     "@barefootjs/xyflow": "workspace:*",
+    "@cf-wasm/resvg": "^0.3.3",
     "@shikijs/langs": "^3.21.0",
     "@shikijs/themes": "^3.21.0",
     "hono": "^4",

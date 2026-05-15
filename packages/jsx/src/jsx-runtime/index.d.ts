@@ -157,7 +157,7 @@ export declare namespace JSX {
     link: HTMLBaseAttributes & { href?: string; rel?: string; media?: string; type?: string; as?: string; crossorigin?: string; integrity?: string; sizes?: string }
 
     // Meta elements
-    meta: HTMLBaseAttributes & { charset?: string; content?: string; 'http-equiv'?: string; name?: string }
+    meta: HTMLBaseAttributes & { charset?: string; content?: string; 'http-equiv'?: string; name?: string; property?: string }
     base: HTMLBaseAttributes & { href?: string; target?: string }
     title: HTMLBaseAttributes
 

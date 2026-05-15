@@ -12,6 +12,7 @@ import { createDocsApp } from './docs-app'
 import { createLandingApp } from './landing/routes'
 import { createPlaygroundApp } from './playground/routes'
 import { createIntegrationsApp } from './integrations/routes'
+import { createOgRoute } from './og-route'
 import type { Page, ContentMap } from './lib/content'
 
 /**
@@ -37,6 +38,9 @@ export async function createApp(content: ContentMap, pages: Page[]): Promise<Hon
   // Integrations adapter index (GET /integrations). The adapter demos themselves
   // live on separate services, so this is just the catalog page.
   app.route('/integrations', createIntegrationsApp())
+
+  // OG image generator (GET /og?title=...)
+  app.route('/og', createOgRoute())
 
   return app
 }
