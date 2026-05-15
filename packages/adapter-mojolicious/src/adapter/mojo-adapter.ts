@@ -23,7 +23,7 @@ import type {
   CompilerError,
   TemplatePrimitiveRegistry,
 } from '@barefootjs/jsx'
-import { BaseAdapter, type AdapterOutput, type AdapterGenerateOptions, isBooleanAttr, parseExpression, identifierPath, stringifyParsedExpr } from '@barefootjs/jsx'
+import { BaseAdapter, type AdapterOutput, type AdapterGenerateOptions, type TemplateSections, isBooleanAttr, parseExpression, identifierPath, stringifyParsedExpr } from '@barefootjs/jsx'
 import type { ParsedExpr, ParsedStatement } from '@barefootjs/jsx'
 import { BF_SLOT, BF_COND } from '@barefootjs/shared'
 
@@ -152,8 +152,20 @@ export class MojoAdapter extends BaseAdapter {
       ir.errors.push(...this.errors)
     }
 
+    // Mojo templates have no JS-style imports / types / default-export sections.
+    // The `templatesPerComponent` mode emits one file per component using the
+    // raw `template` value; sections are populated for contract uniformity so
+    // the compiler never has to fall back to string-parsing the template.
+    const sections: TemplateSections = {
+      imports: '',
+      types: '',
+      component: template,
+      defaultExport: '',
+    }
+
     return {
       template,
+      sections,
       extension: this.extension,
     }
   }

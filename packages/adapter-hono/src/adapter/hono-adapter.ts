@@ -25,6 +25,7 @@ import {
   type JsxAdapterConfig,
   JsxAdapter,
   isBooleanAttr,
+  rewriteImportsForTemplate,
 } from '@barefootjs/jsx'
 import { BF_SCOPE, BF_HOST, BF_AT, BF_ROOT, BF_PROPS } from '@barefootjs/shared'
 
@@ -167,9 +168,14 @@ export class HonoAdapter extends JsxAdapter {
       lines.push(`import { Suspense } from 'hono/jsx/streaming'`)
     }
 
-    // Re-emit template imports (compiler already rewrote @barefootjs/client to
-    // the shim source).
-    for (const imp of ir.metadata.templateImports) {
+    // Re-emit template imports, rewriting `@barefootjs/client` to this
+    // adapter's SSR shim. Adapters own the rewrite; the compiler hands us
+    // the raw import list.
+    const templateImports = rewriteImportsForTemplate(
+      ir.metadata.templateImports,
+      this.clientShimSource,
+    )
+    for (const imp of templateImports) {
       if (imp.specifiers.length === 0) {
         if (!imp.isTypeOnly) {
           lines.push(`import '${imp.source}'`)
@@ -399,8 +405,10 @@ export class HonoAdapter extends JsxAdapter {
     }
 
     const lines: string[] = []
-    // Adapter always emits without 'export'; compiler handles export keywords
-    lines.push(`function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
+    // Module-export keyword belongs to the adapter: it knows the target language
+    // and whether the source declared the component as exported.
+    const exportPrefix = ir.metadata.isExported === false ? '' : 'export '
+    lines.push(`${exportPrefix}function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
 
     // Add props extraction for SolidJS-style pattern
     if (propsExtraction) {

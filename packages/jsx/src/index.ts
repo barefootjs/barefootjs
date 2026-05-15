@@ -64,6 +64,7 @@ export type {
 } from './adapters/interface'
 export { JsxAdapter } from './adapters/jsx-adapter'
 export type { JsxAdapterConfig } from './adapters/jsx-adapter'
+export { rewriteImportsForTemplate } from './adapters/template-imports'
 
 // Client JS Generator
 export { generateClientJs, generateClientJsWithSourceMap, analyzeClientNeeds } from './ir-to-client-js'

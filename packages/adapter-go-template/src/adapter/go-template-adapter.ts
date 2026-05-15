@@ -28,7 +28,7 @@ import type {
   IRAsync,
   TemplatePrimitiveRegistry,
 } from '@barefootjs/jsx'
-import { BaseAdapter, type AdapterOutput, type AdapterGenerateOptions, isBooleanAttr, parseExpression, isSupported, identifierPath } from '@barefootjs/jsx'
+import { BaseAdapter, type AdapterOutput, type AdapterGenerateOptions, type TemplateSections, isBooleanAttr, parseExpression, isSupported, identifierPath } from '@barefootjs/jsx'
 
 /**
  * Extended nested component info that tracks whether the component
@@ -241,8 +241,19 @@ export class GoTemplateAdapter extends BaseAdapter {
       ir.errors.push(...this.errors)
     }
 
+    // Go templates have no JS-style imports / types / default-export sections;
+    // the entire `{{define}}…{{end}}` block is the component body. The compiler
+    // assembles multi-component files by concatenating the `component` parts.
+    const sections: TemplateSections = {
+      imports: '',
+      types: '',
+      component: template,
+      defaultExport: '',
+    }
+
     return {
       template,
+      sections,
       types: types || undefined,
       extension: this.extension,
     }

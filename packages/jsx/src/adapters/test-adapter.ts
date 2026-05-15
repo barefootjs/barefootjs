@@ -19,6 +19,7 @@ import type {
 } from '../types'
 import type { AdapterOutput, TemplateSections } from './interface'
 import { type JsxAdapterConfig, JsxAdapter } from './jsx-adapter'
+import { rewriteImportsForTemplate } from './template-imports'
 
 export class TestAdapter extends JsxAdapter {
   name = 'test'
@@ -58,8 +59,12 @@ export class TestAdapter extends JsxAdapter {
   private generateImports(ir: ComponentIR): string {
     const lines: string[] = []
 
-    // Use templateImports (client-side packages already filtered by compiler)
-    for (const imp of ir.metadata.templateImports) {
+    // TestAdapter has no client shim, so client-side packages are dropped.
+    const templateImports = rewriteImportsForTemplate(
+      ir.metadata.templateImports,
+      undefined,
+    )
+    for (const imp of templateImports) {
       if (imp.specifiers.length === 0) {
         if (!imp.isTypeOnly) {
           lines.push(`import '${imp.source}'`)
@@ -134,8 +139,10 @@ export class TestAdapter extends JsxAdapter {
     const fullPropsDestructure = `{ ${parts.join(', ')} }`
 
     const lines: string[] = []
-    // Adapter always emits without 'export'; compiler handles export keywords
-    lines.push(`function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
+    // Module-export keyword belongs to the adapter: it knows the target language
+    // and whether the source declared the component as exported.
+    const exportPrefix = ir.metadata.isExported === false ? '' : 'export '
+    lines.push(`${exportPrefix}function ${name}(${fullPropsDestructure}${typeAnnotation}) {`)
 
     // Generate scope ID
     if (hasClientInteractivity) {

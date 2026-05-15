@@ -93,7 +93,7 @@ export function compileToComponentIR(
   }
   const componentIR: ComponentIR = {
     version: '0.1',
-    metadata: buildMetadata(ctx, ''),
+    metadata: buildMetadata(ctx),
     root,
     errors: [],
   }
