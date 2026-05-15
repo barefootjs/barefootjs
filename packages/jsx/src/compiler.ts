@@ -6,8 +6,6 @@
 
 import type {
   ComponentIR,
-  ImportInfo,
-  ImportSpecifier,
   IRMetadata,
   CompileOptions,
   CompileResult,
@@ -28,62 +26,6 @@ import { preprocessInlineJsxCallbacks } from './preprocess-inline-jsx-callbacks'
 export interface CompileOptionsWithAdapter extends CompileOptions {
   /** Template adapter for generating output (required) */
   adapter: TemplateAdapter
-}
-
-/**
- * Client-side package sources that need adapter-specific SSR handling.
- * When the adapter provides a `clientShimSource`, imports from these paths
- * are rewritten to that shim. Otherwise (e.g. go-template, which has no JS
- * runtime at SSR), the imports are stripped wholesale.
- */
-const CLIENT_PACKAGE_SOURCES = new Set([
-  '@barefootjs/client',
-  '@barefootjs/client/runtime',
-])
-
-function rewriteTemplateImports(
-  imports: ImportInfo[],
-  shimSource: string | undefined,
-): ImportInfo[] {
-  if (!shimSource) {
-    return imports.filter(imp => !CLIENT_PACKAGE_SOURCES.has(imp.source))
-  }
-  const merged = new Map<string, ImportInfo>()
-  const result: ImportInfo[] = []
-  for (const imp of imports) {
-    if (!CLIENT_PACKAGE_SOURCES.has(imp.source)) {
-      result.push(imp)
-      continue
-    }
-    // Rewrite to the shim source. Multiple original sources collapse into a
-    // single import statement so the SSR template stays clean.
-    const existing = merged.get(shimSource)
-    if (existing) {
-      // Merge specifiers, deduplicating by (name, alias, isDefault, isNamespace)
-      const seen = new Set(existing.specifiers.map(specKey))
-      for (const spec of imp.specifiers) {
-        if (!seen.has(specKey(spec))) {
-          existing.specifiers.push(spec)
-          seen.add(specKey(spec))
-        }
-      }
-      // Type-only stays only if every contributing import is type-only
-      existing.isTypeOnly = existing.isTypeOnly && imp.isTypeOnly
-    } else {
-      const rewritten: ImportInfo = {
-        ...imp,
-        source: shimSource,
-        specifiers: imp.specifiers.map(s => ({ ...s })),
-      }
-      merged.set(shimSource, rewritten)
-      result.push(rewritten)
-    }
-  }
-  return result
-}
-
-function specKey(s: ImportSpecifier): string {
-  return `${s.isDefault ? 'd' : ''}${s.isNamespace ? 'n' : ''}:${s.name}:${s.alias ?? ''}`
 }
 
 // =============================================================================
@@ -120,7 +62,7 @@ function compileMultipleComponents(
 
     const componentIR: ComponentIR = {
       version: '0.1',
-      metadata: buildMetadata(ctx, options.adapter.clientShimSource),
+      metadata: buildMetadata(ctx),
       root: ir,
       errors: [],
     }
@@ -420,7 +362,6 @@ function compileMultipleComponents(
 
 export function buildMetadata(
   ctx: ReturnType<typeof analyzeComponent>,
-  clientShimSource?: string
 ): IRMetadata {
   return {
     componentName: ctx.componentName || 'Unknown',
@@ -439,7 +380,12 @@ export function buildMetadata(
     onMounts: ctx.onMounts,
     initStatements: ctx.initStatements,
     imports: ctx.imports,
-    templateImports: rewriteTemplateImports(ctx.imports, clientShimSource),
+    // `templateImports` is the raw import list adapters consider for SSR
+    // re-emission. Adapters that re-emit imports (Hono, test) call
+    // `rewriteImportsForTemplate` themselves to apply client-shim rewrite or
+    // strip behaviour; adapters whose templates never carry imports (Go,
+    // Mojo) only consult this list for diagnostics like BF103.
+    templateImports: ctx.imports,
     namedExports: ctx.namedExports,
     localFunctions: ctx.localFunctions,
     localConstants: ctx.localConstants,
@@ -495,7 +441,7 @@ export function compileJSX(
 
   const componentIR: ComponentIR = {
     version: '0.1',
-    metadata: buildMetadata(ctx, options.adapter.clientShimSource),
+    metadata: buildMetadata(ctx),
     root: ir,
     errors: [],
   }

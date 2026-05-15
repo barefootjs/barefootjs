@@ -25,6 +25,7 @@ import {
   type JsxAdapterConfig,
   JsxAdapter,
   isBooleanAttr,
+  rewriteImportsForTemplate,
 } from '@barefootjs/jsx'
 import { BF_SCOPE, BF_HOST, BF_AT, BF_ROOT, BF_PROPS } from '@barefootjs/shared'
 
@@ -167,9 +168,14 @@ export class HonoAdapter extends JsxAdapter {
       lines.push(`import { Suspense } from 'hono/jsx/streaming'`)
     }
 
-    // Re-emit template imports (compiler already rewrote @barefootjs/client to
-    // the shim source).
-    for (const imp of ir.metadata.templateImports) {
+    // Re-emit template imports, rewriting `@barefootjs/client` to this
+    // adapter's SSR shim. Adapters own the rewrite; the compiler hands us
+    // the raw import list.
+    const templateImports = rewriteImportsForTemplate(
+      ir.metadata.templateImports,
+      this.clientShimSource,
+    )
+    for (const imp of templateImports) {
       if (imp.specifiers.length === 0) {
         if (!imp.isTypeOnly) {
           lines.push(`import '${imp.source}'`)
