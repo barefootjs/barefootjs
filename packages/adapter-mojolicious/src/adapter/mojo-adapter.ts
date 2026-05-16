@@ -752,8 +752,24 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     emitBooleanAttr: (_value, name) => name,
     emitTemplate: (value, name) =>
       `${name}="<%= ${this.convertTemplateLiteralPartsToPerl(value.parts)} %>"`,
-    // Spread attributes are not directly supported on intrinsic elements yet.
-    emitSpread: () => '',
+    // Spread attributes (`<div {...attrs()} />`) have no idiomatic
+    // Embedded Perl form — looping over a hash with key-by-key
+    // attribute emission requires HTML escaping and event-handler
+    // filtering that don't round-trip through Hono / CSR's
+    // `applyRestAttrs` semantics. Record BF101 so the user gets a
+    // diagnostic instead of a silently dropped spread (#1324).
+    emitSpread: (value) => {
+      this.errors.push({
+        code: 'BF101',
+        severity: 'error',
+        message: `JSX spread '{...${value.expr}}' on an intrinsic element has no Mojo template lowering`,
+        loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+        suggestion: {
+          message: 'Wrap the JSX expression in /* @client */ (or in a `\'use client\'` component) to defer evaluation, or expand the spread into discrete attribute props at the call site.',
+        },
+      })
+      return ''
+    },
     // Neither variant is legal on intrinsic elements.
     emitBooleanShorthand: () => '',
     emitJsxChildren: () => '',

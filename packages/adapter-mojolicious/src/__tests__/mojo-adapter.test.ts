@@ -60,11 +60,6 @@ runAdapterConformanceTests({
     // never receives a `theme` key. Provider SSR coverage on Mojo
     // waits on that adapter feature; see #1297 follow-up.
     'context-provider',
-    // #1244 stress catalog: JSX spread of a reactive object — the
-    // Mojo adapter silently drops the spread at emit time, same
-    // shape as the Go adapter (the resulting `<div>` is missing the
-    // spread's keys). Sub-issue of #1244.
-    'jsx-spread-reactive',
     // #1244 stress catalog: member-expression JSX tag (`<Pkg.Comp />`).
     // Mojo emits the inner `Comp` template definition but the outer
     // wrapper doesn't reference it correctly, so render output
@@ -113,6 +108,12 @@ runAdapterConformanceTests({
     // (`cn\`base \${tone()}\``) — same family as #1322 above and refused
     // via the same gate.
     'tagged-template-classname': [{ code: 'BF101', severity: 'error' }],
+    // #1244 stress catalog #13 (#1324): JSX spread of a reactive object
+    // (`<div {...attrs()} />`). Mojo can't loop a runtime hash into
+    // `key="value"` pairs with the escaping / event-filter semantics
+    // that Hono / CSR's `applyRestAttrs` provides — surfaces BF101
+    // instead of silently dropping the spread.
+    'jsx-spread-reactive': [{ code: 'BF101', severity: 'error' }],
   },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `MojoAdapter.templatePrimitives` (#1189). The two remaining
