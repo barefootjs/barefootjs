@@ -984,19 +984,30 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
    * should drop the attribute / skip the emit).
    */
   private refuseUnsupportedAttrExpression(expr: string, attrName: string): boolean {
-    const trimmed = expr.trim()
-    const startsAsObjectLiteral = trimmed.startsWith('{')
-    const hasTaggedTemplate = /[A-Za-z_$][\w$]*\s*`/.test(trimmed)
+    // Strip leading parens / whitespace so wrapped forms reach the
+    // shape pre-check — `style={({ a: b() })}` and
+    // `className={(cn`base ${tone()}`)}` are the same logical shape
+    // as their unwrapped variants and should hit the same gate.
+    let probe = expr.trim()
+    while (probe.startsWith('(')) probe = probe.slice(1).trimStart()
+    const startsAsObjectLiteral = probe.startsWith('{')
+    const hasTaggedTemplate = /[A-Za-z_$][\w$]*\s*`/.test(probe)
     if (!startsAsObjectLiteral && !hasTaggedTemplate) return false
-    const parsed = parseExpression(trimmed)
-    if (parsed.kind !== 'unsupported' && isSupported(parsed).supported) return false
+    const parsed = parseExpression(expr.trim())
+    const support = isSupported(parsed)
+    if (parsed.kind !== 'unsupported' && support.supported) return false
+    // Surface the `isSupported` reason so the diagnostic is as
+    // actionable as the Go adapter's BF101 — keeps cross-adapter
+    // diagnostics aligned on the same expression-shape gate.
+    const reason = support.reason ?? (parsed.kind === 'unsupported' ? parsed.reason : undefined)
+    const reasonLine = reason ? `\n${reason}` : ''
     this.errors.push({
       code: 'BF101',
       severity: 'error',
-      message: `Expression not supported on attribute '${attrName}': ${trimmed}`,
+      message: `Expression not supported on attribute '${attrName}': ${expr.trim()}${reasonLine}`,
       loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
       suggestion: {
-        message: 'The Mojo adapter cannot lower JS object literals or tagged-template-literal expressions into Embedded Perl. Wrap the JSX expression in /* @client */ to defer evaluation to the hydrated component, or precompute the value before the JSX site.',
+        message: 'The Mojo adapter cannot lower JS object literals or tagged-template-literal expressions into Embedded Perl. Move the expression into a `\'use client\'` component (so hydration computes it), or expand it into discrete attributes whose values are values the adapter can lower.',
       },
     })
     return true
