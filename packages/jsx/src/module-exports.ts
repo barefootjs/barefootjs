@@ -95,10 +95,11 @@ export function collectInlineExportedNames(ir: ComponentIR): Set<string> {
  * NaN/undefined at render time.
  */
 export function formatParamWithType(p: ParamInfo): string {
+  const rest = p.isRest ? '...' : ''
   const optional = p.optional ? '?' : ''
   const typeAnnotation = p.type?.raw && p.type.raw !== 'unknown' ? `: ${p.type.raw}` : ''
   const defaultPart = p.defaultValue !== undefined ? ` = ${p.defaultValue}` : ''
-  return `${p.name}${optional}${typeAnnotation}${defaultPart}`
+  return `${rest}${p.name}${optional}${typeAnnotation}${defaultPart}`
 }
 
 /**

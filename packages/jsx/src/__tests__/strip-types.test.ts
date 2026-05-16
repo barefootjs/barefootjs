@@ -78,6 +78,18 @@ describe('strip-types', () => {
         '(x) => String(x)'
       )
     })
+
+    test('issue #1321: keeps rest spread on a typed parameter', () => {
+      expect(stripExpr('(parts: TemplateStringsArray, ...args: unknown[]) => parts.join("")')).toBe(
+        '(parts, ...args) => parts.join("")'
+      )
+    })
+
+    test('issue #1321: keeps rest spread on a single typed parameter', () => {
+      expect(stripExpr('(...args: number[]) => args.length')).toBe(
+        '(...args) => args.length'
+      )
+    })
   })
 
   describe('type assertions (as)', () => {

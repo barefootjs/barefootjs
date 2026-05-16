@@ -4,19 +4,10 @@ import { createFixture } from '../src/types'
  * Compiler stress (#1244): `className={cn\`base \${signal()}\`}` —
  * tagged template literal as className.
  *
- * SURFACED: the compiler's type-strip step drops the `...` rest spread
- * from function parameters along with the type annotation, so
- * `function cn(parts, ...args)` becomes `function cn(parts, args)`.
- * The tag function then receives a single string instead of an array,
- * and indexing into a string per-character produces nonsense
- * (`'primary'[0] === 'p'`, `[1] === 'r'`) — hence the locked-in
- * `class="base pr"` rather than the correct `class="base primary"`.
- *
- * Both SSR and CSR produce the same wrong output, so the fixture
- * passes conformance. The expectedHtml below records the *current*
- * wrong shape so that, when the rest-spread strip is fixed, this
- * fixture flips red and prompts the expectedHtml to be regenerated
- * to the corrected `class="base primary"`. Sub-issue of #1244.
+ * Resolved by #1321: rest-parameter `...` token now survives the type-strip
+ * pass and module-level helper emission, so `function cn(parts, ...args)`
+ * stays variadic and the tagged-template result resolves to the expected
+ * `class="base primary"`.
  */
 export const fixture = createFixture({
   id: 'tagged-template-classname',
@@ -33,6 +24,6 @@ export function TaggedTemplateClassname() {
 }
 `,
   expectedHtml: `
-    <div class="base pr" bf-s="test" bf="s0">x</div>
+    <div class="base primary" bf-s="test" bf="s0">x</div>
   `,
 })

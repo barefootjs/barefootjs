@@ -1684,6 +1684,7 @@ function collectFunction(
     },
     optional: !!p.questionToken,
     defaultValue: p.initializer ? ctx.getJS(p.initializer) : undefined,
+    isRest: !!p.dotDotDotToken || undefined,
   }))
   const body = node.body ? ctx.getJS(node.body) : ''
   const typedBody = node.body ? node.body.getText(ctx.sourceFile) : undefined

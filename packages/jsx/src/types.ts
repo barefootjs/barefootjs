@@ -69,6 +69,8 @@ export interface ParamInfo {
   defaultValue?: string
   /** When true, the default value contains an arrow function or function expression (computed from AST). */
   defaultContainsArrow?: boolean
+  /** When true, the parameter is a rest spread (`...args`) — emit must prepend `...`. */
+  isRest?: boolean
 }
 
 // =============================================================================
