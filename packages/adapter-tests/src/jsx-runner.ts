@@ -55,6 +55,72 @@ export interface RunJSXConformanceOptions {
 const VOID_ELEMENTS = 'area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr'
 
 /**
+ * Remove every `<div … bf-async="…" …>…fallback…</div>` placeholder from
+ * `html`, walking the opener's descendants with a depth counter so a
+ * fallback that itself contains `<div>` (e.g. `<Skeleton><div
+ * class="..."/></Skeleton>`) does not terminate the match at the first
+ * inner `</div>`. Plain regex with `[\s\S]*?` cannot do this — it stops
+ * at the first close, leaving a dangling `</div>` behind.
+ *
+ * Robustness invariants the helper pins:
+ *
+ * - **Attribute order is not assumed.** The opener regex matches
+ *   `bf-async` anywhere in the attribute list, so an adapter is free to
+ *   emit `<div data-foo="x" bf-async="a0">` without silently no-opping
+ *   the strip.
+ * - **Tag-name word boundary.** A `(?=[\s/>])` lookahead after `<div`
+ *   keeps `<divider>` / `<div-foo>` from being miscounted as `<div>`
+ *   openers — `\b` alone would still match `<div-…` because `-` is a
+ *   non-word char.
+ * - **Self-closing `<div ... />` is zero net depth.** XHTML-style
+ *   self-closes have no matching `</div>`; incrementing on them would
+ *   make the strip consume past the intended placeholder close.
+ *
+ * The streaming-SSR adapters (Mojo, Go template) emit the placeholder
+ * alongside the resolved children so the runtime can swap on resolve;
+ * Hono's `<Suspense>` collapses synchronously for non-Promise children
+ * and emits only the resolved content. Stripping the placeholder keeps
+ * cross-adapter conformance apples-to-apples — the resolved children
+ * remain on both sides.
+ */
+function stripAsyncPlaceholders(html: string): string {
+  const OPENER_RE = /<div(?=[\s/>])[^>]*\bbf-async="[^"]*"[^>]*>/g
+  const ANY_DIV_TAG_RE = /<div(?=[\s/>])[^>]*?(\/?)>|<\/div>/g
+
+  let result = ''
+  let i = 0
+  while (i < html.length) {
+    OPENER_RE.lastIndex = i
+    const opener = OPENER_RE.exec(html)
+    if (!opener) {
+      result += html.slice(i)
+      break
+    }
+    result += html.slice(i, opener.index)
+
+    let depth = 1
+    ANY_DIV_TAG_RE.lastIndex = opener.index + opener[0].length
+    while (depth > 0) {
+      const m = ANY_DIV_TAG_RE.exec(html)
+      if (!m) {
+        // Unbalanced — leave the rest of `html` alone rather than risk a
+        // worse strip.
+        result += html.slice(opener.index)
+        return result
+      }
+      if (m[0] === '</div>') {
+        depth -= 1
+      } else if (m[1] !== '/') {
+        // Open tag (and not self-closing): nested.
+        depth += 1
+      }
+    }
+    i = ANY_DIV_TAG_RE.lastIndex
+  }
+  return result
+}
+
+/**
  * Normalize rendered HTML for cross-adapter comparison.
  * Handles known formatting differences between adapters:
  * - Whitespace collapsing (template engine formatting)
@@ -63,7 +129,11 @@ const VOID_ELEMENTS = 'area|base|br|col|embed|hr|img|input|link|meta|param|sourc
  * - Trailing whitespace before closing > in tags
  */
 export function normalizeHTML(html: string): string {
-  return html
+  // Strip the streaming-SSR async-boundary placeholder ahead of the
+  // regex chain so a fallback containing nested `<div>` doesn't mislead
+  // any later matcher. See `stripAsyncPlaceholders` for the depth-
+  // counted match. (#1298)
+  return stripAsyncPlaceholders(html)
     // Remove loop boundary comment markers (template detail, not semantic).
     // Matches both legacy unscoped (`<!--bf-loop-->`) and scoped per-call-site
     // (`<!--bf-loop:l7-->`) forms (#1087). The marker id is `l\d+` — kept
