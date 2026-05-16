@@ -70,9 +70,9 @@ describe('CSR Conformance Tests', () => {
     // - children-jsx-expression: CSR emits duplicate `bf-s` attrs and
     //   drops the inner scope marker (same family as the
     //   `record-index-lookup-via-child-prop` entry above).
-    'stress-1244-jsx-spread-reactive',
-    'stress-1244-member-expression-tag',
-    'stress-1244-children-jsx-expression',
+    'jsx-spread-reactive',
+    'member-expression-tag',
+    'children-jsx-expression',
   ])
 
   for (const fixture of jsxFixtures) {

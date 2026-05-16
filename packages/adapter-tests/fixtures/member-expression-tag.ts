@@ -8,12 +8,12 @@ import { createFixture } from '../src/types'
  * limitation, skipped in CSR conformance. Sub-issue of #1244.
  */
 export const fixture = createFixture({
-  id: 'stress-1244-member-expression-tag',
+  id: 'member-expression-tag',
   description: 'Member-expression JSX tag <Pkg.Comp /> resolves and renders',
   source: `
 function Comp() { return <span>x</span> }
 const Pkg = { Comp }
-export function Stress1244MemberExpressionTag() {
+export function MemberExpressionTag() {
   return <div><Pkg.Comp /></div>
 }
 `,

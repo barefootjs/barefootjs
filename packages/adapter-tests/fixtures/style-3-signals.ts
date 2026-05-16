@@ -9,12 +9,12 @@ import { createFixture } from '../src/types'
  * tracked at the unit layer.
  */
 export const fixture = createFixture({
-  id: 'stress-1244-style-3-signals',
+  id: 'style-3-signals',
   description: 'style={{}} with three signal members renders all three CSS declarations at initial paint',
   source: `
 'use client'
 import { createSignal } from '@barefootjs/client'
-export function Stress1244Style3Signals() {
+export function Style3Signals() {
   const [bg, setBg] = createSignal('red')
   const [fg, setFg] = createSignal('white')
   const [pad, setPad] = createSignal('8px')

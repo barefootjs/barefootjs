@@ -6,10 +6,10 @@ import { createFixture } from '../src/types'
  * suite mostly uses). Pins parity with the FunctionDeclaration shape.
  */
 export const fixture = createFixture({
-  id: 'stress-1244-arrow-component',
+  id: 'arrow-component',
   description: 'Arrow-function component renders identically to function-declaration form',
   source: `
-export const Stress1244ArrowComponent = () => <span>arrow</span>
+export const ArrowComponent = () => <span>arrow</span>
 `,
   expectedHtml: `
     <span bf-s="test">arrow</span>

@@ -19,7 +19,7 @@ import { createFixture } from '../src/types'
  * to the corrected `class="base primary"`. Sub-issue of #1244.
  */
 export const fixture = createFixture({
-  id: 'stress-1244-tagged-template-classname',
+  id: 'tagged-template-classname',
   description: 'Tagged-template className renders the resolved string at initial paint',
   source: `
 'use client'
@@ -27,7 +27,7 @@ import { createSignal } from '@barefootjs/client'
 function cn(parts: TemplateStringsArray, ...args: unknown[]): string {
   return parts.reduce<string>((acc, p, i) => acc + p + (args[i] ?? ''), '')
 }
-export function Stress1244TaggedTemplateClassname() {
+export function TaggedTemplateClassname() {
   const [tone, setTone] = createSignal('primary')
   return <div onClick={() => setTone('secondary')} className={cn\`base \${tone()}\`}>x</div>
 }

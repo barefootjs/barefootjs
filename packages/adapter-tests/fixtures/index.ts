@@ -67,12 +67,12 @@ import { fixture as recordIndexLookupViaChildProp } from './record-index-lookup-
 import { fixture as contextProvider } from './context-provider'
 import { fixture as asyncBoundary } from './async-boundary'
 // Priority 10: Compiler stress catalog (#1244)
-import { fixture as stress1244Style3Signals } from './stress-1244-style-3-signals'
-import { fixture as stress1244JsxSpreadReactive } from './stress-1244-jsx-spread-reactive'
-import { fixture as stress1244TaggedTemplateClassname } from './stress-1244-tagged-template-classname'
-import { fixture as stress1244MemberExpressionTag } from './stress-1244-member-expression-tag'
-import { fixture as stress1244ArrowComponent } from './stress-1244-arrow-component'
-import { fixture as stress1244ChildrenJsxExpression } from './stress-1244-children-jsx-expression'
+import { fixture as style3Signals } from './style-3-signals'
+import { fixture as jsxSpreadReactive } from './jsx-spread-reactive'
+import { fixture as taggedTemplateClassname } from './tagged-template-classname'
+import { fixture as memberExpressionTag } from './member-expression-tag'
+import { fixture as arrowComponent } from './arrow-component'
+import { fixture as childrenJsxExpression } from './children-jsx-expression'
 
 import type { JSXFixture } from '../src/types'
 
@@ -146,10 +146,10 @@ export const jsxFixtures: JSXFixture[] = [
   contextProvider,
   asyncBoundary,
   // Priority 10: Compiler stress catalog (#1244)
-  stress1244Style3Signals,
-  stress1244JsxSpreadReactive,
-  stress1244TaggedTemplateClassname,
-  stress1244MemberExpressionTag,
-  stress1244ArrowComponent,
-  stress1244ChildrenJsxExpression,
+  style3Signals,
+  jsxSpreadReactive,
+  taggedTemplateClassname,
+  memberExpressionTag,
+  arrowComponent,
+  childrenJsxExpression,
 ]

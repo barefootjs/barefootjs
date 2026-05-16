@@ -10,11 +10,11 @@ import { createFixture } from '../src/types'
  * of #1244.
  */
 export const fixture = createFixture({
-  id: 'stress-1244-children-jsx-expression',
+  id: 'children-jsx-expression',
   description: 'children passed as a JSX-expression attribute renders the same as nested children',
   source: `
 function Box({ children }: { children: any }) { return <div>{children}</div> }
-export function Stress1244ChildrenJsxExpression() {
+export function ChildrenJsxExpression() {
   return <Box children={<span>x</span>} />
 }
 `,

@@ -9,12 +9,12 @@ import { createFixture } from '../src/types'
  * the import is wired in. Sub-issue of #1244.
  */
 export const fixture = createFixture({
-  id: 'stress-1244-jsx-spread-reactive',
+  id: 'jsx-spread-reactive',
   description: 'JSX spread of a signal-returned object renders initial keys',
   source: `
 'use client'
 import { createSignal } from '@barefootjs/client'
-export function Stress1244JsxSpreadReactive() {
+export function JsxSpreadReactive() {
   const [attrs, setAttrs] = createSignal<Record<string, string>>({ id: 'a', class: 'on' })
   return <div onClick={() => setAttrs({ id: 'b', class: 'off' })} {...attrs()} />
 }
