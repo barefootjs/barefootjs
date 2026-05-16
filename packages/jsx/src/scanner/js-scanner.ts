@@ -178,8 +178,9 @@ function isOpaqueContentKind(kind: ts.SyntaxKind): boolean {
 // ---------------------------------------------------------------------------
 // Consumer 1: replaceInExprContexts (used by utils.ts's loop-param wrappers)
 
-export type ReplaceFn = (substring: string, ...args: any[]) => string
-export type Replacement = string | ReplaceFn
+// Internal alias for the `String.prototype.replace` replacer signature.
+// Not exported — callers pass either a literal string or an inline callback.
+type Replacement = string | ((substring: string, ...args: any[]) => string)
 
 /**
  * Apply `re` / `replacement` to `code`, but only in expression-context
@@ -219,6 +220,14 @@ export function replaceInExprContexts(
   }
 
   for (const tok of iterateJsTokens(code)) {
+    // Scanner ambiguity / malformed bytes: emit the raw text and skip
+    // replacement so we don't apply user-supplied regex to bytes the
+    // lexer couldn't classify.
+    if (tok.kind === ts.SyntaxKind.Unknown) {
+      flushCode(tok.pos)
+      out += code.slice(tok.pos, tok.end)
+      continue
+    }
     const isOpaque =
       isOpaqueContentKind(tok.kind)
       || tok.kind === ts.SyntaxKind.TemplateHead
@@ -262,9 +271,12 @@ function applyReplacement(slice: string, re: RegExp, replacement: Replacement): 
  */
 export function findInterpolationEnd(code: string, start: number): number {
   let depth = 1
-  let lastEnd = start
   for (const tok of iterateJsTokens(code, start)) {
-    lastEnd = tok.end
+    // Treat any byte the scanner couldn't classify as a hard bail —
+    // an unbalanced match here would feed the rest of the string as
+    // a Go template / interpolation body, which is worse than
+    // refusing the input.
+    if (tok.kind === ts.SyntaxKind.Unknown) return -1
     if (tok.kind === ts.SyntaxKind.OpenBraceToken) {
       depth++
     } else if (tok.kind === ts.SyntaxKind.CloseBraceToken) {
@@ -276,9 +288,9 @@ export function findInterpolationEnd(code: string, start: number): number {
     // depth. The iterator handles their internal brace-depth state on
     // its own stack.
   }
-  // Hit EOF without closing — but if depth dropped to exactly 0 on the
-  // final token already, we would have returned. So this is unbalanced.
-  void lastEnd
+  // Hit EOF without closing the outer brace — the input is unbalanced
+  // (an unterminated string or template would have left the scanner
+  // mid-token; an unclosed `${` body simply runs off the end).
   return -1
 }
 

@@ -118,6 +118,14 @@ describe('replaceInExprContexts', () => {
     expect(replaceInExprContexts('`a${foo()}b`', re, 'foo()')).toBe('`a${foo()}b`')
     expect(replaceInExprContexts('`a${foo.x}b`', re, 'foo()')).toBe('`a${foo().x}b`')
   })
+
+  test('mixed call sites and accesses in a single expression', () => {
+    // `foo.bar + foo() + foo[0]` — only the property-access and
+    // index-access reads should be wrapped; the call site stays.
+    const re = /\bfoo\b(?!\s*\()/g
+    expect(replaceInExprContexts('foo.bar + foo() + foo[0]', re, 'foo()'))
+      .toBe('foo().bar + foo() + foo()[0]')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -172,6 +180,17 @@ describe('findInterpolationEnd', () => {
     expect(s[r]).toBe('}')
     expect(r).toBe(s.length - 1)
   })
+
+  test('returns -1 for unterminated string inside the body', () => {
+    // The unterminated `"bar)}` string swallows the closing brace; no
+    // valid match exists, so the helper must bail rather than report
+    // a synthetic position.
+    expect(findInterpolationEnd('${foo("bar)}', 2)).toBe(-1)
+  })
+
+  test('returns -1 for unterminated template literal inside the body', () => {
+    expect(findInterpolationEnd('${`unterminated ${x}', 2)).toBe(-1)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -202,6 +221,11 @@ describe('findTopLevelTemplateLiterals', () => {
 
   test('ignores backticks inside line comments', () => {
     const r = findTopLevelTemplateLiterals('// `not template`\n`real`')
+    expect(r).toEqual(['real'])
+  })
+
+  test('ignores backticks inside block comments', () => {
+    const r = findTopLevelTemplateLiterals('/* `not template` */ `real`')
     expect(r).toEqual(['real'])
   })
 
