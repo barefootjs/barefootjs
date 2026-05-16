@@ -260,6 +260,25 @@ describe('Compiler-Runtime Contract', () => {
       expect(helperPos).toBeLessThan(initPos)
     })
 
+    test('issue #1321: rest spread on typed module-level function param survives emit', () => {
+      const js = compileClient(`
+        "use client"
+        import { createSignal } from '@barefootjs/client'
+        function cn(parts: TemplateStringsArray, ...args: unknown[]): string {
+          return parts.reduce<string>((acc, p, i) => acc + p + (args[i] ?? ''), '')
+        }
+        export function TagDemo() {
+          const [tone, setTone] = createSignal('primary')
+          return <div className={cn\`base \${tone()}\`} onClick={() => setTone('secondary')}>x</div>
+        }
+      `)
+      // The variadic helper must keep its `...` token after type-strip + emit;
+      // dropping it (#1321) turned `cn(parts, ...args)` into `cn(parts, args)`
+      // and produced per-character indexing into the joined argument.
+      expect(js).toContain('var cn = cn ?? function(parts, ...args)')
+      expect(js).not.toMatch(/function\(parts,\s*args\)/)
+    })
+
     test('component-level function referencing signals stays inside init', () => {
       const js = compileClient(`
         "use client"
