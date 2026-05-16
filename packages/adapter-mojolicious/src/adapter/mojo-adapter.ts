@@ -765,7 +765,17 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
         message: `JSX spread '{...${value.expr}}' on an intrinsic element has no Mojo template lowering`,
         loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
         suggestion: {
-          message: 'Wrap the JSX expression in /* @client */ (or in a `\'use client\'` component) to defer evaluation, or expand the spread into discrete attribute props at the call site.',
+          // The Mojo SSR path doesn't currently honor
+          // `IRAttribute.clientOnly` for non-rest spreads, and the
+          // client-JS pipeline skips them too — `/* @client */`
+          // wouldn't apply the spread at hydration either. Recommend
+          // the only two workarounds that actually work today: move
+          // the JSX into a `'use client'` component (where the
+          // hydrated runtime's `spreadAttrs` helper handles the bag),
+          // or expand the spread into discrete attribute props at the
+          // call site so each key reaches a lowering the adapter
+          // supports.
+          message: 'Move the JSX into a `\'use client\'` component (so hydration applies the spread via `spreadAttrs`), or expand the spread into discrete attribute props at the call site.',
         },
       })
       return ''

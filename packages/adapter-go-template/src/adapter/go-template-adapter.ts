@@ -3155,7 +3155,15 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         message: `JSX spread '{...${value.expr}}' on an intrinsic element has no Go template lowering`,
         loc: this.makeLoc(),
         suggestion: {
-          message: 'Wrap the JSX expression in /* @client */ (or in a `\'use client\'` component) to defer evaluation, or expand the spread into discrete attribute props at the call site.',
+          // The Go SSR path doesn't currently honor
+          // `IRAttribute.clientOnly` for non-rest spreads, and the
+          // client-JS pipeline skips them too — `/* @client */`
+          // wouldn't apply the spread at hydration either. Recommend
+          // the two workarounds that actually work: move the JSX
+          // into a `'use client'` component (so hydration's
+          // `spreadAttrs` helper applies the bag), or expand the
+          // spread into discrete attribute props at the call site.
+          message: 'Move the JSX into a `\'use client\'` component (so hydration applies the spread via `spreadAttrs`), or expand the spread into discrete attribute props at the call site.',
         },
       })
       return ''
