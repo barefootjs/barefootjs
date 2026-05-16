@@ -2,11 +2,9 @@ import { createFixture } from '../src/types'
 
 /**
  * Compiler stress (#1244): `<div {...signal()} />` — JSX spread of a
- * reactive object. SSR renders the initial keys correctly. CSR
- * currently throws `ReferenceError: spreadAttrs is not defined` because
- * the emitted client JS template calls `spreadAttrs(...)` without
- * importing it — surfaced limitation, skipped in CSR conformance until
- * the import is wired in. Sub-issue of #1244.
+ * reactive object. SSR renders the initial keys correctly, and the CSR
+ * client JS imports `spreadAttrs` from `@barefootjs/client/runtime`
+ * so the template lambda resolves it at hydration time (#1317).
  */
 export const fixture = createFixture({
   id: 'jsx-spread-reactive',

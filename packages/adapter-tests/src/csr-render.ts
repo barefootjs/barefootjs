@@ -221,6 +221,30 @@ const initChild = (name, _scope, props) => { __runInit(name, props) }
 const createComponent = () => null
 const createPortal = () => {}
 const applyRestAttrs = () => {}
+// Mirror @barefootjs/client/runtime/spread-attrs.ts: format a record of
+// attributes as an HTML attribute string for use inside template literals.
+// The real runtime helper is imported by generated client JS, but the
+// CSR harness strips imports and provides its own stubs, so this mock
+// has to match the production behaviour or templates calling
+// \`spreadAttrs(signal())\` will throw at template-eval time (#1317).
+function spreadAttrs(obj) {
+  if (!obj || typeof obj !== 'object') return ''
+  const parts = []
+  for (const [key, value] of Object.entries(obj)) {
+    if (value == null || value === false) continue
+    if (key.startsWith('on') && key.length > 2 && key[2] === key[2].toUpperCase()) continue
+    if (key === 'children') continue
+    if (key === 'style') {
+      const css = styleToCss(value)
+      if (css != null) parts.push(\`style="\${css}"\`)
+      continue
+    }
+    const attr = key === 'className' ? 'class' : key === 'htmlFor' ? 'for'
+      : key.replace(/([A-Z])/g, '-$1').toLowerCase()
+    parts.push(value === true ? attr : \`\${attr}="\${value}"\`)
+  }
+  return parts.join(' ')
+}
 // Minimal Context model so fixtures with \`createContext\`/\`Provider\`
 // (e.g. \`context-provider\`) can resolve \`useContext(ctx)\` during
 // template eval. Real \`@barefootjs/client/runtime\` walks the DOM scope
