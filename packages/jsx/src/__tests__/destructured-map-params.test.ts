@@ -200,7 +200,7 @@ describe('destructured .map() param rewriting (#951)', () => {
     // `a` keeps the existing fixed-binding rewrite, and `rest` is rebuilt
     // at each read site from `__bfItem()` minus the destructured keys.
     expect(js).toContain('__bfItem().a')
-    expect(js).toContain('(({ a: __r0, ...__rest }) => __rest)(__bfItem())')
+    expect(js).toContain('(({ a: __bfR0, ...__bfRest }) => __bfRest)(__bfItem())')
     // The body-entry `const { a, ...rest } = __bfItem();` unwrap from the
     // legacy #950 path is intentionally absent — accessors are inlined.
     expect(js).not.toContain('const { a, ...rest } = __bfItem();')
@@ -262,6 +262,63 @@ describe('destructured .map() param rewriting (#951)', () => {
     expect(js).toContain('__bfItem().rows[0]')
     expect(js).toContain('__bfItem().rows[0].label')
     expect(js).toContain('__bfItem().rows.slice(1)')
+  })
+
+  test('array rest with leading holes uses the element-position index for slice', () => {
+    // `[, , ...tail]` has two omitted slots before the rest. The `from`
+    // index recorded in the IR must reflect the rest's position in the
+    // element list (2 here), not the count of named bindings (0). Lowering
+    // to `__bfItem().slice(2)` is what matches the native destructure's
+    // observable shape — `tail.length === item.length - 2`.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function HoleRest() {
+        const [items, setItems] = createSignal<string[][]>([])
+        return (
+          <ul onClick={() => setItems(i => i)}>
+            {items().map(([, , ...tail], idx) => (
+              <li key={idx}>{tail.length}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const result = compile(source, 'HoleRest.tsx')
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+    const js = result.files.find(f => f.type === 'clientJs')?.content ?? ''
+
+    expect(js).toContain('__bfItem().slice(2)')
+  })
+
+  test('object rest with a non-identifier sibling key quotes it in the IIFE pattern', () => {
+    // `'data-priority'` is not a valid IdentifierName, so the destructure
+    // pattern must quote it. Classification is precomputed at IR-build
+    // time via `RestExcludeKey.isIdent`, not re-derived in the emitter.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      type Task = { id: string; 'data-priority': string; flag: string }
+      export function HyphenKey() {
+        const [items, setItems] = createSignal<Task[]>([])
+        return (
+          <ul onClick={() => setItems(i => i)}>
+            {items().map(({ id, 'data-priority': prio, ...rest }) => (
+              <li key={id} {...rest}>{prio}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const result = compile(source, 'HyphenKey.tsx')
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+    const js = result.files.find(f => f.type === 'clientJs')?.content ?? ''
+
+    // The non-identifier key is rendered as a quoted property name in the
+    // destructure pattern, while the identifier keys stay bare.
+    expect(js).toContain('(({ id: __bfR0, "data-priority": __bfR1, ...__bfRest }) => __bfRest)(__bfItem())')
   })
 
   test('computed property key in destructure still raises BF025', () => {

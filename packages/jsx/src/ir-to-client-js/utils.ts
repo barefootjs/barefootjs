@@ -578,10 +578,12 @@ function scanForIdentifiers(expr: string, predicate: (token: string) => boolean)
  * - Fixed bindings → `${base}${path}` (e.g. `__bfItem().foo`).
  * - Object rest → an IIFE that destructures the parent and returns the
  *   residual, so `({ id, title, ...rest })` lowers each reference to `rest`
- *   into `(({ id: __r0, title: __r1, ...__rest }) => __rest)(__bfItem())`.
- *   The synthesized `__r${i}` locals are unused — keys that are not valid
- *   identifiers are quoted in source-shape so the emitted pattern stays
- *   syntactically valid.
+ *   into `(({ id: __bfR0, title: __bfR1, ...__bfRest }) => __bfRest)(__bfItem())`.
+ *   The synthesized `__bfR${i}` / `__bfRest` locals live in the
+ *   barefoot-reserved `__bf*` namespace so they cannot collide with user
+ *   bindings. Identifier-vs-string-literal classification of each excluded
+ *   key is precomputed at IR-build time (`RestExcludeKey.isIdent`), so this
+ *   emitter is pure formatting — no identifier regex runs here.
  * - Array rest → `${base}${path}.slice(${from})`, falling through to the
  *   native array method (no runtime helper required).
  */
@@ -589,14 +591,18 @@ function renderLoopBindingAccess(b: LoopParamBinding, base: string): string {
   const parent = `${base}${b.path}`
   if (b.rest?.kind === 'object') {
     if (b.rest.exclude.length === 0) {
-      // No sibling keys to omit — a fresh shallow clone matches user intent.
+      // No sibling keys to omit. A fresh shallow clone — not a direct alias
+      // to `parent` — is what the user-visible `rest` semantics require:
+      // mutations against the residual (e.g. `delete rest.foo`) must not
+      // leak back into the underlying item accessor's value.
       return `({...${parent}})`
     }
-    const parts = b.rest.exclude.map((k, i) => {
-      const isIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k)
-      return isIdent ? `${k}: __r${i}` : `${JSON.stringify(k)}: __r${i}`
+    const parts = b.rest.exclude.map((e, i) => {
+      return e.isIdent
+        ? `${e.key}: __bfR${i}`
+        : `${JSON.stringify(e.key)}: __bfR${i}`
     }).join(', ')
-    return `(({ ${parts}, ...__rest }) => __rest)(${parent})`
+    return `(({ ${parts}, ...__bfRest }) => __bfRest)(${parent})`
   }
   if (b.rest?.kind === 'array') {
     return `${parent}.slice(${b.rest.from})`

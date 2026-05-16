@@ -23,6 +23,7 @@ import {
   type AttrValue,
   type IRTemplatePart,
   type LoopParamBinding,
+  type RestExcludeKey,
   type SourceLocation,
   type TypeInfo,
   type OriginInfo,
@@ -1770,11 +1771,29 @@ function extractLoopParamBindings(
   const bindings: LoopParamBinding[] = []
   let unsupported = false
 
-  // `.foo` is only valid when `foo` parses as an IdentifierName. Numeric or
-  // reserved-keyed properties fall back to `["foo"]` bracket access so the
-  // emitted JS accessor suffix is always syntactically valid.
+  // Authoritative IdentifierName classification, built on TS's own
+  // `isIdentifierStart` / `isIdentifierPart` primitives so the rule is
+  // Unicode-aware and stays aligned with whatever spelling TS itself
+  // considers a legal identifier. Single source of truth for both the
+  // `.foo` vs `["foo"]` accessor decision (below) AND the residual-object
+  // destructure-pattern quoting consumed downstream by the emitter, which
+  // reads `RestExcludeKey.isIdent` rather than re-running its own
+  // identifier regex (#1244 patterns D and F).
+  const isIdent = (key: string): boolean => {
+    if (key.length === 0) return false
+    for (let i = 0; i < key.length; ) {
+      const cp = key.codePointAt(i)!
+      const ok = i === 0
+        ? ts.isIdentifierStart(cp, ts.ScriptTarget.Latest)
+        : ts.isIdentifierPart(cp, ts.ScriptTarget.Latest)
+      if (!ok) return false
+      i += cp > 0xFFFF ? 2 : 1
+    }
+    return true
+  }
+
   const appendDotAccess = (prefix: string, key: string): string => {
-    return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key)
+    return isIdent(key)
       ? `${prefix}.${key}`
       : `${prefix}[${JSON.stringify(key)}]`
   }
@@ -1814,7 +1833,7 @@ function extractLoopParamBindings(
       return
     }
     // ObjectBindingPattern
-    const collectedKeys: string[] = []
+    const collectedKeys: RestExcludeKey[] = []
     const elements = p.elements
     for (let i = 0; i < elements.length; i++) {
       if (unsupported) return
@@ -1822,7 +1841,9 @@ function extractLoopParamBindings(
       if (el.dotDotDotToken) {
         // Same shape constraint as array rest: must be last, must be a plain
         // identifier. `exclude` is the list of sibling keys destructured at
-        // this level so the emitter can subtract them at runtime.
+        // this level so the emitter can subtract them at runtime — each entry
+        // already carries its `isIdent` classification so no further regex
+        // runs downstream.
         if (i !== elements.length - 1 || !ts.isIdentifier(el.name)) {
           unsupported = true
           return
@@ -1847,7 +1868,7 @@ function extractLoopParamBindings(
         unsupported = true
         return
       }
-      collectedKeys.push(keyText)
+      collectedKeys.push({ key: keyText, isIdent: isIdent(keyText) })
       const path = appendDotAccess(prefix, keyText)
       if (ts.isIdentifier(el.name)) {
         bindings.push({ name: el.name.text, path })
