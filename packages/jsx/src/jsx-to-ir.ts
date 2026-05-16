@@ -270,33 +270,43 @@ function createTransformContext(analyzer: AnalyzerContext): TransformContext {
 function buildComponentNamespaces(ctx: TransformContext): Map<string, Map<string, string>> {
   const result = new Map<string, Map<string, string>>()
 
-  function visit(node: ts.Node): void {
-    if (ts.isVariableDeclaration(node) && node.initializer && ts.isIdentifier(node.name)) {
-      let init: ts.Expression = node.initializer
+  // Scan only module-level VariableStatements. A namespace shadowed
+  // inside a function body would still be visible to a nested JSX
+  // tag via the binding lookup, but distinguishing the two scopes
+  // here would require the analyzer's binding environment; the
+  // shadowing case is rare enough in practice that limiting the
+  // scan to module scope is a safer default than overwriting a
+  // module-scope mapping with a function-local one keyed by the
+  // same identifier.
+  for (const stmt of ctx.sourceFile.statements) {
+    if (!ts.isVariableStatement(stmt)) continue
+    for (const decl of stmt.declarationList.declarations) {
+      if (!decl.initializer || !ts.isIdentifier(decl.name)) continue
+      let init: ts.Expression = decl.initializer
       while (ts.isParenthesizedExpression(init)) init = init.expression
-      if (ts.isObjectLiteralExpression(init)) {
-        const members = new Map<string, string>()
-        for (const prop of init.properties) {
-          if (ts.isShorthandPropertyAssignment(prop)) {
-            members.set(prop.name.text, prop.name.text)
-          } else if (
-            ts.isPropertyAssignment(prop) &&
-            (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)) &&
-            ts.isIdentifier(prop.initializer)
-          ) {
-            const key = ts.isIdentifier(prop.name) ? prop.name.text : prop.name.text
-            members.set(key, prop.initializer.text)
-          }
-        }
-        if (members.size > 0) {
-          result.set(node.name.text, members)
+      if (!ts.isObjectLiteralExpression(init)) continue
+
+      const members = new Map<string, string>()
+      for (const prop of init.properties) {
+        if (ts.isShorthandPropertyAssignment(prop)) {
+          // `{ Comp }` — shorthand resolves to the identifier
+          // bearing its own name.
+          members.set(prop.name.text, prop.name.text)
+        } else if (
+          ts.isPropertyAssignment(prop) &&
+          (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)) &&
+          ts.isIdentifier(prop.initializer)
+        ) {
+          // `{ Trigger: ButtonImpl }` — explicit identifier value.
+          members.set(prop.name.text, prop.initializer.text)
         }
       }
+      if (members.size > 0) {
+        result.set(decl.name.text, members)
+      }
     }
-    ts.forEachChild(node, visit)
   }
 
-  visit(ctx.sourceFile)
   return result
 }
 
