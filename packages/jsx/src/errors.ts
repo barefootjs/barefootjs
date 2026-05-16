@@ -112,7 +112,13 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCodes.MISSING_KEY_IN_NESTED_LIST]:
     'Nested .map() loop requires key attribute for event delegation. Add a key prop to elements in the inner loop',
   [ErrorCodes.UNSUPPORTED_DESTRUCTURE_REST]:
-    'Rest element or computed property key in .map() callback destructure is not supported. Rewrite the callback to destructure explicit bindings (e.g., `({ a, b }) => ...`) so the compiler can rewrite references to per-item signal accessors.',
+    // Despite the legacy `UNSUPPORTED_DESTRUCTURE_REST` name, this code now
+    // fires only for shapes that are valid TypeScript but unrepresentable in
+    // IR — currently just non-literal computed property keys (`{ [KEY]: v }`).
+    // Rest elements themselves were lowered in #1244 / #1309; the constant
+    // keeps its name so external consumers' `e.code === 'BF025'` checks remain
+    // stable.
+    'Computed property key in .map() callback destructure is not supported. Rewrite the callback to destructure explicit bindings (e.g., `({ a, b }) => ...`) so the compiler can rewrite references to per-item signal accessors.',
 
   [ErrorCodes.TYPE_INFERENCE_FAILED]: 'Failed to infer type',
   [ErrorCodes.PROPS_TYPE_MISMATCH]: 'Props type mismatch',
@@ -292,6 +298,34 @@ export function formatError(error: CompilerError, source?: string): string {
   }
 
   return lines.join('\n')
+}
+
+// =============================================================================
+// Internal Invariants
+// =============================================================================
+
+/**
+ * Throws when an internal compiler contract is violated. Use for AST shapes
+ * the TypeScript parser already rules out — if the branch fires, an upstream
+ * producer (codemod, AST transformer, malformed-source path) handed us a node
+ * that should not exist. Distinct from user-facing diagnostics (BF0xx) so a
+ * thrown stack points at the broken caller instead of being swallowed into a
+ * misleading per-source error message.
+ */
+export class InternalInvariantError extends Error {
+  constructor(message: string) {
+    super(`barefoot internal invariant: ${message}`)
+    this.name = 'InternalInvariantError'
+  }
+}
+
+export function internalInvariant(
+  cond: unknown,
+  message: string,
+): asserts cond {
+  if (!cond) {
+    throw new InternalInvariantError(message)
+  }
 }
 
 // =============================================================================
