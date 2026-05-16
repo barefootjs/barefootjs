@@ -46,6 +46,18 @@ function childrenPropEntry(
 }
 
 /**
+ * Placeholder substituted by `renderChild` with the current parent scope
+ * ID at render time. Embedded on hoisted JSX children whose IR carries
+ * `needsScope: true` — the hoisted element is owned by the outer
+ * component (the one that wrote the `<Box children={<span/>} />`
+ * expression), so its `bf-s` must match the outer's scope, not the
+ * inner template's. The substitution happens inside `renderChild`
+ * (production runtime + CSR harness) because that is the layer at
+ * which `_parentScopeId` is the outer scope. (#1320)
+ */
+export const BF_PARENT_SCOPE_PLACEHOLDER = '__BF_PARENT_SCOPE__'
+
+/**
  * Sentinel returned by the CSR template's `transformExpr` when the expression
  * references an init-body-only name (#1128). Equality with this sentinel is
  * how downstream emit sites decide to drop a renderChild prop, swap a loop
@@ -169,8 +181,8 @@ function renderTemplateAttrPart(
  *    `generateCsrTemplate` (case `'component'`). Set to `true` when generating
  *    the per-iteration `staticItemTemplate` for static loops.
  */
-export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, loopDepth = 0, loopParams?: ReadonlyArray<string | LoopParamSpec>, branchSlotsVar?: string, insideLoop = false): string {
-  const recurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth, loopParams, branchSlotsVar, insideLoop)
+export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, loopDepth = 0, loopParams?: ReadonlyArray<string | LoopParamSpec>, branchSlotsVar?: string, insideLoop = false, inHoistedChildren = false): string {
+  const recurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth, loopParams, branchSlotsVar, insideLoop, inHoistedChildren)
   const wrapExpr = (expr: string) => wrapExprWithLoopParams(expr, loopParams)
   const wrapInterpolation = (expr: string): string => branchSlotsVar
     ? `__bfSlot(${expr}, ${branchSlotsVar})`
@@ -187,12 +199,24 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
         })
         .filter(Boolean)
 
+      // Hoisted JSX children that need a scope marker carry the outer
+      // component's scope, not the inner template's. The placeholder is
+      // substituted by `renderChild` (production + CSR harness) at the
+      // layer where `_parentScopeId` is the outer scope. Only the
+      // top-level hoisted element matters; nested children inside it
+      // have `needsScope: false` and inherit the parent template's
+      // scope chain. (#1320)
+      if (inHoistedChildren && node.needsScope) {
+        attrParts.push(`bf-s="${BF_PARENT_SCOPE_PLACEHOLDER}"`)
+      }
+
       if (node.slotId) {
         attrParts.push(`bf="${node.slotId}"`)
       }
 
       const attrs = attrParts.join(' ')
-      const children = node.children.map(recurse).join('')
+      const childrenRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth, loopParams, branchSlotsVar, insideLoop, false)
+      const children = node.children.map(childrenRecurse).join('')
 
       // Non-void elements must use open+close tags (HTML parsers ignore self-closing on div, span, etc.)
       if (children || !VOID_ELEMENTS.has(node.tag)) {
@@ -240,7 +264,8 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
           if (p.clientOnly) return null
           switch (p.value.kind) {
             case 'jsx-children': {
-              const childHtml = p.value.children.map(c => recurse(c)).join('')
+              const hoistedRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth, loopParams, branchSlotsVar, insideLoop, true)
+              const childHtml = p.value.children.map(c => hoistedRecurse(c)).join('')
               return `${quotePropName(p.name)}: \`${childHtml}\``
             }
             case 'literal':
@@ -555,6 +580,13 @@ export interface TemplateOptions {
   memoMap?: Map<string, string>
   insideLoop?: boolean
   loopDepth?: number
+  /**
+   * When true, the current emit is generating HTML for a hoisted-JSX
+   * children prop (`<Box children={<span/>} />`). Elements with
+   * `needsScope: true` emit a `bf-s` placeholder (#1320); the
+   * runtime substitutes it with the outer component's scope.
+   */
+  inHoistedChildren?: boolean
 }
 
 /**
@@ -577,7 +609,10 @@ export function irToComponentTemplate(
 
 function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): string {
   const { inlinableConstants, restSpreadNames, propsObjectName, loopDepth = 0 } = opts
-  const recurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, opts)
+  // Hoisted JSX children's placeholder only applies to the immediate
+  // root of the hoisted subtree (#1320); nested elements take the
+  // outer template's scope chain. Strip the flag on the recursive call.
+  const recurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, { ...opts, inHoistedChildren: false })
   // Transform expression for client JS template.
   // Bare prop name prefixing (org → _p.org) is handled by templateExpr
   // from Phase 1 AST rewrite. Only constant inlining and props object
@@ -655,6 +690,13 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
         })
         .filter(Boolean)
 
+      // See the matching block in irToHtmlTemplate (#1320). The
+      // placeholder is substituted by renderChild at the layer where
+      // `_parentScopeId` is the outer component's scope.
+      if (opts.inHoistedChildren && node.needsScope) {
+        attrParts.push(`bf-s="${BF_PARENT_SCOPE_PLACEHOLDER}"`)
+      }
+
       if (node.slotId) {
         attrParts.push(`bf="${node.slotId}"`)
       }
@@ -703,7 +745,8 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
           if (p.clientOnly) return null
           switch (p.value.kind) {
             case 'jsx-children': {
-              const childHtml = p.value.children.map(recurse).join('')
+              const hoistedRecurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, { ...opts, inHoistedChildren: true })
+              const childHtml = p.value.children.map(c => hoistedRecurse(c)).join('')
               return `${quotePropName(p.name)}: \`${childHtml}\``
             }
             case 'literal':
@@ -950,8 +993,12 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
     return finalResult
   }
 
-  const recurse = (n: IRNode): string => generateCsrTemplateWithOpts(n, opts)
-  const recurseInLoop = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, insideLoop: true, loopDepth: loopDepth + 1 })
+  // Hoisted JSX children inherit the placeholder only on their root
+  // element; nested descendants take the parent template's scope chain
+  // and must not also emit the placeholder. Strip the flag for the
+  // recursive call. (#1320)
+  const recurse = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, inHoistedChildren: false })
+  const recurseInLoop = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, insideLoop: true, loopDepth: loopDepth + 1, inHoistedChildren: false })
 
   switch (node.type) {
     case 'element': {
@@ -990,6 +1037,13 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
           }
         })
         .filter(Boolean)
+
+      // See the matching block in irToHtmlTemplate (#1320). The
+      // placeholder is substituted by renderChild at the layer where
+      // `_parentScopeId` is the outer component's scope.
+      if (opts.inHoistedChildren && node.needsScope) {
+        attrParts.push(`bf-s="${BF_PARENT_SCOPE_PLACEHOLDER}"`)
+      }
 
       if (node.slotId) {
         attrParts.push(`bf="${node.slotId}"`)
@@ -1051,7 +1105,8 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
           if (p.clientOnly) return null
           switch (p.value.kind) {
             case 'jsx-children': {
-              const childHtml = p.value.children.map(c => recurse(c)).join('')
+              const hoistedRecurse = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, inHoistedChildren: true })
+              const childHtml = p.value.children.map(c => hoistedRecurse(c)).join('')
               return `${quotePropName(p.name)}: \`${childHtml}\``
             }
             case 'literal':

@@ -266,15 +266,39 @@ export function renderChild(
     return `<div ${bfsAttr}${slotAttrs}${keyAttr}></div>`
   }
 
-  const html = templateFn(props).trim()
+  let html = templateFn(props).trim()
+  // Hoisted JSX children embedded by the compile-time emit carry a
+  // placeholder `bf-s="__BF_PARENT_SCOPE__"` (#1320). Substitute with
+  // the current parent scope before scope marker injection so each
+  // hoisted root carries the outer component's scope (the scope of the
+  // call site that wrote `<Box children={<jsx/>} />`). When
+  // `_parentScopeId` is null (top-level render), drop the attribute
+  // rather than emitting an empty `bf-s=""`.
+  if (html.includes(BF_PARENT_SCOPE)) {
+    const replacement = _parentScopeId ?? ''
+    html = replacement
+      ? html.replaceAll(BF_PARENT_SCOPE, replacement)
+      : html.replace(new RegExp(`\\s*bf-s="${BF_PARENT_SCOPE}"`, 'g'), '')
+  }
   // Templates may start with comment markers (e.g. <!--bf-cond-start:...-->)
   // so we find the first element tag rather than assuming index 0.
   const firstElMatch = html.match(/<(\w+)/)
   if (!firstElMatch) return html
   const insertPos = html.indexOf(firstElMatch[0])
+  // Deduplicate: when the inner template body is just a renderChild
+  // call (#1320), its returned html already carries a `bf-s` on the
+  // root and adding another one produces `<div bf-s="..." bf-s="...">`.
+  // The renderChild caller's scope is what already lives on the root,
+  // so the outer injection is the duplicate to drop.
+  const afterInsert = html.slice(insertPos)
+  if (/^<\w+[^>]*\sbf-s="/.test(afterInsert)) {
+    return html
+  }
   return html.slice(0, insertPos) +
-    html.slice(insertPos).replace(/^(<\w+)/, `$1 ${bfsAttr}${slotAttrs}${keyAttr}`)
+    afterInsert.replace(/^(<\w+)/, `$1 ${bfsAttr}${slotAttrs}${keyAttr}`)
 }
+
+const BF_PARENT_SCOPE = '__BF_PARENT_SCOPE__'
 
 /**
  * Generate a random ID for scope identification
