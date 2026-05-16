@@ -43,7 +43,7 @@ export function TablePreviewDemo() {
       </TableHeader>
       <TableBody>
         {invoices.map((inv) => (
-          <TableRow>
+          <TableRow key={inv.invoice}>
             <TableCell className="font-medium">{inv.invoice}</TableCell>
             <TableCell>{inv.status}</TableCell>
             <TableCell>{inv.method}</TableCell>
@@ -77,7 +77,7 @@ export function TableBasicDemo() {
       </TableHeader>
       <TableBody>
         {invoices.slice(0, 4).map((inv) => (
-          <TableRow>
+          <TableRow key={inv.invoice}>
             <TableCell className="font-medium">{inv.invoice}</TableCell>
             <TableCell>{inv.status}</TableCell>
             <TableCell>{inv.method}</TableCell>
@@ -106,7 +106,7 @@ export function TableWithFooterDemo() {
       </TableHeader>
       <TableBody>
         {invoices.map((inv) => (
-          <TableRow>
+          <TableRow key={inv.invoice}>
             <TableCell className="font-medium">{inv.invoice}</TableCell>
             <TableCell>{inv.status}</TableCell>
             <TableCell>{inv.method}</TableCell>
