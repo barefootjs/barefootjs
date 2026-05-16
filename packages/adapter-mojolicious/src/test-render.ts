@@ -20,6 +20,29 @@ export class PerlNotAvailableError extends Error {
   }
 }
 
+/**
+ * Recover the bare component name from a compiler-emitted template
+ * file path. `templatesPerComponent` adapters write each component to
+ * `<dir>/<ComponentName><adapter.extension>` (Mojo: `.html.ep`), and
+ * downstream pairing logic needs the raw component name back so it can
+ * look up the matching IR in `irsByName`.
+ *
+ * Stripping the *full* adapter extension matters because Mojo's
+ * extension is multi-segment (`.html.ep`). A naive `\.[^.]+$/` strips
+ * only the last segment, leaves `<ComponentName>.html`, misses the
+ * IR map, and silently pairs every sibling template to the
+ * entry-point IR — exactly the silent-gap class issue #1297 was
+ * filed to surface.
+ *
+ * Exported for testing.
+ */
+export function templateBaseName(path: string, extension: string): string {
+  const filename = path.substring(path.lastIndexOf('/') + 1)
+  return filename.endsWith(extension)
+    ? filename.slice(0, -extension.length)
+    : filename
+}
+
 let _perlAvailable: boolean | null = null
 async function isPerlAvailable(): Promise<boolean> {
   if (_perlAvailable !== null) return _perlAvailable
@@ -68,11 +91,16 @@ export async function renderMojoComponent(options: RenderOptions): Promise<strin
         // Single-component child source: only one template + one IR.
         childTemplates.set(childIrs[0].metadata.componentName, { template: childTemplateFiles[0].content, ir: childIrs[0] })
       } else {
-        // Multi-component child source: pair template ↔ IR by basename
-        // (Mojo's templatesPerComponent names files <ComponentName>.html.ep).
+        // Multi-component child source: pair template ↔ IR by basename.
+        // The Mojo adapter's `templatesPerComponent` emits files named
+        // `<ComponentName><adapter.extension>` (e.g. `Counter.html.ep`),
+        // so we strip the *full* `.html.ep` — not just the last dot
+        // segment — to recover the componentName. A naive `\.[^.]+$/`
+        // would leave `Counter.html`, miss the IR map, and silently
+        // pair every sibling to the entry-point IR.
         const childIrsByName = new Map(childIrs.map(i => [i.metadata.componentName, i]))
         for (const tf of childTemplateFiles) {
-          const baseName = tf.path.substring(tf.path.lastIndexOf('/') + 1).replace(/\.[^.]+$/, '')
+          const baseName = templateBaseName(tf.path, adapter.extension)
           const matchedIR = childIrsByName.get(baseName) ?? childIrs[0]
           childTemplates.set(matchedIR.metadata.componentName, { template: tf.content, ir: matchedIR })
         }
@@ -117,10 +145,12 @@ export async function renderMojoComponent(options: RenderOptions): Promise<strin
   } else {
     // Multi-component source: templates are named by component
     // (templatesPerComponent). Match each template file to its IR by
-    // basename so we can split the entry-point from siblings.
+    // basename so we can split the entry-point from siblings. See
+    // `templateBaseName` for why the full `adapter.extension` is
+    // stripped rather than the last dot segment alone.
     const irsByName = new Map(irs.map(i => [i.metadata.componentName, i]))
     for (const tf of templateFiles) {
-      const baseName = tf.path.substring(tf.path.lastIndexOf('/') + 1).replace(/\.[^.]+$/, '')
+      const baseName = templateBaseName(tf.path, adapter.extension)
       const matchedIR = irsByName.get(baseName)
       if (matchedIR === ir) {
         templateFile = tf
