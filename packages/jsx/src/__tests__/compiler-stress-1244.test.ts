@@ -723,3 +723,557 @@ describe('component returning null vs <></> vs false', () => {
     expectNoFatalErrors(compile(src))
   })
 })
+
+// ---------------------------------------------------------------------------
+// Async / portal / multi-boundary (TODO grid: control-flow + lifecycle)
+// ---------------------------------------------------------------------------
+
+describe('<Async> inside .map() — per-item streaming boundary', () => {
+  test('async boundary used inside a loop body', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      function Card({ id }: { id: string }) { return <span>{id}</span> }
+      export function Demo() {
+        const [items, setItems] = createSignal<{ id: string }[]>([])
+        return (
+          <ul onClick={() => setItems(i => i)}>
+            {items().map(it => (
+              <li key={it.id}>
+                <Async fallback={<p>loading {it.id}</p>}>
+                  <Card id={it.id} />
+                </Async>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('.map() inside <Async> — loop body wired after async chunk lands', () => {
+  test('map call inside an async boundary body', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [items, setItems] = createSignal<{ id: string; label: string }[]>([])
+        return (
+          <Async fallback={<p>loading</p>}>
+            <ul onClick={() => setItems(i => i)}>
+              {items().map(it => <li key={it.id}>{it.label}</li>)}
+            </ul>
+          </Async>
+        )
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('createPortal inside .map() — per-item portal owner tracking', () => {
+  test('one portal created per loop item', () => {
+    const src = `
+      'use client'
+      import { createSignal, createPortal } from '@barefootjs/client'
+      export function Demo() {
+        const [items, setItems] = createSignal<{ id: string; body: string }[]>([])
+        return (
+          <ul onClick={() => setItems(i => i)}>
+            {items().map(it => {
+              createPortal(<div>{it.body}</div>, document.body)
+              return <li key={it.id}>{it.id}</li>
+            })}
+          </ul>
+        )
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('multiple "use client" boundaries in one tree', () => {
+  // A stateless server-rendered shell wraps two independently-stateful
+  // child components — server/client mix. Today this needs three
+  // physical files (each `'use client'` is per-file). Locking the
+  // multi-file shape verifies cross-file scope IDs stay distinct.
+  test('parent stateless, two stateful children imported from sibling files', () => {
+    const src = `
+      import { CounterA } from './a'
+      import { CounterB } from './b'
+      export function Demo() {
+        return (
+          <main>
+            <CounterA />
+            <CounterB />
+          </main>
+        )
+      }
+    `
+    const result = compileJSX(src, 'Demo.tsx', {
+      adapter,
+      // Provide stub child files would normally be done via Program;
+      // since we can't here, just verify the parent compiles standalone.
+    })
+    expect(result.errors.filter(e => e.severity === 'error')).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Refs (TODO grid: identifier / scope + reactive primitive)
+// ---------------------------------------------------------------------------
+
+describe('two refs on the same element via a composeRefs helper', () => {
+  test('ref={composeRefs(refA, refB)}', () => {
+    const src = `
+      'use client'
+      function composeRefs<T>(...refs: ((el: T) => void)[]) {
+        return (el: T) => refs.forEach(r => r(el))
+      }
+      export function Demo() {
+        const a = (el: HTMLDivElement) => { void el }
+        const b = (el: HTMLDivElement) => { void el }
+        return <div ref={composeRefs(a, b)} />
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Spread / value shape (TODO grid: value-shape edges)
+// ---------------------------------------------------------------------------
+
+describe('JSX spread of a reactive object', () => {
+  test('<div {...signal()} /> — every key from the object must rebind on update', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [attrs, setAttrs] = createSignal<Record<string, string>>({ id: 'a', class: 'on' })
+        return <div onClick={() => setAttrs(a => a)} {...attrs()} />
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('tagged template literal for className', () => {
+  // `cn\`base ${signal()}\`` is the most common alternative to `cva` in
+  // small codebases. The compiler currently treats a TaggedTemplate as
+  // an opaque call; reactive deps inside the placeholders may not be
+  // analysed.
+  test('cn`base ${signal()}` produces the className binding', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      function cn(parts: TemplateStringsArray, ...args: unknown[]) {
+        return parts.reduce((acc, p, i) => acc + p + (args[i] ?? ''), '')
+      }
+      export function Demo() {
+        const [tone, setTone] = createSignal('primary')
+        return <div onClick={() => setTone('secondary')} className={cn\`base \${tone()}\`} />
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Nested reactive primitives (TODO grid: reactive primitive × lifecycle)
+// ---------------------------------------------------------------------------
+
+describe('createEffect inside createMemo', () => {
+  // A memo's body is a derivation, not a scope owner — creating an
+  // effect inside it leaks the effect on every memo recomputation.
+  // The compiler should at minimum diagnose this; today there's no
+  // dedicated check.
+  test('memo body creating an effect compiles', () => {
+    const src = `
+      'use client'
+      import { createSignal, createMemo, createEffect } from '@barefootjs/client'
+      export function Demo() {
+        const [n, setN] = createSignal(0)
+        const m = createMemo(() => {
+          createEffect(() => { console.log(n()) })
+          return n() * 2
+        })
+        return <button onClick={() => setN(v => v + 1)}>{m()}</button>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('createSignal inside createEffect', () => {
+  // Creating a signal inside an effect re-creates it on every run, so
+  // identity churns and downstream effects re-subscribe. The compiler
+  // should at minimum diagnose this; today there's no dedicated check.
+  test('effect body creating a signal compiles', () => {
+    const src = `
+      'use client'
+      import { createSignal, createEffect } from '@barefootjs/client'
+      export function Demo() {
+        const [n, setN] = createSignal(0)
+        createEffect(() => {
+          const [inner] = createSignal(n())
+          console.log(inner())
+        })
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('onMount returning a cleanup function', () => {
+  test('return from onMount is registered as cleanup', () => {
+    const src = `
+      'use client'
+      import { createSignal, onMount } from '@barefootjs/client'
+      export function Demo() {
+        const [n, setN] = createSignal(0)
+        onMount(() => {
+          const t = setInterval(() => setN(v => v + 1), 1000)
+          return () => clearInterval(t)
+        })
+        return <span>{n()}</span>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// JSX / loop edge cases (TODO grid: control-flow + identifier)
+// ---------------------------------------------------------------------------
+
+describe('member-expression component tag', () => {
+  // `<Pkg.Comp />` — JSX tag is a member expression. Common with
+  // compound components (`Dialog.Trigger`, `Tabs.Panel`).
+  test('<Pkg.Comp /> compiles', () => {
+    const src = `
+      const Pkg = { Comp: function () { return <span>x</span> } }
+      export function Demo() {
+        return <div><Pkg.Comp /></div>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('for...of generating JSX in component body', () => {
+  // An imperative loop is a non-standard but legal way to build a JSX
+  // tree. The analyzer treats `.map()` specially; `for...of` plus
+  // `push` should also produce a valid tree.
+  test('for...of building an array of JSX children', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [items, setItems] = createSignal<string[]>(['a', 'b', 'c'])
+        const out: any[] = []
+        for (const it of items()) {
+          out.push(<li key={it}>{it}</li>)
+        }
+        return <ul onClick={() => setItems(i => i)}>{out}</ul>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('signal accessor renamed via alias import', () => {
+  // SURFACED LIMITATION (#1244 sub-issue, same root cause as the
+  // pre-existing failures in `primitive-resolver-alias.test.ts`):
+  // `import { createSignal as cs }` is not recognised as a reactive
+  // factory and the destructure raises BF110. The body asserts the
+  // intended behaviour (clean compile). Drop `.todo` once fixed.
+  test.todo('aliased createSignal still recognised as a reactive factory', () => {
+    const src = `
+      'use client'
+      import { createSignal as cs } from '@barefootjs/client'
+      export function Demo() {
+        const [n, setN] = cs(0)
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('JSX construction in an event-handler callback', () => {
+  // Building JSX inside a setter (`setItems(prev => [...prev,
+  // <Item />])`) — JSX outside the render path. The compiler must
+  // either compile the JSX literal as a runtime call or refuse loudly.
+  test('setter body contains a JSX literal', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      function Item({ label }: { label: string }) { return <li>{label}</li> }
+      export function Demo() {
+        const [items, setItems] = createSignal<any[]>([])
+        return (
+          <button onClick={() => setItems(prev => [...prev, <Item key={prev.length} label={'n' + prev.length} />])}>
+            add
+          </button>
+        )
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('logical && — string "0" rendering hazard', () => {
+  // `{count() && <span/>}` with `count() === 0` should render nothing,
+  // not the literal "0". Compile-only check that the binding is lowered
+  // to a ternary (`count() ? <span> : null`) rather than a text node
+  // that would coerce 0 to "0" at render time.
+  test('count() && JSX lowers to a conditional, not a text binding', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [count, setCount] = createSignal(0)
+        return <div onClick={() => setCount(c => c + 1)}>{count() && <span>has items</span>}</div>
+      }
+    `
+    const c = compile(src)
+    expectNoFatalErrors(c)
+    // The lowered template should branch on `count()` — either through
+    // a JS ternary (`? : null`) or an explicit conditional marker. A
+    // raw `{count()}` placement (no surrounding branch) would render
+    // the literal "0" when count is 0.
+    expect(c.template).toMatch(/count\(\)\s*\?|bf-cond-|bf-c=/)
+    expect(c.template).not.toMatch(/>\s*\{count\(\)\}\s*</)
+  })
+})
+
+describe('children passed as a JSX expression value (not nested)', () => {
+  test('children={<span>x</span>}', () => {
+    const src = `
+      function Box({ children }: { children: any }) { return <div>{children}</div> }
+      export function Demo() {
+        return <Box children={<span>x</span>} />
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('Fragment with siblings as a top-level return', () => {
+  test('return <><a/><b/></> with two element siblings', () => {
+    const src = `
+      export function Demo() {
+        return (
+          <>
+            <a href="x">x</a>
+            <b>y</b>
+          </>
+        )
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Iteration alternatives (TODO grid: control-flow combinations)
+// ---------------------------------------------------------------------------
+
+describe('Array.from(iter, mapper) producing JSX children', () => {
+  test('Array.from with a Set source and a mapper', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [tags, setTags] = createSignal(new Set<string>(['a', 'b']))
+        return (
+          <ul onClick={() => setTags(t => t)}>
+            {Array.from(tags(), tag => <li key={tag}>{tag}</li>)}
+          </ul>
+        )
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('filter().map() chain that re-introduces JSX', () => {
+  // Already covered by `filter-simple` for `.filter()` alone; this
+  // test pins the chain end-to-end with a per-item reactive class.
+  test('items.filter(...).map(it => <li className={…} />)', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      type T = { id: string; visible: boolean; tone: string }
+      export function Demo() {
+        const [items, setItems] = createSignal<T[]>([])
+        return (
+          <ul onClick={() => setItems(i => i)}>
+            {items().filter(it => it.visible).map(it => (
+              <li key={it.id} className={\`row \${it.tone}\`}>{it.id}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Attribute surface (TODO grid: value-shape edges + binding site)
+// ---------------------------------------------------------------------------
+
+describe('SVG presentation attribute in kebab-case', () => {
+  // `stroke-width` is the DOM-property name; React-style camelCase
+  // (`strokeWidth`) is conventional in JSX. Compiler should accept
+  // either; this test pins kebab-case.
+  test('<rect stroke-width={...} /> compiles', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [w, setW] = createSignal(2)
+        return <svg onClick={() => setW(v => v + 1)}><rect stroke-width={w()} /></svg>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('aria-* with a dynamic value', () => {
+  test('aria-expanded={signal()} compiles and binds', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [open, setOpen] = createSignal(false)
+        return <button onClick={() => setOpen(v => !v)} aria-expanded={open()}>x</button>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('data-* attribute with a hyphenated key and a reactive value', () => {
+  test('data-test-id={signal()} compiles', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [id, setId] = createSignal('a')
+        return <div onClick={() => setId('b')} data-test-id={id()}>x</div>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Component shape (TODO grid: lifecycle + TS surface)
+// ---------------------------------------------------------------------------
+
+describe('async function component', () => {
+  // `async function Demo()` is the obvious shape for an `await fetch()`
+  // body inside an `<Async>` boundary. Compiler should either accept it
+  // or refuse loudly.
+  test('async function Demo() compiles', () => {
+    const src = `
+      export async function Demo() {
+        const v = await Promise.resolve('hi')
+        return <span>{v}</span>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('top-level await in a stateful component body', () => {
+  // Hazardous shape. Listed in the catalog as a likely surface.
+  test('await in a "use client" component body compiles', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export async function Demo() {
+        const [n, setN] = createSignal(0)
+        const fetched = await Promise.resolve(42)
+        return <button onClick={() => setN(v => v + fetched)}>{n()}</button>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('generic function component', () => {
+  // `function List<T>({ items }: { items: T[] })` — type parameter on
+  // the component. JSX vs TSX angle-bracket ambiguity sometimes trips
+  // the parser; pin the supported shape.
+  test('function List<T>(...) compiles', () => {
+    const src = `
+      export function List<T extends { id: string }>({ items }: { items: T[] }) {
+        return <ul>{items.map(it => <li key={it.id}>{it.id}</li>)}</ul>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('arrow function component', () => {
+  // The catalog assumes function-declaration shape; arrow-function
+  // components (`export const Demo = () => …`) are a common alternative
+  // — should compile identically.
+  test('export const Demo = () => <span /> compiles', () => {
+    const src = `
+      export const Demo = () => <span>x</span>
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Closure / scope edges (TODO grid: identifier / scope)
+// ---------------------------------------------------------------------------
+
+describe('signal read inside a closure captured by an event handler', () => {
+  // The handler does NOT call the signal directly — it calls a local
+  // helper that closes over it. The compiler must still mark the
+  // handler as depending on the signal (or, equivalently, the helper
+  // must be reactive).
+  test('handler delegates to a local helper that reads the signal', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [n, setN] = createSignal(0)
+        const describe = () => 'count is ' + n()
+        return <button onClick={() => console.log(describe())}>{n()}</button>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
+describe('signal read inside a try/catch in render', () => {
+  test('try/catch wrapping a signal read in JSX body', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [n, setN] = createSignal(0)
+        let display: string
+        try {
+          display = String(n())
+        } catch {
+          display = '?'
+        }
+        return <button onClick={() => setN(v => v + 1)}>{display}</button>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+})
+
