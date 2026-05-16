@@ -190,6 +190,14 @@ export type Replacement = string | ReplaceFn
  * expression context (replacements apply); the surrounding string
  * body is not.
  *
+ * Consecutive expression-context tokens are batched into a single
+ * slice before the regex runs, so lookahead / lookbehind in the
+ * regex see across token boundaries (e.g. the negative lookahead
+ * `\bfoo\b(?!\s*\()` correctly skips `foo(...)` calls — replacing
+ * per-token would lose sight of the `(` that lives in the next
+ * token and would mis-wrap an already-wrapped `foo()` into
+ * `foo()()`).
+ *
  * `re` is reset before each replace call so callers can pass `/g`
  * regexes without worrying about `lastIndex` state.
  */
@@ -199,35 +207,34 @@ export function replaceInExprContexts(
   replacement: Replacement,
 ): string {
   let out = ''
-  let cursor = 0
-  for (const tok of iterateJsTokens(code)) {
-    // Trivia between tokens — there is none with skipTrivia: false, since
-    // whitespace is emitted as WhitespaceTrivia tokens. But guard against
-    // any positional gap to stay total.
-    if (tok.pos > cursor) {
-      out += applyReplacement(code.slice(cursor, tok.pos), re, replacement)
+  let codeStart = -1
+
+  const flushCode = (end: number) => {
+    if (codeStart < 0 || end <= codeStart) {
+      codeStart = -1
+      return
     }
-    const text = code.slice(tok.pos, tok.end)
-    if (isOpaqueContentKind(tok.kind)) {
-      out += text
-    } else if (
-      tok.kind === ts.SyntaxKind.TemplateHead
+    out += applyReplacement(code.slice(codeStart, end), re, replacement)
+    codeStart = -1
+  }
+
+  for (const tok of iterateJsTokens(code)) {
+    const isOpaque =
+      isOpaqueContentKind(tok.kind)
+      || tok.kind === ts.SyntaxKind.TemplateHead
       || tok.kind === ts.SyntaxKind.TemplateMiddle
       || tok.kind === ts.SyntaxKind.TemplateTail
-    ) {
-      // The literal-string body is verbatim; the surrounding ${ / }
-      // structural punctuation is verbatim too (it carries no
-      // expression). Effectively the whole template-token text is
-      // emitted unchanged.
-      out += text
+    if (isOpaque) {
+      flushCode(tok.pos)
+      out += code.slice(tok.pos, tok.end)
     } else {
-      out += applyReplacement(text, re, replacement)
+      // Code-context token (identifier, punctuation, whitespace, etc.).
+      // Extend the current code chunk so the regex sees neighbouring
+      // tokens (e.g. the `(` after an identifier) via lookahead.
+      if (codeStart < 0) codeStart = tok.pos
     }
-    cursor = tok.end
   }
-  if (cursor < code.length) {
-    out += applyReplacement(code.slice(cursor), re, replacement)
-  }
+  flushCode(code.length)
   return out
 }
 

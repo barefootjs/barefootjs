@@ -101,6 +101,23 @@ describe('replaceInExprContexts', () => {
     const out = replaceInExprContexts('`foo bar` + foo', /\bfoo\b/g, 'X')
     expect(out).toBe('`foo bar` + X')
   })
+
+  test('negative lookahead spans token boundaries (regression: no double-wrap)', () => {
+    // The loop-param wrapper uses `\bfoo\b(?!\s*\()` to skip call
+    // sites. If the regex runs per-token, the lookahead only sees an
+    // empty string after `foo` and the call site `foo(...)` mis-wraps.
+    // Consecutive expression-context tokens must be batched.
+    const re = /\bfoo\b(?!\s*\()/g
+    expect(replaceInExprContexts('foo().bar', re, 'foo()')).toBe('foo().bar')
+    expect(replaceInExprContexts('foo.bar', re, 'foo()')).toBe('foo().bar')
+    expect(replaceInExprContexts('foo + foo()', re, 'foo()')).toBe('foo() + foo()')
+  })
+
+  test('lookahead in template ${...} respects neighbouring tokens', () => {
+    const re = /\bfoo\b(?!\s*\()/g
+    expect(replaceInExprContexts('`a${foo()}b`', re, 'foo()')).toBe('`a${foo()}b`')
+    expect(replaceInExprContexts('`a${foo.x}b`', re, 'foo()')).toBe('`a${foo().x}b`')
+  })
 })
 
 // ---------------------------------------------------------------------------
