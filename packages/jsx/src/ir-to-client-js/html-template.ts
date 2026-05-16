@@ -206,6 +206,13 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
       // top-level hoisted element matters; nested children inside it
       // have `needsScope: false` and inherit the parent template's
       // scope chain. (#1320)
+      //
+      // Known limitation: `children={<><span/></>}` (fragment-wrapped
+      // jsx-children) lands in the IR as a fragment with
+      // `needsScopeComment: true` whose direct child has
+      // `needsScope: false`, so no element-level placeholder is emitted
+      // here. The fragment-marker path is a separate scope mechanism
+      // that the current placeholder design doesn't extend to.
       if (inHoistedChildren && node.needsScope) {
         attrParts.push(`bf-s="${BF_PARENT_SCOPE_PLACEHOLDER}"`)
       }

@@ -124,8 +124,25 @@ export function createComponent(
     return result
   })
 
-  // 4. Generate HTML from props
-  const html = templateFn(unwrappedProps)
+  // 4. Generate HTML from props.
+  //
+  // Establish `_parentScopeId` so any hoisted-children placeholder in
+  // the template body (#1320) resolves to the calling site's scope.
+  // For components rendered as a child of a known parent, the slot
+  // info carries that scope; for top-level / standalone mounts no
+  // parent context exists, so the placeholder strips. Restore the
+  // previous value on the way out so nested createComponent calls
+  // don't see stale state.
+  const prevParentScopeId = _parentScopeId
+  if (slot?.parent) {
+    _parentScopeId = slot.parent
+  }
+  let html: string
+  try {
+    html = templateFn(unwrappedProps)
+  } finally {
+    _parentScopeId = prevParentScopeId
+  }
 
   // 5. Create DOM element
   const element = parseHTML(html.trim()).firstChild as HTMLElement
