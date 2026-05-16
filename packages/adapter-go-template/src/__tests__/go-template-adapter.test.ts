@@ -84,6 +84,15 @@ runAdapterConformanceTests({
       { code: 'BF103', severity: 'error' },
       { code: 'BF104', severity: 'error' },
     ],
+    // #1244 stress catalog: same `convertExpressionToGo` refusal shape
+    // as `style-object-dynamic` above — a JS object literal in
+    // attribute position can't lower into Go template syntax, so the
+    // adapter surfaces BF101 instead of emitting invalid template.
+    'stress-1244-style-3-signals': [{ code: 'BF101', severity: 'error' }],
+    // #1244 stress catalog: tagged-template-literal callees
+    // (`cn\`base \${tone()}\``) likewise can't lower into Go template
+    // syntax — same BF101 refusal.
+    'stress-1244-tagged-template-classname': [{ code: 'BF101', severity: 'error' }],
   },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `GoTemplateAdapter.templatePrimitives` (#1188). The two

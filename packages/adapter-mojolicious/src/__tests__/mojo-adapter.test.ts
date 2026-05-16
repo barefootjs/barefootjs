@@ -60,6 +60,14 @@ runAdapterConformanceTests({
     // never receives a `theme` key. Provider SSR coverage on Mojo
     // waits on that adapter feature; see #1297 follow-up.
     'context-provider',
+    // #1244 stress catalog: same shapes the Mojo adapter silently
+    // emits as invalid Perl that the Go adapter rejects at compile
+    // time with BF101. Stays on skipJsx (not expectedDiagnostics)
+    // until the Mojo expression gate lifts the same failures into
+    // CompilerError, matching the existing `style-object-dynamic`
+    // precedent above.
+    'stress-1244-style-3-signals',
+    'stress-1244-tagged-template-classname',
   ],
   // Per-fixture build-time contracts for shapes the Mojo adapter
   // intentionally refuses to lower. Owned by this adapter test file
