@@ -66,6 +66,13 @@ import { fixture as recordIndexLookupViaChildProp } from './record-index-lookup-
 // Priority 9: Provider / Async (IR-kind coverage, #1252 Phase 0)
 import { fixture as contextProvider } from './context-provider'
 import { fixture as asyncBoundary } from './async-boundary'
+// Priority 10: Compiler stress catalog (#1244)
+import { fixture as stress1244Style3Signals } from './stress-1244-style-3-signals'
+import { fixture as stress1244JsxSpreadReactive } from './stress-1244-jsx-spread-reactive'
+import { fixture as stress1244TaggedTemplateClassname } from './stress-1244-tagged-template-classname'
+import { fixture as stress1244MemberExpressionTag } from './stress-1244-member-expression-tag'
+import { fixture as stress1244ArrowComponent } from './stress-1244-arrow-component'
+import { fixture as stress1244ChildrenJsxExpression } from './stress-1244-children-jsx-expression'
 
 import type { JSXFixture } from '../src/types'
 
@@ -138,4 +145,11 @@ export const jsxFixtures: JSXFixture[] = [
   // Priority 9: Provider / Async (IR-kind coverage, #1252 Phase 0)
   contextProvider,
   asyncBoundary,
+  // Priority 10: Compiler stress catalog (#1244)
+  stress1244Style3Signals,
+  stress1244JsxSpreadReactive,
+  stress1244TaggedTemplateClassname,
+  stress1244MemberExpressionTag,
+  stress1244ArrowComponent,
+  stress1244ChildrenJsxExpression,
 ]
