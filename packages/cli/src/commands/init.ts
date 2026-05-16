@@ -315,25 +315,6 @@ function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
     console.log(`${heading('Deploy:')}`)
     console.log(`  ${deployCmd}${dim(`   # deploy to ${adapter.deploy.target}`)}`)
   }
-
-  // A playful aside — hand the first-time user one concrete prompt
-  // that exercises the full barefoot workflow: discover a registry
-  // component, add it, integrate it into the starter Counter, then
-  // assert the result with an IR test. The prompt assumes the AI
-  // editor already has the `barefootjs` skill loaded (Claude Code's
-  // bundled skill wraps `barefoot ui` / `barefoot inspect` /
-  // `barefoot add`), so we don't spell out the CLI invocations.
-  // Visible in TTY contexts only: CI / piped output skips the
-  // section to keep logs grep-friendly.
-  if (process.stdout.isTTY) {
-    console.log('')
-    console.log(`${heading('Try it with AI:')}`)
-    console.log(`  ${dim('Drop this into Claude Code (with the `barefootjs` skill loaded):')}`)
-    console.log('')
-    console.log(`    "Add a Milestone Badge to the Counter — show it when count hits`)
-    console.log(`     a non-zero multiple of 5. Use signal-driven conditional rendering,`)
-    console.log(`     plus an IR test asserting the Badge appears as a conditional child."`)
-  }
 }
 
 // ANSI helpers for the next-steps block. All three apply only in a
