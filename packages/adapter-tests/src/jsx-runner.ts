@@ -55,6 +55,60 @@ export interface RunJSXConformanceOptions {
 const VOID_ELEMENTS = 'area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr'
 
 /**
+ * Remove every `<div bf-async="aN">…fallback…</div>` placeholder from `html`,
+ * walking the opening tag's children with a depth counter so a fallback that
+ * itself contains `<div>` (e.g. `<Skeleton><div class="..."/></Skeleton>`)
+ * does not terminate the match at the first inner `</div>`. Plain regex with
+ * `[\s\S]*?` cannot do this — it stops at the first close, leaving a
+ * dangling `</div>` behind.
+ *
+ * The streaming-SSR adapters (Mojo, Go template) emit the placeholder
+ * alongside the resolved children so the runtime can swap on resolve; Hono's
+ * `<Suspense>` collapses synchronously for non-Promise children and emits
+ * only the resolved content. Stripping the placeholder keeps cross-adapter
+ * conformance apples-to-apples — the resolved children remain on both sides.
+ */
+function stripAsyncPlaceholders(html: string): string {
+  const OPEN_PREFIX = '<div bf-async="'
+  let result = ''
+  let i = 0
+  while (i < html.length) {
+    const start = html.indexOf(OPEN_PREFIX, i)
+    if (start === -1) {
+      result += html.slice(i)
+      break
+    }
+    const tagEnd = html.indexOf('>', start)
+    if (tagEnd === -1) {
+      // Malformed — leave the remainder alone rather than risk a worse strip.
+      result += html.slice(i)
+      break
+    }
+    result += html.slice(i, start)
+    let depth = 1
+    let cursor = tagEnd + 1
+    while (depth > 0 && cursor < html.length) {
+      const nextOpen = html.indexOf('<div', cursor)
+      const nextClose = html.indexOf('</div>', cursor)
+      if (nextClose === -1) {
+        // Unbalanced — bail and leave the remainder.
+        cursor = html.length
+        break
+      }
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth += 1
+        cursor = nextOpen + 4
+      } else {
+        depth -= 1
+        cursor = nextClose + 6
+      }
+    }
+    i = cursor
+  }
+  return result
+}
+
+/**
  * Normalize rendered HTML for cross-adapter comparison.
  * Handles known formatting differences between adapters:
  * - Whitespace collapsing (template engine formatting)
@@ -63,7 +117,11 @@ const VOID_ELEMENTS = 'area|base|br|col|embed|hr|img|input|link|meta|param|sourc
  * - Trailing whitespace before closing > in tags
  */
 export function normalizeHTML(html: string): string {
-  return html
+  // Strip the streaming-SSR async-boundary placeholder ahead of the
+  // regex chain so a fallback containing nested `<div>` doesn't mislead
+  // any later matcher. See `stripAsyncPlaceholders` for the depth-
+  // counted match. (#1298)
+  return stripAsyncPlaceholders(html)
     // Remove loop boundary comment markers (template detail, not semantic).
     // Matches both legacy unscoped (`<!--bf-loop-->`) and scoped per-call-site
     // (`<!--bf-loop:l7-->`) forms (#1087). The marker id is `l\d+` — kept
@@ -89,15 +147,6 @@ export function normalizeHTML(html: string): string {
     // JS-runtime hydration path uses them, so removing them keeps
     // cross-adapter conformance comparisons apples-to-apples.
     .replace(/<!--bf-scope:[^>]*-->/g, '')
-    // Strip the streaming-SSR async-boundary placeholder. Mojo and Go
-    // template emit a `<div bf-async="aN">…fallback…</div>` placeholder
-    // alongside the resolved children (the placeholder is swapped by a
-    // streaming-runtime script when the boundary resolves). Hono uses
-    // `<Suspense>` which collapses synchronously for non-Promise
-    // children, so it emits only the resolved content. Strip the
-    // placeholder for cross-adapter conformance — the resolved
-    // children remain on both sides. (#1298)
-    .replace(/<div bf-async="[^"]*">[\s\S]*?<\/div>/g, '')
     // Normalize child scope ID prefix: bf-s="~parentId_sN" → bf-s="parentId_sN"
     .replace(/bf-s="~([^"]*)"/g, 'bf-s="$1"')
     // Normalize non-deterministic child scope IDs. Keep the trailing
