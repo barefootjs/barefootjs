@@ -609,10 +609,15 @@ export function irToComponentTemplate(
 
 function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): string {
   const { inlinableConstants, restSpreadNames, propsObjectName, loopDepth = 0 } = opts
-  // Hoisted JSX children's placeholder only applies to the immediate
-  // root of the hoisted subtree (#1320); nested elements take the
-  // outer template's scope chain. Strip the flag on the recursive call.
-  const recurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, { ...opts, inHoistedChildren: false })
+  // `recurse` preserves `inHoistedChildren` so structural pass-through
+  // nodes (fragment / conditional) keep the flag alive on the way down
+  // to the element root that actually consumes it (#1320). The element
+  // case below uses `childrenRecurse` instead to clear the flag for
+  // its own descendants — only the top-level hoisted element carries
+  // the placeholder; nested descendants take the parent template's
+  // scope chain.
+  const recurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, opts)
+  const childrenRecurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, { ...opts, inHoistedChildren: false })
   // Transform expression for client JS template.
   // Bare prop name prefixing (org → _p.org) is handled by templateExpr
   // from Phase 1 AST rewrite. Only constant inlining and props object
@@ -702,7 +707,7 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
       }
 
       const attrs = attrParts.join(' ')
-      const children = node.children.map(recurse).join('')
+      const children = node.children.map(childrenRecurse).join('')
 
       if (children || !VOID_ELEMENTS.has(node.tag)) {
         return `<${node.tag}${attrs ? ' ' + attrs : ''}>${children}</${node.tag}>`
@@ -993,11 +998,16 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
     return finalResult
   }
 
-  // Hoisted JSX children inherit the placeholder only on their root
-  // element; nested descendants take the parent template's scope chain
-  // and must not also emit the placeholder. Strip the flag for the
-  // recursive call. (#1320)
-  const recurse = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, inHoistedChildren: false })
+  // `recurse` preserves `inHoistedChildren` so structural pass-through
+  // nodes (fragment / conditional) keep the flag alive until the
+  // element root that actually consumes it (#1320). The element case
+  // below uses `childrenRecurse` instead to clear the flag for its
+  // own descendants — only the top-level hoisted element carries the
+  // placeholder; nested descendants take the parent template's scope
+  // chain. `recurseInLoop` always clears because a loop body starts
+  // its own iteration scope.
+  const recurse = (n: IRNode): string => generateCsrTemplateWithOpts(n, opts)
+  const childrenRecurse = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, inHoistedChildren: false })
   const recurseInLoop = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, insideLoop: true, loopDepth: loopDepth + 1, inHoistedChildren: false })
 
   switch (node.type) {
@@ -1050,7 +1060,7 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
       }
 
       const attrs = attrParts.join(' ')
-      const children = node.children.map(recurse).join('')
+      const children = node.children.map(childrenRecurse).join('')
 
       if (children || !VOID_ELEMENTS.has(node.tag)) {
         return `<${node.tag}${attrs ? ' ' + attrs : ''}>${children}</${node.tag}>`

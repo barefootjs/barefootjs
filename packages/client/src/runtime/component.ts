@@ -273,29 +273,39 @@ export function renderChild(
   // hoisted root carries the outer component's scope (the scope of the
   // call site that wrote `<Box children={<jsx/>} />`). When
   // `_parentScopeId` is null (top-level render), drop the attribute
-  // rather than emitting an empty `bf-s=""`.
-  if (html.includes(BF_PARENT_SCOPE)) {
-    const replacement = _parentScopeId ?? ''
-    html = replacement
-      ? html.replaceAll(BF_PARENT_SCOPE, replacement)
-      : html.replace(new RegExp(`\\s*bf-s="${BF_PARENT_SCOPE}"`, 'g'), '')
+  // rather than emitting an empty `bf-s=""`. The replacement is
+  // anchored to the exact `bf-s="..."` attribute shape so user text
+  // (or unrelated attribute values) that happens to contain the
+  // sentinel survives unchanged.
+  const placeholderAttrPattern = new RegExp(`(\\s+)?bf-s="${BF_PARENT_SCOPE}"`, 'g')
+  if (placeholderAttrPattern.test(html)) {
+    placeholderAttrPattern.lastIndex = 0
+    html = _parentScopeId
+      ? html.replace(placeholderAttrPattern, (_m, lead) => `${lead ?? ' '}bf-s="${_parentScopeId}"`)
+      : html.replace(placeholderAttrPattern, '')
   }
   // Templates may start with comment markers (e.g. <!--bf-cond-start:...-->)
   // so we find the first element tag rather than assuming index 0.
   const firstElMatch = html.match(/<(\w+)/)
   if (!firstElMatch) return html
   const insertPos = html.indexOf(firstElMatch[0])
-  // Deduplicate: when the inner template body is just a renderChild
-  // call (#1320), its returned html already carries a `bf-s` on the
-  // root and adding another one produces `<div bf-s="..." bf-s="...">`.
-  // The renderChild caller's scope is what already lives on the root,
-  // so the outer injection is the duplicate to drop.
+  // Deduplicate `bf-s` only: when the inner template body is itself a
+  // renderChild call (#1320), its returned html already carries a
+  // `bf-s` on the root, so adding another would produce
+  // `<div bf-s="..." bf-s="...">`. Still inject `slotAttrs` / `keyAttr`
+  // even in that branch — `data-key` is the reconciliation contract
+  // mapArray reads, and `bf-h` / `bf-m` mark child membership in the
+  // parent scope; dropping them along with the duplicate `bf-s` would
+  // silently regress list reconciliation.
   const afterInsert = html.slice(insertPos)
+  const extraAttrs = `${slotAttrs}${keyAttr}`
   if (/^<\w+[^>]*\sbf-s="/.test(afterInsert)) {
-    return html
+    if (!extraAttrs) return html
+    return html.slice(0, insertPos) +
+      afterInsert.replace(/^(<\w+)/, `$1${extraAttrs}`)
   }
   return html.slice(0, insertPos) +
-    afterInsert.replace(/^(<\w+)/, `$1 ${bfsAttr}${slotAttrs}${keyAttr}`)
+    afterInsert.replace(/^(<\w+)/, `$1 ${bfsAttr}${extraAttrs}`)
 }
 
 const BF_PARENT_SCOPE = '__BF_PARENT_SCOPE__'
