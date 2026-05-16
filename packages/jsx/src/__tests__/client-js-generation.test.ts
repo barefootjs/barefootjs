@@ -1908,6 +1908,31 @@ describe('Client JS generation', () => {
       expect(content).toMatch(/import \{[^}]*spreadAttrs[^}]*\} from '@barefootjs\/client\/runtime'/)
     })
 
+    test('issue #1317: stateful component with reactive spread imports spreadAttrs', () => {
+      // Surfaced limitation #7 from PR #1306. A `'use client'` component
+      // that spreads a signal-returned object on a DOM element
+      // (`<div {...attrs()} />`) emits a `spreadAttrs(...)` call in the
+      // template lambda; the import line must include `spreadAttrs` or
+      // hydration throws `ReferenceError: spreadAttrs is not defined`.
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/client'
+        export function JsxSpreadReactive() {
+          const [attrs, setAttrs] = createSignal<Record<string, string>>({ id: 'a', class: 'on' })
+          return <div onClick={() => setAttrs({ id: 'b', class: 'off' })} {...attrs()} />
+        }
+      `
+      const result = compileJSX(source, 'JsxSpreadReactive.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      expect(clientJs).toBeDefined()
+      const content = clientJs!.content
+
+      expect(content).toContain('spreadAttrs(')
+      expect(content).toMatch(/import \{[^}]*spreadAttrs[^}]*\} from '@barefootjs\/client\/runtime'/)
+    })
+
     test('computed spread with conditional expression emits spreadAttrs (#545)', () => {
       const source = `
         export function Icon(props: { large?: boolean }) {
