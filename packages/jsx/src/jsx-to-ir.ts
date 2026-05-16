@@ -32,7 +32,7 @@ import {
 } from './types'
 import { type AnalyzerContext, getSourceLocation } from './analyzer-context'
 import { parseExpression, isSupported, parseBlockBody, type ParsedExpr, type ParsedStatement } from './expression-parser'
-import { createError, ErrorCodes } from './errors'
+import { createError, ErrorCodes, internalInvariant } from './errors'
 import { containsReactiveExpression } from './reactivity-checker'
 import { rewriteBarePropRefs as rewriteBarePropRefsCore } from './prop-rewrite'
 import { resolveFreeRefs, type BindingEnvironment } from './free-refs'
@@ -1807,15 +1807,19 @@ function extractLoopParamBindings(
         const el = elements[index]
         if (ts.isOmittedExpression(el)) continue
         if (el.dotDotDotToken) {
-          // In JS, the rest element in destructuring must be the final element;
-          // the rest target must be a simple identifier (cannot itself be a
-          // nested binding pattern). TS will syntax-error otherwise, but we
-          // guard defensively so a malformed AST falls back to BF025 instead
-          // of emitting invalid JS.
-          if (index !== elements.length - 1 || !ts.isIdentifier(el.name)) {
-            unsupported = true
-            return
-          }
+          // TS already rejects rest tokens in non-final slots and rest targets
+          // that are not plain identifiers at parse time; reaching either
+          // branch here means an upstream tool produced a malformed AST. Throw
+          // instead of falling through to BF025 so the stack points at the
+          // broken caller. See #1311.
+          internalInvariant(
+            index === elements.length - 1,
+            'extractLoopParamBindings: array rest token in non-final position (parser should reject)',
+          )
+          internalInvariant(
+            ts.isIdentifier(el.name),
+            'extractLoopParamBindings: array rest target is not an identifier (parser should reject)',
+          )
           bindings.push({
             name: el.name.text,
             path: prefix,
@@ -1839,15 +1843,19 @@ function extractLoopParamBindings(
       if (unsupported) return
       const el = elements[i]
       if (el.dotDotDotToken) {
-        // Same shape constraint as array rest: must be last, must be a plain
-        // identifier. `exclude` is the list of sibling keys destructured at
-        // this level so the emitter can subtract them at runtime — each entry
-        // already carries its `isIdent` classification so no further regex
-        // runs downstream.
-        if (i !== elements.length - 1 || !ts.isIdentifier(el.name)) {
-          unsupported = true
-          return
-        }
+        // Same parser-enforced shape constraint as array rest: must be last,
+        // must be a plain identifier. `exclude` is the list of sibling keys
+        // destructured at this level so the emitter can subtract them at
+        // runtime — each entry already carries its `isIdent` classification so
+        // no further regex runs downstream.
+        internalInvariant(
+          i === elements.length - 1,
+          'extractLoopParamBindings: object rest token in non-final position (parser should reject)',
+        )
+        internalInvariant(
+          ts.isIdentifier(el.name),
+          'extractLoopParamBindings: object rest target is not an identifier (parser should reject)',
+        )
         bindings.push({
           name: el.name.text,
           path: prefix,
