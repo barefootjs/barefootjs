@@ -315,6 +315,23 @@ function printAppNextSteps(projectDir: string, adapter: AdapterTemplate): void {
     console.log(`${heading('Deploy:')}`)
     console.log(`  ${deployCmd}${dim(`   # deploy to ${adapter.deploy.target}`)}`)
   }
+
+  // A playful aside — give first-time users a concrete sense of what
+  // "AI + barefoot CLI" looks like in practice. The CLI surfaces
+  // (`barefoot ui`, `barefoot inspect`, registry add) are what make
+  // these prompts work without the AI having to read source, so the
+  // footnote names them explicitly. Visible in TTY contexts only:
+  // CI / piped output skips the section to keep logs grep-friendly.
+  if (process.stdout.isTTY) {
+    console.log('')
+    console.log(`${heading('Try it with AI:')}`)
+    console.log(`  ${dim('Drop any of these into Claude Code / Cursor / your AI editor —')}`)
+    console.log(`  ${dim('it uses the barefoot CLI to learn your components without reading source.')}`)
+    console.log('')
+    console.log(`    "Make the Reset button look dangerous (destructive variant)"`)
+    console.log(`    "Pull a Card from the registry and wrap the Counter inside it"`)
+    console.log(`    "Add a step input so I can change the increment amount"`)
+  }
 }
 
 // ANSI helpers for the next-steps block. All three apply only in a
