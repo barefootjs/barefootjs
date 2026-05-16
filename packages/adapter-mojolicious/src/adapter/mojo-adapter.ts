@@ -18,6 +18,7 @@ import type {
   IRIfStatement,
   IRProvider,
   IRAsync,
+  IRProp,
   IRTemplatePart,
   AttrValue,
   CompilerError,
@@ -103,6 +104,20 @@ const MOJO_PRIMITIVE_EMIT_MAP: Record<string, (args: string[]) => string> =
   Object.fromEntries(
     Object.entries(MOJO_TEMPLATE_PRIMITIVES).map(([k, v]) => [k, v.emit])
   )
+
+/**
+ * Find the `children` prop's `jsx-children` payload (#1326). Narrowed
+ * via the AttrValue `kind` discriminator so adapter code stays type-
+ * safe if the IR shape evolves — adding a new AttrValue variant or
+ * renaming `children` to `jsxChildren` becomes a TS compile error
+ * here instead of silently dropping the children at runtime.
+ */
+function resolveJsxChildrenProp(props: readonly IRProp[]): IRNode[] {
+  const prop = props.find(p => p.name === 'children')
+  if (!prop) return []
+  if (prop.value.kind !== 'jsx-children') return []
+  return prop.value.children
+}
 
 export interface MojoAdapterOptions {
   /** Base path for client JS files (default: '/static/components/') */
@@ -640,10 +655,13 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     // (#1326). The parent's scope marker is already attached to each
     // hoisted root by the IR collector (`needsScope: true`), so the
     // adapter just needs to render the IR through the same children
-    // pipeline as the nested form.
+    // pipeline as the nested form. Narrow the prop value via the
+    // `kind` discriminator instead of casting to a hand-written shape;
+    // any future change to the `jsx-children` AttrValue surface will
+    // surface here as a TS compile error.
     const effectiveChildren: IRNode[] = comp.children.length > 0
       ? comp.children
-      : (comp.props.find(p => p.name === 'children' && p.value.kind === 'jsx-children')?.value as { kind: 'jsx-children'; children: IRNode[] } | undefined)?.children ?? []
+      : resolveJsxChildrenProp(comp.props)
     if (effectiveChildren.length > 0) {
       // Forward JSX children via Mojo's `begin %>...<% end` capture so
       // dynamic segments inside the children (signals, conditionals)
