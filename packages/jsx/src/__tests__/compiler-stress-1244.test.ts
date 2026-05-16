@@ -7,13 +7,12 @@
  *   1. **Supported** — the compiler accepts the pattern; the test locks
  *      that in by asserting no fatal errors (and sometimes a downstream
  *      marker like `createEffect` / `createMemo` / lack of raw JSX).
- *   2. **Surfaced limitation** — the compiler currently rejects the
- *      pattern (or miscompiles it). The test asserts the *current*
- *      behaviour (the BFxxx code, or the wrong emit count) and the
- *      docstring records what the intended behaviour would look like.
- *      When the limitation is fixed the assertion starts failing —
- *      that's the prompt to delete the lock and replace it with a real
- *      assertion of the corrected output.
+ *   2. **Surfaced limitation** — `test.todo`. The body describes what
+ *      the compiler *should* do (no fatal errors, expected emit shape),
+ *      not what it does today. Each comes with a docstring spelling out
+ *      the current rejection or miscompile. When the underlying fix
+ *      lands, the implementer drops `.todo` and the assertion as
+ *      written runs against the corrected compiler.
  *
  * Layer 1 (compiler unit). Keeps the bisection window small; downstream
  * adapter / runtime tests can build on the patterns the compiler
@@ -52,12 +51,13 @@ function expectNoFatalErrors(c: Compiled): void {
 // ---------------------------------------------------------------------------
 
 describe('style={{}} object — multiple signal members', () => {
-  // SURFACED LIMITATION: a `style={{ a: s1(), b: s2(), c: s3() }}` object
-  // with three independent signals only emits two reactive updates,
-  // not three. Either two members share an effect or one is dropped.
-  // Intended behaviour is one reactive update path per signal-bearing
-  // member — file as a sub-issue of #1244.
-  test('3 members each read a different signal — only 2 of 3 reactive updates emit (regression lock)', () => {
+  // SURFACED LIMITATION (#1244 sub-issue): a `style={{ a: s1(), b: s2(), c: s3() }}`
+  // object with three independent signals currently emits only two
+  // reactive update paths instead of one per signal-bearing member —
+  // either two members share an effect or one is dropped. The body
+  // below asserts the intended behaviour (>= 3 reactive paths). Drop
+  // `.todo` once fixed.
+  test.todo('3 members each read a different signal — one reactive update per member', () => {
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -71,9 +71,7 @@ describe('style={{}} object — multiple signal members', () => {
     const c = compile(src)
     expectNoFatalErrors(c)
     const effectCount = (c.clientJs.match(/createEffect|effect\(/g) || []).length
-    // Lock current behaviour. When the compiler emits 3, this fails —
-    // delete the comment + flip the assertion to `>= 3`.
-    expect(effectCount).toBe(2)
+    expect(effectCount).toBeGreaterThanOrEqual(3)
   })
 })
 
@@ -396,12 +394,13 @@ describe('4+ same-name child components as siblings in one loop body', () => {
 })
 
 describe('destructured loop param with rest spread back onto the root', () => {
-  // SURFACED LIMITATION: BF025 — the compiler refuses rest elements in
-  // a `.map()` callback's destructure (`({ id, title, ...rest }) => …`).
-  // Intended behaviour is to lift `rest` into a per-item accessor that
-  // remaining-key reflection can spread back onto the root. File as a
-  // sub-issue of #1244.
-  test('{ id, title, ...rest } and {...rest} on the root element — rejected with BF025 (regression lock)', () => {
+  // SURFACED LIMITATION (#1244 sub-issue): BF025 currently rejects rest
+  // elements in a `.map()` callback destructure
+  // (`({ id, title, ...rest }) => …`). The intended behaviour is to
+  // lift `rest` into a per-item accessor that remaining-key reflection
+  // can spread back onto the root. The body asserts a clean compile.
+  // Drop `.todo` once fixed.
+  test.todo('{ id, title, ...rest } and {...rest} on the root element', () => {
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -417,17 +416,16 @@ describe('destructured loop param with rest spread back onto the root', () => {
         )
       }
     `
-    const c = compile(src)
-    expect(c.errors.map(e => e.code)).toContain('BF025')
+    expectNoFatalErrors(compile(src))
   })
 })
 
 describe('nested destructuring in loop param', () => {
-  // SURFACED LIMITATION: BF025 fires on the nested `[first, ...rest]`
-  // array-pattern with rest. Intended behaviour is per-position rewrite
-  // for the array members; the outer object destructure already works.
-  // File as a sub-issue of #1244.
-  test('{ rows: [first, ...rest] } at the loop param — rejected with BF025 (regression lock)', () => {
+  // SURFACED LIMITATION (#1244 sub-issue): BF025 fires on the nested
+  // `[first, ...rest]` array-pattern with rest. Intended behaviour is
+  // per-position rewrite for the array members; the outer object
+  // destructure already works. Drop `.todo` once fixed.
+  test.todo('{ rows: [first, ...rest] } at the loop param', () => {
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -443,8 +441,7 @@ describe('nested destructuring in loop param', () => {
         )
       }
     `
-    const c = compile(src)
-    expect(c.errors.map(e => e.code)).toContain('BF025')
+    expectNoFatalErrors(compile(src))
   })
 })
 
@@ -488,14 +485,14 @@ describe('computed key', () => {
 })
 
 describe('key edge values', () => {
-  // SURFACED LIMITATION: BF023 — the compiler treats a literal-falsy
-  // `key={null}` (or `key={false}`, `key={0}` reached through a
-  // ternary) as a missing key prop. Intended behaviour is to either
-  // accept the value verbatim (ints + booleans are valid React-style
-  // keys) or to diagnose with a specific "key cannot be falsy" code
-  // instead of the generic missing-key error. File as a sub-issue
-  // of #1244.
-  test('key={0}, key={false}, key={null} via ternary — rejected with BF023 (regression lock)', () => {
+  // SURFACED LIMITATION (#1244 sub-issue): BF023 (missing key) currently
+  // fires when a literal-falsy key (`key={0}`, `key={false}`,
+  // `key={null}`) is reachable through a ternary. The intended
+  // behaviour is either to accept the value verbatim (ints + booleans
+  // are valid React-style keys) or to diagnose with a more specific
+  // "key cannot be falsy" code, not the generic missing-key error. The
+  // body asserts a clean compile. Drop `.todo` once fixed.
+  test.todo('key={0}, key={false}, key={null} via ternary — accepted as a key', () => {
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -511,8 +508,7 @@ describe('key edge values', () => {
         )
       }
     `
-    const c = compile(src)
-    expect(c.errors.map(e => e.code)).toContain('BF023')
+    expectNoFatalErrors(compile(src))
   })
 })
 
@@ -638,13 +634,14 @@ describe('dangerouslySetInnerHTML with a reactive value', () => {
 // ---------------------------------------------------------------------------
 
 describe('signal returned from a generic helper', () => {
-  // SURFACED LIMITATION: BF110 — the analyzer doesn't recognise a
-  // *generic* helper (`function useResource<T>(): [() => T, …]`) as a
-  // reactive factory, even when its body is `return createSignal(...)`.
-  // Intended behaviour is to follow the helper through generics the
-  // same way the same-file-non-generic case is already followed.
-  // File as a sub-issue of #1244.
-  test('useResource<T>() return is destructured — rejected with BF110 (regression lock)', () => {
+  // SURFACED LIMITATION (#1244 sub-issue): BF110 currently rejects a
+  // *generic* helper (`function useResource<T>(): [() => T, …]`) even
+  // when its body is `return createSignal(...)` — the analyzer doesn't
+  // follow it through generics. The intended behaviour is to recognise
+  // the wrapper the same way the non-generic same-file helper case is
+  // already followed. The body asserts a clean compile. Drop `.todo`
+  // once fixed.
+  test.todo('useResource<T>() return is destructured into a signal', () => {
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -656,8 +653,7 @@ describe('signal returned from a generic helper', () => {
         return <button onClick={() => setName('bob')}>{name()}</button>
       }
     `
-    const c = compile(src)
-    expect(c.errors.map(e => e.code)).toContain('BF110')
+    expectNoFatalErrors(compile(src))
   })
 })
 
