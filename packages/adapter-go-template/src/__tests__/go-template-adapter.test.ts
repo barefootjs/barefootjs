@@ -56,13 +56,20 @@ runAdapterConformanceTests({
     // `Theme` field. Provider SSR coverage on go-template waits on
     // that adapter feature; see #1297 follow-up.
     'context-provider',
-    // #1244 stress catalog: `children={<span/>}` — the Hono reference
-    // emits `bf-s` on the inner `<span>` (it tracks the span as a
-    // hoisted child of Demo). The Go adapter doesn't carry that
-    // scope through `.Children` interpolation, so the rendered HTML
-    // omits the inner `bf-s` and diverges from expectedHtml. Same
-    // class as the existing `record-index-lookup-via-child-prop`
-    // CSR divergence; sub-issue of #1244.
+    // #1244 stress catalog (#1326): `children={<span/>}` — the IR
+    // hoists the span with `needsScope: true` so the Hono reference
+    // emits `bf-s` on the inner `<span>`. The Go adapter renders the
+    // span up front as a compile-time HTML fragment containing the
+    // `{{bfScopeAttr .}}` action, then passes it via `template.HTML`
+    // through the parent's `{{.Children}}` interpolation — but
+    // `template.HTML` is marked-as-safe-output, not recursively
+    // parsed, so the action survives as literal text in the rendered
+    // HTML. Fixing this requires either (a) re-emitting the inner
+    // span as its own named template definition the outer template
+    // can pass its struct to, or (b) embedding the resolved scope ID
+    // at compile time. Neither lands in this PR; the Mojo sibling
+    // case is handled by routing the hoisted JSX through the same
+    // `begin %>…<% end` capture as nested children (see #1326 fix).
     'children-jsx-expression',
   ],
   // Per-fixture build-time contracts for shapes the Go template

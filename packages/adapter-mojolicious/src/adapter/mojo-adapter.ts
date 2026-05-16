@@ -634,7 +634,17 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     }
     const propsStr = propParts.length > 0 ? ', ' + propParts.join(', ') : ''
     const tplName = this.toTemplateName(comp.name)
-    if (comp.children.length > 0) {
+    // Resolve the effective children: a nested `<Box>…</Box>` populates
+    // `comp.children`; an attribute-form `<Box children={<jsx/>} />`
+    // lands in a `jsx-children` AttrValue on the corresponding prop
+    // (#1326). The parent's scope marker is already attached to each
+    // hoisted root by the IR collector (`needsScope: true`), so the
+    // adapter just needs to render the IR through the same children
+    // pipeline as the nested form.
+    const effectiveChildren: IRNode[] = comp.children.length > 0
+      ? comp.children
+      : (comp.props.find(p => p.name === 'children' && p.value.kind === 'jsx-children')?.value as { kind: 'jsx-children'; children: IRNode[] } | undefined)?.children ?? []
+    if (effectiveChildren.length > 0) {
       // Forward JSX children via Mojo's `begin %>...<% end` capture so
       // dynamic segments inside the children (signals, conditionals)
       // get evaluated in the parent's template scope before reaching
@@ -643,7 +653,7 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
       // `render_child` would let the inner `%>` close the outer tag.
       // `render_child` materializes the resulting CODE ref into the
       // captured Mojo::ByteStream.
-      const childrenBody = this.renderChildren(comp.children)
+      const childrenBody = this.renderChildren(effectiveChildren)
       const varName = `$bf_children_${comp.slotId ?? 'c' + this.childrenCaptureCounter++}`
       return `<% my ${varName} = begin %>${childrenBody}<% end %><%== bf->render_child('${tplName}'${propsStr}, children => ${varName}) %>`
     }
