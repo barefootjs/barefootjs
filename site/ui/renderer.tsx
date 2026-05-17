@@ -29,6 +29,7 @@ import { getNavLinks } from '@/components/shared/PageNavigation'
 import { SearchButton } from '@/components/search-button'
 import { ThemeSwitcher } from '@/components/theme-switcher'
 import { CommandPalette } from '@/components/command-palette'
+import { commandGroups } from './lib/command-groups'
 
 // Import manifest for dependency-aware preloading
 // This enables BfPreload to automatically preload the full dependency chain
@@ -141,7 +142,7 @@ export const renderer = jsxRenderer(
             <Header activePage="ui" logoHref={logoHref} coreHref={coreHref} uiHref="/" playgroundHref={playgroundHref} integrationsHref={integrationsHref} searchSlot={<SearchButton />} themeSwitcher={<ThemeSwitcher />} />
             <MobileMenu />
             <MobilePageNav prev={navLinks.prev} next={navLinks.next} />
-            <CommandPalette />
+            <CommandPalette groups={commandGroups} />
             {isChrome && (
               <nav
                 className="hidden sm:block fixed top-14 left-0 w-56 h-[calc(100vh-56px)] overflow-y-auto border-r bg-background p-4"
