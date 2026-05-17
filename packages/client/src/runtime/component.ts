@@ -126,13 +126,8 @@ export function createComponent(
 
   // 4. Generate HTML from props.
   //
-  // Establish `_parentScopeId` so any hoisted-children placeholder in
-  // the template body (#1320) resolves to the calling site's scope.
-  // For components rendered as a child of a known parent, the slot
-  // info carries that scope; for top-level / standalone mounts no
-  // parent context exists, so the placeholder strips. Restore the
-  // previous value on the way out so nested createComponent calls
-  // don't see stale state.
+  // Thread `slot.parent` into `_parentScopeId` so any hoisted-children
+  // placeholder (#1320) resolves to the calling site's scope.
   const prevParentScopeId = _parentScopeId
   if (slot?.parent) {
     _parentScopeId = slot.parent
@@ -283,39 +278,27 @@ export function renderChild(
     return `<div ${bfsAttr}${slotAttrs}${keyAttr}></div>`
   }
 
-  let html = templateFn(props).trim()
-  // Hoisted JSX children embedded by the compile-time emit carry a
-  // placeholder `bf-s="__BF_PARENT_SCOPE__"` (#1320). Substitute with
-  // the current parent scope before scope marker injection so each
-  // hoisted root carries the outer component's scope (the scope of the
-  // call site that wrote `<Box children={<jsx/>} />`). When
-  // `_parentScopeId` is null (top-level render), drop the attribute
-  // rather than emitting an empty `bf-s=""`. The replacement is
-  // anchored to the exact `bf-s="..."` attribute shape so user text
-  // (or unrelated attribute values) that happens to contain the
-  // sentinel survives unchanged.
-  if (PLACEHOLDER_ATTR_PATTERN.test(html)) {
-    PLACEHOLDER_ATTR_PATTERN.lastIndex = 0
-    html = _parentScopeId
-      ? html.replace(PLACEHOLDER_ATTR_PATTERN, (_m, lead) => `${lead ?? ' '}bf-s="${_parentScopeId}"`)
-      : html.replace(PLACEHOLDER_ATTR_PATTERN, '')
-  }
+  // The placeholder substitution is anchored to the exact `bf-s="…"`
+  // shape so user content that contains the sentinel as text survives
+  // unchanged. When `_parentScopeId` is null (top-level render) the
+  // attribute strips rather than emitting `bf-s=""`. (#1320)
+  let html = templateFn(props).trim().replace(
+    PLACEHOLDER_ATTR_PATTERN,
+    _parentScopeId ? ` bf-s="${_parentScopeId}"` : '',
+  )
   // Templates may start with comment markers (e.g. <!--bf-cond-start:...-->)
   // so we find the first element tag rather than assuming index 0.
   const firstElMatch = html.match(/<(\w+)/)
   if (!firstElMatch) return html
-  const insertPos = html.indexOf(firstElMatch[0])
-  // Deduplicate `bf-s` only: when the inner template body is itself a
-  // renderChild call (#1320), its returned html already carries a
-  // `bf-s` on the root, so adding another would produce
-  // `<div bf-s="..." bf-s="...">`. Still inject `slotAttrs` / `keyAttr`
-  // even in that branch — `data-key` is the reconciliation contract
-  // mapArray reads, and `bf-h` / `bf-m` mark child membership in the
-  // parent scope; dropping them along with the duplicate `bf-s` would
-  // silently regress list reconciliation.
+  const insertPos = firstElMatch.index!
+  // Dedupe `bf-s` only when the template body's root already carries
+  // one (the body was itself a renderChild call). Still inject
+  // `slotAttrs` / `keyAttr` — `data-key` is the reconciliation
+  // contract `mapArray` reads, and `bf-h` / `bf-m` mark child
+  // membership in the parent scope. (#1320)
   const afterInsert = html.slice(insertPos)
   const extraAttrs = `${slotAttrs}${keyAttr}`
-  if (/^<\w+[^>]*\sbf-s="/.test(afterInsert)) {
+  if (ROOT_HAS_BFS_PATTERN.test(afterInsert)) {
     if (!extraAttrs) return html
     return html.slice(0, insertPos) +
       afterInsert.replace(/^(<\w+)/, `$1${extraAttrs}`)
@@ -324,15 +307,11 @@ export function renderChild(
     afterInsert.replace(/^(<\w+)/, `$1 ${bfsAttr}${extraAttrs}`)
 }
 
-/**
- * Module-scope regex hoisted so each `renderChild` call reuses the
- * compiled pattern instead of allocating a fresh one. Matches the
- * exact `bf-s="<placeholder>"` attribute shape (with optional
- * preceding whitespace captured so dedupe-on-empty doesn't leave a
- * dangling space). Sourced from `@barefootjs/shared` to keep emit
- * and consume sides in lockstep (#1320).
- */
-const PLACEHOLDER_ATTR_PATTERN = new RegExp(`(\\s+)?bf-s="${BF_PARENT_SCOPE_PLACEHOLDER}"`, 'g')
+// The leading `\s+` is part of the match so dropping the attribute
+// doesn't leave a dangling space; the compiler always emits the
+// placeholder preceded by whitespace from an enclosing tag.
+const PLACEHOLDER_ATTR_PATTERN = new RegExp(`\\s+bf-s="${BF_PARENT_SCOPE_PLACEHOLDER}"`, 'g')
+const ROOT_HAS_BFS_PATTERN = /^<\w+[^>]*\sbf-s="/
 
 /**
  * Generate a random ID for scope identification

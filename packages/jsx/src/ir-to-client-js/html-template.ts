@@ -8,9 +8,7 @@ import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM, DATA_BF_
 import type { LoopParamSpec } from './utils'
 import { nameForRegistryRef } from './component-scope'
 import { assertNever } from './walker'
-import { BF_PARENT_SCOPE_PLACEHOLDER } from '@barefootjs/shared'
-
-export { BF_PARENT_SCOPE_PLACEHOLDER }
+import { BF_PARENT_SCOPE_PLACEHOLDER, BF_SCOPE } from '@barefootjs/shared'
 
 /**
  * Protect string literals from regex-based replacements.
@@ -48,11 +46,19 @@ function childrenPropEntry(
   return `children: \`${children.map(recurse).join('')}\``
 }
 
-// `BF_PARENT_SCOPE_PLACEHOLDER` is the single source of truth shared by
-// emit (this file) and the runtime consumers (renderChild + CSR harness).
-// See `@barefootjs/shared/src/markers.ts` for its docstring and contract;
-// re-exported above so existing import paths into this file continue to
-// resolve.
+// #1320: emit a `bf-s` placeholder on the top-level hoisted element so
+// the runtime can substitute the outer component's scope. Limitation
+// for fragment-wrapped jsx-children tracked in #1335 — those land
+// with `needsScope: false` and a `needsScopeComment` fragment parent,
+// which this attribute-form gate doesn't reach.
+function maybeHoistedScopeAttr(
+  inHoistedChildren: boolean,
+  node: { needsScope?: boolean },
+): string | null {
+  return inHoistedChildren && node.needsScope
+    ? `${BF_SCOPE}="${BF_PARENT_SCOPE_PLACEHOLDER}"`
+    : null
+}
 
 /**
  * Sentinel returned by the CSR template's `transformExpr` when the expression
@@ -196,25 +202,8 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
         })
         .filter(Boolean)
 
-      // Hoisted JSX children that need a scope marker carry the outer
-      // component's scope, not the inner template's. The placeholder is
-      // substituted by `renderChild` (production + CSR harness) at the
-      // layer where `_parentScopeId` is the outer scope. Only the
-      // top-level hoisted element matters; nested children inside it
-      // have `needsScope: false` and inherit the parent template's
-      // scope chain. (#1320)
-      //
-      // Known limitation tracked in #1335: `children={<><span/></>}`
-      // (fragment-wrapped jsx-children) lands in the IR as a fragment
-      // with `needsScopeComment: true` whose direct child has
-      // `needsScope: false`, so no element-level placeholder is
-      // emitted here. The fragment-marker path is a separate scope
-      // mechanism that the current placeholder design doesn't extend
-      // to — needs either an IR-level `needsScope` promotion or a
-      // comment-marker placeholder mirroring this attribute one.
-      if (inHoistedChildren && node.needsScope) {
-        attrParts.push(`bf-s="${BF_PARENT_SCOPE_PLACEHOLDER}"`)
-      }
+      const hoistedScopeAttr = maybeHoistedScopeAttr(inHoistedChildren, node)
+      if (hoistedScopeAttr) attrParts.push(hoistedScopeAttr)
 
       if (node.slotId) {
         attrParts.push(`bf="${node.slotId}"`)
@@ -586,12 +575,7 @@ export interface TemplateOptions {
   memoMap?: Map<string, string>
   insideLoop?: boolean
   loopDepth?: number
-  /**
-   * When true, the current emit is generating HTML for a hoisted-JSX
-   * children prop (`<Box children={<span/>} />`). Elements with
-   * `needsScope: true` emit a `bf-s` placeholder (#1320); the
-   * runtime substitutes it with the outer component's scope.
-   */
+  /** Emit `bf-s` placeholder on scoped elements inside a jsx-children prop (#1320). */
   inHoistedChildren?: boolean
 }
 
@@ -615,13 +599,9 @@ export function irToComponentTemplate(
 
 function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): string {
   const { inlinableConstants, restSpreadNames, propsObjectName, loopDepth = 0 } = opts
-  // `recurse` preserves `inHoistedChildren` so structural pass-through
-  // nodes (fragment / conditional) keep the flag alive on the way down
-  // to the element root that actually consumes it (#1320). The element
-  // case below uses `childrenRecurse` instead to clear the flag for
-  // its own descendants — only the top-level hoisted element carries
-  // the placeholder; nested descendants take the parent template's
-  // scope chain.
+  // `recurse` preserves `inHoistedChildren` for structural pass-through
+  // (fragment / conditional); `childrenRecurse` clears it so element
+  // descendants don't re-emit the placeholder. (#1320)
   const recurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, opts)
   const childrenRecurse = (n: IRNode): string => irToComponentTemplateWithOpts(n, { ...opts, inHoistedChildren: false })
   // Transform expression for client JS template.
@@ -701,12 +681,8 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
         })
         .filter(Boolean)
 
-      // See the matching block in irToHtmlTemplate (#1320). The
-      // placeholder is substituted by renderChild at the layer where
-      // `_parentScopeId` is the outer component's scope.
-      if (opts.inHoistedChildren && node.needsScope) {
-        attrParts.push(`bf-s="${BF_PARENT_SCOPE_PLACEHOLDER}"`)
-      }
+      const hoistedScopeAttr = maybeHoistedScopeAttr(!!opts.inHoistedChildren, node)
+      if (hoistedScopeAttr) attrParts.push(hoistedScopeAttr)
 
       if (node.slotId) {
         attrParts.push(`bf="${node.slotId}"`)
@@ -1004,14 +980,10 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
     return finalResult
   }
 
-  // `recurse` preserves `inHoistedChildren` so structural pass-through
-  // nodes (fragment / conditional) keep the flag alive until the
-  // element root that actually consumes it (#1320). The element case
-  // below uses `childrenRecurse` instead to clear the flag for its
-  // own descendants — only the top-level hoisted element carries the
-  // placeholder; nested descendants take the parent template's scope
-  // chain. `recurseInLoop` always clears because a loop body starts
-  // its own iteration scope.
+  // `recurse` preserves `inHoistedChildren` for structural pass-through
+  // (fragment / conditional); `childrenRecurse` and `recurseInLoop`
+  // clear it — a new element root or loop iteration starts a fresh
+  // scope. (#1320)
   const recurse = (n: IRNode): string => generateCsrTemplateWithOpts(n, opts)
   const childrenRecurse = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, inHoistedChildren: false })
   const recurseInLoop = (n: IRNode): string => generateCsrTemplateWithOpts(n, { ...opts, insideLoop: true, loopDepth: loopDepth + 1, inHoistedChildren: false })
@@ -1054,12 +1026,8 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
         })
         .filter(Boolean)
 
-      // See the matching block in irToHtmlTemplate (#1320). The
-      // placeholder is substituted by renderChild at the layer where
-      // `_parentScopeId` is the outer component's scope.
-      if (opts.inHoistedChildren && node.needsScope) {
-        attrParts.push(`bf-s="${BF_PARENT_SCOPE_PLACEHOLDER}"`)
-      }
+      const hoistedScopeAttr = maybeHoistedScopeAttr(!!opts.inHoistedChildren, node)
+      if (hoistedScopeAttr) attrParts.push(hoistedScopeAttr)
 
       if (node.slotId) {
         attrParts.push(`bf="${node.slotId}"`)
