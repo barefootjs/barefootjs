@@ -27,7 +27,6 @@
 import ts from 'typescript'
 import { PROPS_PARAM, inferDefaultValue } from './utils'
 import { extractFreeIdentifiersFromNode } from '../analyzer'
-import type { ClientJsContext } from './types'
 import type { MemoInfo, SignalInfo } from '../types'
 
 /**
@@ -175,6 +174,22 @@ function csrSubstituteOnce(
     }
   }
 
+  // Walk a function body Block collecting names introduced by
+  // `var`/`let`/`const` declarations, so the enclosing function-scope
+  // bound set shadows them. Does not descend into nested functions —
+  // those have their own scope handled when `visit` reaches them.
+  const collectBlockDeclarations = (block: ts.Block, out: Set<string>): void => {
+    for (const stmt of block.statements) {
+      if (ts.isVariableStatement(stmt)) {
+        for (const decl of stmt.declarationList.declarations) {
+          collectBindingNames(decl.name, out)
+        }
+      } else if (ts.isFunctionDeclaration(stmt) && stmt.name) {
+        out.add(stmt.name.text)
+      }
+    }
+  }
+
   function visit(node: ts.Node): void {
     // Zero-arg call with bare-ident callee: `name()`. May be a signal
     // getter or memo call we should substitute. The callee identifier is
@@ -228,29 +243,36 @@ function csrSubstituteOnce(
       return
     }
 
-    // Arrow function: bind params, recurse, unbind.
+    // Arrow function: bind params + any block-scoped locals declared
+    // inside the body, recurse, unbind. Pre-collecting body locals
+    // before descending matters for the IIFE shape that
+    // `extractMemoBodyExpr` produces for non-trivial memo bodies:
+    //
+    //   (() => { const items = foo; return items.length })()
+    //
+    // If a component-scope signal also happens to be named `items`,
+    // descending without binding the inner `const` would substitute
+    // `items.length` with `(initialValue).length` — wrong, because
+    // the inner `const` shadows the signal. Hoisting the binding to
+    // the function's scope here mirrors JS block-scope semantics
+    // closely enough for the shapes IR expressions take.
     if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
       const bound = new Set<string>()
       for (const p of node.parameters) collectBindingNames(p.name, bound)
+      if (node.body && ts.isBlock(node.body)) {
+        collectBlockDeclarations(node.body, bound)
+      }
       boundStack.push(bound)
-      // Visit body only (parameter type-annotations are stripped at IR
-      // build, and we don't substitute in parameter defaults — same as
-      // the analyzer's free-id extraction).
       if (node.body) visit(node.body)
       boundStack.pop()
       return
     }
 
-    // Variable declaration introduces a local binding visible to
-    // sibling/later code in the same block; tracking that precisely
-    // would need full block-scope analysis. Same-scope substitution
-    // collisions are rare in IR expressions (`let x = ...; x + 1`
-    // appears only in `mapPreamble` style fragments), and a false
-    // positive there is detectable downstream. Visit children
-    // normally; the bound name is captured by the enclosing arrow/
-    // function's scope when one exists.
+    // Variable declaration: descend into the initializer only. The
+    // binding name itself is collected at the enclosing function's
+    // scope (above) — visiting it here as an identifier would falsely
+    // count it as a free ref.
     if (ts.isVariableDeclaration(node)) {
-      // Skip the binding name (it's a declaration, not a free ref).
       if (node.initializer) visit(node.initializer)
       return
     }
@@ -345,11 +367,11 @@ export function extractMemoBodyExpr(computation: string): string {
  * Memos contribute call-kind entries (`bars()` → `(memoBody)`).
  *
  * Constants are NOT added here — they're resolved separately because
- * the `csrInlinable` AST substitution itself can reference other
- * constants, and the chain must close at IR-build time
- * (see `computeCsrInlinabilityChain` in `compute-inlinability.ts`).
- * Inlinable-const substitutions are added per-component when emitting
- * template positions via `buildExpressionSubstitutionEnv`.
+ * the substitution of a const value can itself reference other consts,
+ * and the chain must close at IR-build time (see `populateCsrInlinable`
+ * in `compute-inlinability.ts`). Inlinable-const substitutions are
+ * layered into a copy of this env at `generateCsrTemplate`'s entry,
+ * reading from `ClientJsContext.csrInlinable`.
  */
 export function buildSignalMemoEnv(
   signals: readonly SignalInfo[],
@@ -397,34 +419,3 @@ function normalizeSignalInitial(signal: SignalInfo, propsObjectName: string | nu
   return initialValue
 }
 
-/**
- * Extend a base env (signal+memo substitutions) with constant-inlining
- * substitutions for the consts whose `csrInlinable` map entry is
- * non-null. Returns a fresh env so callers can layer per-position
- * context without mutating the base.
- */
-export function withConstantSubstitutions(
-  base: CsrEnv,
-  csrInlinable: CsrInlinabilityMap,
-): CsrEnv {
-  const substitutions = new Map(base.substitutions)
-  for (const [name, entry] of csrInlinable) {
-    if (entry) {
-      substitutions.set(name, {
-        kind: 'identifier',
-        replacement: entry.rewrittenValue,
-        freeIdentifiers: entry.freeIdentifiers,
-      })
-    }
-  }
-  return { substitutions, propsObjectName: base.propsObjectName }
-}
-
-/**
- * Convenience: build a fully-loaded CSR env (signals + memos + consts).
- * Used by the per-template-position substitution at emit time.
- */
-export function buildFullCsrEnv(ctx: ClientJsContext): CsrEnv {
-  const base = buildSignalMemoEnv(ctx.signals, ctx.memos, ctx.propsObjectName)
-  return withConstantSubstitutions(base, ctx.csrInlinable)
-}
