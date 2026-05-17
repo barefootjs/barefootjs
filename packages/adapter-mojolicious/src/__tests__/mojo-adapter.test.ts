@@ -60,12 +60,6 @@ runAdapterConformanceTests({
     // never receives a `theme` key. Provider SSR coverage on Mojo
     // waits on that adapter feature; see #1297 follow-up.
     'context-provider',
-    // #1244 stress catalog: `children={<span/>}` — the Hono reference
-    // tracks the span as a hoisted child of Demo and emits `bf-s` on
-    // it. Mojo doesn't carry that scope through `<%= $children %>`
-    // interpolation, so the rendered HTML omits the inner `bf-s`
-    // and diverges from expectedHtml. Sub-issue of #1244.
-    'children-jsx-expression',
   ],
   // Per-fixture build-time contracts for shapes the Mojo adapter
   // intentionally refuses to lower. Owned by this adapter test file
