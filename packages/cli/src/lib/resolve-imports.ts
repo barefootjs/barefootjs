@@ -745,12 +745,17 @@ async function walkAndCollect(
   // byte spans for the splice, so a duplicate of the import text appearing
   // inside a string literal can never be hit by accident.
   // piconic-ai/barefootjs#1242.
+  //
+  // `ScriptKind.JS` matches the actual input: this walker only sees
+  // post-transpile bundles (esbuild output for the client entry; the
+  // `transpile()` result for inlined `.ts` modules). Mirrors
+  // `detectStrippedReferences` below.
   const sourceFile = ts.createSourceFile(
-    'walk.ts',
+    'walk.js',
     content,
     ts.ScriptTarget.Latest,
     /*setParents*/ false,
-    ts.ScriptKind.TS,
+    ts.ScriptKind.JS,
   )
 
   /** One relative import statement found in the body, with its byte span. */
