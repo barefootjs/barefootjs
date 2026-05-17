@@ -104,13 +104,6 @@ describe('createComponent + hoisted-children scope (#1320)', () => {
   test('restores _parentScopeId after the template call (re-entrant safety)', async () => {
     const { hydrate, createComponent, renderChild } = await import('../../src/runtime')
 
-    // Two layers: Outer creates Inner, then renders a sibling span
-    // that should also see the SAME parent scope on its placeholder.
-    // If `_parentScopeId` wasn't restored on the way out of the inner
-    // `createComponent` call, the outer renderChild would see stale
-    // state on its subsequent template work. We verify the
-    // restoration by mounting two siblings via the same outer scope
-    // and checking both ended up with identical substituted scopes.
     hydrate('InnerLeaf_test1320', {
       init: () => {},
       template: (p: any) => `<div>${p.children}</div>`,
@@ -118,27 +111,75 @@ describe('createComponent + hoisted-children scope (#1320)', () => {
 
     hydrate('OuterTwo_test1320', {
       init: () => {},
-      template: () => {
-        const a = renderChild('InnerLeaf_test1320', { children: '<span data-pos="a" bf-s="__BF_PARENT_SCOPE__">A</span>' }, undefined, 's0')
-        const b = renderChild('InnerLeaf_test1320', { children: '<span data-pos="b" bf-s="__BF_PARENT_SCOPE__">B</span>' }, undefined, 's1')
-        return `<section>${a}${b}</section>`
-      },
+      template: () =>
+        `${renderChild('InnerLeaf_test1320', { children: '<span data-pos="x" bf-s="__BF_PARENT_SCOPE__">x</span>' }, undefined, 's0')}`,
     })
 
+    // First mount: creates a fresh element with slot.parent set so the
+    // placeholder substitutes to `parentScopeId`. This call sets
+    // `_parentScopeId` for the duration of the inner template eval —
+    // the assertion below catches the substitution working.
     const parentScopeId = 'OuterTwo_xyz789'
-    const el = createComponent(
+    const elWithParent = createComponent(
       'OuterTwo_test1320',
       {},
       undefined,
       { parent: parentScopeId, mount: 's0' },
     )
-    document.body.appendChild(el)
+    const innerWithParent = elWithParent.querySelector('span')
+    expect(innerWithParent!.getAttribute('bf-s')).toBe(parentScopeId)
 
-    const spans = el.querySelectorAll('span')
-    expect(spans).toHaveLength(2)
-    expect(spans[0].getAttribute('data-pos')).toBe('a')
-    expect(spans[0].getAttribute('bf-s')).toBe(parentScopeId)
-    expect(spans[1].getAttribute('data-pos')).toBe('b')
-    expect(spans[1].getAttribute('bf-s')).toBe(parentScopeId)
+    // Immediately after, mount a second instance WITHOUT slot.parent.
+    // If the first call had leaked `_parentScopeId` (no finally
+    // restore), this template eval would inherit `parentScopeId` and
+    // the placeholder would substitute. The restore makes
+    // `_parentScopeId` null at this point, so the placeholder strips.
+    const elWithoutParent = createComponent('OuterTwo_test1320', {})
+    const innerWithoutParent = elWithoutParent.querySelector('span')
+    expect(innerWithoutParent!.hasAttribute('bf-s')).toBe(false)
+  })
+
+  test('restores _parentScopeId even when the template throws', async () => {
+    const { hydrate, createComponent, renderChild } = await import('../../src/runtime')
+
+    hydrate('ThrowingChild_test1320', {
+      init: () => {},
+      template: () => { throw new Error('boom') },
+    })
+
+    hydrate('PassThroughLeaf_test1320', {
+      init: () => {},
+      template: (p: any) => `<div>${p.children}</div>`,
+    })
+
+    hydrate('PassThroughOuter_test1320', {
+      init: () => {},
+      template: () =>
+        `${renderChild('PassThroughLeaf_test1320', { children: '<span bf-s="__BF_PARENT_SCOPE__">y</span>' }, undefined, 's0')}`,
+    })
+
+    hydrate('Thrower_test1320', {
+      init: () => {},
+      template: () => `${renderChild('ThrowingChild_test1320', {}, undefined, 's0')}`,
+    })
+
+    // First call throws inside the template. The `finally` in
+    // createComponent must restore `_parentScopeId` regardless.
+    expect(() =>
+      createComponent(
+        'Thrower_test1320',
+        {},
+        undefined,
+        { parent: 'LeakedScope_abc', mount: 's0' },
+      ),
+    ).toThrow(/boom/)
+
+    // Second call: no slot.parent. If the throw had short-circuited the
+    // restore, this template would inherit `LeakedScope_abc` and the
+    // placeholder would substitute. With the finally in place,
+    // `_parentScopeId` is null and the placeholder strips.
+    const el = createComponent('PassThroughOuter_test1320', {})
+    const inner = el.querySelector('span')
+    expect(inner!.hasAttribute('bf-s')).toBe(false)
   })
 })
