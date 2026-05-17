@@ -90,17 +90,22 @@ export function BfScripts(props: BfScriptsProps = {}) {
     // then child components add their scripts. But for hydration, children
     // need to register their templates before parents try to use createComponent().
     // barefoot.js must stay first since it provides the runtime.
+    //
+    // Stub-derived scripts must come BEFORE the component scripts in the
+    // emitted order — `<script type="module">` tags evaluate in document
+    // order with microtask checkpoints between them, so a parent's
+    // `hydrate()`-scheduled walk fires (and its `init` calls
+    // `createComponent(...)` against the stub) before any later module
+    // script has registered. Within stubScripts, `collectStubDepScripts`
+    // already returns DFS post-order (deps before their dependent), so
+    // a chain A→B→C ships C, B, then the component bundle that stubs A.
     const barefootScript = scripts.find(s => s.src.includes('barefoot.js'))
     const componentScripts = scripts.filter(s => !s.src.includes('barefoot.js'))
-    const orderedScripts = barefootScript
-      ? [barefootScript, ...componentScripts.reverse()]
-      : componentScripts.reverse()
-    // Stub-derived scripts come after the component scripts so they
-    // load earliest in the document (existing scripts go through a
-    // reversal that puts children first; stub deps are conceptually
-    // "even deeper" — their registries must exist before any
-    // imperative stub call fires).
-    const finalScripts = [...orderedScripts, ...stubScripts.values()]
+    const finalScripts = [
+      ...(barefootScript ? [barefootScript] : []),
+      ...stubScripts.values(),
+      ...componentScripts.reverse(),
+    ]
 
     return (
       <Fragment>
@@ -118,10 +123,11 @@ export function BfScripts(props: BfScriptsProps = {}) {
 /**
  * Walk stub-rewrite edges from each manifest entry in `roots`,
  * returning the script URLs for every transitively reachable
- * `.client.js`. Skips any name already present in `excluded` (these
- * have a script tag elsewhere). Mutates `excluded` to record every
- * dep that's been resolved so the caller can pass it to the next
- * SSR pass without double-emitting. Exported for tests.
+ * `.client.js` in **DFS post-order** — every dep precedes its
+ * dependent in iteration order. Skips any name already present in
+ * `excluded` (these have a script tag elsewhere). Mutates `excluded`
+ * to record every dep that's been resolved so the caller can pass
+ * it to the next SSR pass without double-emitting. Exported for tests.
  *
  * Typical call shape: `roots` ⊆ `excluded`. The caller passes the
  * set of components whose SSR function already pushed a `<script>`
@@ -129,6 +135,15 @@ export function BfScripts(props: BfScriptsProps = {}) {
  * emitted, now walk their stubDeps." A `roots` value already in
  * `excluded` is still walked (we need its `stubDeps`); a `dep`
  * already in `excluded` is recorded as visited but not re-emitted.
+ *
+ * Why post-order: `<script type="module">` tags evaluate in document
+ * order with microtask checkpoints between them, so the first
+ * script's `hydrate()`-scheduled walk fires before any later
+ * module loads. A chain A→B→C must ship C, B, then A's bundle —
+ * BFS order (B, C) would let B's hydration call
+ * `createComponent('C', ...)` against an empty registry. Post-order
+ * also handles DAG edges like A→B, A→C, C→B correctly
+ * (deepest-first, dependencies-first).
  *
  * Cycle-safe: a visited set short-circuits any A → B → A loop.
  */
@@ -140,38 +155,27 @@ export function collectStubDepScripts(
 ): Map<string, CollectedScript> {
   const result = new Map<string, CollectedScript>()
   const prefix = base.endsWith('/') ? base : base + '/'
-
-  // Walk the stubDep graph starting from `roots`. `visited` guards
-  // against cycles and double-enqueue; `excluded` is consulted only
-  // when deciding whether to EMIT a script — a node already in
-  // `excluded` has its script tag elsewhere, but we still walk its
-  // own stubDeps so a transitively-deeper miss gets emitted here.
   const visited = new Set<string>()
-  const queue: string[] = []
-  for (const name of roots) {
-    if (name === '__barefoot__') continue
-    if (visited.has(name)) continue
-    visited.add(name)
-    queue.push(name)
-  }
 
-  while (queue.length > 0) {
-    const name = queue.shift()!
+  function visit(name: string): void {
+    if (name === '__barefoot__') return
+    if (visited.has(name)) return
+    visited.add(name)
     const entry = manifest[name]
-    const deps = entry?.stubDeps
-    if (!deps) continue
-    for (const dep of deps) {
-      if (visited.has(dep)) continue
-      visited.add(dep)
-      queue.push(dep)
-      if (excluded.has(dep)) continue
-      excluded.add(dep)
-      const depEntry = manifest[dep]
-      if (depEntry?.clientJs) {
-        const src = prefix + relPathFromComponentsBase(depEntry.clientJs)
-        result.set(dep, { src })
-      }
+    if (entry?.stubDeps) {
+      // Recurse FIRST so deps are emitted before this node — that's
+      // what produces post-order. Cycles short-circuit at the
+      // `visited.has(name)` check at the top of each call.
+      for (const dep of entry.stubDeps) visit(dep)
+    }
+    if (excluded.has(name)) return
+    excluded.add(name)
+    if (entry?.clientJs) {
+      const src = prefix + relPathFromComponentsBase(entry.clientJs)
+      result.set(name, { src })
     }
   }
+
+  for (const name of roots) visit(name)
   return result
 }

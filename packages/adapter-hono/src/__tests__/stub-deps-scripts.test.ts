@@ -40,6 +40,50 @@ describe('collectStubDepScripts (#1243)', () => {
     expect(new Set([...out.keys()])).toEqual(new Set(['B', 'C']))
   })
 
+  // Issue #1243 — Copilot review:
+  // `<script type="module">` tags execute in document order with
+  // microtask checkpoints between them. A's `hydrate()` schedules a
+  // walk that fires before later scripts evaluate, so any stub call
+  // from A.init must resolve against a registry the LATER scripts
+  // populated. Emitting B before C in document order would let B's
+  // `createComponent('C', ...)` fail. The walker must produce
+  // post-order (deepest first → A→B→C ships C, then B).
+  test('emits a transitive chain in post-order (C before B for A → B → C)', () => {
+    const out = collectStubDepScripts(
+      {
+        A: { clientJs: 'components/A.client.js', stubDeps: ['B'] },
+        B: { clientJs: 'components/B.client.js', stubDeps: ['C'] },
+        C: { clientJs: 'components/C.client.js' },
+      },
+      '/static/components/',
+      new Set(['A']),
+      new Set(['A']),
+    )
+    // Map preserves insertion order; iteration = emission order in DOM.
+    expect([...out.keys()]).toEqual(['C', 'B'])
+  })
+
+  // Post-order isn't just leaves-first; for a DAG where a sibling
+  // depends on another sibling (A → B, A → C, C → B), `B` must
+  // precede `C` in the output even though both are direct children
+  // of A. BFS+reverse can't express this — DFS post-order does.
+  test('emits DAG edges in topological order (B before C for A → B, A → C, C → B)', () => {
+    const out = collectStubDepScripts(
+      {
+        A: { clientJs: 'components/A.client.js', stubDeps: ['B', 'C'] },
+        B: { clientJs: 'components/B.client.js' },
+        C: { clientJs: 'components/C.client.js', stubDeps: ['B'] },
+      },
+      '/static/components/',
+      new Set(['A']),
+      new Set(['A']),
+    )
+    // A's first dep is B → visited (no further deps) → emit B.
+    // A's second dep is C → recurse into C's deps → B already visited
+    // → emit C. So order is B then C.
+    expect([...out.keys()]).toEqual(['B', 'C'])
+  })
+
   test('short-circuits on a cycle (A → B → A)', () => {
     const out = collectStubDepScripts(
       {
