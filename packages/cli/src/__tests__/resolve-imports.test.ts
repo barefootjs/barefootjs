@@ -597,6 +597,37 @@ console.log(FOO, BAR)
     expect(result).toContain('console.log(FOO, BAR)')
   })
 
+  // Regression: bf#1242 (Copilot review follow-up) — `ts.getEnd()` does
+  // not include trailing trivia, so the splice must extend past whatever
+  // line terminator follows the last token. CRLF input through a strip
+  // path (empty replacement) would otherwise leave the original `\r\n`
+  // standalone where the import used to be.
+  test('strips CRLF-terminated imports without leaving a stray blank line (#1242)', async () => {
+    // Missing-path strip — replacement is `''`, so the trailing line
+    // terminator matters. With LF this is already covered implicitly by
+    // the other strip tests; CRLF used to slip through because only `\n`
+    // was consumed.
+    const clientJs =
+      `import { missing } from './nonexistent'\r\n` +
+      `console.log('still works')\r\n`
+    writeFileSync(resolve(COMPONENTS_DIR, 'Crlf-abc.js'), clientJs)
+    const manifest = {
+      Crlf: { clientJs: 'components/Crlf-abc.js', markedTemplate: 'components/Crlf.tsx' },
+    }
+
+    await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'Crlf-abc.js')).text()
+    // Import is gone …
+    expect(result).not.toContain('./nonexistent')
+    // … the body is preserved …
+    expect(result).toContain("console.log('still works')")
+    // … and the file does NOT start with an orphan `\r\n` left behind
+    // from the stripped import's line terminator.
+    expect(result.startsWith('\r\n')).toBe(false)
+    expect(result.startsWith('\n')).toBe(false)
+  })
+
   // Regression: bf#1242 — the predecessor walker built an unanchored
   // regex from the matched import text and applied it with a plain
   // `.replace(re, ...)`, which strips the FIRST occurrence in the file.

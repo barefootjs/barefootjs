@@ -777,7 +777,15 @@ async function walkAndCollect(
     if (!spec.startsWith('./') && !spec.startsWith('../')) continue
     const start = stmt.getStart(sourceFile)
     const endNoNewline = stmt.getEnd()
+    // Consume one trailing line terminator so the body doesn't keep a
+    // blank line where the import used to be. Handles LF, CRLF, and a
+    // lone CR — `ts.getEnd()` does not include trailing trivia, so
+    // whatever follows the last token is still in `content` at this
+    // offset.
     let endWithNewline = endNoNewline
+    if (endWithNewline < content.length && content[endWithNewline] === '\r') {
+      endWithNewline += 1
+    }
     if (endWithNewline < content.length && content[endWithNewline] === '\n') {
       endWithNewline += 1
     }
