@@ -192,14 +192,14 @@ export function CommandPalette(props: CommandPaletteProps) {
       <div
         data-command-overlay
         data-open="false"
-        className="fixed inset-0 z-dialog bg-black/50 transition-opacity duration-150 data-[open=false]:opacity-0 data-[open=false]:pointer-events-none"
+        className="fixed inset-0 z-[9999] bg-black/50 transition-opacity duration-150 data-[open=false]:opacity-0 data-[open=false]:pointer-events-none"
       />
 
       {/* Palette */}
       <div
         data-command-palette
         data-open="false"
-        className="fixed left-1/2 top-[15%] z-dialog w-full max-w-lg -translate-x-1/2 transition-all duration-150 data-[open=false]:opacity-0 data-[open=false]:scale-95 data-[open=false]:pointer-events-none"
+        className="fixed left-1/2 top-[15%] z-[9999] w-full max-w-lg -translate-x-1/2 transition-all duration-150 data-[open=false]:opacity-0 data-[open=false]:scale-95 data-[open=false]:pointer-events-none"
       >
         <div className="mx-4 sm:mx-0 overflow-hidden rounded-lg border bg-background shadow-2xl">
           {/* Search input */}
