@@ -26,6 +26,7 @@ export function createConfig(options: MojoBuildOptions = {}) {
     externals: options.externals,
     externalsBasePath: options.externalsBasePath,
     bundleEntries: options.bundleEntries,
+    localImportPrefixes: options.localImportPrefixes,
     outputLayout: options.outputLayout ?? {
       templates: 'templates',
       clientJs: 'client',

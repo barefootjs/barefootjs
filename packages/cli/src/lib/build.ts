@@ -51,6 +51,12 @@ export interface BuildConfig {
   externalsBasePath?: string
   /** Additional entry points to bundle with esbuild, with config.externals auto-applied */
   bundleEntries?: BundleEntry[]
+  /**
+   * Import prefixes resolved at build time rather than left as bare
+   * specifiers in the emitted client JS (e.g. `['@/', '@ui/']` for
+   * tsconfig `paths` aliases). Forwarded to `compileJSX`.
+   */
+  localImportPrefixes?: string[]
 }
 
 export interface BuildResult {
@@ -161,7 +167,7 @@ export function generateHash(content: string): string {
  */
 export function resolveBuildConfigFromTs(
   projectDir: string,
-  tsConfig: { adapter: TemplateAdapter; components?: string[]; outDir?: string; minify?: boolean; contentHash?: boolean; clientOnly?: boolean; transformMarkedTemplate?: (content: string, componentId: string, clientJsPath: string) => string; outputLayout?: OutputLayout; postBuild?: (ctx: PostBuildContext) => Promise<void> | void; externals?: Record<string, ExternalSpec>; externalsBasePath?: string; bundleEntries?: BundleEntry[] },
+  tsConfig: { adapter: TemplateAdapter; components?: string[]; outDir?: string; minify?: boolean; contentHash?: boolean; clientOnly?: boolean; transformMarkedTemplate?: (content: string, componentId: string, clientJsPath: string) => string; outputLayout?: OutputLayout; postBuild?: (ctx: PostBuildContext) => Promise<void> | void; externals?: Record<string, ExternalSpec>; externalsBasePath?: string; bundleEntries?: BundleEntry[]; localImportPrefixes?: string[] },
   overrides?: { minify?: boolean }
 ): BuildConfig {
   const componentDirs = (tsConfig.components ?? ['components']).map(
@@ -187,6 +193,7 @@ export function resolveBuildConfigFromTs(
       outfile: e.outfile,
       externals: e.externals,
     })),
+    localImportPrefixes: tsConfig.localImportPrefixes,
   }
 }
 
@@ -1243,6 +1250,7 @@ async function compileEntry(args: CompileEntryArgs): Promise<CompileEntryOutcome
       // lookups BF103 warns about resolve correctly. Tell the adapter
       // it can suppress that diagnostic for CLI-managed builds.
       siblingTemplatesRegistered: true,
+      localImportPrefixes: config.localImportPrefixes,
     },
   )
 

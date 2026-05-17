@@ -161,6 +161,21 @@ describe('resolveBuildConfigFromTs', () => {
 
     expect(config.outDir).toBe('/test/project/build/output')
   })
+
+  test('passes through localImportPrefixes', () => {
+    const config = resolveBuildConfigFromTs(projectDir, {
+      adapter: mockAdapter,
+      localImportPrefixes: ['@/', '@ui/'],
+    })
+
+    expect(config.localImportPrefixes).toEqual(['@/', '@ui/'])
+  })
+
+  test('localImportPrefixes defaults to undefined when omitted', () => {
+    const config = resolveBuildConfigFromTs(projectDir, { adapter: mockAdapter })
+
+    expect(config.localImportPrefixes).toBeUndefined()
+  })
 })
 
 // ── collectRelativeImportDeps ───────────────────────────────────────────

@@ -213,6 +213,16 @@ export function Counter() {
     expect(config.externals).toBeUndefined()
     expect(config.externalsBasePath).toBeUndefined()
   })
+
+  test('passes through localImportPrefixes', () => {
+    const config = createConfig({ localImportPrefixes: ['@/', '@ui/'] })
+    expect(config.localImportPrefixes).toEqual(['@/', '@ui/'])
+  })
+
+  test('localImportPrefixes defaults to undefined', () => {
+    const config = createConfig()
+    expect(config.localImportPrefixes).toBeUndefined()
+  })
 })
 
 // ── maskComments ────────────────────────────────────────────────────
