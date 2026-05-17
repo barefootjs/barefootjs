@@ -563,4 +563,151 @@ export function initDeskCanvas(__scope, _p = {}) {
     // Untouched module imports stay.
     expect(result).toContain("from '@barefootjs/client/runtime'")
   })
+
+  // Regression: bf#1242 — the predecessor walker matched relative imports
+  // with a line-anchored regex whose `.` did not span newlines, so a
+  // multi-line `import { ... } from './x'` clause (with or without embedded
+  // line comments) silently failed to match and the import survived the
+  // walk. The AST splice walks `ImportDeclaration` nodes regardless of
+  // source formatting.
+  test('inlines a multi-line named import with embedded line comments (#1242)', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'multiline-utils.ts'), `
+export const FOO = 1
+export const BAR = 2
+`)
+    const clientJs = `import {
+  FOO,
+  // a comment in the middle of the clause
+  BAR,
+} from './multiline-utils'
+console.log(FOO, BAR)
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'Multi-abc.js'), clientJs)
+    const manifest = {
+      Multi: { clientJs: 'components/Multi-abc.js', markedTemplate: 'components/Multi.tsx' },
+    }
+
+    await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'Multi-abc.js')).text()
+    // Import is gone and the module body is inlined.
+    expect(result).not.toContain("from './multiline-utils'")
+    expect(result).toContain('FOO = 1')
+    expect(result).toContain('BAR = 2')
+    expect(result).toContain('console.log(FOO, BAR)')
+  })
+
+  // Lock the `existingTopLevel`-snapshot-once invariant introduced in
+  // bf#1242 alongside the AST splice: two `'use client'` `.tsx` named
+  // imports in the same parent, where ONE local name already exists as
+  // a top-level binding in the bundle (esbuild had inlined the target's
+  // compiled JS upstream — see #1258 for the original symptom) and the
+  // other does not. The walker takes a single snapshot of top-level
+  // bindings before any splice, so the second stub decision MUST not
+  // see the first stub yet (TS forbids same-name imports, so the
+  // scenario where it would matter cannot arise — this test documents
+  // that we're relying on that invariant).
+  test('emits stubs only for non-colliding names across multiple use-client .tsx imports (#1242)', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'AlreadyInlined.tsx'), `'use client'
+export function AlreadyInlined() { return <div /> }
+`)
+    writeFileSync(resolve(COMPONENTS_DIR, 'NeedsStub.tsx'), `'use client'
+export function NeedsStub() { return <button /> }
+`)
+    // Parent bundle: imports BOTH client components. The first target
+    // (`AlreadyInlined`) ALSO has its compiled JS already at the top
+    // level (simulating esbuild having bundled it in upstream), so its
+    // stub must be skipped. The second target (`NeedsStub`) has no
+    // pre-existing declaration, so its stub must be emitted.
+    const clientJs = `import { AlreadyInlined } from './AlreadyInlined'
+import { NeedsStub } from './NeedsStub'
+import { createComponent, hydrate } from '@barefootjs/client/runtime'
+export function AlreadyInlined(_p, __bfKey) { return createComponent('AlreadyInlined', _p, __bfKey) }
+hydrate('AlreadyInlined', { init: () => {}, template: () => '<div></div>' })
+console.log('body uses', AlreadyInlined, NeedsStub)
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'MultiUseClient-abc.js'), clientJs)
+    const manifest = {
+      MultiUseClient: {
+        clientJs: 'components/MultiUseClient-abc.js',
+        markedTemplate: 'components/MultiUseClient.tsx',
+      },
+    }
+
+    const { errors } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'MultiUseClient-abc.js')).text()
+    // Both import lines are gone.
+    expect(result).not.toContain("from './AlreadyInlined'")
+    expect(result).not.toContain("from './NeedsStub'")
+    // No duplicate stub for the already-inlined target — the pre-existing
+    // `export function AlreadyInlined(...)` must survive intact and we must
+    // NOT have prepended `const AlreadyInlined = (props, key) => …`.
+    expect(result).not.toContain('const AlreadyInlined =')
+    expect(result).toContain('export function AlreadyInlined(_p, __bfKey)')
+    // A stub IS emitted for the non-colliding target.
+    expect(result).toContain('const NeedsStub = (props, key) => createComponent("NeedsStub", props, key)')
+    // Both names have valid runtime-resolved definitions → no BF053.
+    expect(errors).toHaveLength(0)
+  })
+
+  // Regression: bf#1242 (Copilot review follow-up) — `ts.getEnd()` does
+  // not include trailing trivia, so the splice must extend past whatever
+  // line terminator follows the last token. CRLF input through a strip
+  // path (empty replacement) would otherwise leave the original `\r\n`
+  // standalone where the import used to be.
+  test('strips CRLF-terminated imports without leaving a stray blank line (#1242)', async () => {
+    // Missing-path strip — replacement is `''`, so the trailing line
+    // terminator matters. With LF this is already covered implicitly by
+    // the other strip tests; CRLF used to slip through because only `\n`
+    // was consumed.
+    const clientJs =
+      `import { missing } from './nonexistent'\r\n` +
+      `console.log('still works')\r\n`
+    writeFileSync(resolve(COMPONENTS_DIR, 'Crlf-abc.js'), clientJs)
+    const manifest = {
+      Crlf: { clientJs: 'components/Crlf-abc.js', markedTemplate: 'components/Crlf.tsx' },
+    }
+
+    await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'Crlf-abc.js')).text()
+    // Import is gone …
+    expect(result).not.toContain('./nonexistent')
+    // … the body is preserved …
+    expect(result).toContain("console.log('still works')")
+    // … and the file does NOT start with an orphan `\r\n` left behind
+    // from the stripped import's line terminator.
+    expect(result.startsWith('\r\n')).toBe(false)
+    expect(result.startsWith('\n')).toBe(false)
+  })
+
+  // Regression: bf#1242 — the predecessor walker built an unanchored
+  // regex from the matched import text and applied it with a plain
+  // `.replace(re, ...)`, which strips the FIRST occurrence in the file.
+  // If the same byte sequence appears earlier inside a string literal,
+  // the splice hits the literal instead of the real import. The AST
+  // splice uses node start/end offsets, so the string literal is left
+  // untouched and the real import is removed.
+  test('splices the real import even when the same text appears in a string literal (#1242)', async () => {
+    const clientJs = `const HELP_MESSAGE = "import { missingBinding } from './nonexistent'"
+import { missingBinding } from './nonexistent'
+console.log(HELP_MESSAGE)
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'StringLit-abc.js'), clientJs)
+    const manifest = {
+      StringLit: { clientJs: 'components/StringLit-abc.js', markedTemplate: 'components/StringLit.tsx' },
+    }
+
+    await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'StringLit-abc.js')).text()
+    // String literal is preserved byte-identical — the splice must not
+    // have touched it.
+    expect(result).toContain(`"import { missingBinding } from './nonexistent'"`)
+    // The real top-level import statement is removed (no `import` keyword
+    // at the start of any line referencing './nonexistent').
+    expect(result).not.toMatch(/^import[^\n]*from '\.\/nonexistent'/m)
+    expect(result).toContain('console.log(HELP_MESSAGE)')
+  })
 })

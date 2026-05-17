@@ -3,12 +3,7 @@
 import { dirname, resolve } from 'node:path'
 import ts from 'typescript'
 import { createError, ErrorCodes, type CompilerError } from '@barefootjs/jsx'
-import { RELATIVE_IMPORT_RE } from './patterns'
 import { fileExists, readText, transpile, writeText } from './runtime'
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
 
 /**
  * Parsed shape of the `import` statement that triggered an inline.
@@ -28,26 +23,19 @@ interface ImportShape {
 }
 
 /**
- * Parse an `import ... from '...'` statement into its bound-name shape via
- * the TypeScript compiler API. Returns `null` if the statement is a
- * side-effect-only import (`import './x'`) or the input is not a single
- * import declaration.
+ * Extract the bound-name shape directly from a TypeScript
+ * `ImportDeclaration` node. Returns `null` for side-effect imports
+ * (`import './x'`), which carry no bindings.
  *
- * Handles every shape the regex predecessor missed: multi-line clauses,
- * trailing commas, comments inside the clause, and `import type`.
+ * Operating on the AST node — instead of re-parsing the matched text —
+ * is what lets the walker handle every statement shape the predecessor
+ * regex used to miss: multi-line clauses, trailing commas, line comments
+ * inside the clause, and `import type` (still erased, but recognised).
  */
-function parseImportShape(stmt: string): ImportShape | null {
-  const sourceFile = ts.createSourceFile(
-    'import.ts',
-    stmt,
-    ts.ScriptTarget.Latest,
-    /*setParents*/ false,
-    ts.ScriptKind.TS,
-  )
-  const decl = sourceFile.statements.find(ts.isImportDeclaration)
-  if (!decl || !decl.importClause) return null // side-effect import: `import './x'`
-
+function shapeFromDecl(decl: ts.ImportDeclaration): ImportShape | null {
   const clause = decl.importClause
+  if (!clause) return null // side-effect import: `import './x'`
+
   const shape: ImportShape = { named: [] }
 
   if (clause.name) {
@@ -527,16 +515,18 @@ interface StrippedImport {
  * Record an `import` statement that was just stripped (because the target
  * was a sibling `.tsx`, an unresolved path, or a circular relative dep) so
  * a later pass can verify none of its locals are still referenced.
+ *
+ * `shape` comes from `shapeFromDecl(decl)` — `null` for side-effect
+ * imports (`import './x'`), which have nothing to dangle.
  */
 function recordStrippedImport(
-  fullMatch: string,
+  shape: ImportShape | null,
   importPath: string,
   loggingPath: string,
   kind: StripKind,
   stripped: StrippedImport[],
 ): void {
-  const shape = parseImportShape(fullMatch)
-  if (!shape) return // side-effect import (`import './x'`) — no bound names.
+  if (!shape) return
   const bindings: string[] = []
   for (const { local } of shape.named) bindings.push(local)
   if (shape.namespace) bindings.push(shape.namespace)
@@ -747,13 +737,85 @@ async function walkAndCollect(
   loggingPath: string,
   stripped: StrippedImport[],
 ): Promise<string> {
-  const re = new RegExp(RELATIVE_IMPORT_RE.source, RELATIVE_IMPORT_RE.flags)
-  const matches = [...content.matchAll(re)]
-  if (matches.length === 0) return content
+  // Parse the body with the TypeScript compiler API and walk every
+  // top-level `ImportDeclaration`. Working off the AST — rather than
+  // regex-matching the source text — handles every statement shape the
+  // predecessor missed (multi-line clauses, line comments inside the
+  // clause, `import type`, alternate quote styles) and gives us authoritative
+  // byte spans for the splice, so a duplicate of the import text appearing
+  // inside a string literal can never be hit by accident.
+  // piconic-ai/barefootjs#1242.
+  //
+  // `ScriptKind.JS` matches the actual input: this walker only sees
+  // post-transpile bundles (esbuild output for the client entry; the
+  // `transpile()` result for inlined `.ts` modules). Mirrors
+  // `detectStrippedReferences` below.
+  const sourceFile = ts.createSourceFile(
+    'walk.js',
+    content,
+    ts.ScriptTarget.Latest,
+    /*setParents*/ false,
+    ts.ScriptKind.JS,
+  )
 
-  for (const match of matches) {
-    const importPath = match[1]
-    const fullMatch = match[0]
+  /** One relative import statement found in the body, with its byte span. */
+  interface ImportSite {
+    decl: ts.ImportDeclaration
+    /** Statement start (after leading trivia, matching the pre-AST regex). */
+    start: number
+    /** Statement end including one trailing newline if present — the
+     *  splice should consume that newline so the body doesn't keep a blank
+     *  line where the import used to be (matches the legacy `\\n?` behavior). */
+    endWithNewline: number
+    /** Statement end without consuming the trailing newline — used when
+     *  the replacement is non-empty and should occupy the import's line
+     *  (matching legacy `content.replace(fullMatch, binding)` semantics). */
+    endNoNewline: number
+    specifier: string
+  }
+
+  const sites: ImportSite[] = []
+  for (const stmt of sourceFile.statements) {
+    if (!ts.isImportDeclaration(stmt)) continue
+    if (!ts.isStringLiteral(stmt.moduleSpecifier)) continue
+    const spec = stmt.moduleSpecifier.text
+    if (!spec.startsWith('./') && !spec.startsWith('../')) continue
+    const start = stmt.getStart(sourceFile)
+    const endNoNewline = stmt.getEnd()
+    // Consume one trailing line terminator so the body doesn't keep a
+    // blank line where the import used to be. Handles LF, CRLF, and a
+    // lone CR — `ts.getEnd()` does not include trailing trivia, so
+    // whatever follows the last token is still in `content` at this
+    // offset.
+    let endWithNewline = endNoNewline
+    if (endWithNewline < content.length && content[endWithNewline] === '\r') {
+      endWithNewline += 1
+    }
+    if (endWithNewline < content.length && content[endWithNewline] === '\n') {
+      endWithNewline += 1
+    }
+    sites.push({ decl: stmt, start, endWithNewline, endNoNewline, specifier: spec })
+  }
+
+  if (sites.length === 0) return content
+
+  // Snapshot top-level bindings ONCE before any splice. Used by the
+  // `'use client'` `.tsx` named-import branch to skip stubs whose `local`
+  // name esbuild has already declared elsewhere in the bundle (#1258).
+  // Taking the snapshot before mutation is safe because TS forbids
+  // two imports binding the same local name in a single module, so no
+  // two sites in this walk can mint the same stub name.
+  const existingTopLevel = collectTopLevelBindings(content)
+
+  interface Replacement {
+    start: number
+    end: number
+    text: string
+  }
+  const replacements: Replacement[] = []
+
+  for (const site of sites) {
+    const importPath = site.specifier
     const result = await resolveSourceFile(importPath, searchDirs)
 
     if (result.kind === 'external') {
@@ -761,11 +823,13 @@ async function walkAndCollect(
       continue
     }
 
+    const shape = shapeFromDecl(site.decl)
+
     if (result.kind === 'missing') {
       // Surface unresolved imports — silent strips made #1151 hard to spot.
       console.warn(`Stripped unresolved import: ${importPath} from ${loggingPath}`)
-      content = content.replace(new RegExp(escapeRegExp(fullMatch) + '\\n?'), '')
-      recordStrippedImport(fullMatch, importPath, loggingPath, 'missing', stripped)
+      replacements.push({ start: site.start, end: site.endWithNewline, text: '' })
+      recordStrippedImport(shape, importPath, loggingPath, 'missing', stripped)
       continue
     }
 
@@ -805,7 +869,6 @@ async function walkAndCollect(
       // (`nodeTypes={{ kind: Component }}`) that drove both #1236 and #1240.
       const targetSource = await readText(result.path)
       const isUseClientTarget = hasUseClientDirective(targetSource)
-      const shape = parseImportShape(fullMatch)
       const namedBindings = shape?.named ?? []
       const fallbackBindings: string[] = []
       if (shape?.namespace) fallbackBindings.push(shape.namespace)
@@ -818,13 +881,12 @@ async function walkAndCollect(
         // is already present). Re-declaring those as `const X = …` produces
         // a SyntaxError on parse and silently kills every hydration in the
         // bundle. piconic-ai/barefootjs#1258.
-        const existingTopLevel = collectTopLevelBindings(content)
         const stubsToEmit = namedBindings.filter(({ local }) => !existingTopLevel.has(local))
         const stubBody = stubsToEmit
           .map(({ local, imported }) => `const ${local} = (props, key) => createComponent(${JSON.stringify(imported)}, props, key);`)
           .join('\n')
         const replacement = stubBody.length > 0 ? `${stubBody}\n` : ''
-        content = content.replace(new RegExp(escapeRegExp(fullMatch) + '\\n?'), replacement)
+        replacements.push({ start: site.start, end: site.endWithNewline, text: replacement })
         // The stub references the runtime `createComponent` symbol. Every
         // JSX-emitted client bundle already imports it as part of the
         // umbrella `barefoot.js` runtime (any `<X />` use compiles to a
@@ -852,21 +914,20 @@ async function walkAndCollect(
       // No named bindings (only default / namespace, or unparseable / side-
       // effect-only). Preserve the pre-#1240 behaviour: drop the import and
       // let BF053 fire on dangling references.
-      content = content.replace(new RegExp(escapeRegExp(fullMatch) + '\\n?'), '')
+      replacements.push({ start: site.start, end: site.endWithNewline, text: '' })
       console.log(`Stripped client component import: ${importPath} from ${loggingPath}`)
-      recordStrippedImport(fullMatch, importPath, loggingPath, 'tsx', stripped)
+      recordStrippedImport(shape, importPath, loggingPath, 'tsx', stripped)
       continue
     }
 
-    const shape = parseImportShape(fullMatch)
     let mod = modules.get(result.path)
     if (!mod) {
       // Cycle guard: a `.ts` module that ends up in its own descendants
       // already broke TS itself. We can't safely topo-sort circular IIFEs.
       if (visiting.has(result.path)) {
         console.warn(`Skipping circular relative import: ${importPath} from ${loggingPath}`)
-        content = content.replace(new RegExp(escapeRegExp(fullMatch) + '\\n?'), '')
-        recordStrippedImport(fullMatch, importPath, loggingPath, 'circular', stripped)
+        replacements.push({ start: site.start, end: site.endWithNewline, text: '' })
+        recordStrippedImport(shape, importPath, loggingPath, 'circular', stripped)
         continue
       }
       visiting.add(result.path)
@@ -905,13 +966,24 @@ async function walkAndCollect(
     // the line — the IIFE has already executed at top level.
     const binding = buildConsumerBinding(shape, mod.topLevelId)
     if (binding) {
-      content = content.replace(fullMatch, binding)
+      // Non-empty binding takes the import's place; keep the trailing
+      // newline so the destructure sits on its own line, matching the
+      // pre-refactor `content.replace(fullMatch, binding)` semantics.
+      replacements.push({ start: site.start, end: site.endNoNewline, text: binding })
     } else {
-      content = content.replace(new RegExp(escapeRegExp(fullMatch) + '\\n?'), '')
+      replacements.push({ start: site.start, end: site.endWithNewline, text: '' })
     }
   }
 
-  return content
+  if (replacements.length === 0) return content
+
+  // Splice in descending byte order so earlier offsets stay valid.
+  replacements.sort((a, b) => b.start - a.start)
+  let out = content
+  for (const r of replacements) {
+    out = out.slice(0, r.start) + r.text + out.slice(r.end)
+  }
+  return out
 }
 
 /**
