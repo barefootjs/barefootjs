@@ -204,6 +204,15 @@ export interface BuildOptions {
    * Each entry is bundled as ESM with all `externals` automatically excluded.
    */
   bundleEntries?: BundleEntry[]
+  /**
+   * Import prefixes resolved at build time rather than left as bare
+   * specifiers in the emitted client JS. Use this for tsconfig `paths`
+   * aliases like `@/`, `@ui/`, `@app/` so the compiler does not emit
+   * them as browser imports.
+   *
+   * Forwarded to `compileJSX` as `CompileOptions.localImportPrefixes`.
+   */
+  localImportPrefixes?: string[]
 }
 
 // AttrValue constructors

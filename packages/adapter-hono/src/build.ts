@@ -32,6 +32,7 @@ export function createConfig(options: HonoBuildOptions = {}) {
     externals: options.externals,
     externalsBasePath: options.externalsBasePath,
     bundleEntries: options.bundleEntries,
+    localImportPrefixes: options.localImportPrefixes,
     transformMarkedTemplate: useScriptCollection
       ? (content: string, componentId: string, clientJsPath: string) =>
           addScriptCollection(content, componentId, clientJsPath, options.scriptBasePath)
