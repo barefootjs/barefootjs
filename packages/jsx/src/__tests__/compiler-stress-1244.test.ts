@@ -1132,6 +1132,22 @@ describe('children passed as a JSX expression value (not nested)', () => {
     `
     expectNoFatalErrors(compile(src))
   })
+
+  // #1320: a hoisted JSX child carries the outer scope, not the inner
+  // template's. The CSR emit injects `bf-s="__BF_PARENT_SCOPE__"` on
+  // the top-level hoisted element; renderChild substitutes it with
+  // `_parentScopeId` at the layer where that is the outer scope.
+  test('children={<span/>}: CSR emits the parent-scope placeholder on hoisted root (#1320)', () => {
+    const src = `
+      function Box({ children }: { children: any }) { return <div>{children}</div> }
+      export function Demo() {
+        return <Box children={<span>x</span>} />
+      }
+    `
+    const result = compile(src)
+    expectNoFatalErrors(result)
+    expect(result.clientJs).toContain('<span bf-s="__BF_PARENT_SCOPE__">x</span>')
+  })
 })
 
 describe('Fragment with siblings as a top-level return', () => {

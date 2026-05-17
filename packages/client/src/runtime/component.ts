@@ -11,7 +11,7 @@ import { getRegisteredDef } from './hydrate'
 import { hydratedScopes } from './hydration-state'
 import { untrack } from '@barefootjs/client/reactive'
 import { setCurrentScope } from './context'
-import { BF_SCOPE, BF_KEY, BF_HOST, BF_AT } from '@barefootjs/shared'
+import { BF_SCOPE, BF_KEY, BF_HOST, BF_AT, BF_PARENT_SCOPE_PLACEHOLDER } from '@barefootjs/shared'
 import type { ComponentDef } from './types'
 
 // Parent scope ID context for renderChild() inside insert() branch templates.
@@ -124,8 +124,20 @@ export function createComponent(
     return result
   })
 
-  // 4. Generate HTML from props
-  const html = templateFn(unwrappedProps)
+  // 4. Generate HTML from props.
+  //
+  // Thread `slot.parent` into `_parentScopeId` so any hoisted-children
+  // placeholder (#1320) resolves to the calling site's scope.
+  const prevParentScopeId = _parentScopeId
+  if (slot?.parent) {
+    _parentScopeId = slot.parent
+  }
+  let html: string
+  try {
+    html = templateFn(unwrappedProps)
+  } finally {
+    _parentScopeId = prevParentScopeId
+  }
 
   // 5. Create DOM element
   const element = parseHTML(html.trim()).firstChild as HTMLElement
@@ -266,15 +278,40 @@ export function renderChild(
     return `<div ${bfsAttr}${slotAttrs}${keyAttr}></div>`
   }
 
-  const html = templateFn(props).trim()
+  // The placeholder substitution is anchored to the exact `bf-s="…"`
+  // shape so user content that contains the sentinel as text survives
+  // unchanged. When `_parentScopeId` is null (top-level render) the
+  // attribute strips rather than emitting `bf-s=""`. (#1320)
+  let html = templateFn(props).trim().replace(
+    PLACEHOLDER_ATTR_PATTERN,
+    _parentScopeId ? ` bf-s="${_parentScopeId}"` : '',
+  )
   // Templates may start with comment markers (e.g. <!--bf-cond-start:...-->)
   // so we find the first element tag rather than assuming index 0.
   const firstElMatch = html.match(/<(\w+)/)
   if (!firstElMatch) return html
-  const insertPos = html.indexOf(firstElMatch[0])
+  const insertPos = firstElMatch.index!
+  // Dedupe `bf-s` only when the template body's root already carries
+  // one (the body was itself a renderChild call). Still inject
+  // `slotAttrs` / `keyAttr` — `data-key` is the reconciliation
+  // contract `mapArray` reads, and `bf-h` / `bf-m` mark child
+  // membership in the parent scope. (#1320)
+  const afterInsert = html.slice(insertPos)
+  const extraAttrs = `${slotAttrs}${keyAttr}`
+  if (ROOT_HAS_BFS_PATTERN.test(afterInsert)) {
+    if (!extraAttrs) return html
+    return html.slice(0, insertPos) +
+      afterInsert.replace(/^(<\w+)/, `$1${extraAttrs}`)
+  }
   return html.slice(0, insertPos) +
-    html.slice(insertPos).replace(/^(<\w+)/, `$1 ${bfsAttr}${slotAttrs}${keyAttr}`)
+    afterInsert.replace(/^(<\w+)/, `$1 ${bfsAttr}${extraAttrs}`)
 }
+
+// The leading `\s+` is part of the match so dropping the attribute
+// doesn't leave a dangling space; the compiler always emits the
+// placeholder preceded by whitespace from an enclosing tag.
+const PLACEHOLDER_ATTR_PATTERN = new RegExp(`\\s+bf-s="${BF_PARENT_SCOPE_PLACEHOLDER}"`, 'g')
+const ROOT_HAS_BFS_PATTERN = /^<\w+[^>]*\sbf-s="/
 
 /**
  * Generate a random ID for scope identification

@@ -49,24 +49,6 @@ describe('CSR Conformance Tests', () => {
     'return-logical-or',
     'return-nullish-coalescing',
     'return-map',
-    // CSR's child-component render emits the parent's scope marker
-    // alongside the child's, producing duplicate `bf-s` attributes
-    // (e.g. `bf-s="test_s0" ... bf-s="test"`). Same class of
-    // CSR/SSR attribute-shape divergence as `top-level-ternary` /
-    // `return-*` above. The contract this fixture pins —
-    // `<Slot className={\`base \${MAP[KEY]}\`}>` rendering the right
-    // class — is verified at the SSR conformance layer for all
-    // template-based adapters; the duplicate-`bf-s` issue is its own
-    // follow-up.
-    'record-index-lookup-via-child-prop',
-    // #1244 stress catalog: surfaced CSR-only divergences. The fixture
-    // docstrings record the symptom in detail; tracked as sub-issues
-    // of #1244 for individual fix-up.
-    //
-    // - children-jsx-expression: CSR emits duplicate `bf-s` attrs and
-    //   drops the inner scope marker (same family as the
-    //   `record-index-lookup-via-child-prop` entry above).
-    'children-jsx-expression',
   ])
 
   for (const fixture of jsxFixtures) {

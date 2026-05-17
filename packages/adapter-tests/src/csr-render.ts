@@ -189,13 +189,20 @@ function renderChild(name, props, key, suffix) {
   // needs to be rewritten to track the actual parent scope at call time.
   const slotAttrs = suffix ? ' bf-h="test" bf-m="' + suffix + '"' : ''
   if (!template) return '<div bf-s="' + scopeId + '"' + slotAttrs + keyAttr + '>[' + name + ']</div>'
+  // #1320: substitute the hoisted-children placeholder with the harness's
+  // hardcoded outer scope (\`test\`). Mirrors the production renderChild
+  // in @barefootjs/client/runtime. Anchored to the exact attribute
+  // shape so user text containing the sentinel is left alone.
   const html = template(props).trim()
-  // Same attribute-ordering rule as the root-injection block below: when
-  // the child root has user attributes (\`class\`, \`id\`, …) but no
-  // \`bf="..."\` to anchor on, append \`bf-s\` at the end of the opening
-  // tag so static attributes precede it — matching SSR's attribute
-  // order (#1295 / Hono renderElement).
-  const childAttrs = ' bf-s="' + scopeId + '"' + slotAttrs + keyAttr
+    .replace(/\\s+bf-s="__BF_PARENT_SCOPE__"/g, ' bf-s="test"')
+  const bfsAttr = ' bf-s="' + scopeId + '"'
+  const extraAttrs = slotAttrs + keyAttr
+  // Dedupe bf-s only when the child template already carries one
+  // (it was itself a renderChild call). slotAttrs / keyAttr still inject —
+  // dropping them would regress list reconciliation. (#1320)
+  const childRootHasBfs = /^<\\w+[^>]*\\sbf-s="/.test(html)
+  const childAttrs = childRootHasBfs ? extraAttrs : bfsAttr + extraAttrs
+  if (childRootHasBfs && !extraAttrs) return html
   if (html.match(/^<\\w+[^>]* bf="/)) {
     return html.replace(/ bf="/, childAttrs + ' bf="')
   }
@@ -276,19 +283,22 @@ __runInit(__lastComponent, ${JSON.stringify(props)})
 // --- Evaluate main component template ---
 const __templateFn = __templates.get(__lastComponent)
 let __html = __templateFn ? __templateFn(${JSON.stringify(props)}) : ''
-// Inject bf-s="test" on root element to match SSR scope ID convention.
-// SSR (Hono renderElement) appends bf-s AFTER user-defined attributes,
-// so for stateful roots the order is \`class="..." bf-s="..." bf="..."\`.
-// Insert before \`bf="..."\` when present (preserves bf-s adjacency to the
-// reactive marker); otherwise append at the end of the opening tag so
-// existing static attributes (e.g. \`class\`) come first. Falls back to
-// the tag-name-only case for tags with no attributes.
+// #1320: resolve any hoisted-children placeholder that didn't pass
+// through a nested renderChild. The outer bf-s="test" injection
+// below runs second, so this substitution must precede it.
+__html = __html.replace(/\\s+bf-s="__BF_PARENT_SCOPE__"/g, ' bf-s="test"')
+// Inject bf-s="test" on the root element to match SSR scope ID
+// convention — appended AFTER user-defined attributes, mirroring
+// Hono renderElement (#1295). Skip when the root already carries
+// bf-s from a nested renderChild call (#1320 dedup).
+if (!/^<\\w+[^>]*\\sbf-s="/.test(__html)) {
 if (__html.match(/^<\\w+[^>]* bf="/)) {
   __html = __html.replace(/ bf="/, ' bf-s="test" bf="')
 } else if (__html.match(/^<\\w+\\s[^>]*>/)) {
   __html = __html.replace(/^(<\\w+\\s[^>]*?)(\\s*\\/?>)/, '$1 bf-s="test"$2')
 } else {
   __html = __html.replace(/^(<\\w+)/, '$1 bf-s="test"')
+}
 }
 export default __html
 `
