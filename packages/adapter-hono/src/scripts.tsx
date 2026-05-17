@@ -28,7 +28,7 @@
 
 import { useRequestContext } from 'hono/jsx-renderer'
 import { Fragment } from 'hono/jsx'
-import type { BarefootBuildManifest } from './app'
+import { relPathFromComponentsBase, type BarefootBuildManifest } from './app'
 
 export type CollectedScript = {
   src: string
@@ -123,6 +123,13 @@ export function BfScripts(props: BfScriptsProps = {}) {
  * dep that's been resolved so the caller can pass it to the next
  * SSR pass without double-emitting. Exported for tests.
  *
+ * Typical call shape: `roots` ⊆ `excluded`. The caller passes the
+ * set of components whose SSR function already pushed a `<script>`
+ * (`bfOutputScripts`) as BOTH arguments — "these are already
+ * emitted, now walk their stubDeps." A `roots` value already in
+ * `excluded` is still walked (we need its `stubDeps`); a `dep`
+ * already in `excluded` is recorded as visited but not re-emitted.
+ *
  * Cycle-safe: a visited set short-circuits any A → B → A loop.
  */
 export function collectStubDepScripts(
@@ -167,8 +174,4 @@ export function collectStubDepScripts(
     }
   }
   return result
-}
-
-function relPathFromComponentsBase(p: string): string {
-  return p.startsWith('components/') ? p.slice('components/'.length) : p
 }

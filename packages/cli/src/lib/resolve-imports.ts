@@ -902,10 +902,23 @@ async function walkAndCollect(
         // loader can include the target component's `.client.js` on any
         // page whose bundle reaches it through this stub call (issue
         // #1243). Only record when something was actually stubbed —
-        // names filtered out by `existingTopLevel` are already inlined
-        // into this bundle so their own `.client.js` is unnecessary for
-        // delegation to resolve. The path → manifest-key conversion
-        // happens in `build.ts` where the manifest layout is known.
+        // when every named binding is already in `existingTopLevel`
+        // (esbuild inlined the whole target into this bundle), no stub
+        // is emitted and the page already has the inlined registration,
+        // so the target's standalone `.client.js` is unnecessary.
+        //
+        // Partial-inline edge case: if esbuild inlined SOME bindings
+        // (e.g. `Foo`) but NOT others (`Bar`), `Bar` still triggers a
+        // stub and we ship the target's `.client.js`. Loading it
+        // re-registers `Foo` alongside the parent's already-inlined
+        // `Foo` — `hydrate()` is a plain `Map.set` in all three
+        // runtime registries (`hydrate.ts`, `registry.ts`,
+        // `template.ts`), so the second call silently overwrites
+        // with the same def. Same code in both copies, so the
+        // overwrite is observationally a no-op.
+        //
+        // The path → manifest-key conversion happens in `build.ts`
+        // where the manifest layout is known.
         if (stubsToEmit.length > 0) stubDeps.add(result.path)
         // The stub references the runtime `createComponent` symbol. Every
         // JSX-emitted client bundle already imports it as part of the

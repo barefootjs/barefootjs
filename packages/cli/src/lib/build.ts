@@ -662,6 +662,12 @@ export async function build(
   for (const [sourcePath, cacheEntry] of Object.entries(nextEntries)) {
     if (cacheEntry.manifestKey) {
       entriesByManifestKey.set(cacheEntry.manifestKey, cacheEntry)
+      // `bundle:` entries are synthetic keys for `bundleEntries`
+      // (separately-built JS, not project-discovered `.tsx`). A stub
+      // target is always a `'use client'` `.tsx` file, so a bundle
+      // entry can never be a stub destination — keep it out of the
+      // path lookup so we don't accidentally map an unrelated
+      // `bundle:foo` key onto a real source path.
       if (!sourcePath.startsWith('bundle:')) {
         manifestKeyByEntryPath.set(sourcePath, cacheEntry.manifestKey)
       }

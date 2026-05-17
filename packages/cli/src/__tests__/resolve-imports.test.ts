@@ -144,6 +144,39 @@ B({})
     expect(stubDepsByManifestKey.Parent).toEqual([targetPath])
   })
 
+  // Issue #1243 × #1258: when every named binding from a 'use client'
+  // sibling is already declared at top level (esbuild inlined the
+  // target whole), no stub is emitted AND the target's own
+  // `.client.js` is unnecessary for delegation — its registration
+  // rides along in the parent's inlined copy. Lock in: this case
+  // produces NO stubDeps entry, so the page-level loader doesn't
+  // ship a redundant bundle that would only re-do the registration.
+  test('omits manifest key from stubDepsByManifestKey when every binding is already top-level (#1243, #1258)', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'AllInlined.tsx'), `'use client'
+export function AllInlined() {
+  return <div>inlined</div>
+}
+`)
+    // Mirrors the #1258 fixture above: parent bundle has the named
+    // import (which we strip) AND a top-level `function AllInlined`
+    // (esbuild's inlined copy).
+    const clientJs = `import { AllInlined } from './AllInlined'
+import { createComponent, hydrate } from '@barefootjs/client/runtime'
+export function initAllInlined(__scope, _p = {}) { /* ... */ }
+hydrate('AllInlined', { init: initAllInlined, template: (_p) => '<div>inlined</div>' })
+export function AllInlined(_p, __bfKey) { return createComponent('AllInlined', _p, __bfKey) }
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'Host-abc.js'), clientJs)
+
+    const manifest = {
+      Host: { clientJs: 'components/Host-abc.js', markedTemplate: 'components/Host.tsx' },
+    }
+
+    const { stubDepsByManifestKey } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    expect('Host' in stubDepsByManifestKey).toBe(false)
+  })
+
   // Issue #1243: a bundle that doesn't reach any 'use client' sibling
   // produces no stubDeps entry. The downstream wiring uses presence in
   // the map to decide whether to clear the manifest field, so the empty
