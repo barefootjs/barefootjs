@@ -28,7 +28,32 @@ import ts from 'typescript'
 import { PROPS_PARAM, inferDefaultValue } from './utils'
 import { extractFreeIdentifiersFromNode } from '../analyzer'
 import type { ClientJsContext } from './types'
-import type { ConstantInfo, MemoInfo, SignalInfo } from '../types'
+import type { MemoInfo, SignalInfo } from '../types'
+
+/**
+ * CSR-substituted const value: the const's initializer with every
+ * signal getter call, memo call, and reference to another CSR-inlinable
+ * constant expanded via AST substitution (#1277). `freeIdentifiers` is
+ * the free-id set of the rewritten AST — already transitively closed
+ * through chained inlines — and is what the unsafe-name check
+ * intersects with `unsafeLocalNames`.
+ *
+ * Lives on `ClientJsContext` (`csrInlinable`), NOT on the cross-adapter
+ * `ConstantInfo` IR — substitution semantics are specific to the CSR
+ * client-JS adapter and would be dead weight for SSR consumers.
+ */
+export interface CsrInlinableEntry {
+  rewrittenValue: string
+  freeIdentifiers: ReadonlySet<string>
+}
+
+/**
+ * Constant-name → resolved CSR form. `null` marks the const as unsafe
+ * to inline (placeholder-let, arrow-literal, system-construct,
+ * jsx-inline, or post-substitution form that fails the relocate
+ * inline-safety gate — #1138).
+ */
+export type CsrInlinabilityMap = Map<string, CsrInlinableEntry | null>
 
 /**
  * A single substitution: when the source expression mentions `name`
@@ -374,21 +399,21 @@ function normalizeSignalInitial(signal: SignalInfo, propsObjectName: string | nu
 
 /**
  * Extend a base env (signal+memo substitutions) with constant-inlining
- * substitutions for the consts that have a non-null `csrInlinable`
- * entry. Returns a fresh env so callers can layer per-position context
- * without mutating the base.
+ * substitutions for the consts whose `csrInlinable` map entry is
+ * non-null. Returns a fresh env so callers can layer per-position
+ * context without mutating the base.
  */
 export function withConstantSubstitutions(
   base: CsrEnv,
-  constants: readonly ConstantInfo[],
+  csrInlinable: CsrInlinabilityMap,
 ): CsrEnv {
   const substitutions = new Map(base.substitutions)
-  for (const c of constants) {
-    if (c.csrInlinable) {
-      substitutions.set(c.name, {
+  for (const [name, entry] of csrInlinable) {
+    if (entry) {
+      substitutions.set(name, {
         kind: 'identifier',
-        replacement: c.csrInlinable.rewrittenValue,
-        freeIdentifiers: c.csrInlinable.freeIdentifiers,
+        replacement: entry.rewrittenValue,
+        freeIdentifiers: entry.freeIdentifiers,
       })
     }
   }
@@ -401,5 +426,5 @@ export function withConstantSubstitutions(
  */
 export function buildFullCsrEnv(ctx: ClientJsContext): CsrEnv {
   const base = buildSignalMemoEnv(ctx.signals, ctx.memos, ctx.propsObjectName)
-  return withConstantSubstitutions(base, ctx.localConstants)
+  return withConstantSubstitutions(base, ctx.csrInlinable)
 }

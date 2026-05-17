@@ -255,37 +255,37 @@ export function computeInlinability(
 
   const templateRiskyNames = collectTemplateRiskyNames(irRoot)
 
-  // Populate `ConstantInfo.csrInlinable` on each constant via AST
-  // substitution (#1277). This bakes the CSR-form (with signals, memos,
-  // and chained const refs expanded) into the IR so the template emitter
-  // can read it directly with no further string transformation.
+  // Populate `ctx.csrInlinable` for every constant via AST substitution
+  // (#1277). This bakes the CSR-form (with signals, memos, and chained
+  // const refs expanded) into a CSR-internal side map on the context so
+  // the template emitter can read it directly with no further string
+  // transformation. The map lives on `ClientJsContext` — not on the
+  // cross-adapter `ConstantInfo` IR — so SSR adapters don't see CSR
+  // substitution semantics they have no use for.
   populateCsrInlinable(ctx, env)
 
   return { constants, functions, decisionsByName, templateRiskyNames }
 }
 
 /**
- * Compute `csrInlinable` for every `ctx.localConstants` entry via AST
- * substitution. Constants form a DAG by name reference; we iterate
- * to a fixed point so chained inlines (`const A = B; const B = ...`)
- * close transitively. Each round substitutes only the consts whose
- * `csrInlinable` has been resolved in a previous round — earliest-ready
- * first, no name-position ambiguity (the AST walker keys on identifier
- * names, which are unique per scope).
+ * Compute the CSR-substituted form for every `ctx.localConstants` entry
+ * via AST substitution. Constants form a DAG by name reference; we
+ * iterate to a fixed point so chained inlines (`const A = B; const B = ...`)
+ * close transitively. Each round substitutes only the consts already
+ * finalised in a previous round.
  *
- * A const ends with `csrInlinable: null` when:
+ * Results land in `ctx.csrInlinable` (a CSR-internal Map on the client
+ * context), NOT on `ConstantInfo` — the substitution semantics are
+ * specific to the CSR client-JS adapter, so leaking them into the
+ * cross-adapter IR would violate the open-closed principle (#1277).
+ *
+ * A const ends with `ctx.csrInlinable.get(name) === null` when:
  *   - it has no `value` (placeholder-let)
  *   - the value contains an arrow / function expression (identity per render)
  *   - it's a system construct (`createContext`, `new WeakMap`)
  *   - it's a JSX literal (handled by jsx-inline routing)
  *   - the substituted form fails `isInlinableInTemplate` (would re-execute
  *     a non-pure call at template-eval time — #1138)
- *
- * Order of operations matters: signals/memos substitute first via the
- * base env, then const-on-const substitutions layer in as the chain
- * resolves. The IIFE form for non-trivial memo bodies preserves
- * intermediate local bindings (matches the legacy
- * `buildSignalAndMemoMaps` extraction in `emit-registration.ts`).
  */
 function populateCsrInlinable(ctx: ClientJsContext, relocateEnv: RelocateEnv): void {
   if (ctx.localConstants.length === 0) return
@@ -306,12 +306,12 @@ function populateCsrInlinable(ctx: ClientJsContext, relocateEnv: RelocateEnv): v
     propsObjectName: baseEnv.propsObjectName,
   })
 
-  // Pre-mark consts that are structurally ineligible — their
-  // `csrInlinable` stays null. The check mirrors `classifyConstantInitial`
+  // Pre-mark consts that are structurally ineligible — they record
+  // `null` in `ctx.csrInlinable`. Mirrors `classifyConstantInitial`
   // for the kinds that have no value to substitute.
   for (const c of ctx.localConstants) {
     if (c.isJsx || !c.value || c.containsArrow || c.systemConstructKind) {
-      c.csrInlinable = null
+      ctx.csrInlinable.set(c.name, null)
       finalised.add(c.name)
     }
   }
@@ -356,11 +356,11 @@ function populateCsrInlinable(ctx: ClientJsContext, relocateEnv: RelocateEnv): v
       // the post-substitution unsafe-name check stays exact.
       const inlineResult = isInlinableInTemplate(rewritten, relocateEnv)
       if (!inlineResult.ok) {
-        c.csrInlinable = null
+        ctx.csrInlinable.set(c.name, null)
       } else {
         const bridgedRewritten = inlineResult.rewrittenValue
         const bridgedFreeIdentifiers = recomputeFreeIdentifiers(bridgedRewritten, freeIdentifiers)
-        c.csrInlinable = { rewrittenValue: bridgedRewritten, freeIdentifiers: bridgedFreeIdentifiers }
+        ctx.csrInlinable.set(c.name, { rewrittenValue: bridgedRewritten, freeIdentifiers: bridgedFreeIdentifiers })
         constSubs.set(c.name, {
           kind: 'identifier',
           replacement: bridgedRewritten,
@@ -374,10 +374,10 @@ function populateCsrInlinable(ctx: ClientJsContext, relocateEnv: RelocateEnv): v
   }
 
   // Any consts left unfinalised are part of an unresolvable cycle — mark
-  // them null so the IR shape is total. In practice this is unreachable
+  // them null so the map is total. In practice this is unreachable
   // (a cycle in const-on-const refs would be a TDZ violation in source).
   for (const c of ctx.localConstants) {
-    if (!finalised.has(c.name)) c.csrInlinable = null
+    if (!finalised.has(c.name)) ctx.csrInlinable.set(c.name, null)
   }
 }
 

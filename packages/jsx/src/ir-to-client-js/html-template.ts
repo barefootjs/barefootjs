@@ -578,8 +578,8 @@ export interface TemplateOptions {
    * per component from `ClientJsContext` (signal initial values + memo
    * bodies, with the `propsObjectName.X → _p.X` props normalization
    * baked in). Constants flow through `inlinableConstants` separately
-   * since their `csrInlinable.rewrittenValue` is already chain-closed
-   * by `compute-inlinability` (#1277).
+   * since their `ctx.csrInlinable` entry is already chain-closed by
+   * `compute-inlinability` (#1277).
    */
   csrEnv?: CsrEnv
   insideLoop?: boolean
@@ -900,11 +900,12 @@ export function canGenerateStaticTemplate(
  * - Child components use renderChild() for runtime template lookup
  *
  * The substitution data — signal initial values, memo bodies, and the
- * chain-closed inlinable-const values — is sourced from the IR's
- * `csrInlinable` / `initialFreeIdentifiers` / `computationFreeIdentifiers`
- * fields populated by `compute-inlinability` (#1277). `csrSubstitute`
- * walks the AST so member-access shadowing (`ctx.bars()`) is preserved
- * structurally instead of via the legacy `(?<![-.])` lookbehind.
+ * chain-closed inlinable-const values — comes from
+ * `SignalInfo.initialFreeIdentifiers` / `MemoInfo.computationFreeIdentifiers`
+ * (core IR) and `ctx.csrInlinable` (CSR-internal side map populated by
+ * `compute-inlinability`, #1277). `csrSubstitute` walks the AST so
+ * member-access shadowing (`ctx.bars()`) is preserved structurally
+ * instead of via the legacy `(?<![-.])` lookbehind.
  *
  * @param node - IR node to render
  * @param inlinableConstants - Map of constant names to their resolved CSR values

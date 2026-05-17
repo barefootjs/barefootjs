@@ -1118,29 +1118,6 @@ export interface ConstantInfo {
   /** Value with destructured prop refs rewritten to _p.propName, for template inlining. */
   templateValue?: string
   /**
-   * Fully-resolved CSR-template form: `templateValue` with every signal
-   * getter call, memo call, and reference to another CSR-inlinable
-   * constant expanded via AST substitution. The substitution preserves
-   * member-access shadowing (`ctx.count()` is left intact when a local
-   * signal `count` exists — #1100) because it walks the AST instead of
-   * regex-scanning text.
-   *
-   * Populated for **every** constant by `compute-inlinability`. `null`
-   * marks the constant as unsafe to inline into CSR template scope
-   * (because the substitution would still mention a name unreachable
-   * there, or the construction itself is reactive / system-construct /
-   * placeholder-let / arrow-literal). Emit reads this directly; no
-   * post-hoc string transformation runs at template-emit time (#1277).
-   *
-   * `freeIdentifiers` is the free-id set of the rewritten AST — already
-   * transitively closed through chained `csrInlinable` references — and
-   * is what the unsafe-name check intersects with `unsafeLocalNames`,
-   * replacing the legacy lexer-based defensive guard.
-   *
-   * IR-internal: consumed only by `packages/jsx/src/ir-to-client-js`.
-   */
-  csrInlinable?: { rewrittenValue: string; freeIdentifiers: ReadonlySet<string> } | null
-  /**
    * Staged-IR origin info (#1138). For locals declared in a component
    * body, `origin.scope` is `init` (or `sub-init` for nested-arrow
    * declarations). For module-level constants, `origin.scope` is

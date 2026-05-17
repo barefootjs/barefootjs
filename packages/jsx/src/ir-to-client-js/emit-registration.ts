@@ -96,20 +96,19 @@ export function buildInlinableConstants(
 }
 
 /**
- * Materialise the CSR-inlining map from each constant's `csrInlinable`
- * IR entry (#1277). Replaces `buildCsrInlinableConstants` (the AST
- * substitution + chain resolution now lives in `compute-inlinability`).
+ * Materialise the CSR-inlining map from the context's `csrInlinable`
+ * side map (populated by `populateCsrInlinable` during
+ * `compute-inlinability`, #1277). Replaces `buildCsrInlinableConstants`
+ * — the AST substitution + chain resolution now lives upstream.
  *
- * Excludes constants whose `csrInlinable` is null — those stay in
- * `unsafeLocalNames` and the CSR template's expression substitution
- * surfaces the UNSAFE sentinel for any reference to them.
+ * Excludes constants whose entry is `null` (unsafe to inline) — those
+ * stay in `unsafeLocalNames` and the CSR template's expression
+ * substitution surfaces the UNSAFE sentinel for any reference to them.
  */
-export function csrInlinableConstantsFromIR(ctx: ClientJsContext): Map<string, string> {
+export function csrInlinableConstantsFromCtx(ctx: ClientJsContext): Map<string, string> {
   const out = new Map<string, string>()
-  for (const c of ctx.localConstants) {
-    if (c.csrInlinable) {
-      out.set(c.name, c.csrInlinable.rewrittenValue)
-    }
+  for (const [name, entry] of ctx.csrInlinable) {
+    if (entry) out.set(name, entry.rewrittenValue)
   }
   return out
 }
@@ -163,10 +162,11 @@ export function emitRegistrationAndHydration(
     // Components may be imported and used in conditional branches in other files,
     // where renderChild() needs a registered template to render HTML correctly.
     // Substitution data (signal initial values, memo bodies, chain-resolved
-    // const inlines) is read directly from `ConstantInfo.csrInlinable` /
-    // `SignalInfo.initialFreeIdentifiers` / `MemoInfo.computationFreeIdentifiers`
-    // — no post-hoc string transformation runs at this layer (#1277).
-    const csrInlinableConstants = csrInlinableConstantsFromIR(ctx)
+    // const inlines) is read directly from `ctx.csrInlinable` (CSR-internal
+    // side map) / `SignalInfo.initialFreeIdentifiers` /
+    // `MemoInfo.computationFreeIdentifiers` — no post-hoc string
+    // transformation runs at this layer (#1277).
+    const csrInlinableConstants = csrInlinableConstantsFromCtx(ctx)
     const templateHtml = generateCsrTemplate(
       _ir.root, csrInlinableConstants, ctx, undefined, restSpreadNames, ctx.propsObjectName, unsafeLocalNames
     )
