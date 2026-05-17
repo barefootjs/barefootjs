@@ -3139,10 +3139,35 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       return `${name}="{{${this.convertExpressionToGo(value.expr)}}}"`
     },
     emitBooleanAttr: (_value, name) => name,
-    // Spread attributes are not directly supported in Go templates —
-    // return empty so the caller skips the entry. Matches pre-#1290
-    // `continue` behavior.
-    emitSpread: () => '',
+    // Spread attributes (`<div {...attrs()} />`) have no idiomatic Go
+    // template form — Go's `{{range}}` over a map can't emit
+    // `key="value"` pairs with HTML escaping in a way that round-trips
+    // through Hono / CSR's `applyRestAttrs` semantics. Record BF101 so
+    // the user gets a clear diagnostic instead of a silently dropped
+    // spread (#1324). The empty return drops the entry from the
+    // attribute list; `${expr}` still appears as the spread's runtime
+    // value in init code, so wrapping in `'use client'` (or pre-
+    // computing the spread as discrete props) recovers the keys.
+    emitSpread: (value) => {
+      this.errors.push({
+        code: 'BF101',
+        severity: 'error',
+        message: `JSX spread '{...${value.expr}}' on an intrinsic element has no Go template lowering`,
+        loc: this.makeLoc(),
+        suggestion: {
+          // The Go SSR path doesn't currently honor
+          // `IRAttribute.clientOnly` for non-rest spreads, and the
+          // client-JS pipeline skips them too — `/* @client */`
+          // wouldn't apply the spread at hydration either. Recommend
+          // the two workarounds that actually work: move the JSX
+          // into a `'use client'` component (so hydration's
+          // `spreadAttrs` helper applies the bag), or expand the
+          // spread into discrete attribute props at the call site.
+          message: 'Move the JSX into a `\'use client\'` component (so hydration applies the spread via `spreadAttrs`), or expand the spread into discrete attribute props at the call site.',
+        },
+      })
+      return ''
+    },
     emitTemplate: (value, name) => `${name}="${this.renderTemplateLiteralParts(value.parts)}"`,
     // Neither variant is legal on intrinsic elements.
     emitBooleanShorthand: () => '',
