@@ -597,6 +597,60 @@ console.log(FOO, BAR)
     expect(result).toContain('console.log(FOO, BAR)')
   })
 
+  // Lock the `existingTopLevel`-snapshot-once invariant introduced in
+  // bf#1242 alongside the AST splice: two `'use client'` `.tsx` named
+  // imports in the same parent, where ONE local name already exists as
+  // a top-level binding in the bundle (esbuild had inlined the target's
+  // compiled JS upstream — see #1258 for the original symptom) and the
+  // other does not. The walker takes a single snapshot of top-level
+  // bindings before any splice, so the second stub decision MUST not
+  // see the first stub yet (TS forbids same-name imports, so the
+  // scenario where it would matter cannot arise — this test documents
+  // that we're relying on that invariant).
+  test('emits stubs only for non-colliding names across multiple use-client .tsx imports (#1242)', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'AlreadyInlined.tsx'), `'use client'
+export function AlreadyInlined() { return <div /> }
+`)
+    writeFileSync(resolve(COMPONENTS_DIR, 'NeedsStub.tsx'), `'use client'
+export function NeedsStub() { return <button /> }
+`)
+    // Parent bundle: imports BOTH client components. The first target
+    // (`AlreadyInlined`) ALSO has its compiled JS already at the top
+    // level (simulating esbuild having bundled it in upstream), so its
+    // stub must be skipped. The second target (`NeedsStub`) has no
+    // pre-existing declaration, so its stub must be emitted.
+    const clientJs = `import { AlreadyInlined } from './AlreadyInlined'
+import { NeedsStub } from './NeedsStub'
+import { createComponent, hydrate } from '@barefootjs/client/runtime'
+export function AlreadyInlined(_p, __bfKey) { return createComponent('AlreadyInlined', _p, __bfKey) }
+hydrate('AlreadyInlined', { init: () => {}, template: () => '<div></div>' })
+console.log('body uses', AlreadyInlined, NeedsStub)
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'MultiUseClient-abc.js'), clientJs)
+    const manifest = {
+      MultiUseClient: {
+        clientJs: 'components/MultiUseClient-abc.js',
+        markedTemplate: 'components/MultiUseClient.tsx',
+      },
+    }
+
+    const { errors } = await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'MultiUseClient-abc.js')).text()
+    // Both import lines are gone.
+    expect(result).not.toContain("from './AlreadyInlined'")
+    expect(result).not.toContain("from './NeedsStub'")
+    // No duplicate stub for the already-inlined target — the pre-existing
+    // `export function AlreadyInlined(...)` must survive intact and we must
+    // NOT have prepended `const AlreadyInlined = (props, key) => …`.
+    expect(result).not.toContain('const AlreadyInlined =')
+    expect(result).toContain('export function AlreadyInlined(_p, __bfKey)')
+    // A stub IS emitted for the non-colliding target.
+    expect(result).toContain('const NeedsStub = (props, key) => createComponent("NeedsStub", props, key)')
+    // Both names have valid runtime-resolved definitions → no BF053.
+    expect(errors).toHaveLength(0)
+  })
+
   // Regression: bf#1242 (Copilot review follow-up) — `ts.getEnd()` does
   // not include trailing trivia, so the splice must extend past whatever
   // line terminator follows the last token. CRLF input through a strip
