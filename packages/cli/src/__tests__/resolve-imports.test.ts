@@ -563,4 +563,66 @@ export function initDeskCanvas(__scope, _p = {}) {
     // Untouched module imports stay.
     expect(result).toContain("from '@barefootjs/client/runtime'")
   })
+
+  // Regression: bf#1242 — the predecessor walker matched relative imports
+  // with a line-anchored regex whose `.` did not span newlines, so a
+  // multi-line `import { ... } from './x'` clause (with or without embedded
+  // line comments) silently failed to match and the import survived the
+  // walk. The AST splice walks `ImportDeclaration` nodes regardless of
+  // source formatting.
+  test('inlines a multi-line named import with embedded line comments (#1242)', async () => {
+    writeFileSync(resolve(COMPONENTS_DIR, 'multiline-utils.ts'), `
+export const FOO = 1
+export const BAR = 2
+`)
+    const clientJs = `import {
+  FOO,
+  // a comment in the middle of the clause
+  BAR,
+} from './multiline-utils'
+console.log(FOO, BAR)
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'Multi-abc.js'), clientJs)
+    const manifest = {
+      Multi: { clientJs: 'components/Multi-abc.js', markedTemplate: 'components/Multi.tsx' },
+    }
+
+    await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'Multi-abc.js')).text()
+    // Import is gone and the module body is inlined.
+    expect(result).not.toContain("from './multiline-utils'")
+    expect(result).toContain('FOO = 1')
+    expect(result).toContain('BAR = 2')
+    expect(result).toContain('console.log(FOO, BAR)')
+  })
+
+  // Regression: bf#1242 — the predecessor walker built an unanchored
+  // regex from the matched import text and applied it with a plain
+  // `.replace(re, ...)`, which strips the FIRST occurrence in the file.
+  // If the same byte sequence appears earlier inside a string literal,
+  // the splice hits the literal instead of the real import. The AST
+  // splice uses node start/end offsets, so the string literal is left
+  // untouched and the real import is removed.
+  test('splices the real import even when the same text appears in a string literal (#1242)', async () => {
+    const clientJs = `const HELP_MESSAGE = "import { missingBinding } from './nonexistent'"
+import { missingBinding } from './nonexistent'
+console.log(HELP_MESSAGE)
+`
+    writeFileSync(resolve(COMPONENTS_DIR, 'StringLit-abc.js'), clientJs)
+    const manifest = {
+      StringLit: { clientJs: 'components/StringLit-abc.js', markedTemplate: 'components/StringLit.tsx' },
+    }
+
+    await resolveRelativeImports({ distDir: DIST_DIR, manifest })
+
+    const result = await Bun.file(resolve(COMPONENTS_DIR, 'StringLit-abc.js')).text()
+    // String literal is preserved byte-identical — the splice must not
+    // have touched it.
+    expect(result).toContain(`"import { missingBinding } from './nonexistent'"`)
+    // The real top-level import statement is removed (no `import` keyword
+    // at the start of any line referencing './nonexistent').
+    expect(result).not.toMatch(/^import[^\n]*from '\.\/nonexistent'/m)
+    expect(result).toContain('console.log(HELP_MESSAGE)')
+  })
 })
