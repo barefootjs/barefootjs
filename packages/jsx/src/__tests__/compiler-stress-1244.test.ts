@@ -723,14 +723,71 @@ describe('computed key', () => {
 })
 
 describe('key edge values', () => {
-  // SURFACED LIMITATION (#1244 sub-issue): BF023 (missing key) currently
-  // fires when a literal-falsy key (`key={0}`, `key={false}`,
-  // `key={null}`) is reachable through a ternary. The intended
-  // behaviour is either to accept the value verbatim (ints + booleans
-  // are valid React-style keys) or to diagnose with a more specific
-  // "key cannot be falsy" code, not the generic missing-key error. The
-  // body asserts a clean compile. Drop `.todo` once fixed.
-  test.todo('key={0}, key={false}, key={null} via ternary — accepted as a key', () => {
+  // BF023 (missing-key) used to fire on explicit literal-falsy keys
+  // (`key={null}`, `key={undefined}`) and on any ternary chain whose
+  // branches reached one of those literals — silently routing what
+  // React treats as a runtime warning into a hard compile error with a
+  // misleading "missing key" message. The user explicitly wrote the
+  // value; treat it as a runtime concern and let `mapArray`'s
+  // `String()` coercion produce the per-item key (`"null"`,
+  // `"undefined"`, `"0"`, `"false"`). Numeric / boolean keys were
+  // always accepted; the relaxation extends the same policy to the
+  // `null` / `undefined` literals and to ternaries that mix them.
+  //
+  // (#1244 catalog "key={0}, key={false}, key={null}".)
+  test('key={0} literal accepted as a numeric key', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [items] = createSignal<{ v: number }[]>([])
+        return <ul>{items().map(it => <li key={0}>{it.v}</li>)}</ul>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+
+  test('key={false} literal accepted (lowers to "false" at runtime)', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [items] = createSignal<{ v: number }[]>([])
+        return <ul>{items().map(it => <li key={false}>{it.v}</li>)}</ul>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+
+  test('key={null} literal accepted (no BF023 false-positive)', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [items] = createSignal<{ v: number }[]>([])
+        return <ul>{items().map(it => <li key={null}>{it.v}</li>)}</ul>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+
+  test('key={undefined} literal accepted (no BF023 false-positive)', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function Demo() {
+        const [items] = createSignal<{ v: number }[]>([])
+        return <ul>{items().map(it => <li key={undefined}>{it.v}</li>)}</ul>
+      }
+    `
+    expectNoFatalErrors(compile(src))
+  })
+
+  test('ternary key mixing 0, false, null — accepted', () => {
+    // Per-item differentiated key via index. mapArray's `String()`
+    // coercion produces `"0"`, `"false"`, `"null"` — distinct strings,
+    // so reconciliation behaves as if the user had written explicit
+    // index strings.
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'

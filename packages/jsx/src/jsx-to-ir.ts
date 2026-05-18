@@ -2100,12 +2100,26 @@ function normalizeKeyExpr(expr: string): string {
   return out
 }
 
-type KeyProblem = 'missing' | 'literal-undefined' | 'literal-null' | 'nullable-type'
+type KeyProblem = 'missing' | 'nullable-type'
 
 /**
  * Classify a key expression as problematic or fine.
- * Returns a KeyProblem string when the key is missing or has an illegal value/type,
- * or null when the key looks valid.
+ * Returns a KeyProblem string when the key is missing or has a
+ * type-system-derived nullable type, or null when the key looks valid.
+ *
+ * Explicit literal `null` / `undefined` (`key={null}`, `key={undefined}`),
+ * and ternary chains whose branches reach those literals, are intentionally
+ * NOT flagged: the user wrote the value verbatim, mapArray's `String()`
+ * coercion produces a deterministic per-item key (`"null"`, `"undefined"`,
+ * `"0"`, `"false"`), and React's own behaviour for those values is a
+ * runtime warning rather than a hard compile error. Surfacing them as
+ * BF023 ("Missing key") was misleading both as a code (the key IS present)
+ * and as a category (a single-item ternary that resolves to `null` for
+ * one branch is perfectly fine reconciliation-wise). The type-based
+ * `nullable-type` check is preserved for INFERRED nullability
+ * (`item.id` where `id?: string`) — those are surface bugs the user
+ * didn't make a deliberate choice about. (#1244 catalog "key={0},
+ * key={false}, key={null}".)
  */
 function classifyKeyProblem(
   keyAttr: ts.JsxAttribute | undefined,
@@ -2113,12 +2127,12 @@ function classifyKeyProblem(
 ): KeyProblem | null {
   if (!keyAttr) return 'missing'
 
-  // `key` without an initializer is a JSX boolean shorthand → effectively undefined
-  if (!keyAttr.initializer) return 'literal-undefined'
+  // `key` without an initializer is a JSX boolean shorthand → no value.
+  if (!keyAttr.initializer) return 'missing'
 
-  // `key={}` — empty expression (syntax oddity, treat as missing)
+  // `key={}` — empty expression (syntax oddity, treat as missing).
   if (ts.isJsxExpression(keyAttr.initializer) && !keyAttr.initializer.expression) {
-    return 'literal-undefined'
+    return 'missing'
   }
 
   let expr: ts.Expression | undefined
@@ -2131,11 +2145,20 @@ function classifyKeyProblem(
 
   if (!expr) return null
 
-  // Literal null / undefined identifiers
-  if (expr.kind === ts.SyntaxKind.NullKeyword) return 'literal-null'
-  if (ts.isIdentifier(expr) && expr.text === 'undefined') return 'literal-undefined'
+  // Explicit `key={null}` / `key={undefined}` — user-written value;
+  // accepted as a runtime-coerced string key.
+  if (expr.kind === ts.SyntaxKind.NullKeyword) return null
+  if (ts.isIdentifier(expr) && expr.text === 'undefined') return null
 
-  // Type-based nullable check (available when checker is wired in)
+  // Conditional expressions: the type-based nullable check below would
+  // see the branch union (often `T | null`) and false-positive on
+  // legitimate per-item differentiated keys
+  // (`key={i === 0 ? 0 : i === 1 ? false : null}`). Defer to runtime.
+  if (ts.isConditionalExpression(expr)) return null
+
+  // Type-based nullable check for INFERRED nullability (e.g. `item.id`
+  // where `id?: string`). The user didn't explicitly opt into a null
+  // key here; the type system caught a missing field at the source.
   if (checker) {
     const type = checker.getTypeAtLocation(expr)
     const isNullable = type.isUnion()
@@ -2154,9 +2177,6 @@ function classifyKeyProblem(
 function keyErrorSuggestion(problem: KeyProblem): string {
   if (problem === 'nullable-type') {
     return "The key prop's type may be null or undefined. Narrow it with a non-null assertion (e.g. `item.id!`) or change the source type to be required."
-  }
-  if (problem === 'literal-null' || problem === 'literal-undefined') {
-    return 'Replace the literal with a stable identifier, e.g. `key={item.id}`. Use the second arrow parameter `(item, i) => ... key={i}` as a fallback for static lists.'
   }
   return 'Add a key prop, e.g. `<li key={item.id}>...</li>`. Use the second arrow parameter `(item, i) => ... key={i}` as a fallback for static lists.'
 }

@@ -60,7 +60,14 @@ describe('BF023 — MISSING_KEY_IN_LIST', () => {
     expect(errs[0].severity).toBe('error')
   })
 
-  test('a-2: key={undefined} literal raises BF023', () => {
+  // The literal `null` / `undefined` cases used to raise BF023 with a
+  // generic "missing key" message. Per #1244 catalog "key={0}, key={false},
+  // key={null}" the user-explicit literal value is now accepted —
+  // `mapArray`'s `String()` coercion produces `"null"` / `"undefined"`
+  // as the per-item key, matching React's runtime-warn-only stance.
+  // The `nullable-type` check below (test a-3) is preserved for
+  // INFERRED nullability (`item.id` where `id?: string`).
+  test('a-2: key={undefined} literal compiles without BF023', () => {
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -70,11 +77,10 @@ describe('BF023 — MISSING_KEY_IN_LIST', () => {
       }
     `
     const errs = errorsFor(ErrorCodes.MISSING_KEY_IN_LIST, source)
-    expect(errs).toHaveLength(1)
-    expect(errs[0].severity).toBe('error')
+    expect(errs).toHaveLength(0)
   })
 
-  test('a-2: key={null} literal raises BF023', () => {
+  test('a-2: key={null} literal compiles without BF023', () => {
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -84,9 +90,7 @@ describe('BF023 — MISSING_KEY_IN_LIST', () => {
       }
     `
     const errs = errorsFor(ErrorCodes.MISSING_KEY_IN_LIST, source)
-    expect(errs).toHaveLength(1)
-    expect(errs[0].severity).toBe('error')
-    expect(errs[0].suggestion?.message).toContain('stable identifier')
+    expect(errs).toHaveLength(0)
   })
 
   test('a-3: key type includes undefined raises BF023', () => {
