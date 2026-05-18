@@ -516,7 +516,13 @@ describe('destructured loop param with rest spread back onto the root', () => {
 })
 
 describe('nested destructuring in loop param', () => {
-  test('{ rows: [first, ...rest] } at the loop param', () => {
+  // The catalog shape (`{ rows: [first, ...rest] }`) exercises the
+  // walker recursing into a nested array binding inside an object
+  // pattern. The Layer 1 contract is on path accumulation: each
+  // binding name lowers to the full `__bfItem()` accessor path,
+  // including the array index for the inner element and the
+  // `.slice(N)` lowering for the inner array rest.
+  test('{ rows: [first, ...rest] } at the loop param emits the full path per binding', () => {
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -532,7 +538,148 @@ describe('nested destructuring in loop param', () => {
         )
       }
     `
-    expectNoFatalErrors(compile(src))
+    const c = compile(src)
+    expectNoFatalErrors(c)
+    // `first` walks through `.rows[0]`. Both the bare check and the
+    // `.label` member-access continuation must thread through.
+    expect(c.clientJs).toContain('__bfItem().rows[0]')
+    expect(c.clientJs).toContain('__bfItem().rows[0].label')
+    // Array rest at position 1 of `rows` lowers to `.slice(1)`, NOT
+    // to a runtime helper.
+    expect(c.clientJs).toContain('__bfItem().rows.slice(1)')
+    // The naive body-entry unwrap (legacy #950 shape) must NOT appear —
+    // accessors are inlined at each read site so same-key signal
+    // updates refresh the DOM.
+    expect(c.clientJs).not.toContain('const [first, ...rest] = ')
+  })
+
+  test('3-level deep object destructure emits the full dotted path', () => {
+    // `{ user: { profile: { firstName, lastName } } }` — the walker
+    // accumulates `__bfItem().user.profile.firstName` etc. The
+    // intermediate `profile` and `user` keys must thread through so a
+    // signal update to any path segment refreshes the DOM.
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      type User = { id: string; user: { profile: { firstName: string; lastName: string } } }
+      export function Demo() {
+        const [users, setUsers] = createSignal<User[]>([])
+        return (
+          <ul onClick={() => setUsers(u => u)}>
+            {users().map(({ id, user: { profile: { firstName, lastName } } }) => (
+              <li key={id}>{firstName} {lastName}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const c = compile(src)
+    expectNoFatalErrors(c)
+    expect(c.clientJs).toContain('__bfItem().user.profile.firstName')
+    expect(c.clientJs).toContain('__bfItem().user.profile.lastName')
+  })
+
+  test('rename inside a nested object pattern uses the property key, not the local name', () => {
+    // `{ user: { name: userName } }` — the local `userName` reads
+    // `__bfItem().user.name` (the source property key), mirroring the
+    // flat-rename behaviour at `destructured-map-params.test.ts` line
+    // 104 but at a nested depth.
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      type T = { id: string; user: { name: string } }
+      export function Demo() {
+        const [items, setItems] = createSignal<T[]>([])
+        return (
+          <ul onClick={() => setItems(i => i)}>
+            {items().map(({ id, user: { name: userName } }) => (
+              <li key={id}>{userName}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const c = compile(src)
+    expectNoFatalErrors(c)
+    // Renamed local resolves to the SOURCE key path, not the local
+    // name — there's no `__bfItem().userName` reference (no such key)
+    // and no `__bfItem().user.userName` confusion.
+    expect(c.clientJs).toContain('__bfItem().user.name')
+    expect(c.clientJs).not.toMatch(/__bfItem\(\)\.userName/)
+    expect(c.clientJs).not.toMatch(/__bfItem\(\)\.user\.userName/)
+  })
+
+  // Destructured loop param referenced as a shorthand property in an
+  // object literal (`style={{ color }}`, `{...{ name }}`, …): the
+  // `__bfItem().path` rewrite must NOT land in shorthand position
+  // because JS only accepts a bare identifier there. Without
+  // expansion the rewrite produces `{ __bfItem().color }` — a
+  // SyntaxError that takes down the whole compiled module at parse
+  // time, before any runtime code runs.
+  //
+  // The IR-side preprocessing (`expandShorthandBindings`) walks the
+  // expression's TS AST, finds `ShorthandPropertyAssignment` whose
+  // name matches a binding, and rewrites the entry to a string-literal
+  // key + identifier value (`{ "color": color }`). The subsequent
+  // identifier-replacement regex skips string-literal contents, so the
+  // key stays as the literal `"color"` while the value-position
+  // `color` lowers to `__bfItem().color`.
+  //
+  // `style={{ color }}` is the most common surface (Tailwind-style
+  // dynamic colour bindings on per-item tables / lists) and is the
+  // shape this test pins.
+  test('shorthand property in object literal lowers via string-key expansion (CSR runtime path)', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      type T = { id: string; color: string; weight: number }
+      export function Demo() {
+        const [items, setItems] = createSignal<T[]>([])
+        return (
+          <ul onClick={() => setItems(i => i)}>
+            {items().map(({ id, color, weight }) => (
+              <li key={id} style={{ color }}>{weight}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const c = compile(src)
+    expectNoFatalErrors(c)
+
+    // The invalid shorthand form `{ __bfItem().color }` is a SyntaxError;
+    // its presence in the emit means the module won't load at all.
+    expect(c.clientJs).not.toMatch(/\{\s*__bfItem\(\)\.color\s*\}/)
+    // The IR-side expansion uses a string-literal key — the regex
+    // pass leaves it intact and rewrites only the value position.
+    expect(c.clientJs).toMatch(/\{\s*"color":\s*__bfItem\(\)\.color\s*\}/)
+  })
+
+  test('shorthand property survives nested destructure (object-in-array)', () => {
+    // Nested: tuple element destructured as object. Same shorthand
+    // pitfall as the flat case above — the AST preprocessing finds the
+    // shorthand even though the binding path is deeper
+    // (`__bfItem()[1].color`).
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      type Pair = readonly [string, { color: string; weight: number }]
+      export function Demo() {
+        const [pairs, setPairs] = createSignal<Pair[]>([])
+        return (
+          <ul onClick={() => setPairs(p => p)}>
+            {pairs().map(([label, { color, weight }]) => (
+              <li key={label} style={{ color }}>{label} ({weight})</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const c = compile(src)
+    expectNoFatalErrors(c)
+
+    expect(c.clientJs).not.toMatch(/\{\s*__bfItem\(\)\[1\]\.color\s*\}/)
+    expect(c.clientJs).toMatch(/\{\s*"color":\s*__bfItem\(\)\[1\]\.color\s*\}/)
   })
 })
 

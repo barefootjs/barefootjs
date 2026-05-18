@@ -3,6 +3,7 @@
  * No dependencies on ClientJsContext or other internal modules.
  */
 
+import ts from 'typescript'
 import type { AttrValue, IRTemplatePart, LoopParamBinding, FreeReference, IRNode } from '../types'
 import type { TopLevelLoop } from './types'
 import { replaceInExprContexts } from '../scanner/js-scanner'
@@ -616,18 +617,107 @@ function renderLoopBindingAccess(b: LoopParamBinding, base: string): string {
  */
 export function wrapLoopParamAsAccessor(expr: string, paramName: string, bindings?: readonly LoopParamBinding[]): string {
   if (bindings && bindings.length > 0) {
-    // Build a single alternation regex so rewriting is a one-pass operation.
-    // Iterating per-binding risks re-matching the replacement text (e.g. a
-    // binding named `a` with path `.a` would cascade into `__bfItem().a`
-    // then back into `__bfItem().__bfItem().a`).
-    const byName = new Map<string, LoopParamBinding>()
-    for (const b of bindings) byName.set(b.name, b)
-    const alt = bindings.map(b => escapeRegExp(b.name)).join('|')
-    const re = new RegExp(`\\b(${alt})\\b`, 'g')
-    return replaceInExprContexts(expr, re, (_m: string, name: string) => renderLoopBindingAccess(byName.get(name)!, '__bfItem()'))
+    return rewriteLoopBindingRefs(expr, bindings, '__bfItem()')
   }
   const re = new RegExp(`\\b${escapeRegExp(paramName)}\\b(?!\\s*\\()(?!-)`, 'g')
   return replaceInExprContexts(expr, re, `${paramName}()`)
+}
+
+/**
+ * Rewrite each reference to a destructured loop-param binding in
+ * `expr` to the corresponding `${accessor}${path}` form.
+ *
+ * Single alternation regex so rewriting is one-pass — iterating per
+ * binding risks re-matching the replacement text (a binding named
+ * `a` with path `.a` would cascade into `__bfItem().a` then back
+ * into `__bfItem().__bfItem().a`).
+ *
+ * `expandShorthandBindings` runs first so object-literal shorthand
+ * references (`{ name }`) are lifted to a string-key form before
+ * the identifier regex hits them — otherwise the rewrite would land
+ * `${accessor}` in a position JS reserves for bare identifiers
+ * (`{ __bfItem().name }` ⇒ SyntaxError). (#1244)
+ */
+function rewriteLoopBindingRefs(
+  expr: string,
+  bindings: readonly LoopParamBinding[],
+  accessor: string,
+): string {
+  const byName = new Map<string, LoopParamBinding>()
+  for (const b of bindings) byName.set(b.name, b)
+  const preprocessed = expandShorthandBindings(expr, new Set(byName.keys()))
+  const alt = bindings.map(b => escapeRegExp(b.name)).join('|')
+  const re = new RegExp(`\\b(${alt})\\b`, 'g')
+  return replaceInExprContexts(preprocessed, re, (_m: string, name: string) =>
+    renderLoopBindingAccess(byName.get(name)!, accessor),
+  )
+}
+
+/**
+ * Expand object-literal shorthand properties whose name matches a
+ * destructured loop-param binding into the equivalent
+ * `"name": name` form (string-literal key + identifier value).
+ *
+ * Why: JS only accepts a bare identifier as a shorthand property
+ * name, so the downstream `${accessor}` rewrite of `{ color }` would
+ * produce `{ __bfItem().color }` — a SyntaxError that takes down the
+ * whole compiled component at module load time, before any runtime
+ * code runs. (#1244)
+ *
+ * Why string-literal key (not `name: name`): the subsequent
+ * identifier-replacement regex (`replaceInExprContexts`) skips string
+ * literal contents, so the key stays as the literal `"color"` while
+ * the value-position `color` gets rewritten to `__bfItem().color`.
+ * The alternative `name: name` would have the regex match BOTH
+ * occurrences and produce `{ __bfItem().color: __bfItem().color }`
+ * — same SyntaxError, just one indirection deeper.
+ *
+ * AST-based detection (TS `ShorthandPropertyAssignment`) is
+ * intentionally chosen over character-by-character lookbehind on the
+ * raw expression text — the codebase's recurring "hand-rolled JS
+ * source scanners" pattern (#1244 §D) explicitly flags that approach
+ * as drift-prone (computed keys, comments, nested template literals
+ * all need separate handling). The TS scanner already knows what a
+ * shorthand prop is.
+ *
+ * The `(${expr})` wrap forces TS to parse a bare object literal as
+ * an expression — otherwise `{ color }` would be a block statement
+ * containing an expression statement, with no `ShorthandPropertyAssignment`
+ * node to find.
+ */
+function expandShorthandBindings(expr: string, bindingNames: ReadonlySet<string>): string {
+  // Fast path: no `{` means no object literal means no shorthand to
+  // expand. Skip the parser cost on the common case.
+  if (!expr.includes('{')) return expr
+  const wrapped = `(${expr})`
+  const sf = ts.createSourceFile('__bf_expr.ts', wrapped, ts.ScriptTarget.Latest, /* setParentNodes */ true)
+  const edits: Array<{ start: number; end: number; replacement: string }> = []
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isShorthandPropertyAssignment(node)
+      && ts.isIdentifier(node.name)
+      && bindingNames.has(node.name.text)
+    ) {
+      // `node` spans just the bare identifier on the shorthand entry.
+      // Position offsets are in `wrapped`; subtract the leading `(`
+      // to map back to `expr`.
+      const start = node.getStart(sf) - 1
+      const end = node.getEnd() - 1
+      const name = node.name.text
+      edits.push({ start, end, replacement: `${JSON.stringify(name)}: ${name}` })
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  if (edits.length === 0) return expr
+  // Apply right-to-left so earlier offsets stay valid as later ones
+  // grow.
+  edits.sort((a, b) => b.start - a.start)
+  let out = expr
+  for (const e of edits) {
+    out = out.slice(0, e.start) + e.replacement + out.slice(e.end)
+  }
+  return out
 }
 
 /**
@@ -645,11 +735,7 @@ export function substituteLoopBindings(
   accessor: string,
 ): string {
   if (!bindings || bindings.length === 0) return expr
-  const byName = new Map<string, LoopParamBinding>()
-  for (const b of bindings) byName.set(b.name, b)
-  const alt = bindings.map(b => escapeRegExp(b.name)).join('|')
-  const re = new RegExp(`\\b(${alt})\\b`, 'g')
-  return replaceInExprContexts(expr, re, (_m: string, name: string) => renderLoopBindingAccess(byName.get(name)!, accessor))
+  return rewriteLoopBindingRefs(expr, bindings, accessor)
 }
 
 /**
