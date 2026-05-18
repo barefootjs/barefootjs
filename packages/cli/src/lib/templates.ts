@@ -1,4 +1,4 @@
-// Adapter and CSS-library registries consumed by `barefoot init`.
+// Adapter and CSS-library registries consumed by `bf init`.
 //
 // The actual template content for each adapter lives under
 // `./adapters/<name>.ts` so this file stays focused on registration
@@ -62,7 +62,7 @@ export interface AdapterTemplate {
   prereqWarnings: () => string[]
 }
 
-// CSS library options offered by `barefoot init`. The library is
+// CSS library options offered by `bf init`. The library is
 // currently a presentational choice — the Hono adapter wires UnoCSS
 // directly, and additional libraries (Tailwind, etc.) will eventually
 // contribute their own files/scripts/deps once an adapter supports

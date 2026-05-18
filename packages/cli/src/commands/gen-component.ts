@@ -1,4 +1,4 @@
-// barefoot scaffold — generate component skeleton + IR test.
+// bf gen component — generate component skeleton + IR test.
 
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import path from 'path'
@@ -7,8 +7,8 @@ import { scaffold } from '../lib/scaffold'
 
 export function run(args: string[], ctx: CliContext): void {
   if (args.length < 2) {
-    console.error('Usage: barefoot scaffold <component-name> <use-component1> [use-component2] ...')
-    console.error('Example: barefoot scaffold settings-form input switch button')
+    console.error('Usage: bf gen component <component-name> <use-component1> [use-component2] ...')
+    console.error('Example: bf gen component settings-form input switch button')
     process.exit(1)
   }
 
@@ -39,5 +39,5 @@ export function run(args: string[], ctx: CliContext): void {
   console.log(`Next steps:`)
   console.log(`  1. Implement the component in ${result.componentPath}`)
   console.log(`  2. bun test ${result.testPath}`)
-  console.log(`  3. bun run barefoot test:template ${componentName}  (regenerate richer test)`)
+  console.log(`  3. bf gen test ${componentName}  (regenerate richer test)`)
 }

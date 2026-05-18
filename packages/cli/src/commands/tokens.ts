@@ -1,4 +1,4 @@
-// barefoot tokens — list design tokens by category.
+// bf tokens — list design tokens by category.
 
 import { resolve } from 'node:path'
 import type { CliContext } from '../context'

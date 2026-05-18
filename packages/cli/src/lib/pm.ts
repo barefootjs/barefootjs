@@ -4,7 +4,7 @@
 //   1. A lockfile in `dir` — the user has already committed to a tool.
 //   2. The package manager that spawned this CLI, read from
 //      `npm_config_user_agent` (set by npm/bun/pnpm/yarn). Catches the
-//      common `bunx barefoot init` in an empty directory case where there
+//      common `bunx bf init` in an empty directory case where there
 //      is no lockfile yet but the user clearly wants bun.
 //
 // Falls back to 'npm' when neither signal is available.

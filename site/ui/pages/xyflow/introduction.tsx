@@ -166,7 +166,7 @@ export function XyflowIntroductionPage() {
             </p>
           </div>
 
-          <PackageManagerTabs command="barefoot add xyflow" />
+          <PackageManagerTabs command="bf add xyflow" />
         </Section>
 
         {/* Quick Start */}

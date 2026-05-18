@@ -3,9 +3,9 @@
 // config the registry components depend on.
 
 // Starter Counter (Hono / CSR): uses the registry-fetched <Button> from
-// `components/ui/button/`. `barefoot init` adds it via `addFromRegistry`
+// `components/ui/button/`. `bf init` adds it via `addFromRegistry`
 // during scaffolding, so the file is on disk before the user runs
-// `bun install` — no manual `barefoot add button` step is required.
+// `bun install` — no manual `bf add button` step is required.
 export const SHARED_COUNTER_TSX = `'use client'
 
 import { createSignal, createMemo } from '@barefootjs/client'
@@ -286,7 +286,7 @@ export default defineConfig({
 
 // Empty manifest seed so the static \`import manifest from
 // './dist/components/manifest.json'\` in renderer.tsx resolves on the
-// very first server boot, before \`barefoot build\` has run.
+// very first server boot, before \`bf build\` has run.
 export const COMPONENTS_MANIFEST_SEED = '{}\n'
 
 // UnoCSS shared dev/runtime deps (every adapter pulls UnoCSS for now).

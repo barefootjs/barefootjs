@@ -262,7 +262,7 @@ export function ResizableRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add resizable" />
+          <PackageManagerTabs command="bf add resizable" />
         </Section>
 
         {/* Usage */}

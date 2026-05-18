@@ -253,7 +253,7 @@ export function InputOTPRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add input-otp" />
+          <PackageManagerTabs command="bf add input-otp" />
         </Section>
 
         {/* Usage */}

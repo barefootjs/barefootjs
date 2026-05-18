@@ -1,10 +1,10 @@
 /**
  * BarefootJS Dev Reloader (Hono, Node-side)
  *
- * `createDevReloader` turns `barefoot build --watch`'s sentinel file
+ * `createDevReloader` turns `bf build --watch`'s sentinel file
  * (`<distDir>/.dev/build-id`) into an SSE stream:
  *
- *   [barefoot build --watch] → writes `<distDir>/.dev/build-id` after each successful build
+ *   [bf build --watch] → writes `<distDir>/.dev/build-id` after each successful build
  *   [createDevReloader]      → watches that file, streams SSE `event: reload`
  *
  * Mount it on a Hono route in the generated app; the matching browser-
@@ -27,7 +27,7 @@ import { mkdir, readFile, watch } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 export interface CreateDevReloaderOptions {
-  /** Directory that `barefoot build` writes output into (contains `.dev/build-id`). */
+  /** Directory that `bf build` writes output into (contains `.dev/build-id`). */
   distDir: string
   /** Override the dev gate. Defaults to `process.env.NODE_ENV !== 'production'`. */
   enabled?: boolean

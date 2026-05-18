@@ -129,7 +129,7 @@ sub render_child ($self, $name, %props) {
 # Bulk registration from build manifest
 # ---------------------------------------------------------------------------
 #
-# `barefoot build` emits dist/templates/manifest.json describing every
+# `bf build` emits dist/templates/manifest.json describing every
 # component the page might invoke (Counter, ui/button/index, ...).
 # This helper walks that manifest and registers one child renderer per
 # UI registry entry — the path shape `ui/<name>/index` maps to the
@@ -143,7 +143,7 @@ sub render_child ($self, $name, %props) {
 # declared in the JSX source (Perl's strict mode rejects undefined
 # `$variant`, `$size`, etc. otherwise).
 #
-# When `barefoot build` learns to embed these defaults in the manifest
+# When `bf build` learns to embed these defaults in the manifest
 # itself (tracked separately), this helper will derive them
 # automatically and callers can drop the signal_init argument.
 sub register_components_from_manifest ($self, $manifest, %opts) {

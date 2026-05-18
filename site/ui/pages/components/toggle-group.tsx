@@ -211,7 +211,7 @@ export function ToggleGroupRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add toggle-group" />
+          <PackageManagerTabs command="bf add toggle-group" />
         </Section>
 
         {/* Usage */}

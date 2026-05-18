@@ -2,7 +2,7 @@
 //
 // `create-barefootjs` — entrypoint for `npm create barefootjs@latest`.
 //
-// Thin wrapper around the existing `barefoot init` command:
+// Thin wrapper around the existing `bf init` command:
 //   1. Pick the target directory from the first positional arg, or
 //      prompt the user for one when omitted (TTY only — falls back to
 //      "my-app" in CI / piped contexts).
@@ -57,7 +57,7 @@ Options:
                       Skips every prompt — useful for CI and dotfiles.
   -h, --help          Show this message.
 
-Forwarded to \`barefoot init\`:
+Forwarded to \`bf init\`:
   --adapter <name>    Adapter to use (default: hono)
   --css <name>        CSS library to use (default: unocss)
 

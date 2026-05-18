@@ -144,7 +144,7 @@ export function ItemRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add item" />
+          <PackageManagerTabs command="bf add item" />
         </Section>
 
         {/* Usage */}

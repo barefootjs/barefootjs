@@ -301,7 +301,7 @@ export function DropdownMenuRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add dropdown-menu" />
+          <PackageManagerTabs command="bf add dropdown-menu" />
         </Section>
 
         {/* Usage */}

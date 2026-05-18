@@ -8,7 +8,7 @@ import {
   applyTokenOverrides,
   resolveTokensCss,
   type StudioConfig,
-} from '../commands/studio'
+} from '../commands/tokens-apply'
 
 // ── parseStudioUrl ──
 

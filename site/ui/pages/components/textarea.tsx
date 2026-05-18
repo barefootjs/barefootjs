@@ -149,7 +149,7 @@ export function TextareaRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add textarea" />
+          <PackageManagerTabs command="bf add textarea" />
         </Section>
 
         {/* Usage */}

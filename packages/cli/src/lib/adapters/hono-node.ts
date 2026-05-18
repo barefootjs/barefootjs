@@ -118,7 +118,7 @@ const manifestPath = resolve('./dist/components/manifest.json')
 
 // In production we trust the static import — manifest.json was final
 // at build time. In dev we re-read on every request so a
-// \`barefoot build --watch\` rebuild surfaces in the very next refresh,
+// \`bf build --watch\` rebuild surfaces in the very next refresh,
 // not the one after that (\`tsx watch\` doesn't reliably bounce the
 // server for JSON-only changes, which left the renderer holding a
 // stale manifest one edit behind).
@@ -172,7 +172,7 @@ export const isDev = !isProd
 const HONO_NODE_BAREFOOT_CONFIG_TS = `import { createConfig } from '@barefootjs/hono/build'
 
 export default createConfig({
-  // Project layout — read by \`barefoot add\`, \`search\`, \`meta:extract\`, etc.
+  // Project layout — read by \`bf add\`, \`search\`, \`meta:extract\`, etc.
   paths: {
     components: 'components/ui',
     tokens: 'tokens',
@@ -205,7 +205,7 @@ const HONO_NODE_TSCONFIG = `{
     "baseUrl": ".",
     "paths": {
       // Server components (no 'use client') aren't emitted to dist by
-      // \`barefoot build\`, so the path map falls back to the source so
+      // \`bf build\`, so the path map falls back to the source so
       // imports of those components still resolve.
       "@/components/*": ["./dist/components/*", "./components/*"]
     }
@@ -243,8 +243,8 @@ export const HONO_NODE_ADAPTER: AdapterTemplate = {
     // Node server side-by-side. `concurrently -k` makes Ctrl-C kill
     // all three. The server reloads itself via `tsx watch`; the
     // browser auto-reloads via the SSE endpoint wired up in factory.ts.
-    dev: 'barefoot build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "tsx watch server.tsx"',
-    build: 'barefoot build && unocss',
+    dev: 'bf build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "tsx watch server.tsx"',
+    build: 'bf build && unocss',
     start: 'tsx server.tsx',
   },
   dependencies: {

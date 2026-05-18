@@ -1,4 +1,4 @@
-// `barefoot studio apply <url>` — Apply a Studio-encoded token config
+// `bf tokens apply <url>` — Apply a Studio-encoded token config
 // (from a `?c=...` URL) onto an existing project's tokens.
 //
 // Primary action: rewrite CSS variable values inside the project's
@@ -59,16 +59,10 @@ const SHADOW_PRESETS: Record<string, Record<string, string>> = {
 }
 
 export async function run(args: string[], ctx: CliContext): Promise<void> {
-  const sub = args[0]
-  if (sub !== 'apply') {
-    printUsage()
-    process.exit(sub ? 1 : 0)
-  }
-
-  const url = args[1]
+  const url = args[0]
   if (!url) {
-    console.error('Error: studio apply requires a Studio URL.')
-    console.error('Usage: barefoot studio apply <url>')
+    console.error('Error: tokens apply requires a Studio URL.')
+    console.error('Usage: bf tokens apply <url>')
     process.exit(1)
   }
 
@@ -104,14 +98,6 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
     applyTokenOverrides(tokensJsonPath, studioConfig)
     console.log(`  Patched ${path.relative(projectDir, tokensJsonPath)}`)
   }
-}
-
-function printUsage(): void {
-  console.log(`Usage: barefoot studio <subcommand>
-
-Subcommands:
-  apply <url>    Apply a Studio token config (\`?c=...\` URL) to this project's tokens
-`)
 }
 
 // ── URL parsing ──

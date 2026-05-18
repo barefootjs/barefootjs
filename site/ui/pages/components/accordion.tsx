@@ -205,7 +205,7 @@ export function AccordionRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add accordion" />
+          <PackageManagerTabs command="bf add accordion" />
         </Section>
 
         {/* Usage */}

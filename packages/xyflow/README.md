@@ -10,7 +10,7 @@ pointer-paced subsystems). The **JSX-native renderer components**
 to consumers via:
 
 ```sh
-barefoot add xyflow            # via the BarefootJS CLI
+bf add xyflow            # via the BarefootJS CLI
 npx shadcn@latest add https://ui.barefootjs.dev/r/xyflow.json
 ```
 

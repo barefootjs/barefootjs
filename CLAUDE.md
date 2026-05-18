@@ -41,7 +41,7 @@ Quick decision guide:
 `renderToTest` resolution limits (known): the IR analyzer does NOT resolve `Record<T, string>[key]` indexed lookups or default-prop values. For variant components (`const sizeClasses: Record<Size, string> = {...}` + `${sizeClasses[size]}`), the `.classes` array in IR only contains the base class tokens, not the per-variant ones. Verify variant resolution at the adapter conformance layer instead, or add a fixture in `packages/adapter-tests/fixtures/`. See `ui/components/ui/button/index.test.tsx` for the existing workaround pattern.
 
 Workflow for editing a UI component:
-1. Run `bun run barefoot ui <component>` (and `barefoot inspect <component>` if `"use client"`) for the API surface.
+1. Run `bun run bf docs <component>` (and `bf debug graph <component>` if `"use client"`) for the API surface.
 2. Add or update the IR test (red).
 3. Edit the component.
 4. Re-run the IR test (green).
@@ -49,10 +49,10 @@ Workflow for editing a UI component:
 
 ## CLI
 
-The `barefoot` CLI (`bun run barefoot`) MUST be your first reference for component APIs, framework docs, and signal graphs — before reading source files. Run `barefoot --help` for the full command list.
+The `bf` CLI (`bun run bf`) MUST be your first reference for component APIs, framework docs, and signal graphs — before reading source files. Run `bf --help` for the full command list.
 
 Required usage:
-- Before editing a stateful component (`"use client"`): run `barefoot inspect <component>` to understand its reactive structure.
+- Before editing a stateful component (`"use client"`): run `bf debug graph <component>` to understand its reactive structure.
 - Reading the source is only acceptable when CLI output is insufficient (e.g. class-composition patterns, internal helpers, `...props` spread behavior).
 
 ## Git Commit

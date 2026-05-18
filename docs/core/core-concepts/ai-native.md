@@ -23,22 +23,23 @@ See [IR Schema Reference](../advanced/ir-schema.md) for the full specification.
 
 ## CLI for AI Workflows
 
-The `barefoot` CLI provides structured access to discovery, scaffolding, and debugging. All commands support `--json` for machine-readable output.
+The `bf` CLI provides structured access to discovery, scaffolding, and debugging. All commands support `--json` for machine-readable output.
 
 ```bash
 # Discover
-barefoot search dialog              # Find by name/category/tags
-barefoot ui accordion               # Props, examples, a11y
-barefoot core signals               # Framework docs
+bf search dialog              # Find by name/category/tags
+bf docs accordion             # Props, examples, a11y
+bf guide signals              # Framework docs
 
 # Scaffold
-barefoot scaffold settings-form input switch button  # Component skeleton + IR test
-barefoot test:template Button                        # Generate IR test from existing source
+bf gen component settings-form input switch button  # Component skeleton + IR test
+bf gen test Button                                  # Generate IR test from existing source
 
 # Inspect reactive structure
-barefoot inspect Counter             # Signal dependency graph
-barefoot why-update Counter count    # Trace update path: signal → DOM
-barefoot why-wrap calendar           # List Solid-style wrap-by-default fallback bindings
+bf debug graph Counter           # Signal dependency graph
+bf debug trace Counter count     # Trace update path: signal → DOM
+bf debug fallbacks calendar      # List Solid-style wrap-by-default fallback bindings
+bf debug signals Counter         # Show signal initialization trace
 ```
 
 Both humans and AI agents use these commands to generate and debug components without reading source files.

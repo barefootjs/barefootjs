@@ -1,4 +1,4 @@
-// `barefoot add <component...>` — Add components to a BarefootJS project.
+// `bf add <component...>` — Add components to a BarefootJS project.
 
 import { existsSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, readdirSync } from 'fs'
 import path from 'path'
@@ -26,12 +26,12 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
   const componentNames = args.filter(a => !a.startsWith('--'))
 
   if (componentNames.length === 0) {
-    console.error('Usage: barefoot add <component...> [--force] [--registry <url>]')
+    console.error('Usage: bf add <component...> [--force] [--registry <url>]')
     process.exit(1)
   }
 
   if (!ctx.config || !ctx.projectDir) {
-    console.error('Error: project config not found. Run `barefoot init` first.')
+    console.error('Error: project config not found. Run `npm create barefootjs@latest` first.')
     console.error('       (looked for barefoot.config.ts walking up from the cwd)')
     process.exit(1)
   }

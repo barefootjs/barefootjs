@@ -1,6 +1,6 @@
 // Package bfdev provides a dev-only browser auto-reload handler.
 //
-// It watches `<distDir>/.dev/build-id` (produced by `barefoot build --watch`
+// It watches `<distDir>/.dev/build-id` (produced by `bf build --watch`
 // in the @barefootjs/cli package) and streams SSE `event: reload` whenever
 // the sentinel changes. Combined with the inline client snippet returned by
 // Snippet, editing a .tsx component triggers a browser reload automatically.
@@ -54,7 +54,7 @@ const (
 
 // Config configures a dev reload handler or snippet.
 type Config struct {
-	// DistDir is the directory that `barefoot build` writes output into
+	// DistDir is the directory that `bf build` writes output into
 	// (contains `.dev/build-id`). Required for the handler; ignored by
 	// Snippet.
 	DistDir string

@@ -119,7 +119,7 @@ export function KbdRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add kbd" />
+          <PackageManagerTabs command="bf add kbd" />
         </Section>
 
         {/* Usage */}

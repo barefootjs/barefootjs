@@ -209,7 +209,7 @@ export function ToastRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add toast" />
+          <PackageManagerTabs command="bf add toast" />
         </Section>
 
         {/* Usage */}

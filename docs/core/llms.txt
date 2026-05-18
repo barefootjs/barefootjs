@@ -4,11 +4,11 @@
 
 ## Core Concepts
 
+- [AI-native Development](https://barefootjs.dev/docs/core-concepts/ai-native.md): Millisecond component tests via IR, CLI-driven component discovery
 - [Backend Freedom](https://barefootjs.dev/docs/core-concepts/backend-freedom.md): How adapters let the same JSX run on any server — Hono, Go, and beyond
+- [How It Works](https://barefootjs.dev/docs/core-concepts/how-it-works.md): Two-phase compilation and hydration markers
 - [MPA-style Development](https://barefootjs.dev/docs/core-concepts/mpa-style.md): Server-rendering by default, with client JavaScript only where you need it
-- [Fine-grained Reactivity](https://barefootjs.dev/docs/core-concepts/reactivity.md): Signal-based reactivity with signals, effects, and memos — no virtual DOM needed
-- [AI-native Development](https://barefootjs.dev/docs/core-concepts/ai-native.md): Testable IR, CLI discovery, and workflows designed for AI-assisted development
-- [How It Works](https://barefootjs.dev/docs/core-concepts/how-it-works.md): Two-phase compilation, hydration markers, and clean overrides — a technical overview
+- [Fine-grained Reactivity](https://barefootjs.dev/docs/core-concepts/reactivity.md): Signal-based reactivity — no virtual DOM, updates at the DOM node level
 
 ## Reactivity
 
@@ -33,17 +33,21 @@
 - [Context API](https://barefootjs.dev/docs/components/context-api.md): Share state with deeply nested children without prop drilling using createContext and useContext.
 - [Portals](https://barefootjs.dev/docs/components/portals.md): Render elements outside their parent DOM hierarchy for overlays, modals, and tooltips.
 - [Props & Type Safety](https://barefootjs.dev/docs/components/props-type-safety.md): Type component props with TypeScript interfaces and preserve type information through compilation.
+- [Style Overrides](https://barefootjs.dev/docs/components/styling.md): How user-supplied classes override component base classes via CSS Cascade Layers
 
 ## Adapters
 
 - [Adapter Architecture](https://barefootjs.dev/docs/adapters/adapter-architecture.md): How adapters convert the compiler's IR into server-renderable template formats.
+- [CSR (Client-Side Rendering)](https://barefootjs.dev/docs/adapters/csr.md): Render BarefootJS components directly in the browser without a server-rendered template.
 - [Writing a Custom Adapter](https://barefootjs.dev/docs/adapters/custom-adapter.md): Step-by-step guide to building a custom adapter using the TestAdapter as a reference.
 - [Go Template Adapter](https://barefootjs.dev/docs/adapters/go-template-adapter.md): Generate Go html/template files and type definitions from the compiler's IR.
 - [Hono Adapter](https://barefootjs.dev/docs/adapters/hono-adapter.md): Generate Hono JSX templates from the compiler's IR for Hono-based servers.
 
 ## Advanced
 
+- [Vendor code-splitting](https://barefootjs.dev/docs/advanced/code-splitting.md): Split large vendor libraries into separately-cached browser chunks via barefoot.config.ts externals
 - [Compiler Internals](https://barefootjs.dev/docs/advanced/compiler-internals.md): How the BarefootJS compiler transforms JSX into marked templates and client JavaScript.
 - [Error Codes Reference](https://barefootjs.dev/docs/advanced/error-codes.md): Complete list of BF-prefixed compiler error codes with explanations and fixes.
 - [IR Schema Reference](https://barefootjs.dev/docs/advanced/ir-schema.md): JSON tree structure of the Intermediate Representation consumed by adapters and client-JS generation.
 - [Performance Optimization](https://barefootjs.dev/docs/advanced/performance.md): Strategies to minimize bundle size, reduce hydration cost, and optimize runtime reactivity
+- [xyflow browser bundle](https://barefootjs.dev/docs/advanced/xyflow-browser-bundle.md): How to serve @barefootjs/xyflow as a pre-built browser chunk via an importmap

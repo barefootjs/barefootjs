@@ -81,7 +81,7 @@ export function SkeletonRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add skeleton" />
+          <PackageManagerTabs command="bf add skeleton" />
         </Section>
 
         {/* Usage */}

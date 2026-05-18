@@ -160,7 +160,7 @@ export function CarouselRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add carousel" />
+          <PackageManagerTabs command="bf add carousel" />
         </Section>
 
         {/* Usage */}

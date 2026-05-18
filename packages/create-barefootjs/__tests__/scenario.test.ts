@@ -52,7 +52,7 @@ describe('Scenario: how the target directory is chosen (no network)', () => {
       // text() helper short-circuits to the default instead of trying
       // to render a prompt. We only assert the create-barefootjs-side
       // contract (the default surfaces in the confirmation line);
-      // whether the downstream `barefoot init` succeeds depends on
+      // whether the downstream `bf init` succeeds depends on
       // registry reachability and is covered by the integration suite.
       const cwd = mktmp()
       const r = runCreate([], { cwd })

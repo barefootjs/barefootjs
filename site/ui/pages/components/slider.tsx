@@ -268,7 +268,7 @@ export function SliderRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add slider" />
+          <PackageManagerTabs command="bf add slider" />
         </Section>
 
         {/* Usage */}

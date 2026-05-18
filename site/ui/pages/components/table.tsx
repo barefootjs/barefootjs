@@ -223,7 +223,7 @@ export function TableRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add table" />
+          <PackageManagerTabs command="bf add table" />
         </Section>
 
         {/* Usage */}

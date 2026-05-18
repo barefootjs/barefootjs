@@ -37,7 +37,7 @@ const DEV_RELOAD_ENDPOINT_KEY = 'bfDevReloadEndpoint'
 // ── helpers ────────────────────────────────────────────────────────────────
 
 /**
- * Build manifest shape produced by `barefoot build`. Each compiled
+ * Build manifest shape produced by `bf build`. Each compiled
  * component is keyed by its manifest name; `__barefoot__` is the
  * runtime entry. `clientJs` is a path under `dist/`, e.g.
  * `"components/Counter.client.js"`.
@@ -127,7 +127,7 @@ let __bfEmptyManifestWarned = false
  * manifest, runtime first. Place at the end of `<body>`.
  *
  * Logs a one-time warning when the manifest is empty — a strong
- * signal the user is running the server before `barefoot build` has
+ * signal the user is running the server before `bf build` has
  * produced anything, which would otherwise present as a silent
  * "page renders but nothing is interactive."
  */
@@ -137,7 +137,7 @@ export function BfScripts(props: BfScriptsProps): HtmlEscapedString | Promise<Ht
     __bfEmptyManifestWarned = true
     console.warn(
       '[barefootjs] BfScripts: manifest is empty — no <script> tags emitted. ' +
-        'Run `barefoot build` to compile components and rebuild the manifest.',
+        'Run `bf build` to compile components and rebuild the manifest.',
     )
   }
   const tags = urls

@@ -1,4 +1,4 @@
-// barefoot search — find components and documentation by name, category, or tags.
+// bf search — find components and documentation by name, category, or tags.
 
 import path from 'path'
 import type { CliContext } from '../context'
@@ -92,7 +92,7 @@ function printSearchResults(results: SearchResult[], jsonFlag: boolean) {
   if (componentCount > 0) parts.push(`${componentCount} component(s)`)
   if (docCount > 0) parts.push(`${docCount} doc(s)`)
   console.log(`\n${parts.join(', ')} found. (* = stateful)`)
-  console.log(`Use 'barefoot ui <name>' or 'barefoot core <name>' for details.`)
+  console.log(`Use 'bf docs <name>' or 'bf guide <name>' for details.`)
 }
 
 export async function run(args: string[], ctx: CliContext): Promise<void> {

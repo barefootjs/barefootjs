@@ -22,7 +22,7 @@ test.describe('Installation Tabs (PackageManagerTabs)', () => {
   })
 
   test('shows bun command by default', async ({ page }) => {
-    await expect(page.locator('text=bunx --bun barefoot add checkbox')).toBeVisible()
+    await expect(page.locator('text=bunx --bun bf add checkbox')).toBeVisible()
   })
 
   test('clicking npm tab switches content', async ({ page }) => {
@@ -32,7 +32,7 @@ test.describe('Installation Tabs (PackageManagerTabs)', () => {
     await npmTab.click()
 
     await expect(npmTab).toHaveAttribute('aria-selected', 'true')
-    await expect(page.locator('text=npx barefoot add checkbox')).toBeVisible()
+    await expect(page.locator('text=npx bf add checkbox')).toBeVisible()
   })
 
   test('clicking pnpm tab switches content', async ({ page }) => {
@@ -42,7 +42,7 @@ test.describe('Installation Tabs (PackageManagerTabs)', () => {
     await pnpmTab.click()
 
     await expect(pnpmTab).toHaveAttribute('aria-selected', 'true')
-    await expect(page.locator('text=pnpm dlx barefoot add checkbox')).toBeVisible()
+    await expect(page.locator('text=pnpm dlx bf add checkbox')).toBeVisible()
   })
 
   test('clicking yarn tab switches content', async ({ page }) => {
@@ -52,7 +52,7 @@ test.describe('Installation Tabs (PackageManagerTabs)', () => {
     await yarnTab.click()
 
     await expect(yarnTab).toHaveAttribute('aria-selected', 'true')
-    await expect(page.locator('text=yarn dlx barefoot add checkbox')).toBeVisible()
+    await expect(page.locator('text=yarn dlx bf add checkbox')).toBeVisible()
   })
 
   test('switching tabs updates aria-selected correctly', async ({ page }) => {

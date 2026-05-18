@@ -76,7 +76,7 @@ export interface DomBinding {
   /**
    * Source expression text for the binding, when available. Populated for
    * text / attribute / conditional / loop / child-prop bindings so
-   * `barefoot why-wrap` can print the expression alongside the slotId —
+   * `bf debug fallbacks` can print the expression alongside the slotId —
    * users locate bindings by expression, not by internal slot label.
    *
    * Omitted for event handlers (whose body is already surfaced by
@@ -124,7 +124,7 @@ export interface UpdatePathEntry {
 
 /**
  * Analyze a component source and build a full reactive dependency graph.
- * This is the core analysis used by `barefoot inspect` and `barefoot why-update`.
+ * This is the core analysis used by `bf debug graph` and `bf debug trace`.
  */
 export function buildComponentGraph(source: string, filePath: string, componentName?: string): ComponentGraph {
   const ctx = analyzeComponent(source, filePath, componentName)
@@ -323,7 +323,7 @@ function buildUpdateEntry(consumer: string, graph: ComponentGraph, visited: Set<
 // Formatting: Human-readable output
 // =============================================================================
 
-/** Format the component graph as a human-readable string for `barefoot inspect`. */
+/** Format the component graph as a human-readable string for `bf debug graph`. */
 export function formatComponentGraph(graph: ComponentGraph): string {
   const lines: string[] = []
 
@@ -358,7 +358,7 @@ export function formatComponentGraph(graph: ComponentGraph): string {
   // DOM bindings. Fallback-wrapped expressions (#937 Solid-style
   // wrap-by-default) are marked with a leading `~` so users can spot
   // expressions whose reactivity couldn't be statically proven — these
-  // are the candidates `barefoot why-wrap` surfaces for optimisation.
+  // are the candidates `bf debug fallbacks` surfaces for optimisation.
   if (graph.domBindings.length > 0) {
     lines.push(`  dom bindings:`)
     for (const d of graph.domBindings) {
@@ -389,7 +389,7 @@ export function formatComponentGraph(graph: ComponentGraph): string {
   return lines.join('\n')
 }
 
-/** Format an update path as a human-readable string for `barefoot why-update`. */
+/** Format an update path as a human-readable string for `bf debug trace`. */
 export function formatUpdatePath(path: UpdatePath): string {
   const lines: string[] = []
 
@@ -555,7 +555,7 @@ function inferWrapReasonForAttrLike(
  *
  * Emits one `DomBinding` per expression the emitter wraps in `createEffect` at
  * client JS generation time. The gate matches `ir-to-client-js/collect-elements.ts`
- * so `barefoot inspect` / `barefoot why-update` / `barefoot why-wrap` see the
+ * so `bf debug graph` / `bf debug trace` / `bf debug fallbacks` see the
  * same reactive footprint the runtime sees.
  *
  * Each binding carries a `classification`:

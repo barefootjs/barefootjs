@@ -10,7 +10,7 @@ import { loadBuildConfig } from './lib/config-loader'
 const thisDir = path.dirname(fileURLToPath(import.meta.url))
 
 /**
- * Project-level config consumed by registry tooling (`barefoot add`,
+ * Project-level config consumed by registry tooling (`bf add`,
  * `search`, `meta:extract`, etc.). Sourced from `barefoot.config.ts`.
  */
 export interface BarefootConfig {
@@ -48,7 +48,7 @@ export function findProjectConfig(startDir: string): {
   }
 }
 
-// Per-cwd cache so `barefoot build` (which loads its own copy) and the
+// Per-cwd cache so `bf build` (which loads its own copy) and the
 // surrounding command (which loads via createContext) don't transpile the
 // config twice in one CLI invocation.
 const buildConfigCache = new Map<string, Promise<BarefootBuildConfig>>()

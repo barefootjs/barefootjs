@@ -185,7 +185,7 @@ export function TooltipRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add tooltip" />
+          <PackageManagerTabs command="bf add tooltip" />
         </Section>
 
         {/* Usage */}

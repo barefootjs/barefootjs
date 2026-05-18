@@ -49,7 +49,7 @@ use lib 'lib';
 plugin 'BarefootJS';
 
 # Dev-only browser auto-reload over SSE. The plugin polls
-# \`dist/.dev/build-id\` (written by \`barefoot build --watch\` after every
+# \`dist/.dev/build-id\` (written by \`bf build --watch\` after every
 # successful rebuild) and streams \`event: reload\` to subscribers — the
 # layout's \`<%== bf_dev_snippet %>\` registers an EventSource subscriber.
 # Self-disabling when \`app->mode eq 'production'\`, so the snippet and
@@ -62,10 +62,10 @@ plugin 'BarefootJS::DevReload';
 push @{app->static->paths}, app->home->child('public');
 push @{app->static->paths}, app->home->child('dist');
 
-# Templates produced by \`barefoot build\`.
+# Templates produced by \`bf build\`.
 app->renderer->paths->[0] = app->home->child('dist/templates');
 
-# In dev mode, drop the template cache so \`barefoot build --watch\`
+# In dev mode, drop the template cache so \`bf build --watch\`
 # changes show up without a full server restart.
 if (app->mode eq 'development') {
     app->renderer->cache->max_keys(0);
@@ -93,7 +93,7 @@ get '/' => sub ($c) {
     # about so Counter's \`<%= bf->render_child('button', ...) %>\` and
     # similar calls resolve without per-component wire-up. The
     # \`signal_init\` callbacks supply the SSR defaults for each
-    # template variable (until \`barefoot build\` learns to embed them
+    # template variable (until \`bf build\` learns to embed them
     # in the manifest itself).
     my $manifest = decode_json(app->home->child('dist/templates/manifest.json')->slurp);
     $bf->register_components_from_manifest($manifest, signal_init => {
@@ -115,7 +115,7 @@ get '/' => sub ($c) {
     });
 
     # Stash values for every signal/memo Counter.html.ep references.
-    # \`barefoot build\` derives variable names directly from the JSX
+    # \`bf build\` derives variable names directly from the JSX
     # \`createSignal\` / \`createMemo\` declarations (here: \`count\`,
     # \`doubled\`), so the SSR template needs each one set explicitly —
     # client-side hydration takes over once the bundle loads.
@@ -205,8 +205,8 @@ export const MOJO_ADAPTER: AdapterTemplate = {
   scripts: {
     // Build everything once, then run the watchers + Mojolicious's morbo
     // (which auto-reloads on app.pl edits) side-by-side.
-    dev: 'barefoot build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "morbo app.pl -l http://*:3002"',
-    build: 'barefoot build && unocss',
+    dev: 'bf build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "morbo app.pl -l http://*:3002"',
+    build: 'bf build && unocss',
     start: 'perl app.pl daemon -l http://*:3002',
   },
   dependencies: {

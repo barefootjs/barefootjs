@@ -121,7 +121,7 @@ export function AvatarRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add avatar" />
+          <PackageManagerTabs command="bf add avatar" />
         </Section>
 
         {/* Examples */}

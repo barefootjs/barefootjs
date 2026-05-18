@@ -124,11 +124,11 @@ describe.skipIf(!INTEGRATION)(
       expect(wrangler.name).toBe('demo-app')
     })
 
-    test('dev script wires barefoot build --watch + unocss + wrangler dev --live-reload', () => {
+    test('dev script wires bf build --watch + unocss + wrangler dev --live-reload', () => {
       const pkg = JSON.parse(
         readFileSync(path.join(projectDir, 'package.json'), 'utf-8'),
       ) as { scripts?: Record<string, string> }
-      expect(pkg.scripts?.dev).toContain('barefoot build --watch')
+      expect(pkg.scripts?.dev).toContain('bf build --watch')
       expect(pkg.scripts?.dev).toContain('unocss --watch')
       expect(pkg.scripts?.dev).toContain('wrangler dev --live-reload')
     })

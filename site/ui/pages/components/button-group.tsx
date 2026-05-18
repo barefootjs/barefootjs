@@ -127,7 +127,7 @@ export function ButtonGroupRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add button-group" />
+          <PackageManagerTabs command="bf add button-group" />
         </Section>
 
         {/* Usage */}

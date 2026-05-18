@@ -308,7 +308,7 @@ export function DatePickerRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add date-picker" />
+          <PackageManagerTabs command="bf add date-picker" />
         </Section>
 
         {/* Usage */}

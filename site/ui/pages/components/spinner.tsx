@@ -102,7 +102,7 @@ export function SpinnerRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add spinner" />
+          <PackageManagerTabs command="bf add spinner" />
         </Section>
 
         {/* Usage */}

@@ -77,14 +77,14 @@ export const renderer = jsxRenderer(({ children, title }) => (
 
 // Static assets (styles, tokens, generated client JS, manifest) live
 // under \`./public/\` so Workers Assets serves them automatically per
-// the binding in \`wrangler.jsonc\`. \`barefoot build\` mirrors the
+// the binding in \`wrangler.jsonc\`. \`bf build\` mirrors the
 // input directory layout under \`outDir\`, so \`outDir: 'public'\`
 // produces \`public/components/<file>.client.js\` — the URLs the
 // renderer references at \`/components/...\`.
 const HONO_BAREFOOT_CONFIG_TS = `import { createConfig } from '@barefootjs/hono/build'
 
 export default createConfig({
-  // Project layout — read by \`barefoot add\`, \`search\`, \`meta:extract\`, etc.
+  // Project layout — read by \`bf add\`, \`search\`, \`meta:extract\`, etc.
   paths: {
     components: 'components/ui',
     tokens: 'tokens',
@@ -119,7 +119,7 @@ const HONO_TSCONFIG = `{
     "baseUrl": ".",
     "paths": {
       // Server components (no 'use client') aren't emitted to dist by
-      // \`barefoot build\`, so the path map falls back to the source so
+      // \`bf build\`, so the path map falls back to the source so
       // imports of those components still resolve.
       "@/components/*": ["./public/components/*", "./components/*"]
     }
@@ -178,11 +178,11 @@ export const HONO_ADAPTER: AdapterTemplate = {
     // in node_modules — the first run caches it via bunx / npx /
     // pnpm dlx / yarn dlx.
     dev: (pm) =>
-      `concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "${commandsFor(pm).exec(
+      `concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "${commandsFor(pm).exec(
         'wrangler dev --live-reload',
       )}"`,
-    build: 'barefoot build && unocss',
-    deploy: (pm) => `barefoot build && unocss && ${commandsFor(pm).exec('wrangler deploy')}`,
+    build: 'bf build && unocss',
+    deploy: (pm) => `bf build && unocss && ${commandsFor(pm).exec('wrangler deploy')}`,
   },
   deploy: {
     target: 'Cloudflare Workers',

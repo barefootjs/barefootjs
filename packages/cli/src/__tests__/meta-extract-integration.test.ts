@@ -4,7 +4,7 @@ import path from 'path'
 import type { ComponentMeta } from '../lib/types'
 
 // These tests verify the meta extraction output against known components.
-// They read from ui/meta/ which must be regenerated with `bun run barefoot meta:extract`.
+// They read from ui/meta/ which must be regenerated with `bun run meta:extract`.
 
 const metaDir = path.resolve(import.meta.dir, '../../../../ui/meta')
 

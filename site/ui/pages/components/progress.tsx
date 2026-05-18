@@ -223,7 +223,7 @@ export function ProgressRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add progress" />
+          <PackageManagerTabs command="bf add progress" />
         </Section>
 
         {/* Usage */}

@@ -76,7 +76,7 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`  ${msg}`)
     console.error(``)
-    console.error(`barefoot init pulls the starter's Button component from`)
+    console.error(`Project init pulls the starter's Button component from`)
     console.error(`${DEFAULT_REGISTRY_URL} (which the renderer wires through UnoCSS).`)
     console.error(``)
     console.error(`Things to try:`)
@@ -251,7 +251,7 @@ async function scaffoldApp(
       // existing `morbo`, `go run`, or an external dev container) and
       // only needs the BarefootJS asset pipeline to keep pace.
       watch:
-        'concurrently -k -n build,uno -c blue,magenta "barefoot build --watch" "unocss --watch"',
+        'concurrently -k -n build,uno -c blue,magenta "bf build --watch" "unocss --watch"',
       test: 'echo "no tests yet"',
     },
     dependencies: { ...adapter.dependencies },

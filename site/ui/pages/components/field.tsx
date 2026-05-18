@@ -285,7 +285,7 @@ export function FieldRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add field" />
+          <PackageManagerTabs command="bf add field" />
         </Section>
 
         {/* Usage */}

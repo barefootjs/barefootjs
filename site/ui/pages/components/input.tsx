@@ -179,7 +179,7 @@ export function InputRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add input" />
+          <PackageManagerTabs command="bf add input" />
         </Section>
 
         {/* Usage */}

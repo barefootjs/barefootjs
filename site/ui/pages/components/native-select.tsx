@@ -256,7 +256,7 @@ export function NativeSelectRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add native-select" />
+          <PackageManagerTabs command="bf add native-select" />
         </Section>
 
         {/* Usage */}
