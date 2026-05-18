@@ -160,43 +160,51 @@ function runEffect(effect: EffectContext): void {
 }
 
 /**
- * Recursively dispose an effect and all its owned children.
- * Removes from parent's children list, clears signal subscriptions, runs cleanup.
+ * Dispose an effect and its entire owned subtree, without touching the
+ * parent's `children` list. Internal to `disposeEffect` — every recursive
+ * step uses this path so cascade disposal can never mutate a list it's
+ * currently iterating over.
  */
-function disposeEffect(effect: EffectContext): void {
+function disposeSubtree(effect: EffectContext): void {
   if (effect.disposed) return
   effect.disposed = true
 
-  // Snapshot children before recursing. Each recursive disposeEffect
-  // splices the child out of its parent's `children` array (see the
-  // `effect.owner.children.splice(...)` block below), so iterating
-  // `effect.children` directly drops every other entry — late-fired
-  // rAF / async cleanups in the skipped scopes were the root cause
-  // of #1366.
-  const children = effect.children.slice()
-  for (const child of children) {
-    disposeEffect(child)
+  for (const child of effect.children) {
+    disposeSubtree(child)
   }
   effect.children.length = 0
 
-  // Run cleanup
   if (effect.cleanup) {
     effect.cleanup()
     effect.cleanup = null
   }
 
-  // Unsubscribe from all signals
   for (const dep of effect.dependencies) {
     dep.delete(effect)
   }
   effect.dependencies.clear()
 
-  // Remove from parent's children list
+  effect.owner = null
+}
+
+/**
+ * Public dispose entry point: detach `effect` from its parent's `children`
+ * list, then dispose the subtree rooted at `effect`. The detach step lives
+ * only here so the recursion (which doesn't need it — the parent clears
+ * `children.length = 0` itself) cannot splice entries out of the array
+ * it is iterating. The splice-during-iter shape was the root cause of
+ * #1366; separating the two responsibilities makes it structurally
+ * unreachable.
+ */
+function disposeEffect(effect: EffectContext): void {
+  if (effect.disposed) return
+
   if (effect.owner) {
     const idx = effect.owner.children.indexOf(effect)
     if (idx >= 0) effect.owner.children.splice(idx, 1)
-    effect.owner = null
   }
+
+  disposeSubtree(effect)
 }
 
 /**
