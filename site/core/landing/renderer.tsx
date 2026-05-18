@@ -58,6 +58,7 @@ export const landingRenderer = jsxRenderer(
             <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
             <link rel="icon" type="image/png" sizes="32x32" href="/static/icon-32.png" />
             <link rel="icon" type="image/png" sizes="64x64" href="/static/icon-64.png" />
+            <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
             <title>{pageTitle}</title>
             <meta name="description" content={pageDescription} />
             <link rel="author" href="https://kobaken.co" />
