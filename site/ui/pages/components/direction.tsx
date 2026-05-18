@@ -132,7 +132,7 @@ export function DirectionRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add direction" />
+          <PackageManagerTabs command="bf add direction" />
         </Section>
 
         {/* Usage */}

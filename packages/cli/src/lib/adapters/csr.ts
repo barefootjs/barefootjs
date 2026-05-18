@@ -2,7 +2,7 @@
 //
 // Ships a static HTML page with an empty mount point and a tiny Bun
 // server that serves the page + the compiled client bundles produced
-// by `barefoot build`. The `createConfig` from `@barefootjs/client/build`
+// by `bf build`. The `createConfig` from `@barefootjs/client/build`
 // switches the compiler into CSR mode — no SSR — everything renders in
 // the browser via @barefootjs/client/runtime.
 
@@ -174,8 +174,8 @@ export const CSR_ADAPTER: AdapterTemplate = {
   scripts: {
     // Build everything once, then run barefoot's watch-build, UnoCSS's
     // class scanner, and `bun --watch server.ts` side-by-side.
-    dev: 'barefoot build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "barefoot build --watch" "unocss --watch" "bun --watch server.ts"',
-    build: 'barefoot build && unocss',
+    dev: 'bf build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "bun --watch server.ts"',
+    build: 'bf build && unocss',
     start: 'bun server.ts',
   },
   dependencies: {

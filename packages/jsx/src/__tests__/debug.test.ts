@@ -570,7 +570,7 @@ describe('DomBinding classification (#944)', () => {
   })
 
   test('formatComponentGraph marks fallback bindings with ~ prefix', () => {
-    // The visual marker is the primary UX for `barefoot inspect`.
+    // The visual marker is the primary UX for `bf debug graph`.
     // Guard the prefix format so `why-wrap` output doesn't silently drift.
     const source = `
       'use client'

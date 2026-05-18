@@ -35,7 +35,7 @@ export function isReactiveType(type: ts.Type): boolean {
 /**
  * Why a node was determined to carry reactivity (or not).
  *
- * Preserved as a structured chain so agent-facing tooling (`barefoot why-update`,
+ * Preserved as a structured chain so agent-facing tooling (`bf debug trace`,
  * compiler diagnostics) can explain which sub-expression holds the Reactive<T>
  * brand without re-running the analysis.
  */
@@ -176,7 +176,7 @@ export const brandTypeReactivityAnalyzer: ReactivityAnalyzer = { analyze }
 /**
  * Rich analysis: returns both the boolean and the reasoning chain.
  *
- * Used by debug/agent-facing tooling (`barefoot why-update`, error diagnostics)
+ * Used by debug/agent-facing tooling (`bf debug trace`, error diagnostics)
  * that needs to explain *why* a node was classified as reactive.
  */
 export function analyzeReactivity(node: ts.Node, checker: ts.TypeChecker): ReactivityAnalysis {

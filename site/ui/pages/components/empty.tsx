@@ -208,7 +208,7 @@ export function EmptyRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add empty" />
+          <PackageManagerTabs command="bf add empty" />
         </Section>
 
         {/* Usage */}

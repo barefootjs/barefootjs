@@ -242,7 +242,7 @@ export function SelectRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add select" />
+          <PackageManagerTabs command="bf add select" />
         </Section>
 
         {/* Usage */}

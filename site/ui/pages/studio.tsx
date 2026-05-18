@@ -779,7 +779,7 @@ function ExportBar() {
         readonly
         className="rounded-md bg-muted border px-3 py-1.5 font-mono text-[11px] text-foreground flex-1 max-w-xl outline-none"
         data-studio-export-code
-        value={`barefoot studio apply "https://ui.barefootjs.dev/studio?c=..."`}
+        value={`bf tokens apply "https://ui.barefootjs.dev/studio?c=..."`}
       />
       <button className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0" data-studio-copy>
         <IconCopy />
@@ -1664,9 +1664,9 @@ const studioScript = `
     var baseUrl = location.origin + '/studio';
     if (Object.keys(config).length > 0) {
       var encoded = encodeConfig(config);
-      codeEl.value = 'barefoot studio apply "' + baseUrl + '?c=' + encoded + '"';
+      codeEl.value = 'bf tokens apply "' + baseUrl + '?c=' + encoded + '"';
     } else {
-      codeEl.value = 'barefoot studio apply "' + baseUrl + '"';
+      codeEl.value = 'bf tokens apply "' + baseUrl + '"';
     }
   }
 

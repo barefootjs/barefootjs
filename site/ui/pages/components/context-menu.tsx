@@ -283,7 +283,7 @@ export function ContextMenuRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add context-menu" />
+          <PackageManagerTabs command="bf add context-menu" />
         </Section>
 
         {/* Usage */}

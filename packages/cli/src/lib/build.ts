@@ -1,4 +1,4 @@
-// Core build module: shared pipeline for `barefoot build`.
+// Core build module: shared pipeline for `bf build`.
 
 import { compileJSX, combineParentChildClientJs, createProgramForCorpus, formatError } from '@barefootjs/jsx'
 import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec, BundleEntry } from '@barefootjs/jsx'

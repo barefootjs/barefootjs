@@ -1,4 +1,4 @@
-// barefoot why-wrap <component> — Surface fallback-wrapped expressions.
+// bf debug fallbacks <component> — Surface fallback-wrapped expressions.
 //
 // Lists every DOM binding whose `createEffect` came from the Solid-style
 // wrap-by-default fallback (#937) rather than from statically-proven
@@ -8,7 +8,7 @@
 // `createMemo` or inlining a known-reactive source makes the dependency
 // static and lets the emitter skip the fallback wrap entirely.
 //
-// Output parallels `barefoot why-update`: short human-readable report by
+// Output parallels `bf debug trace`: short human-readable report by
 // default, full JSON under `--json`. Exits 0 even when no fallbacks are
 // found (an empty list is a useful signal on its own).
 
@@ -21,7 +21,7 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
 
   if (!componentName) {
     console.error('Error: Component name required.')
-    console.error('Usage: barefoot why-wrap <component> [--json]')
+    console.error('Usage: bf debug fallbacks <component> [--json]')
     process.exit(1)
   }
 

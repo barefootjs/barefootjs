@@ -146,7 +146,7 @@ export function TypographyRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add typography" />
+          <PackageManagerTabs command="bf add typography" />
         </Section>
 
         {/* Usage */}

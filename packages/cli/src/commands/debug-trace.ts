@@ -1,4 +1,4 @@
-// barefoot why-update <component> <signal> — Show update propagation path.
+// bf debug trace <component> <signal> — Show update propagation path.
 //
 // Reverse-lookup: "why does this DOM node update?"
 // Shows every signal, memo, effect, and DOM binding in the propagation chain.
@@ -13,7 +13,7 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
 
   if (!componentName || !targetName) {
     console.error('Error: Component name and signal/memo name required.')
-    console.error('Usage: barefoot why-update <component> <signal|memo>')
+    console.error('Usage: bf debug trace <component> <signal|memo>')
     process.exit(1)
   }
 

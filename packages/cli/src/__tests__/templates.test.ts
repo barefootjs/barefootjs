@@ -60,7 +60,7 @@ describe('adapter registry', () => {
   // Regression guards for the "edits don't reach the browser" class
   // of bug. Each adapter that does SSR has to invalidate *something*
   // per request in dev — otherwise the boot-time render cache buries
-  // every `barefoot build --watch` rebuild.
+  // every `bf build --watch` rebuild.
   //
   // We've shipped this bug twice (hono-node held a stale build
   // manifest, echo cached the parsed templates). These tests pin the
@@ -107,7 +107,7 @@ describe('adapter registry', () => {
       const bfRender = ADAPTERS.echo.files['bf_render.go']
       // Server side: middleware mounts /_bf/reload SSE endpoint, a
       // dist/templates fsnotify watcher broadcasts to every live
-      // SSE client on each `barefoot build --watch` write, and the
+      // SSE client on each `bf build --watch` write, and the
       // initial handshake compares Last-Event-ID against the
       // per-process bootID so a Go restart also triggers a reload.
       expect(bfRender).toContain('DevReloadMiddleware')
@@ -130,7 +130,7 @@ describe('adapter registry', () => {
     })
 
     test('mojo passes Counter signal/memo values to the SSR template', () => {
-      // `barefoot build` derives template variable names ($count,
+      // `bf build` derives template variable names ($count,
       // $doubled) from the JSX createSignal/createMemo declarations.
       // Perl's strict mode rejects undefined globals, so app.pl has
       // to stash each one explicitly — otherwise the very first
@@ -145,7 +145,7 @@ describe('adapter registry', () => {
       // Mojolicious caches parsed templates by default. `morbo`
       // (the dev server in the `dev` npm script) sets mode to
       // 'development' automatically, so the cache flush below kicks
-      // in and `barefoot build --watch` edits surface immediately.
+      // in and `bf build --watch` edits surface immediately.
       const appPl = ADAPTERS.mojo.files['app.pl']
       expect(appPl).toMatch(/app->mode eq 'development'/)
       expect(appPl).toMatch(/renderer->cache->max_keys\(0\)/)

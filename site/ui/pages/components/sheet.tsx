@@ -282,7 +282,7 @@ export function SheetRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add sheet" />
+          <PackageManagerTabs command="bf add sheet" />
         </Section>
 
         {/* Usage */}

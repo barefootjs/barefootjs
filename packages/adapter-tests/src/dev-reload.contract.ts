@@ -41,7 +41,7 @@ export interface DevReloadFacts {
    */
   gatedToDev: boolean
   /**
-   * When the adapter uses the shared `barefoot build --watch` ↔
+   * When the adapter uses the shared `bf build --watch` ↔
    * `<distDir>/.dev/build-id` SSE protocol (Mojo / Hono Node / Echo),
    * this is the endpoint path (e.g. `/_bf/reload`). When the adapter
    * uses a different mechanism (Hono CF / wrangler dev), this is

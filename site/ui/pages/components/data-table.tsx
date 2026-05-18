@@ -342,7 +342,7 @@ export function DataTableRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add data-table" />
+          <PackageManagerTabs command="bf add data-table" />
         </Section>
 
         {/* Usage */}

@@ -3,7 +3,7 @@
 // JSX-native renderer components (`<Flow>` / `<Background>` /
 // `<Controls>` / `<MiniMap>` / `<Handle>` / `<NodeWrapper>` /
 // `<SimpleEdge>`) are distributed via the shadcn registry at
-// `ui/components/ui/xyflow/` — install with `barefoot add xyflow`.
+// `ui/components/ui/xyflow/` — install with `bf add xyflow`.
 // This package ships the utility helpers, types, signal hooks, store,
 // and the imperative pointer-paced subsystems those components attach
 // via `ref` callbacks.

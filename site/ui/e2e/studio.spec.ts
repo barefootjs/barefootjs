@@ -8,12 +8,12 @@ test.describe('Studio Export & URL', () => {
     })
   })
 
-  test('export bar shows a valid barefoot studio apply command', async ({ page }) => {
+  test('export bar shows a valid bf tokens apply command', async ({ page }) => {
     await page.goto('/studio')
     const codeEl = page.locator('[data-studio-export-code]')
     await expect(codeEl).toBeVisible()
     const text = await codeEl.inputValue()
-    expect(text).toContain('barefoot studio apply')
+    expect(text).toContain('bf tokens apply')
     expect(text).toContain('/studio')
   })
 

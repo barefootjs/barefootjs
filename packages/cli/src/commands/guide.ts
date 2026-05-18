@@ -1,4 +1,4 @@
-// barefoot core — show core documentation (concepts, API, guides).
+// bf guide — show framework documentation (concepts, API, guides).
 
 import path from 'path'
 import { readFileSync } from 'fs'
@@ -29,7 +29,7 @@ function printDocList(docs: ReturnType<typeof scanCoreDocs>, jsonFlag: boolean) 
   for (const d of docs) {
     console.log(`${d.slug.padEnd(nameWidth)}${d.category.padEnd(catWidth)}${d.description.slice(0, 60)}`)
   }
-  console.log(`\n${docs.length} document(s) available. Use 'barefoot core <name>' to read.`)
+  console.log(`\n${docs.length} document(s) available. Use 'bf guide <name>' to read.`)
 }
 
 function printDoc(slug: string, filePath: string, jsonFlag: boolean) {
@@ -64,13 +64,13 @@ export function run(args: string[], ctx: CliContext): void {
   if (!doc && candidates.length > 0) {
     console.error(`Error: Ambiguous document name "${query}". Did you mean one of:`)
     for (const c of candidates) {
-      console.error(`  barefoot core ${c.slug}`)
+      console.error(`  bf guide ${c.slug}`)
     }
     process.exit(1)
   }
 
   if (!doc) {
-    console.error(`Error: Document "${query}" not found. Run 'barefoot core' to list available documents.`)
+    console.error(`Error: Document "${query}" not found. Run 'bf guide' to list available documents.`)
     process.exit(1)
   }
 

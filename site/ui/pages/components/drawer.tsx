@@ -280,7 +280,7 @@ export function DrawerRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add drawer" />
+          <PackageManagerTabs command="bf add drawer" />
         </Section>
 
         {/* Usage */}

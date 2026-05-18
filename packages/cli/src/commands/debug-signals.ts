@@ -1,36 +1,40 @@
-// barefoot inspect <component> — Show signal dependency graph from IR.
+// bf debug signals <component> — Signal initialization trace.
 //
-// Analyzes a component's reactive structure without running any code.
-// AI agents can use this to understand a component before making changes.
+// Extends renderToTest() with a signal trace log that shows
+// every signal initialization and its effect bindings.
+// Works entirely from IR — no browser required.
 
 import { readFileSync } from 'fs'
-import path from 'path'
 import type { CliContext } from '../context'
 import { resolveComponentSource } from '../lib/resolve-source'
 
 export async function run(args: string[], ctx: CliContext): Promise<void> {
   const componentName = args[0]
+
   if (!componentName) {
     console.error('Error: Component name required.')
-    console.error('Usage: barefoot inspect <component>')
+    console.error('Usage: bf debug signals <component>')
     process.exit(1)
   }
 
-  const { buildComponentGraph, formatComponentGraph, graphToJSON } = await import('@barefootjs/jsx')
+  const { buildComponentGraph, generateStaticTrace, formatSignalTrace } = await import('@barefootjs/jsx')
 
   const resolved = resolveComponentSource(componentName, ctx)
   if (!resolved) {
     console.error(`Error: Cannot find component "${componentName}".`)
-    console.error('Looked in: ui/components/ui/, and by file path.')
     process.exit(1)
   }
 
   const source = readFileSync(resolved.filePath, 'utf-8')
   const graph = buildComponentGraph(source, resolved.filePath, resolved.componentName)
 
+  const trace = generateStaticTrace(graph)
+
   if (ctx.jsonFlag) {
-    console.log(JSON.stringify(graphToJSON(graph), null, 2))
+    console.log(JSON.stringify(trace, null, 2))
   } else {
-    console.log(formatComponentGraph(graph))
+    console.log(`# ${graph.componentName} — Signal Trace`)
+    console.log()
+    console.log(formatSignalTrace(trace))
   }
 }

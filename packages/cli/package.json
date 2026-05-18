@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "barefoot": "./dist/index.js"
+    "bf": "./dist/index.js"
   },
   "files": [
     "dist"

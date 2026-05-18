@@ -252,7 +252,7 @@ export function TabsRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add tabs" />
+          <PackageManagerTabs command="bf add tabs" />
         </Section>
 
         {/* Usage */}

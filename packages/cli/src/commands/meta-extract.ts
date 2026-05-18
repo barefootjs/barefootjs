@@ -1,4 +1,4 @@
-// barefoot meta:extract — extract component metadata from ui/components/ui/*/index.tsx.
+// bf meta extract — extract component metadata from ui/components/ui/*/index.tsx.
 // Uses the compiler's analyzeComponent() for precise extraction,
 // with regex-based JSDoc parsing for descriptions/examples.
 

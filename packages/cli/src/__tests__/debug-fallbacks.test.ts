@@ -1,5 +1,5 @@
 /**
- * Tests for `barefoot why-wrap <component>` — surface fallback-wrapped
+ * Tests for `bf debug fallbacks <component>` — surface fallback-wrapped
  * expressions emitted by Solid-style wrap-by-default (#937).
  *
  * Fallback wraps are harmless but invisible in the source: the compiler
@@ -29,16 +29,16 @@ function makeCtx(jsonFlag: boolean): CliContext {
 }
 
 function tmpComponent(source: string, name = 'Demo.tsx'): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'barefoot-why-wrap-'))
+  const dir = mkdtempSync(path.join(tmpdir(), 'bf-debug-fallbacks-'))
   const file = path.join(dir, name)
   writeFileSync(file, source)
   return file
 }
 
-describe('barefoot why-wrap', () => {
+describe('bf debug fallbacks', () => {
   test('reactive-only component reports no fallbacks', async () => {
     // Counter reads a signal — emitter wraps it but classification is
-    // 'reactive'. why-wrap's filter drops it; output is the "none" line.
+    // 'reactive'. fallback filter drops it; output is the "none" line.
     const file = tmpComponent(`
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -49,7 +49,7 @@ describe('barefoot why-wrap', () => {
     `)
     const logSpy = spyOn(console, 'log').mockImplementation(() => {})
     try {
-      const { run } = await import('../commands/why-wrap')
+      const { run } = await import('../commands/debug-fallbacks')
       await run([file], makeCtx(false))
       const output = logSpy.mock.calls.map(c => c[0]).join('\n')
       expect(output).toContain('no fallback-wrapped expression')
@@ -75,7 +75,7 @@ describe('barefoot why-wrap', () => {
     `)
     const logSpy = spyOn(console, 'log').mockImplementation(() => {})
     try {
-      const { run } = await import('../commands/why-wrap')
+      const { run } = await import('../commands/debug-fallbacks')
       await run([file], makeCtx(false))
       const output = logSpy.mock.calls.map(c => c[0]).join('\n')
       expect(output).toContain('1 fallback-wrapped expression')
@@ -115,7 +115,7 @@ describe('barefoot why-wrap', () => {
     `)
     const logSpy = spyOn(console, 'log').mockImplementation(() => {})
     try {
-      const { run } = await import('../commands/why-wrap')
+      const { run } = await import('../commands/debug-fallbacks')
       await run([file], makeCtx(true))
       const output = logSpy.mock.calls.map(c => c[0]).join('\n')
       const parsed = JSON.parse(output) as {
@@ -151,7 +151,7 @@ describe('barefoot why-wrap', () => {
     }) as never)
     const errSpy = spyOn(console, 'error').mockImplementation(() => {})
     try {
-      const { run } = await import('../commands/why-wrap')
+      const { run } = await import('../commands/debug-fallbacks')
       await expect(run(['NoSuchComponent12345'], makeCtx(false))).rejects.toThrow('exit 1')
       expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('Cannot find'))
     } finally {
@@ -166,7 +166,7 @@ describe('barefoot why-wrap', () => {
     }) as never)
     const errSpy = spyOn(console, 'error').mockImplementation(() => {})
     try {
-      const { run } = await import('../commands/why-wrap')
+      const { run } = await import('../commands/debug-fallbacks')
       await expect(run([], makeCtx(false))).rejects.toThrow('exit 1')
       expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('Component name required'))
       expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'))

@@ -270,7 +270,7 @@ export function CheckboxRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add checkbox" />
+          <PackageManagerTabs command="bf add checkbox" />
         </Section>
 
         {/* Usage */}

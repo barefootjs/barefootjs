@@ -1,4 +1,4 @@
-// barefoot preview:generate — generate preview file from component metadata.
+// bf gen preview — generate preview file from component metadata.
 
 import { existsSync, writeFileSync, mkdirSync } from 'fs'
 import path from 'path'
@@ -11,7 +11,7 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
   const name = args.find(a => !a.startsWith('--'))
 
   if (!name) {
-    console.error('Usage: barefoot preview:generate <component> [--force]')
+    console.error('Usage: bf gen preview <component> [--force]')
     process.exit(1)
   }
 

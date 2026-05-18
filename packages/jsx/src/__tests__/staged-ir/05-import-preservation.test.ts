@@ -4,7 +4,7 @@
  * declaration) in the same module.
  *
  * #1133 surfaced when `compileJSX` correctly preserved the import line
- * but the downstream `barefoot build` step stripped it. The staged-IR
+ * but the downstream `bf build` step stripped it. The staged-IR
  * refactor records every used external identifier in IR metadata, so
  * the build step can verify "every name used has a source" structurally.
  *

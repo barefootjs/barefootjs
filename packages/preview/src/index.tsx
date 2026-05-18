@@ -31,7 +31,7 @@ export async function runPreview(componentName: string) {
       console.log(`Auto-generated preview: ui/components/ui/${componentName}/index.preview.tsx`)
     } catch {
       console.error(`Error: Preview file not found and auto-generation failed for "${componentName}".`)
-      console.error(`Run: barefoot preview:generate ${componentName}`)
+      console.error(`Run: bf gen preview ${componentName}`)
       process.exit(1)
     }
   }

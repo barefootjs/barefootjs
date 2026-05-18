@@ -1,4 +1,4 @@
-// `barefoot build` — Compile JSX components using barefoot.config.ts.
+// `bf build` — Compile JSX components using barefoot.config.ts.
 
 import type { CliContext } from '../context'
 import { resolveBuildConfigFromTs, build, watch } from '../lib/build'

@@ -1,14 +1,14 @@
 import { describe, test, expect, spyOn } from 'bun:test'
 import { createContext } from '../context'
 
-// We test the core command's behavior indirectly through docs-loader
+// We test the guide command's behavior indirectly through docs-loader
 // and directly test the command's run function for edge cases.
 
-describe('barefoot core', () => {
+describe('bf guide', () => {
   test('lists documents when no argument', async () => {
     const logSpy = spyOn(console, 'log').mockImplementation(() => {})
     try {
-      const { run } = await import('../commands/core')
+      const { run } = await import('../commands/guide')
       const ctx = await createContext(false)
       run([], ctx)
 
@@ -24,7 +24,7 @@ describe('barefoot core', () => {
   test('shows document content by slug', async () => {
     const logSpy = spyOn(console, 'log').mockImplementation(() => {})
     try {
-      const { run } = await import('../commands/core')
+      const { run } = await import('../commands/guide')
       const ctx = await createContext(false)
       run(['reactivity/create-signal'], ctx)
 
@@ -38,7 +38,7 @@ describe('barefoot core', () => {
   test('shows document content by short name', async () => {
     const logSpy = spyOn(console, 'log').mockImplementation(() => {})
     try {
-      const { run } = await import('../commands/core')
+      const { run } = await import('../commands/guide')
       const ctx = await createContext(false)
       run(['create-signal'], ctx)
 
@@ -52,7 +52,7 @@ describe('barefoot core', () => {
   test('--json outputs structured JSON', async () => {
     const logSpy = spyOn(console, 'log').mockImplementation(() => {})
     try {
-      const { run } = await import('../commands/core')
+      const { run } = await import('../commands/guide')
       const ctx = await createContext(true)
       run(['create-signal'], ctx)
 
@@ -70,7 +70,7 @@ describe('barefoot core', () => {
     const exitSpy = spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit') })
     const errorSpy = spyOn(console, 'error').mockImplementation(() => {})
     try {
-      const { run } = await import('../commands/core')
+      const { run } = await import('../commands/guide')
       const ctx = await createContext(false)
       expect(() => run(['nonexistent-doc'], ctx)).toThrow('exit')
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('not found'))

@@ -216,7 +216,7 @@ export function BreadcrumbRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add breadcrumb" />
+          <PackageManagerTabs command="bf add breadcrumb" />
         </Section>
 
         {/* Usage */}

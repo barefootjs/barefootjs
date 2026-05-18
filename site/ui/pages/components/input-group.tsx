@@ -293,7 +293,7 @@ export function InputGroupRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add input-group" />
+          <PackageManagerTabs command="bf add input-group" />
         </Section>
 
         {/* Usage */}

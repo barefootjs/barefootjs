@@ -110,7 +110,7 @@ export function ButtonRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add button" />
+          <PackageManagerTabs command="bf add button" />
         </Section>
 
         {/* Usage */}

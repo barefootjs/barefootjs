@@ -370,7 +370,7 @@ export function CardRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add card" />
+          <PackageManagerTabs command="bf add card" />
         </Section>
 
         {/* Usage */}

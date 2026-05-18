@@ -211,7 +211,7 @@ export function CollapsibleRefPage() {
 
         {/* Installation */}
         <Section id="installation" title="Installation">
-          <PackageManagerTabs command="barefoot add collapsible" />
+          <PackageManagerTabs command="bf add collapsible" />
         </Section>
 
         {/* Usage */}

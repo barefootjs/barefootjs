@@ -122,27 +122,27 @@ describe('commandsFor', () => {
     const c = commandsFor('npm')
     expect(c.install).toBe('npm install')
     expect(c.run('dev')).toBe('npm run dev')
-    expect(c.exec('barefoot add button')).toBe('npx barefoot add button')
+    expect(c.exec('bf add button')).toBe('npx bf add button')
   })
 
   test('bun commands', () => {
     const c = commandsFor('bun')
     expect(c.install).toBe('bun install')
     expect(c.run('dev')).toBe('bun run dev')
-    expect(c.exec('barefoot add button')).toBe('bunx barefoot add button')
+    expect(c.exec('bf add button')).toBe('bunx bf add button')
   })
 
   test('pnpm commands', () => {
     const c = commandsFor('pnpm')
     expect(c.install).toBe('pnpm install')
     expect(c.run('dev')).toBe('pnpm dev')
-    expect(c.exec('barefoot add button')).toBe('pnpm dlx barefoot add button')
+    expect(c.exec('bf add button')).toBe('pnpm dlx bf add button')
   })
 
   test('yarn commands', () => {
     const c = commandsFor('yarn')
     expect(c.install).toBe('yarn')
     expect(c.run('dev')).toBe('yarn dev')
-    expect(c.exec('barefoot add button')).toBe('yarn dlx barefoot add button')
+    expect(c.exec('bf add button')).toBe('yarn dlx bf add button')
   })
 })

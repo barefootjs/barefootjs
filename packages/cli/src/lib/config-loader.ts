@@ -25,7 +25,7 @@ export function findBuildConfig(startDir: string): string | null {
  *
  * Trade-offs of the current approach (worth revisiting later):
  *
- *   - **Cold-start cost**: spawns esbuild per `barefoot build`
+ *   - **Cold-start cost**: spawns esbuild per `bf build`
  *     invocation (~100 ms). Negligible during watch mode (one-off at
  *     startup) but noticeable on cold CI builds.
  *   - **Tmp file**: writes `.barefoot.config.<pid>.mjs` next to the
