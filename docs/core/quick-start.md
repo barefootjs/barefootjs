@@ -14,9 +14,7 @@ Scaffold a BarefootJS app, run it locally, and tour the generated project. About
 
 ## 1. Scaffold the project
 
-```bash
-npm create barefootjs@latest my-app
-```
+<!-- pm-tabs:create barefootjs@latest my-app -->
 
 Press Enter at the prompts to accept the defaults (Hono on Cloudflare Workers, UnoCSS).
 
