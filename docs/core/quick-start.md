@@ -114,18 +114,22 @@ Same `Counter` import, two outputs: server renders HTML, client hydrates the but
 
 ## 4. Make a change
 
-With `npm run dev` still running, edit `components/Counter.tsx` and change the initial value:
+With `npm run dev` still running, pass an initial value from the server. In `server.tsx`:
 
 ```tsx
-export function Counter(props: CounterProps) {
-  const [count, setCount] = createSignal(props.initial ?? 10) // was 0
-  // ...
-}
+app.get('/', (c) =>
+  c.render(
+    <main>
+      <Counter initial={5} />
+    </main>,
+    { title: 'BarefootJS app' },
+  ),
+)
 ```
 
-Save. The browser reloads and the counter starts at **10** — the server-rendered HTML carries the new initial, and hydration picks up your clicks from there.
+Save. The browser reloads and the counter starts at **5**. The server rendered `5` into the HTML, and hydration picked it up on the client — the same JSX, evaluated in both places.
 
-Try adding a new button:
+Now add a new button to `Counter.tsx`:
 
 ```tsx
 <Button onClick={() => setCount(n => n * 2)} variant="ghost">×2</Button>
