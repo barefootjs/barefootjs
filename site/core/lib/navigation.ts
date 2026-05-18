@@ -45,6 +45,7 @@ export function getDocsNavLinks(slug: string): {
 
 export const navigation: NavItem[] = [
   { title: 'Introduction', slug: 'introduction' },
+  { title: 'CLI Workflow', slug: 'cli' },
   {
     title: 'Core Concepts',
     slug: 'core-concepts',

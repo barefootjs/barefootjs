@@ -122,7 +122,7 @@ export const navSections: NavSection[] = [
   {
     heading: 'Tools',
     entries: [
-      { title: 'CLI', href: '/docs/cli' },
+      { title: 'CLI', href: 'https://barefootjs.dev/docs/cli' },
       { title: 'Studio', href: '/studio' },
     ],
   },
