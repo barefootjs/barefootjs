@@ -56,7 +56,7 @@ export function PackageManagerTabs(props: PackageManagerTabsProps) {
         <button role="tab" aria-selected={selected() === 'bun'} data-state={selected() === 'bun' ? 'active' : 'inactive'} onClick={() => setSelected('bun')} className={`${tabTriggerBase} ${tabTriggerFocus} ${selected() === 'bun' ? tabTriggerActive : tabTriggerInactive}`} tabindex={selected() === 'bun' ? 0 : -1}>bun</button>
       </div>
       <div className="relative group">
-        <pre className="p-4 pr-12 bg-muted rounded-lg overflow-x-auto text-sm font-mono border">
+        <pre className="!m-0 p-4 pr-12 bg-muted rounded-lg overflow-x-auto text-sm font-mono border">
           <code>{fullCommand()}</code>
         </pre>
         <button
