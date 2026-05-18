@@ -85,6 +85,10 @@ runAdapterConformanceTests({
     // refusal regardless of whether the binding is rest or plain.
     // Pinning the contract here makes the limitation declarative.
     'rest-destructure-object-in-map': [{ code: 'BF104', severity: 'error' }],
+    // #1244 catalog: rest spread back onto the root element. Same
+    // refusal shape as the read-only variant above — `paramBindings`
+    // is non-empty so BF104 fires regardless of how `rest` is used.
+    'rest-destructure-object-spread-in-map': [{ code: 'BF104', severity: 'error' }],
     'rest-destructure-array-in-map': [{ code: 'BF104', severity: 'error' }],
     'rest-destructure-nested-in-map': [{ code: 'BF104', severity: 'error' }],
     // #1244 stress catalog #11 (#1322): JS object literal in an

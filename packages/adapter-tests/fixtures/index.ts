@@ -75,6 +75,7 @@ import { fixture as arrowComponent } from './arrow-component'
 import { fixture as childrenJsxExpression } from './children-jsx-expression'
 import { fixture as fragmentWrappedChildrenJsxExpression } from './fragment-wrapped-children-jsx-expression'
 import { fixture as restDestructureObjectInMap } from './rest-destructure-object-in-map'
+import { fixture as restDestructureObjectSpreadInMap } from './rest-destructure-object-spread-in-map'
 import { fixture as restDestructureArrayInMap } from './rest-destructure-array-in-map'
 import { fixture as restDestructureNestedInMap } from './rest-destructure-nested-in-map'
 
@@ -160,6 +161,10 @@ export const jsxFixtures: JSXFixture[] = [
   // #1310: rest destructure in .map() — Hono/CSR lowers via #1309,
   // Go/Mojo refuse the loop destructure shape with BF104.
   restDestructureObjectInMap,
+  // #1244 catalog: rest spread back onto the root element. Same
+  // adapter contract as the read-only variant above (Hono/CSR via
+  // #1309, Go/Mojo BF104).
+  restDestructureObjectSpreadInMap,
   restDestructureArrayInMap,
   restDestructureNestedInMap,
 ]
