@@ -516,7 +516,13 @@ describe('destructured loop param with rest spread back onto the root', () => {
 })
 
 describe('nested destructuring in loop param', () => {
-  test('{ rows: [first, ...rest] } at the loop param', () => {
+  // The catalog shape (`{ rows: [first, ...rest] }`) exercises the
+  // walker recursing into a nested array binding inside an object
+  // pattern. The Layer 1 contract is on path accumulation: each
+  // binding name lowers to the full `__bfItem()` accessor path,
+  // including the array index for the inner element and the
+  // `.slice(N)` lowering for the inner array rest.
+  test('{ rows: [first, ...rest] } at the loop param emits the full path per binding', () => {
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -532,7 +538,75 @@ describe('nested destructuring in loop param', () => {
         )
       }
     `
-    expectNoFatalErrors(compile(src))
+    const c = compile(src)
+    expectNoFatalErrors(c)
+    // `first` walks through `.rows[0]`. Both the bare check and the
+    // `.label` member-access continuation must thread through.
+    expect(c.clientJs).toContain('__bfItem().rows[0]')
+    expect(c.clientJs).toContain('__bfItem().rows[0].label')
+    // Array rest at position 1 of `rows` lowers to `.slice(1)`, NOT
+    // to a runtime helper.
+    expect(c.clientJs).toContain('__bfItem().rows.slice(1)')
+    // The naive body-entry unwrap (legacy #950 shape) must NOT appear —
+    // accessors are inlined at each read site so same-key signal
+    // updates refresh the DOM.
+    expect(c.clientJs).not.toContain('const [first, ...rest] = ')
+  })
+
+  test('3-level deep object destructure emits the full dotted path', () => {
+    // `{ user: { profile: { firstName, lastName } } }` — the walker
+    // accumulates `__bfItem().user.profile.firstName` etc. The
+    // intermediate `profile` and `user` keys must thread through so a
+    // signal update to any path segment refreshes the DOM.
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      type User = { id: string; user: { profile: { firstName: string; lastName: string } } }
+      export function Demo() {
+        const [users, setUsers] = createSignal<User[]>([])
+        return (
+          <ul onClick={() => setUsers(u => u)}>
+            {users().map(({ id, user: { profile: { firstName, lastName } } }) => (
+              <li key={id}>{firstName} {lastName}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const c = compile(src)
+    expectNoFatalErrors(c)
+    expect(c.clientJs).toContain('__bfItem().user.profile.firstName')
+    expect(c.clientJs).toContain('__bfItem().user.profile.lastName')
+  })
+
+  test('rename inside a nested object pattern uses the property key, not the local name', () => {
+    // `{ user: { name: userName } }` — the local `userName` reads
+    // `__bfItem().user.name` (the source property key), mirroring the
+    // flat-rename behaviour at `destructured-map-params.test.ts` line
+    // 104 but at a nested depth.
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      type T = { id: string; user: { name: string } }
+      export function Demo() {
+        const [items, setItems] = createSignal<T[]>([])
+        return (
+          <ul onClick={() => setItems(i => i)}>
+            {items().map(({ id, user: { name: userName } }) => (
+              <li key={id}>{userName}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const c = compile(src)
+    expectNoFatalErrors(c)
+    // Renamed local resolves to the SOURCE key path, not the local
+    // name — there's no `__bfItem().userName` reference (no such key)
+    // and no `__bfItem().user.userName` confusion.
+    expect(c.clientJs).toContain('__bfItem().user.name')
+    expect(c.clientJs).not.toMatch(/__bfItem\(\)\.userName/)
+    expect(c.clientJs).not.toMatch(/__bfItem\(\)\.user\.userName/)
   })
 
   // Destructured loop param referenced as a shorthand property in an
