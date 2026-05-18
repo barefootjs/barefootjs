@@ -18,27 +18,11 @@ No backend setup is required for this guide. The default scaffold targets [Cloud
 
 ## 1. Scaffold the project
 
-Run the create command from the directory where you want the project folder to be created:
-
 ```bash
 npm create barefootjs@latest my-app
 ```
 
-You can also omit `my-app` to be prompted for a name, or pass `--yes` to accept every default (project name, adapter, CSS library) without any prompts — handy for CI or dotfiles.
-
-The scaffolder asks two questions:
-
-1. **Choose a framework or runtime** — defaults to **Hono (Cloudflare Workers)**. Other adapters (Go `html/template`, Mojolicious, Echo) are available but this guide assumes the default.
-2. **Choose a CSS library** — defaults to **UnoCSS**, which the starter Counter relies on.
-
-When it finishes, you'll see something like:
-
-```
-Get started:
-  cd my-app
-  npm install
-  npm run dev
-```
+Press Enter at the prompts to accept the defaults (Hono on Cloudflare Workers, UnoCSS).
 
 ## 2. Install and run
 
