@@ -20,6 +20,7 @@ import type {
   LoopChildEvent,
   LoopChildReactiveAttr,
   LoopChildReactiveText,
+  LoopChildRef,
   TopLevelLoop,
 } from '../../types'
 import type { IRLoopChildComponent } from '../../../types'
@@ -62,12 +63,33 @@ interface PlainLoopVariant extends DynamicLoopCommon {
   /** Resolved reactive-effects plan — null forces the single-line renderItem shape. */
   reactiveEffects: ReactiveEffectsPlan | null
   /**
+   * Imperative ref callbacks on elements inside the loop body (#1244).
+   * Non-empty forces the multi-line renderItem layout so each callback can
+   * fire inside the `mapArray` per-item factory — initial mount, SSR
+   * hydration, and same-key remount after unmount all re-run the callback
+   * with the just-built (or just-hydrated) DOM element. Each `callback`
+   * string is already wrapped with the loop-param accessor.
+   */
+  childRefs: readonly LoopChildRefBinding[]
+  /**
    * True when the loop body is a multi-root JSX Fragment. Forces the
    * multi-line renderItem layout, multi-root template clone, per-item
    * `<!--bf-loop-i-->` marker emission, and `qsaItem` slot lookups (#1212).
    */
   bodyIsMultiRoot: boolean
 }
+
+/** Per-item ref callback resolved against a child slot for emission. */
+export interface LoopChildRefBinding {
+  /** bf slot ID of the target element (root or descendant of the body). */
+  childSlotId: string
+  /** Callback expression, already wrapped via `wrapLoopParamAsAccessor`. */
+  wrappedCallback: string
+}
+
+// Re-export the IR-side type so callers that build the plan can spell it
+// without reaching into '../../types'.
+export type { LoopChildRef }
 
 /**
  * Loop body is a single child component (with or without nested child

@@ -24,13 +24,13 @@
  * passed in via `topIndent`.
  */
 
-import { varSlotId } from '../../utils'
+import { emitRefCall, varSlotId } from '../../utils'
 import { emitAttrUpdate } from '../../emit-reactive'
 import { stringifyReactiveEffects } from './reactive-effects'
 import { emitTemplateCloneInline, emitLoopItemElementSetup } from './template-parse'
 import { stringifyComponentLoop } from './component-loop'
 import { stringifyCompositeLoop } from './composite-loop'
-import type { LoopPlan, PlainLoopPlan, StaticLoopPlan } from '../plan/types'
+import type { LoopChildRefBinding, LoopPlan, PlainLoopPlan, StaticLoopPlan } from '../plan/types'
 
 /**
  * Single dispatch over `LoopPlan` (#1253). Narrows on `plan.kind` and
@@ -91,11 +91,15 @@ export function stringifyPlainLoop(
     mapPreambleWrapped,
     template,
     reactiveEffects,
+    childRefs,
     bodyIsMultiRoot,
   } = plan
 
-  if (reactiveEffects === null && !bodyIsMultiRoot) {
-    // Single-line renderItem (no reactive effects, single root).
+  // `childRefs` need `__el` as a handle to call the user's callback inside
+  // the factory, so they force the multi-line layout the same way reactive
+  // effects do (#1244).
+  if (reactiveEffects === null && !bodyIsMultiRoot && childRefs.length === 0) {
+    // Single-line renderItem (no reactive effects, single root, no refs).
     const unwrapInline = paramUnwrap ? `${paramUnwrap} ` : ''
     const preamble = mapPreambleWrapped ? `${mapPreambleWrapped}; ` : ''
     const cloneExpr = emitTemplateCloneInline(template)
@@ -105,7 +109,7 @@ export function stringifyPlainLoop(
     return
   }
 
-  // Multi-line renderItem (reactive effects present and/or multi-root).
+  // Multi-line renderItem (reactive effects present and/or multi-root and/or refs).
   lines.push(`${topIndent}mapArray(() => ${arrayExpr}, ${containerVar}, ${keyFn}, (${paramHead}, ${indexParam}, __existing) => {`)
   const bodyIndent = topIndent + '  '
   if (paramUnwrap) lines.push(`${bodyIndent}${paramUnwrap}`)
@@ -119,8 +123,36 @@ export function stringifyPlainLoop(
   if (reactiveEffects !== null) {
     stringifyReactiveEffects(lines, reactiveEffects, { indent: bodyIndent, elVar: '__el', bodyIsMultiRoot })
   }
+  emitLoopChildRefs(lines, childRefs, { indent: bodyIndent, elVar: '__el', bodyIsMultiRoot })
   lines.push(`${bodyIndent}return __el`)
   lines.push(`${topIndent}}, '${markerId}')`)
+}
+
+/**
+ * Emit `(callback)(__rf)` for each ref on a per-item slot, looking the
+ * target up via `qsa(__el, ...)` so a ref on the body root and a ref on
+ * any descendant share the same emit shape (#1244).
+ *
+ * Fires unconditionally on every `mapArray` `renderItem` invocation —
+ * which corresponds to every actual mount: SSR hydration (`__existing`
+ * is the SSR element), initial CSR creation, and same-key remount after
+ * unmount (the previous scope was disposed, so this is a fresh element).
+ * mapArray does not call `renderItem` for same-key reactive updates;
+ * those flow through per-item signal `setItem(...)` instead.
+ */
+function emitLoopChildRefs(
+  lines: string[],
+  refs: readonly LoopChildRefBinding[],
+  opts: { indent: string; elVar: string; bodyIsMultiRoot: boolean },
+): void {
+  if (refs.length === 0) return
+  const { indent, elVar, bodyIsMultiRoot } = opts
+  const lookup = bodyIsMultiRoot ? 'qsaItem' : 'qsa'
+  for (const ref of refs) {
+    const varName = `__rf_${varSlotId(ref.childSlotId)}`
+    lines.push(`${indent}{ const ${varName} = ${lookup}(${elVar}, '[bf="${ref.childSlotId}"]')`)
+    lines.push(`${indent}if (${varName}) ${emitRefCall(ref.wrappedCallback, varName)} }`)
+  }
 }
 
 export function stringifyStaticLoop(lines: string[], plan: StaticLoopPlan): void {

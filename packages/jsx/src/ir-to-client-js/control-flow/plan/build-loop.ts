@@ -37,6 +37,7 @@ import { buildLoopReactiveEffectsPlan } from './build-reactive-effects'
 import { buildComponentLoopPlan } from './build-component-loop'
 import { buildTopLevelCompositePlan } from './build-composite-loop'
 import type {
+  LoopChildRefBinding,
   LoopPlan,
   PlainLoopPlan,
   StaticLoopMaterializePlan,
@@ -75,6 +76,14 @@ export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
   const hasReactive = elem.childReactiveAttrs.length > 0
     || elem.childReactiveTexts.length > 0
     || (elem.childConditionals?.length ?? 0) > 0
+  // `childRefs` are imperative (one-shot per renderItem invocation), not
+  // reactive — but they share the multi-line layout requirement with
+  // `reactiveEffects` because both need `__el` as a stable handle inside
+  // the factory body (#1244).
+  const childRefs: readonly LoopChildRefBinding[] = (elem.childRefs ?? []).map(r => ({
+    childSlotId: r.childSlotId,
+    wrappedCallback: wrap(r.callback),
+  }))
 
   return {
     kind: 'plain',
@@ -88,6 +97,7 @@ export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
     mapPreambleWrapped: elem.mapPreamble ? wrap(elem.mapPreamble) : '',
     template: elem.template,
     reactiveEffects: hasReactive ? buildLoopReactiveEffectsPlan(elem) : null,
+    childRefs,
     bodyIsMultiRoot: elem.bodyIsMultiRoot ?? false,
   }
 }
