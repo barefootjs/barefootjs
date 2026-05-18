@@ -122,6 +122,10 @@ runAdapterConformanceTests({
     // limitation declarative: when the Go adapter grows a native
     // rest-lowering, dropping these entries flips the contract on.
     'rest-destructure-object-in-map': [{ code: 'BF104', severity: 'error' }],
+    // #1244 catalog: rest spread back onto the root element. Same
+    // refusal shape as the read-only variant above — `paramBindings`
+    // is non-empty so BF104 fires regardless of how `rest` is used.
+    'rest-destructure-object-spread-in-map': [{ code: 'BF104', severity: 'error' }],
     'rest-destructure-array-in-map': [{ code: 'BF104', severity: 'error' }],
     'rest-destructure-nested-in-map': [{ code: 'BF104', severity: 'error' }],
     // #1244 stress catalog #13 (#1324): JSX spread of a reactive object

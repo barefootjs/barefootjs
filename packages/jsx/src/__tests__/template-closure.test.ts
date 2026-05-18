@@ -135,7 +135,16 @@ describe('#1128 — template body never reaches init-scope identifiers', () => {
     expect(tpl).toMatch(/active:\s*true/)
   })
 
-  test('init-scope spread object emits spreadAttrs(undefined) — runtime null-guards it to empty string', () => {
+  test('init-scope spread object spliced into merged spreadAttrs as ...(undefined) — runtime null-guards each spread', () => {
+    // `{...cached} data-n={n()}` triggers the collision-safe merge emit
+    // (#1244): both attrs land inside one `spreadAttrs({ "data-n": ...,
+    // ...(undefined) })` call. The init-scope-only `cached` reference is
+    // substituted with `undefined` (UNSAFE rewrite); object-spread of
+    // `undefined` is a no-op at runtime, and `spreadAttrs` skips the
+    // null/undefined values for `data-n`'s reactive accessor on initial
+    // render. The contract here is "`cached` doesn't leak into the
+    // template body" and "the spread of undefined is spliced into the
+    // merge".
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -151,8 +160,9 @@ describe('#1128 — template body never reaches init-scope identifiers', () => {
     const tpl = templateBody(clientJs)
 
     expect(tpl).not.toMatch(/\bcached\b/)
-    // spreadAttrs() in @barefootjs/client null-guards undefined → ''.
-    expect(tpl).toMatch(/spreadAttrs\(undefined\)/)
+    // Merged spreadAttrs({...}) form with `...(undefined)` for the
+    // init-scope spread reference.
+    expect(tpl).toMatch(/spreadAttrs\(\{[^}]*\.\.\.\(undefined\)[^}]*\}\)/)
   })
 
   test('init-scope conditional condition picks the false branch on initial render', () => {

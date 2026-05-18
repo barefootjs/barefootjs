@@ -1950,7 +1950,14 @@ describe('Client JS generation', () => {
       expect(content).toContain('spreadAttrs(')
     })
 
-    test('multiple computed spreads on same element both emit spreadAttrs (#545)', () => {
+    test('multiple computed spreads on same element merge into one spreadAttrs({...}) call (#545)', () => {
+      // When spreads share an element with a non-spread attr (`viewBox`
+      // here), both spreads must reach the runtime so neither is silently
+      // dropped. The collision-safe emit (#1244) collapses them into a
+      // single `spreadAttrs({...sizeAttrs, ...colorAttrs, "viewBox": ...})`
+      // call — JS object-literal evaluation handles rightmost-wins per
+      // JSX semantics. The contract here is "no spread is dropped": both
+      // identifier names must appear inside the merge object.
       const source = `
         export function Icon(props: { size?: string, color?: string }) {
           const sizeAttrs = { width: props.size ?? '24', height: props.size ?? '24' }
@@ -1965,10 +1972,28 @@ describe('Client JS generation', () => {
       expect(clientJs).toBeDefined()
       const content = clientJs!.content
 
-      // Both spreads should emit spreadAttrs
-      const matches = content.match(/spreadAttrs\(/g)
-      expect(matches).not.toBeNull()
-      expect(matches!.length).toBeGreaterThanOrEqual(2)
+      // Extract the body of the spreadAttrs({...}) merge call by
+      // counting braces — a non-greedy regex can't span the nested
+      // object-literal splices the constant-inlining pass produces.
+      const callStart = content.indexOf('spreadAttrs({')
+      expect(callStart).toBeGreaterThan(-1)
+      let depth = 1
+      let i = callStart + 'spreadAttrs({'.length
+      while (depth > 0 && i < content.length) {
+        const ch = content[i]
+        if (ch === '{') depth++
+        else if (ch === '}') depth--
+        i++
+      }
+      const mergeBody = content.slice(callStart + 'spreadAttrs({'.length, i - 1)
+
+      // viewBox literal lives in the merge as a key/value pair.
+      expect(mergeBody).toMatch(/"viewBox":\s*"0 0 24 24"/)
+      // Two `...` splice tokens — one per source spread. `sizeAttrs` /
+      // `colorAttrs` are inlined as object literals by the constant-
+      // inlining pass, so the count is on the splice tokens.
+      const spliceCount = (mergeBody.match(/\.\.\./g) ?? []).length
+      expect(spliceCount).toBeGreaterThanOrEqual(2)
     })
 
     test('rest props spread is NOT emitted as spreadAttrs (#545)', () => {

@@ -49,6 +49,21 @@ describe('CSR Conformance Tests', () => {
     'return-logical-or',
     'return-nullish-coalescing',
     'return-map',
+    // #1244 catalog: `{...rest}` spread back onto the root of a
+    // destructured loop param when there is no non-`key` explicit attr.
+    // The collision-safe merge emit (#1244) only triggers when a
+    // non-`key` explicit attr coexists with the spread (so JSX
+    // rightmost-wins is at risk); a lone `<li key={id} {...rest}>` keeps
+    // the legacy inline form to preserve the unconditional
+    // `data-key="${value}"` debug contract (`spreadAttrs` would otherwise
+    // skip `key={undefined}`). That leaves Hono SSR emitting the
+    // residual-object attributes before `data-key` (the synthesized
+    // hydrationAttr is appended at end) and CSR emitting `data-key`
+    // before the spread (source order). Both forms parse to identical
+    // DOM — no JSX-semantics violation, only attribute-order divergence.
+    // The collision shape that DOES violate semantics is locked in by
+    // `compiler-stress-1244.test.ts` (Layer 1).
+    'rest-destructure-object-spread-in-map',
   ])
 
   for (const fixture of jsxFixtures) {
