@@ -534,6 +534,71 @@ describe('nested destructuring in loop param', () => {
     `
     expectNoFatalErrors(compile(src))
   })
+
+  // Destructured loop param referenced as a shorthand property in an
+  // object literal (`style={{ color }}`, `{...{ name }}`, …): the
+  // `__bfItem().path` rewrite must EXPAND the shorthand to `key:
+  // __bfItem().key` because JS only accepts a bare identifier in
+  // shorthand position. Without expansion the rewrite produces
+  // `{ __bfItem().color }` — a SyntaxError that takes down the whole
+  // compiled module at parse time, before any runtime code runs.
+  //
+  // `style={{ color }}` is the most common surface (Tailwind-style
+  // dynamic colour bindings on per-item tables / lists) and is the
+  // shape this test pins.
+  test('shorthand property in object literal is expanded to `key: accessor` (CSR runtime path)', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      type T = { id: string; color: string; weight: number }
+      export function Demo() {
+        const [items, setItems] = createSignal<T[]>([])
+        return (
+          <ul onClick={() => setItems(i => i)}>
+            {items().map(({ id, color, weight }) => (
+              <li key={id} style={{ color }}>{weight}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const c = compile(src)
+    expectNoFatalErrors(c)
+
+    // The invalid shorthand form `{ __bfItem().color }` is a SyntaxError;
+    // its presence in the emit means the module won't load at all.
+    expect(c.clientJs).not.toMatch(/\{\s*__bfItem\(\)\.color\s*\}/)
+    // Expansion to the explicit-property form lets the accessor reach
+    // the value.
+    expect(c.clientJs).toMatch(/\{\s*color:\s*__bfItem\(\)\.color\s*\}/)
+  })
+
+  test('shorthand property survives nested destructure (object-in-array)', () => {
+    // Nested: tuple element destructured as object. Same shorthand
+    // pitfall as the flat case above — the rewrite must expand the
+    // shorthand position to a full property even though the path is
+    // deeper (`__bfItem()[1].color`).
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      type Pair = readonly [string, { color: string; weight: number }]
+      export function Demo() {
+        const [pairs, setPairs] = createSignal<Pair[]>([])
+        return (
+          <ul onClick={() => setPairs(p => p)}>
+            {pairs().map(([label, { color, weight }]) => (
+              <li key={label} style={{ color }}>{label} ({weight})</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const c = compile(src)
+    expectNoFatalErrors(c)
+
+    expect(c.clientJs).not.toMatch(/\{\s*__bfItem\(\)\[1\]\.color\s*\}/)
+    expect(c.clientJs).toMatch(/\{\s*color:\s*__bfItem\(\)\[1\]\.color\s*\}/)
+  })
 })
 
 describe('loop param shadowing an outer signal name', () => {

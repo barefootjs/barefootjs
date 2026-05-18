@@ -624,10 +624,53 @@ export function wrapLoopParamAsAccessor(expr: string, paramName: string, binding
     for (const b of bindings) byName.set(b.name, b)
     const alt = bindings.map(b => escapeRegExp(b.name)).join('|')
     const re = new RegExp(`\\b(${alt})\\b`, 'g')
-    return replaceInExprContexts(expr, re, (_m: string, name: string) => renderLoopBindingAccess(byName.get(name)!, '__bfItem()'))
+    return replaceInExprContexts(expr, re, (m: string, name: string, offset: number, slice: string) => {
+      const accessor = renderLoopBindingAccess(byName.get(name)!, '__bfItem()')
+      return expandShorthandIfNeeded(name, accessor, m, offset, slice)
+    })
   }
   const re = new RegExp(`\\b${escapeRegExp(paramName)}\\b(?!\\s*\\()(?!-)`, 'g')
   return replaceInExprContexts(expr, re, `${paramName}()`)
+}
+
+/**
+ * If the matched identifier sits in object-literal shorthand-property
+ * position (`{ name }`, `{ a, name, b }`), expand to the explicit
+ * `name: accessor` form. JS only accepts a bare identifier as a
+ * shorthand property name — leaving `{ __bfItem().path }` after the
+ * naive replacement would produce a SyntaxError at module load time
+ * and the entire compiled component would fail to import. (#1244)
+ *
+ * The detection walks the surrounding slice for the previous /
+ * following non-whitespace characters. Shorthand context is:
+ *   - prev non-WS in `{` or `,` (object-literal start or property
+ *     separator)
+ *   - next non-WS in `}` or `,` (object-literal end or property
+ *     separator)
+ *
+ * `wrapLoopParamAsAccessor` is only called on user-written reference
+ * expressions (attribute values, child interpolations), never on
+ * destructure patterns, so the `{` or `,` always opens an object
+ * literal — there's no block-vs-object ambiguity to resolve here.
+ * Computed property keys (`[name]: ...`) are preceded by `[`, not
+ * `{` / `,`, so they don't trigger the expansion and the rewrite
+ * lands inside the bracket as `__bfItem().name`.
+ */
+function expandShorthandIfNeeded(
+  name: string,
+  accessor: string,
+  match: string,
+  offset: number,
+  slice: string,
+): string {
+  let i = offset - 1
+  while (i >= 0 && (slice[i] === ' ' || slice[i] === '\t' || slice[i] === '\n' || slice[i] === '\r')) i--
+  const prev = i >= 0 ? slice[i] : ''
+  let j = offset + match.length
+  while (j < slice.length && (slice[j] === ' ' || slice[j] === '\t' || slice[j] === '\n' || slice[j] === '\r')) j++
+  const next = j < slice.length ? slice[j] : ''
+  const isShorthand = (prev === '{' || prev === ',') && (next === '}' || next === ',')
+  return isShorthand ? `${name}: ${accessor}` : accessor
 }
 
 /**
@@ -649,7 +692,10 @@ export function substituteLoopBindings(
   for (const b of bindings) byName.set(b.name, b)
   const alt = bindings.map(b => escapeRegExp(b.name)).join('|')
   const re = new RegExp(`\\b(${alt})\\b`, 'g')
-  return replaceInExprContexts(expr, re, (_m: string, name: string) => renderLoopBindingAccess(byName.get(name)!, accessor))
+  return replaceInExprContexts(expr, re, (m: string, name: string, offset: number, slice: string) => {
+    const resolved = renderLoopBindingAccess(byName.get(name)!, accessor)
+    return expandShorthandIfNeeded(name, resolved, m, offset, slice)
+  })
 }
 
 /**
