@@ -24,6 +24,7 @@ import {
   buildComponentPropsExpr,
   buildCompSelector,
   isTextOnlyConditional,
+  buildChildRefBindings,
 } from '../shared'
 import { irChildrenToJsExpr } from '../../html-template'
 import { buildReactiveEffectsPlan } from './build-reactive-effects'
@@ -55,7 +56,7 @@ export function buildComponentLoopPlan(elem: TopLevelLoop): ComponentLoopPlan {
     }
   })
 
-  const hasChildConds = (elem.childConditionals?.length ?? 0) > 0
+  const hasChildConds = elem.bindings.conditionals.length > 0
 
   return {
     kind: 'component',
@@ -70,11 +71,17 @@ export function buildComponentLoopPlan(elem: TopLevelLoop): ComponentLoopPlan {
     componentPropsExpr: propsExpr,
     keyExpr,
     nestedComps,
+    // Refs on a component element (`<Comp ref={fn} />`) are not currently
+    // wired here — the body root is the component, not a DOM element, so
+    // the per-item factory has no `__el` handle to invoke. Still required
+    // by the type so the structural invariant (every variant has a
+    // `childRefs`) is preserved; populated as empty.
+    childRefs: buildChildRefBindings(elem.bindings.refs, elem.param, elem.paramBindings),
     childConditionalEffects: hasChildConds
       ? buildReactiveEffectsPlan({
           attrs: [],
           texts: [],
-          conditionals: elem.childConditionals,
+          conditionals: elem.bindings.conditionals,
           loopParam: elem.param,
           loopParamBindings: elem.paramBindings,
         })

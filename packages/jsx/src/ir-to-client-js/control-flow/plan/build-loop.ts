@@ -32,6 +32,8 @@ import {
 import {
   loopKeyFn,
   destructureLoopParam,
+  buildChildRefBindings,
+  buildStaticChildRefBindings,
 } from '../shared'
 import { buildLoopReactiveEffectsPlan } from './build-reactive-effects'
 import { buildComponentLoopPlan } from './build-component-loop'
@@ -72,9 +74,9 @@ export function buildLoopPlan(elem: TopLevelLoop, opts: BuildLoopPlanOptions): L
 export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
   const wrap = (expr: string) => wrapLoopParamAsAccessor(expr, elem.param, elem.paramBindings)
   const { head: paramHead, unwrap: paramUnwrap } = destructureLoopParam(elem.param, elem.paramBindings)
-  const hasReactive = elem.childReactiveAttrs.length > 0
-    || elem.childReactiveTexts.length > 0
-    || (elem.childConditionals?.length ?? 0) > 0
+  const hasReactive = elem.bindings.reactiveAttrs.length > 0
+    || elem.bindings.reactiveTexts.length > 0
+    || elem.bindings.conditionals.length > 0
 
   return {
     kind: 'plain',
@@ -88,6 +90,7 @@ export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
     mapPreambleWrapped: elem.mapPreamble ? wrap(elem.mapPreamble) : '',
     template: elem.template,
     reactiveEffects: hasReactive ? buildLoopReactiveEffectsPlan(elem) : null,
+    childRefs: buildChildRefBindings(elem.bindings.refs, elem.param, elem.paramBindings),
     bodyIsMultiRoot: elem.bodyIsMultiRoot ?? false,
   }
 }
@@ -98,7 +101,7 @@ export function buildStaticLoopPlan(elem: TopLevelLoop, unsafeLocalNames: Set<st
   // declaration-order Map-iteration semantics.
   const attrsBySlotMap = new Map<string, LoopChildReactiveAttr[]>()
   if (!elem.childComponent) {
-    for (const attr of elem.childReactiveAttrs) {
+    for (const attr of elem.bindings.reactiveAttrs) {
       let bucket = attrsBySlotMap.get(attr.childSlotId)
       if (!bucket) {
         bucket = []
@@ -119,7 +122,11 @@ export function buildStaticLoopPlan(elem: TopLevelLoop, unsafeLocalNames: Set<st
     indexParam,
     childIndexExpr,
     attrsBySlot: [...attrsBySlotMap].map(([slotId, attrs]) => [slotId, attrs] as const),
-    texts: elem.childReactiveTexts,
+    texts: elem.bindings.reactiveTexts,
+    // Static path: forEach binds `param` as the raw value. Passing through
+    // the signal-accessor wrap would rewrite e.g. `it.id` → `it().id` and
+    // throw at runtime. Mirrors how `texts` are already handled above.
+    childRefs: buildStaticChildRefBindings(elem.bindings.refs),
     csrMaterialize: buildStaticLoopMaterialize(elem, unsafeLocalNames),
   }
 }

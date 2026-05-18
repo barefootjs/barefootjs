@@ -28,6 +28,7 @@ import {
   wrapLoopParamAsAccessor,
   attrValueToString,
 } from '../../utils'
+import { buildChildRefBindings, buildStaticChildRefBindings } from '../shared'
 
 /**
  * Mirror of the helper in `build-loop-child-arm.ts` — kept local to avoid
@@ -191,13 +192,13 @@ function buildReactiveEmit(
     handler: wrapInner(ev.handler),
   }))
 
-  const reactiveTexts: InnerLoopText[] = (inner.childReactiveTexts ?? []).map(text => ({
+  const reactiveTexts: InnerLoopText[] = inner.bindings.reactiveTexts.map(text => ({
     slotId: text.slotId,
     wrappedExpression: wrapLoopParamAsAccessor(wrapOuter(text.expression), inner.param, inner.paramBindings),
     insideConditional: !!text.insideConditional,
   }))
 
-  const reactiveAttrs: InnerLoopReactiveAttr[] = (inner.childReactiveAttrs ?? []).map(attr => {
+  const reactiveAttrs: InnerLoopReactiveAttr[] = inner.bindings.reactiveAttrs.map(attr => {
     const wrapped = wrapLoopParamAsAccessor(wrapOuter(attr.expression), inner.param, inner.paramBindings)
     const isStyleObject = attr.attrName === 'style' && /^\s*\{/.test(attr.expression)
     return {
@@ -224,6 +225,8 @@ function buildReactiveEmit(
   if (paramUnwrap) preludeStatements.push(paramUnwrap)
   if (inner.mapPreamble) preludeStatements.push(wrapInner(wrapOuter(inner.mapPreamble)))
 
+  const childRefs = buildChildRefBindings(inner.bindings.refs, inner.param, inner.paramBindings)
+
   return {
     mode: 'reactive',
     keyFn: loopKeyFn(inner),
@@ -236,6 +239,7 @@ function buildReactiveEmit(
     events,
     reactiveTexts,
     reactiveAttrs,
+    childRefs,
   }
 }
 
@@ -243,7 +247,10 @@ function buildStaticEmit(inner: NestedLoop, level: DepthLevel): InnerLoopStaticE
   // Static `forEach` iterates with the literal item as its first param, so
   // no signal-accessor rewrite is needed — emit the preamble verbatim
   // before the component/event setup so prop getters and event handlers
-  // can resolve the locals (#1064).
+  // can resolve the locals (#1064). Refs follow the same contract:
+  // wrapping the callback would rewrite `s.x` to `s().x` and throw at
+  // runtime when the callback closes over the static inner param (#1244,
+  // PR #1352 Copilot review).
   const preludeStatements: string[] = inner.mapPreamble ? [inner.mapPreamble] : []
   return {
     mode: 'static',
@@ -251,5 +258,6 @@ function buildStaticEmit(inner: NestedLoop, level: DepthLevel): InnerLoopStaticE
     preludeStatements,
     components: level.comps,
     events: level.events,
+    childRefs: buildStaticChildRefBindings(inner.bindings.refs),
   }
 }

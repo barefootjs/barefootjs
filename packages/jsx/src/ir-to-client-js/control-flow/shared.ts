@@ -12,13 +12,14 @@
  *   control-flow.ts -> control-flow/{plan,stringify}/* -> shared.ts
  */
 
-import type { LoopChildEvent, TopLevelLoop, NestedLoop, CollectedLoop } from '../types'
+import type { LoopChildEvent, LoopChildRef, TopLevelLoop, NestedLoop, CollectedLoop } from '../types'
 import type { IRLoopChildComponent, LoopParamBinding } from '../../types'
 import { quotePropName, wrapLoopParamAsAccessor, irChildrenFreeIds, attrValueToString } from '../utils'
 import { irChildrenToJsExpr } from '../html-template'
 import { emitListenerBlock } from './stringify/event-listener'
 import { nameForRegistryRef } from '../component-scope'
 import { BF_SCOPE, BF_HOST, BF_AT } from '@barefootjs/shared'
+import type { LoopChildRefBinding } from './plan/loop'
 
 /**
  * Build the `keyFn` argument for mapArray / reconcileElements. `null` when
@@ -32,6 +33,46 @@ export function loopKeyFn(loop: CollectedLoop): string {
     ? loop.param
     : `${loop.param}${loop.index ? `, ${loop.index}` : ''}`
   return `(${params}) => String(${loop.key})`
+}
+
+/**
+ * Wrap each ref's `callback` expression with the loop-param accessor and
+ * return `LoopChildRefBinding[]` ready for the stringifier. For dynamic
+ * (`mapArray`-driven) loop variants where the per-item callback receives
+ * the param as a signal accessor (`item: () => T`). Static loops should
+ * use `buildStaticChildRefBindings` instead — their `forEach` callback
+ * receives the raw item value, so wrapping would rewrite `item.x` to
+ * `item().x` and throw at runtime (#1244).
+ */
+export function buildChildRefBindings(
+  refs: readonly LoopChildRef[],
+  loopParam: string,
+  loopParamBindings: readonly LoopParamBinding[] | undefined,
+): readonly LoopChildRefBinding[] {
+  if (refs.length === 0) return []
+  return refs.map(r => ({
+    childSlotId: r.childSlotId,
+    callback: wrapLoopParamAsAccessor(r.callback, loopParam, loopParamBindings),
+  }))
+}
+
+/**
+ * Pass-through `LoopChildRefBinding[]` builder for static-loop emit paths
+ * where the param is bound as the raw item value (`forEach((param, idx) =>
+ * ...)`). Refs go through unwrapped, mirroring how `reactiveTexts` and
+ * `reactiveAttrs` are already handled on the static path. Wrapping with
+ * `wrapLoopParamAsAccessor` would rewrite bare param references to
+ * `param()` and throw `TypeError` at runtime when a ref callback closes
+ * over the loop param (#1244, addressing PR #1352 Copilot review).
+ */
+export function buildStaticChildRefBindings(
+  refs: readonly LoopChildRef[],
+): readonly LoopChildRefBinding[] {
+  if (refs.length === 0) return []
+  return refs.map(r => ({
+    childSlotId: r.childSlotId,
+    callback: r.callback,
+  }))
 }
 
 /**
