@@ -4,7 +4,7 @@
 >
   <circle cx="50" cy="50" r="50" fill="#ffffff" />
 
-  <g fill="#000000">
+  <g fill="#000000" transform="translate(5 7)">
     <!-- big toe -->
     <ellipse
       cx="18"
