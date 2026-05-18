@@ -8,19 +8,13 @@
 - Why BarefootJS?
 - Design Philosophy
 
-### 2. [CLI Workflow](./cli.md)
-
-- The `bf` command — discover, scaffold, test, preview, debug
-- Linear walkthrough: `search → docs → add → bun test → preview → debug`
-- AI coding workflows with `--json` output
-
-### 3. Getting Started
+### 2. Getting Started
 
 - Installation
 - Quick Start (5-minute tutorial)
 - Project Structure
 
-### 4. [Core Concepts](./core-concepts.md)
+### 3. [Core Concepts](./core-concepts.md)
 
 - [Backend Freedom](./core-concepts/backend-freedom.md) — How adapters let the same JSX run on any server
 - [MPA-style Development](./core-concepts/mpa-style.md) — Server-rendering by default, JS only where marked
@@ -28,7 +22,7 @@
 - [AI-native Development](./core-concepts/ai-native.md) — Testable IR, CLI discovery, AI-assisted workflows
 - [How It Works](./core-concepts/how-it-works.md) — Two-phase compilation, hydration markers, clean overrides
 
-### 5. [Reactivity](./reactivity.md)
+### 4. [Reactivity](./reactivity.md)
 
 - [`createSignal`](./reactivity/create-signal.md) — Create a reactive value
 - [`createEffect`](./reactivity/create-effect.md) — Run side effects when dependencies change
@@ -38,13 +32,13 @@
 - [`untrack`](./reactivity/untrack.md) — Read signals without tracking dependencies
 - [Props Reactivity](./reactivity/props-reactivity.md) — Gotchas with destructuring
 
-### 6. [Templates & Rendering](./rendering.md)
+### 5. [Templates & Rendering](./rendering.md)
 
 - [JSX Compatibility](./rendering/jsx-compatibility.md) — What works, what doesn't, and what differs
 - [Fragment](./rendering/fragment.md) — Fragment support and hydration behavior
 - [`/* @client */` Directive](./rendering/client-directive.md) — Skip server evaluation for client-only expressions
 
-### 7. [Components](./components.md)
+### 6. [Components](./components.md)
 
 - [Component Authoring](./components/component-authoring.md) — Server components, client components, and the compilation model
 - [Props & Type Safety](./components/props-type-safety.md) — Typing props, defaults, and rest spreading
@@ -52,14 +46,14 @@
 - [Context API](./components/context-api.md) — Sharing state with `createContext` / `useContext`
 - [Portals](./components/portals.md) — Rendering elements outside their parent DOM hierarchy
 
-### 8. [Adapters](./adapters.md)
+### 7. [Adapters](./adapters.md)
 
 - [Adapter Architecture](./adapters/adapter-architecture.md) — How adapters work, the `TemplateAdapter` interface, and the IR contract
 - [Hono Adapter](./adapters/hono-adapter.md) — Configuration and output format for Hono / JSX-based servers
 - [Go Template Adapter](./adapters/go-template-adapter.md) — Configuration and output format for Go `html/template`
 - [Writing a Custom Adapter](./adapters/custom-adapter.md) — Step-by-step guide to implementing your own adapter
 
-### 9. [Advanced](./advanced.md)
+### 8. [Advanced](./advanced.md)
 
 - [IR Schema Reference](./advanced/ir-schema.md) — Node types, metadata, hydration markers
 - [Compiler Internals](./advanced/compiler-internals.md) — Pipeline phases, reactivity analysis, code generation
