@@ -1,6 +1,6 @@
 {
   "name": "barefootjs-mojolicious-example",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "scripts": {
     "build": "bun run ../../packages/cli/src/index.ts build && bun run scripts/assemble-deps.ts",
     "build:watch": "bun run ../../packages/cli/src/index.ts build --watch",

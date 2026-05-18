@@ -1,6 +1,6 @@
 {
   "name": "barefootjs",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "JSX to Marked Template + client JS compiler",
   "type": "module",
   "private": true,
