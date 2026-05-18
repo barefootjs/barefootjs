@@ -8,12 +8,12 @@ test.describe('Studio Export & URL', () => {
     })
   })
 
-  test('export bar shows a valid barefoot init --from command', async ({ page }) => {
+  test('export bar shows a valid barefoot studio apply command', async ({ page }) => {
     await page.goto('/studio')
     const codeEl = page.locator('[data-studio-export-code]')
     await expect(codeEl).toBeVisible()
-    const text = await codeEl.textContent()
-    expect(text).toContain('barefoot init --from')
+    const text = await codeEl.inputValue()
+    expect(text).toContain('barefoot studio apply')
     expect(text).toContain('/studio')
   })
 
@@ -22,14 +22,14 @@ test.describe('Studio Export & URL', () => {
     const codeEl = page.locator('[data-studio-export-code]')
 
     // Get initial command text
-    const initialText = await codeEl.textContent()
+    const initialText = await codeEl.inputValue()
 
     // Open style dropdown and select Sharp
     await page.locator('[data-studio-style-trigger]').click()
     await page.locator('[data-studio-preset="Sharp"]').click()
 
     // Export command should update and contain ?c= with encoded config
-    const updatedText = await codeEl.textContent()
+    const updatedText = await codeEl.inputValue()
     expect(updatedText).not.toBe(initialText)
     expect(updatedText).toContain('?c=')
   })
@@ -76,10 +76,10 @@ test.describe('Studio Export & URL', () => {
     await page.locator('[data-studio-preset="Soft"]').click()
 
     const codeEl = page.locator('[data-studio-export-code]')
-    const text = await codeEl.textContent()
+    const text = await codeEl.inputValue()
 
     // Extract the ?c= value from the command
-    const match = text?.match(/\?c=([^"]+)/)
+    const match = text.match(/\?c=([^"]+)/)
     expect(match).toBeTruthy()
 
     // Decode and verify it's valid JSON
@@ -184,8 +184,8 @@ test.describe('Studio Export & URL', () => {
 
     // Verify the export command re-encodes the same config
     const codeEl = page.locator('[data-studio-export-code]')
-    const text = await codeEl.textContent()
-    const cMatch = text?.match(/\?c=([^"]+)/)
+    const text = await codeEl.inputValue()
+    const cMatch = text.match(/\?c=([^"]+)/)
     expect(cMatch).toBeTruthy()
 
     const decoded = JSON.parse(atob(decodeURIComponent(cMatch![1])))
