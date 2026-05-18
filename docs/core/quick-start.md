@@ -5,16 +5,12 @@ description: Scaffold a BarefootJS app in under five minutes — Counter compone
 
 # Quick Start
 
-This guide walks you through scaffolding a BarefootJS app from scratch, running it locally, and understanding what the generator gave you. It should take about five minutes.
-
-You'll end up with a working counter — a `"use client"` component that increments, decrements, and resets, rendered as server HTML and hydrated in the browser with a few KB of client JS.
+Scaffold a BarefootJS app, run it locally, and tour the generated project. About five minutes.
 
 ## Prerequisites
 
-- **Node.js 22+** (or a compatible runtime like Bun). `npm`, `bun`, `pnpm`, or `yarn` all work — the scaffolder detects your package manager.
-- A terminal and a text editor.
-
-No backend setup is required for this guide. The default scaffold targets [Cloudflare Workers](https://developers.cloudflare.com/workers/) via `wrangler dev`, which runs entirely on your laptop with no account or login.
+- **Node.js 22+** (or Bun). `npm`, `bun`, `pnpm`, or `yarn` all work — the scaffolder detects your package manager.
+- The default scaffold targets [Cloudflare Workers](https://developers.cloudflare.com/workers/) via `wrangler dev` — runs entirely locally, no account needed.
 
 ## 1. Scaffold the project
 
@@ -38,11 +34,9 @@ npm run dev
 - `unocss --watch` — scans your JSX for utility classes and writes `public/uno.css`.
 - `wrangler dev --live-reload` — Cloudflare's local Workers runtime. Serves the app and reloads the browser on rebuilds.
 
-Open the URL Wrangler prints (typically `http://localhost:8787`). You should see a counter card with **+1**, **-1**, and **Reset** buttons. Click around — the value updates immediately in the browser.
+Open the URL Wrangler prints. You should see a counter card with **+1**, **-1**, and **Reset** buttons. Click around — the value updates immediately in the browser.
 
 ## 3. Look at what was generated
-
-Here's the project layout, with the files you'll touch most highlighted:
 
 ```
 my-app/
