@@ -9,8 +9,8 @@ Scaffold a BarefootJS app, run it locally, and tour the generated project. About
 
 ## Prerequisites
 
-- **Node.js 22+** (or Bun). `npm`, `bun`, `pnpm`, or `yarn` all work — the scaffolder detects your package manager.
-- The default scaffold targets [Cloudflare Workers](https://developers.cloudflare.com/workers/) via `wrangler dev` — runs entirely locally, no account needed.
+- **Node.js 22+** (or Bun).
+- The default scaffold targets [Cloudflare Workers](https://developers.cloudflare.com/workers/) via `wrangler dev` — runs locally, no account needed.
 
 ## 1. Scaffold the project
 
@@ -34,7 +34,7 @@ npm run dev
 - `unocss --watch` — scans your JSX for utility classes and writes `public/uno.css`.
 - `wrangler dev --live-reload` — Cloudflare's local Workers runtime. Serves the app and reloads the browser on rebuilds.
 
-Open the URL Wrangler prints. You should see a counter card with **+1**, **-1**, and **Reset** buttons. Click around — the value updates immediately in the browser.
+Open the URL Wrangler prints. You should see a counter card with **+1**, **-1**, and **Reset** buttons.
 
 ## 3. Look at what was generated
 
@@ -55,7 +55,7 @@ my-app/
 └── uno.config.ts           # UnoCSS scan patterns
 ```
 
-The Counter itself is the file to focus on. Open `components/Counter.tsx`:
+Open `components/Counter.tsx`:
 
 ```tsx
 'use client'
@@ -85,14 +85,9 @@ export function Counter(props: CounterProps) {
 }
 ```
 
-A few things to notice:
+See [Client Directive](./rendering/client-directive.md), [`createSignal`](./reactivity/create-signal.md), and [`createMemo`](./reactivity/create-memo.md) for what each piece does.
 
-- **`'use client'`** — opts this component into hydration. Without it, the compiler would render the JSX as static HTML and ship zero JS.
-- **`createSignal`** — reactive state. The getter (`count`) is a function call inside JSX; that's how the compiler tracks dependencies.
-- **`createMemo`** — a derived value. `doubled()` recomputes only when `count` changes.
-- **`<Button>`** — a server component pulled from the UI registry. It renders to plain HTML; only the click handler ships as JS.
-
-The server-side use of the Counter lives in `server.tsx`:
+The Counter is mounted in `server.tsx`:
 
 ```tsx
 import { Hono } from 'hono'
@@ -115,7 +110,7 @@ app.get('/', (c) =>
 export default app
 ```
 
-The same `Counter` import works on the server (renders HTML) and is wired up on the client (hydrates the buttons). One file, two outputs — that's the BarefootJS model.
+Same `Counter` import, two outputs: server renders HTML, client hydrates the buttons.
 
 ## 4. Make a change
 
@@ -128,7 +123,7 @@ export function Counter(props: CounterProps) {
 }
 ```
 
-Save the file. The `bf build --watch` process rebuilds, Wrangler reloads the browser, and the counter now starts at **10**. The static HTML carries `10`, hydration picks up where the server left off, and your clicks continue working.
+Save. The browser reloads and the counter starts at **10** — the server-rendered HTML carries the new initial, and hydration picks up your clicks from there.
 
 Try adding a new button:
 
