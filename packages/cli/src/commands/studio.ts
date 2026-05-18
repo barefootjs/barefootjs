@@ -1,13 +1,17 @@
 // `barefoot studio apply <url>` — Apply a Studio-encoded token config
 // (from a `?c=...` URL) onto an existing project's tokens.
 //
-// Reads `paths.tokens` from `barefoot.config.ts`, then:
-//   1. Patches `<tokens>/tokens.json` with color / spacing / radius / font /
-//      shadow overrides decoded from the Studio URL.
-//   2. Regenerates `<tokens>/tokens.css` from the patched JSON if the
-//      monorepo's token module is reachable (skipped silently otherwise).
-//   3. Appends CSS variable overrides that aren't represented in
-//      tokens.json (e.g. `--spacing`) to `<tokens>/tokens.css`.
+// Primary action: rewrite CSS variable values inside the project's
+// `tokens.css` so the change is visible on the next page load. The
+// runtime reads `tokens.css`, not `tokens.json`, so direct CSS
+// patching is the source of truth for end-user apps. Search order:
+// `<paths.tokens>/tokens.css` → `public/tokens.css` → `static/tokens.css`.
+//
+// Secondary action (best-effort): if `<paths.tokens>/tokens.json`
+// exists (monorepo convention), patch it too so a subsequent
+// tokens-build pipeline regenerates `tokens.css` from the same JSON.
+// Silent skip when the file isn't there — end-user scaffolds don't
+// ship a tokens.json.
 
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import path from 'path'
@@ -19,6 +23,39 @@ export interface StudioConfig {
   spacing?: string
   radius?: string
   font?: string
+}
+
+// Font key → font-family value mapping (mirrors Studio's font picker).
+const FONT_MAP: Record<string, string> = {
+  system: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif',
+  inter: '"Inter", sans-serif',
+  'noto-sans': '"Noto Sans", sans-serif',
+  'nunito-sans': '"Nunito Sans", sans-serif',
+  figtree: '"Figtree", sans-serif',
+}
+
+// Shadow presets — mirror Studio's stylePresets. Names use the bare
+// shadow token (no leading `--`) so we can share with the JSON-patching
+// path that uses bare names too.
+const SHADOW_PRESETS: Record<string, Record<string, string>> = {
+  Sharp: {
+    'shadow-sm': '0 1px 2px 0 rgb(0 0 0 / 0.04)',
+    'shadow': '0 1px 2px 0 rgb(0 0 0 / 0.06)',
+    'shadow-md': '0 2px 4px -1px rgb(0 0 0 / 0.08)',
+    'shadow-lg': '0 4px 8px -2px rgb(0 0 0 / 0.1)',
+  },
+  Soft: {
+    'shadow-sm': '0 1px 3px 0 rgb(0 0 0 / 0.06)',
+    'shadow': '0 2px 6px 0 rgb(0 0 0 / 0.08), 0 1px 3px -1px rgb(0 0 0 / 0.06)',
+    'shadow-md': '0 6px 12px -2px rgb(0 0 0 / 0.08), 0 3px 6px -3px rgb(0 0 0 / 0.06)',
+    'shadow-lg': '0 12px 24px -4px rgb(0 0 0 / 0.08), 0 6px 10px -5px rgb(0 0 0 / 0.06)',
+  },
+  Compact: {
+    'shadow-sm': 'none',
+    'shadow': 'none',
+    'shadow-md': 'none',
+    'shadow-lg': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+  },
 }
 
 export async function run(args: string[], ctx: CliContext): Promise<void> {
@@ -35,10 +72,11 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
     process.exit(1)
   }
 
-  if (!ctx.config || !ctx.projectDir) {
-    console.error('Error: project config not found. Run `barefoot init` first.')
-    process.exit(1)
-  }
+  // The CSS lookup falls back to bare cwd when `barefoot.config.ts` is
+  // missing, so an app that hasn't run the scaffolder yet still gets a
+  // useful error pointing at the directory we searched.
+  const projectDir = ctx.projectDir ?? process.cwd()
+  const tokensRelDir = ctx.config?.paths.tokens ?? 'tokens'
 
   const studioConfig = parseStudioUrl(url)
   if (!studioConfig) {
@@ -46,22 +84,26 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
     process.exit(1)
   }
 
-  const tokensDir = path.resolve(ctx.projectDir, ctx.config.paths.tokens)
-  const tokensJsonPath = path.join(tokensDir, 'tokens.json')
-  const tokensCssPath = path.join(tokensDir, 'tokens.css')
-
-  if (!existsSync(tokensJsonPath)) {
-    console.error(`Error: ${path.relative(ctx.projectDir, tokensJsonPath)} not found.`)
-    console.error('       Studio overrides need an existing tokens.json to patch.')
+  // ── 1. Patch tokens.css (primary, end-user source of truth) ──
+  const cssPath = resolveTokensCss(projectDir, tokensRelDir)
+  if (!cssPath) {
+    console.error('Error: tokens.css not found. Checked:')
+    for (const p of candidateCssPaths(projectDir, tokensRelDir)) {
+      console.error(`  - ${path.relative(projectDir, p)}`)
+    }
+    console.error('       Run `npm create barefootjs@latest` to scaffold a project first.')
     process.exit(1)
   }
 
-  applyTokenOverrides(tokensJsonPath, studioConfig)
-  console.log(`  Patched ${path.relative(ctx.projectDir, tokensJsonPath)}`)
+  applyCssOverrides(cssPath, studioConfig)
+  console.log(`  Patched ${path.relative(projectDir, cssPath)}`)
 
-  await generateTokensCSS(ctx.root, tokensJsonPath, tokensDir, ctx.config.paths.tokens)
-
-  appendCSSOverrides(tokensCssPath, studioConfig)
+  // ── 2. Patch tokens.json (best-effort, monorepo convention) ──
+  const tokensJsonPath = path.join(projectDir, tokensRelDir, 'tokens.json')
+  if (existsSync(tokensJsonPath)) {
+    applyTokenOverrides(tokensJsonPath, studioConfig)
+    console.log(`  Patched ${path.relative(projectDir, tokensJsonPath)}`)
+  }
 }
 
 function printUsage(): void {
@@ -86,7 +128,125 @@ export function parseStudioUrl(url: string): StudioConfig | undefined {
   }
 }
 
-// ── Token override logic ──
+// ── tokens.css resolution ──
+
+function candidateCssPaths(projectDir: string, tokensRelDir: string): string[] {
+  // Order matches how adapters scaffold. `public/` covers every shipped
+  // adapter today (hono, hono-node, csr, mojo, echo). `<paths.tokens>/`
+  // covers monorepo / hand-built layouts where the source CSS lives
+  // next to tokens.json. `static/` is kept as a generic fallback for
+  // adapters that mirror the Go-template convention.
+  return [
+    path.join(projectDir, tokensRelDir, 'tokens.css'),
+    path.join(projectDir, 'public', 'tokens.css'),
+    path.join(projectDir, 'static', 'tokens.css'),
+  ]
+}
+
+export function resolveTokensCss(projectDir: string, tokensRelDir: string): string | undefined {
+  for (const p of candidateCssPaths(projectDir, tokensRelDir)) {
+    if (existsSync(p)) return p
+  }
+  return undefined
+}
+
+// ── tokens.css patching ──
+
+interface BlockOverrides {
+  /** Overrides for `:root { ... }` (light-mode + non-color tokens). */
+  root: Record<string, string>
+  /** Overrides for `.dark { ... }` (dark-mode color tokens). */
+  dark: Record<string, string>
+}
+
+function buildBlockOverrides(config: StudioConfig): BlockOverrides {
+  const root: Record<string, string> = {}
+  const dark: Record<string, string> = {}
+
+  if (config.spacing) root['--spacing'] = config.spacing
+  if (config.radius) root['--radius'] = config.radius
+  if (config.font) {
+    root['--font-sans'] = FONT_MAP[config.font] ?? config.font
+  }
+  if (config.style) {
+    const preset = SHADOW_PRESETS[config.style]
+    if (preset) {
+      for (const [name, value] of Object.entries(preset)) {
+        root[`--${name}`] = value
+      }
+    }
+  }
+  if (config.tokens) {
+    for (const [name, values] of Object.entries(config.tokens)) {
+      if (values.light !== undefined) root[`--${name}`] = values.light
+      if (values.dark !== undefined) dark[`--${name}`] = values.dark
+    }
+  }
+
+  return { root, dark }
+}
+
+export function applyCssOverrides(cssPath: string, config: StudioConfig): void {
+  const overrides = buildBlockOverrides(config)
+  let css = readFileSync(cssPath, 'utf-8')
+  css = patchBlock(css, /:root\s*\{/, overrides.root)
+  css = patchBlock(css, /\.dark\s*\{/, overrides.dark)
+  writeFileSync(cssPath, css)
+}
+
+/**
+ * Replace CSS variable declarations inside the first block matched by
+ * `openRe`. Existing declarations are rewritten in place; new ones are
+ * appended just before the closing brace under a `Studio overrides`
+ * comment so re-runs stay idempotent (the second run finds them in
+ * place and rewrites instead of re-appending).
+ */
+function patchBlock(css: string, openRe: RegExp, overrides: Record<string, string>): string {
+  if (Object.keys(overrides).length === 0) return css
+
+  const openMatch = openRe.exec(css)
+  if (!openMatch) return css
+
+  const blockStart = openMatch.index + openMatch[0].length
+  let depth = 1
+  let blockEnd = -1
+  for (let i = blockStart; i < css.length; i++) {
+    const ch = css[i]
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) { blockEnd = i; break }
+    }
+  }
+  if (blockEnd === -1) return css
+
+  let block = css.slice(blockStart, blockEnd)
+  const toAppend: Array<[string, string]> = []
+
+  for (const [name, value] of Object.entries(overrides)) {
+    const re = new RegExp(`(${escapeRegex(name)}\\s*:\\s*)[^;]+(;)`)
+    if (re.test(block)) {
+      block = block.replace(re, `$1${value}$2`)
+    } else {
+      toAppend.push([name, value])
+    }
+  }
+
+  if (toAppend.length > 0) {
+    const lines = toAppend.map(([n, v]) => `  ${n}: ${v};`).join('\n')
+    const trailing = block.match(/\s*$/)?.[0] ?? ''
+    block = block.slice(0, block.length - trailing.length) +
+      `\n\n  /* ── Studio overrides ── */\n${lines}\n`
+  }
+
+  return css.slice(0, blockStart) + block + css.slice(blockEnd)
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// ── tokens.json patching (best-effort, monorepo convention) ──
 
 export function applyTokenOverrides(tokensJsonPath: string, config: StudioConfig): void {
   const raw = readFileSync(tokensJsonPath, 'utf-8')
@@ -107,15 +267,7 @@ export function applyTokenOverrides(tokensJsonPath: string, config: StudioConfig
   }
 
   if (config.font) {
-    // Font key → font-family value mapping (mirrors Studio's font picker).
-    const fontMap: Record<string, string> = {
-      system: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif',
-      inter: '"Inter", sans-serif',
-      'noto-sans': '"Noto Sans", sans-serif',
-      'nunito-sans': '"Nunito Sans", sans-serif',
-      figtree: '"Figtree", sans-serif',
-    }
-    const fontValue = fontMap[config.font] || config.font
+    const fontValue = FONT_MAP[config.font] || config.font
     applySimpleOverride(tokensData, '--font-sans', fontValue)
   }
 
@@ -178,79 +330,9 @@ function applySimpleOverride(tokensData: any, name: string, value: string): void
 }
 
 function applyShadowPreset(tokensData: any, styleName: string): void {
-  // Preset names mirror Studio's stylePresets. Bare keys to match tokens.json.
-  const presets: Record<string, Record<string, string>> = {
-    Sharp: {
-      'shadow-sm': '0 1px 2px 0 rgb(0 0 0 / 0.04)',
-      'shadow': '0 1px 2px 0 rgb(0 0 0 / 0.06)',
-      'shadow-md': '0 2px 4px -1px rgb(0 0 0 / 0.08)',
-      'shadow-lg': '0 4px 8px -2px rgb(0 0 0 / 0.1)',
-    },
-    Soft: {
-      'shadow-sm': '0 1px 3px 0 rgb(0 0 0 / 0.06)',
-      'shadow': '0 2px 6px 0 rgb(0 0 0 / 0.08), 0 1px 3px -1px rgb(0 0 0 / 0.06)',
-      'shadow-md': '0 6px 12px -2px rgb(0 0 0 / 0.08), 0 3px 6px -3px rgb(0 0 0 / 0.06)',
-      'shadow-lg': '0 12px 24px -4px rgb(0 0 0 / 0.08), 0 6px 10px -5px rgb(0 0 0 / 0.06)',
-    },
-    Compact: {
-      'shadow-sm': 'none',
-      'shadow': 'none',
-      'shadow-md': 'none',
-      'shadow-lg': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-    },
-  }
-
-  const shadows = presets[styleName]
+  const shadows = SHADOW_PRESETS[styleName]
   if (!shadows) return
-
   for (const [name, value] of Object.entries(shadows)) {
     applySimpleOverride(tokensData, name, value)
-  }
-}
-
-/**
- * Append CSS variable overrides that aren't part of tokens.json
- * (e.g., `--spacing` is a Tailwind v4 variable, not in our token schema).
- */
-export function appendCSSOverrides(cssPath: string, config: StudioConfig): void {
-  if (!existsSync(cssPath)) return
-
-  const lines: string[] = []
-  if (config.spacing) {
-    lines.push(`  --spacing: ${config.spacing};`)
-  }
-
-  if (lines.length === 0) return
-
-  const existing = readFileSync(cssPath, 'utf-8')
-  const rootCloseIdx = existing.indexOf('}')
-  if (rootCloseIdx === -1) return
-
-  const patched = existing.slice(0, rootCloseIdx) +
-    `\n  /* ── Studio overrides ── */\n${lines.join('\n')}\n` +
-    existing.slice(rootCloseIdx)
-
-  writeFileSync(cssPath, patched)
-}
-
-async function generateTokensCSS(
-  root: string,
-  tokensJsonPath: string,
-  tokensDir: string,
-  tokensRelDir: string,
-): Promise<void> {
-  try {
-    const { loadTokens, generateCSS } = await import(
-      path.resolve(root, 'site/shared/tokens/index')
-    )
-    const tokenSet = await loadTokens(tokensJsonPath)
-    const css = generateCSS(tokenSet)
-    writeFileSync(path.join(tokensDir, 'tokens.css'), css)
-    console.log(`  Regenerated ${tokensRelDir}/tokens.css`)
-  } catch {
-    // Token generation requires the monorepo's `site/shared/tokens` module.
-    // In a published CLI bundle this is unreachable; the user re-runs their
-    // build pipeline to project tokens.json into tokens.css.
-    console.log(`  Skipped tokens.css regeneration (run your tokens build pipeline)`)
   }
 }

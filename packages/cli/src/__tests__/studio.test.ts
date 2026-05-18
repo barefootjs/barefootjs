@@ -4,8 +4,9 @@ import path from 'path'
 import os from 'os'
 import {
   parseStudioUrl,
+  applyCssOverrides,
   applyTokenOverrides,
-  appendCSSOverrides,
+  resolveTokensCss,
   type StudioConfig,
 } from '../commands/studio'
 
@@ -32,7 +33,191 @@ describe('parseStudioUrl', () => {
   })
 })
 
-// ── applyTokenOverrides ──
+// ── applyCssOverrides (the primary path — direct CSS patching) ──
+
+const TOKENS_CSS_FIXTURE = `:root {
+  --font-sans: -apple-system, sans-serif;
+  --spacing: 0.25rem;
+  --radius: 0.625rem;
+  --primary: oklch(0.205 0 0);
+  --secondary: oklch(0.97 0 0);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+.dark {
+  --primary: oklch(0.35 0 0);
+  --secondary: oklch(0.269 0 0);
+}
+`
+
+describe('applyCssOverrides', () => {
+  let tmpDir: string
+  let cssPath: string
+
+  beforeEach(() => {
+    tmpDir = path.join(os.tmpdir(), `bf-studio-css-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    mkdirSync(tmpDir, { recursive: true })
+    cssPath = path.join(tmpDir, 'tokens.css')
+    writeFileSync(cssPath, TOKENS_CSS_FIXTURE)
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  function read(): string {
+    return readFileSync(cssPath, 'utf-8')
+  }
+
+  test('rewrites --spacing in :root', () => {
+    applyCssOverrides(cssPath, { spacing: '0.3rem' })
+    expect(read()).toContain('--spacing: 0.3rem;')
+    expect(read()).not.toContain('--spacing: 0.25rem;')
+  })
+
+  test('rewrites --radius in :root', () => {
+    applyCssOverrides(cssPath, { radius: '0' })
+    expect(read()).toContain('--radius: 0;')
+    expect(read()).not.toContain('--radius: 0.625rem;')
+  })
+
+  test('rewrites --font-sans via font key mapping', () => {
+    applyCssOverrides(cssPath, { font: 'inter' })
+    expect(read()).toContain('--font-sans: "Inter", sans-serif;')
+  })
+
+  test('passes through unknown font keys verbatim', () => {
+    applyCssOverrides(cssPath, { font: '"Custom Font", monospace' })
+    expect(read()).toContain('--font-sans: "Custom Font", monospace;')
+  })
+
+  test('writes color light value to :root and dark value to .dark', () => {
+    applyCssOverrides(cssPath, {
+      tokens: {
+        primary: { light: 'oklch(0.5 0.2 240)', dark: 'oklch(0.7 0.15 240)' },
+      },
+    })
+    const css = read()
+    // :root block keeps the light value
+    const rootBlock = css.slice(css.indexOf(':root'), css.indexOf('.dark'))
+    expect(rootBlock).toContain('--primary: oklch(0.5 0.2 240);')
+    // .dark block keeps the dark value
+    const darkBlock = css.slice(css.indexOf('.dark'))
+    expect(darkBlock).toContain('--primary: oklch(0.7 0.15 240);')
+  })
+
+  test('only writes light value when dark is absent', () => {
+    applyCssOverrides(cssPath, {
+      tokens: { secondary: { light: 'oklch(0.5 0 0)' } },
+    })
+    const css = read()
+    // :root updated, .dark untouched
+    expect(css.slice(css.indexOf(':root'), css.indexOf('.dark'))).toContain('--secondary: oklch(0.5 0 0);')
+    expect(css.slice(css.indexOf('.dark'))).toContain('--secondary: oklch(0.269 0 0);')
+  })
+
+  test('appends a new color into .dark when no existing declaration', () => {
+    // .dark does NOT have --radius. Adding it should append under the
+    // Studio overrides comment so re-applies stay idempotent.
+    applyCssOverrides(cssPath, {
+      tokens: { background: { dark: 'oklch(0.1 0 0)' } },
+    })
+    const css = read()
+    const darkBlock = css.slice(css.indexOf('.dark'))
+    expect(darkBlock).toContain('Studio overrides')
+    expect(darkBlock).toContain('--background: oklch(0.1 0 0);')
+  })
+
+  test('Sharp shadow preset rewrites all four shadow vars', () => {
+    applyCssOverrides(cssPath, { style: 'Sharp' })
+    const css = read()
+    expect(css).toContain('--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);')
+    expect(css).toContain('--shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06);')
+    expect(css).toContain('--shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.08);')
+    expect(css).toContain('--shadow-lg: 0 4px 8px -2px rgb(0 0 0 / 0.1);')
+  })
+
+  test('unknown style names leave the CSS untouched', () => {
+    applyCssOverrides(cssPath, { style: 'Unknown' })
+    expect(read()).toBe(TOKENS_CSS_FIXTURE)
+  })
+
+  test('is idempotent: applying the same config twice yields the same file', () => {
+    const config: StudioConfig = {
+      spacing: '0.3rem',
+      radius: '1rem',
+      font: 'figtree',
+      tokens: { primary: { light: 'oklch(0.5 0.2 240)', dark: 'oklch(0.7 0.15 240)' } },
+      style: 'Soft',
+    }
+    applyCssOverrides(cssPath, config)
+    const once = read()
+    applyCssOverrides(cssPath, config)
+    expect(read()).toBe(once)
+  })
+
+  test('rewrites in place when applying different configs sequentially', () => {
+    applyCssOverrides(cssPath, { spacing: '0.3rem' })
+    applyCssOverrides(cssPath, { spacing: '0.5rem' })
+    const css = read()
+    expect(css).toContain('--spacing: 0.5rem;')
+    expect(css).not.toContain('--spacing: 0.3rem;')
+  })
+})
+
+// ── resolveTokensCss ──
+
+describe('resolveTokensCss', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = path.join(os.tmpdir(), `bf-studio-resolve-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    mkdirSync(tmpDir, { recursive: true })
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  test('finds tokens.css under <paths.tokens>/', () => {
+    mkdirSync(path.join(tmpDir, 'tokens'), { recursive: true })
+    const target = path.join(tmpDir, 'tokens', 'tokens.css')
+    writeFileSync(target, ':root {}')
+    expect(resolveTokensCss(tmpDir, 'tokens')).toBe(target)
+  })
+
+  test('falls back to public/tokens.css (default adapter scaffold)', () => {
+    mkdirSync(path.join(tmpDir, 'public'), { recursive: true })
+    const target = path.join(tmpDir, 'public', 'tokens.css')
+    writeFileSync(target, ':root {}')
+    expect(resolveTokensCss(tmpDir, 'tokens')).toBe(target)
+  })
+
+  test('falls back to static/tokens.css', () => {
+    mkdirSync(path.join(tmpDir, 'static'), { recursive: true })
+    const target = path.join(tmpDir, 'static', 'tokens.css')
+    writeFileSync(target, ':root {}')
+    expect(resolveTokensCss(tmpDir, 'tokens')).toBe(target)
+  })
+
+  test('returns undefined when nothing matches', () => {
+    expect(resolveTokensCss(tmpDir, 'tokens')).toBeUndefined()
+  })
+
+  test('prefers <paths.tokens>/ over public/ when both exist', () => {
+    mkdirSync(path.join(tmpDir, 'tokens'), { recursive: true })
+    mkdirSync(path.join(tmpDir, 'public'), { recursive: true })
+    const primary = path.join(tmpDir, 'tokens', 'tokens.css')
+    writeFileSync(primary, ':root {}')
+    writeFileSync(path.join(tmpDir, 'public', 'tokens.css'), ':root {}')
+    expect(resolveTokensCss(tmpDir, 'tokens')).toBe(primary)
+  })
+})
+
+// ── applyTokenOverrides (tokens.json — monorepo path, best-effort) ──
 
 describe('applyTokenOverrides', () => {
   let tmpDir: string
@@ -133,43 +318,6 @@ describe('applyTokenOverrides', () => {
     applyTokenOverrides(tokensPath, { style: 'Unknown' })
 
     expect(readTokens(tokensPath).shadows[0].value).toBe('original')
-  })
-})
-
-// ── appendCSSOverrides ──
-
-describe('appendCSSOverrides', () => {
-  let tmpDir: string
-
-  beforeEach(() => {
-    tmpDir = path.join(os.tmpdir(), `bf-studio-css-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-    mkdirSync(tmpDir, { recursive: true })
-  })
-
-  afterEach(() => {
-    rmSync(tmpDir, { recursive: true, force: true })
-  })
-
-  test('appends --spacing to :root block', () => {
-    const cssPath = path.join(tmpDir, 'tokens.css')
-    writeFileSync(cssPath, ':root {\n  --radius: 0.625rem;\n}\n')
-
-    appendCSSOverrides(cssPath, { spacing: '0.3rem' })
-
-    const result = readFileSync(cssPath, 'utf-8')
-    expect(result).toContain('--spacing: 0.3rem;')
-    expect(result).toContain('Studio overrides')
-    expect(result).toContain('--radius: 0.625rem;')
-  })
-
-  test('does nothing when no spacing override', () => {
-    const cssPath = path.join(tmpDir, 'tokens.css')
-    const original = ':root {\n  --radius: 0.625rem;\n}\n'
-    writeFileSync(cssPath, original)
-
-    appendCSSOverrides(cssPath, { style: 'Sharp' })
-
-    expect(readFileSync(cssPath, 'utf-8')).toBe(original)
   })
 })
 
