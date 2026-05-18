@@ -11,7 +11,7 @@ You'll end up with a working counter — a `"use client"` component that increme
 
 ## Prerequisites
 
-- **Node.js 20+** (or a compatible runtime like Bun). `npm`, `bun`, `pnpm`, or `yarn` all work — the scaffolder detects your package manager.
+- **Node.js 22+** (or a compatible runtime like Bun). `npm`, `bun`, `pnpm`, or `yarn` all work — the scaffolder detects your package manager.
 - A terminal and a text editor.
 
 No backend setup is required for this guide. The default scaffold targets [Cloudflare Workers](https://developers.cloudflare.com/workers/) via `wrangler dev`, which runs entirely on your laptop with no account or login.
