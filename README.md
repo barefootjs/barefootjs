@@ -33,6 +33,12 @@
 
 ---
 
+## Known limitations
+
+Tracked patterns the compiler / adapters / runtime don't yet handle are aggregated under the [`known-limitation`](https://github.com/piconic-ai/barefootjs/labels/known-limitation) label. Each issue documents the shape, affected fixtures, available workaround, and fix direction.
+
+---
+
 ## Acknowledgements
 
 This project is inspired by and built with:
