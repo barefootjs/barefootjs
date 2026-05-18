@@ -113,4 +113,26 @@ describe('spreadAttrs', () => {
     const out = spreadAttrs({ style: 'color:red' })
     expect(out).toBe('style="color:red"')
   })
+
+  // #1244: SVG XML attribute names are case-sensitive. Lower-casing
+  // `viewBox` to `view-box` makes the browser treat it as an unknown
+  // attribute, so the SVG no longer scales / hit-tests — surfaced as
+  // the Form Builder e2e regression when the merge-emit path started
+  // routing `viewBox` through `spreadAttrs`. `stroke-width` and
+  // friends are CSS-style presentation attrs and stay kebab-case.
+  test('SVG case-sensitive attrs preserve camelCase; CSS-style presentation attrs kebab-case', () => {
+    const out = spreadAttrs({
+      viewBox: '0 0 24 24',
+      preserveAspectRatio: 'xMidYMid meet',
+      clipPath: 'url(#c)',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+    })
+    expect(out).toContain('viewBox="0 0 24 24"')
+    expect(out).toContain('preserveAspectRatio="xMidYMid meet"')
+    expect(out).toContain('clipPath="url(#c)"')
+    expect(out).toContain('stroke-width="2"')
+    expect(out).toContain('stroke-linecap="round"')
+    expect(out).not.toContain('view-box')
+  })
 })
