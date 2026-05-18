@@ -566,6 +566,7 @@ console.log('Copied: dist/static/uno.css')
 const IMAGES_DIR = resolve(ROOT_DIR, '../../images/logo')
 const icon32 = resolve(IMAGES_DIR, 'icon-32.png')
 const icon64 = resolve(IMAGES_DIR, 'icon-64.png')
+const icon192 = resolve(IMAGES_DIR, 'icon-192.png')
 if (await Bun.file(icon32).exists()) {
   await Bun.write(resolve(DIST_DIR, 'icon-32.png'), Bun.file(icon32))
   await Bun.write(resolve(DIST_STATIC_DIR, 'icon-32.png'), Bun.file(icon32))
@@ -576,6 +577,11 @@ if (await Bun.file(icon64).exists()) {
   await Bun.write(resolve(DIST_DIR, 'icon-64.png'), Bun.file(icon64))
   await Bun.write(resolve(DIST_STATIC_DIR, 'icon-64.png'), Bun.file(icon64))
   console.log('Copied: dist/icon-64.png, dist/static/icon-64.png')
+}
+if (await Bun.file(icon192).exists()) {
+  await Bun.write(resolve(DIST_DIR, 'icon-192.png'), Bun.file(icon192))
+  await Bun.write(resolve(DIST_STATIC_DIR, 'icon-192.png'), Bun.file(icon192))
+  console.log('Copied: dist/icon-192.png, dist/static/icon-192.png')
 }
 const faviconSvg = resolve(IMAGES_DIR, 'favicon.svg')
 if (await Bun.file(faviconSvg).exists()) {
