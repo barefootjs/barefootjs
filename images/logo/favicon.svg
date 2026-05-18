@@ -1,0 +1,53 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+>
+  <circle cx="50" cy="50" r="50" fill="#ffffff" />
+
+  <g fill="#000000">
+    <!-- big toe -->
+    <ellipse
+      cx="18"
+      cy="36"
+      rx="9"
+      ry="12"
+      transform="rotate(-15 20 46)"
+    />
+
+    <!-- second toe -->
+    <ellipse
+      cx="38"
+      cy="34"
+      rx="7"
+      ry="10"
+      transform="rotate(-8 38 44)"
+    />
+
+    <!-- middle toe -->
+    <ellipse
+      cx="54"
+      cy="38"
+      rx="6"
+      ry="9"
+      transform="rotate(0 54 50)"
+    />
+
+    <!-- fourth toe -->
+    <ellipse
+      cx="68"
+      cy="46"
+      rx="4.5"
+      ry="7"
+      transform="rotate(8 68 56)"
+    />
+
+    <!-- little toe -->
+    <ellipse
+      cx="80"
+      cy="57"
+      rx="3.5"
+      ry="5.5"
+      transform="rotate(15 80 60)"
+    />
+  </g>
+</svg>
