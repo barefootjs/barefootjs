@@ -109,7 +109,11 @@ describe('Template scope: init-locals never leak into template body', () => {
     `)
 
     expectNoBareNames(templateBody, ['\\bcached\\b'])
-    expect(templateBody).toMatch(/spreadAttrs\(undefined\)/)
+    // The mixed `{...cached} data-n={...}` triggers the collision-safe
+    // merge emit (#1244): both lower into one `spreadAttrs({...})` call
+    // with the init-scope-only `cached` reference substituted to
+    // `...(undefined)` (object-spread of undefined is a runtime no-op).
+    expect(templateBody).toMatch(/spreadAttrs\(\{[^}]*\.\.\.\(undefined\)[^}]*\}\)/)
   })
 
   test('init-scope condition in ternary → undefined (false branch wins on init render)', () => {
