@@ -878,37 +878,28 @@ describe('two refs on the same element via a composeRefs helper', () => {
 })
 
 describe('ref callback re-invocation on remount under the same key', () => {
-  // SURFACED LIMITATION (#1244 catalog: "ref callback re-invocation when
-  // the element re-mounts under the same key"): a `ref={fn}` on a JSX
-  // element inside `.map()` is silently dropped at compile time. The
-  // emitted `mapArray` per-item factory creates the DOM node but never
-  // calls `fn(__el)` — so the callback fires neither on the initial
-  // mount of a keyed item nor when that same key is unmounted and
-  // remounted later (the runtime case the E2E `ref-remount` fixme is
-  // chasing).
+  // #1244 catalog item "ref callback re-invocation when the element
+  // re-mounts under the same key". Pre-fix, a `ref={fn}` on a JSX
+  // element inside `.map()` was silently dropped at compile time:
+  // the user's const went unreferenced and the emitted `mapArray`
+  // per-item factory never called it, so the callback fired neither
+  // on the initial mount of a keyed item nor when that same key was
+  // unmounted and remounted later.
   //
-  // For comparison: refs on a top-level element compile to a single
-  // `if (_sN) (fn)(_sN)` line at the end of `init`, and refs inside a
-  // conditional branch compile inside the branch's `bindEvents` so they
-  // re-attach on swap (#1071 path). The loop case has no equivalent
-  // collection point — `collectFromElement` writes `ctx.refElements`,
-  // but the per-item factory built by the loop planner does not consume
-  // it. The fix needs the loop planner to surface the per-item ref
-  // alongside its other per-item bindings and the stringifier to emit
-  // `(fn)(__el)` inside the factory, so every insert (initial mount or
-  // remount) re-runs the callback with the new DOM element.
+  // The fix collects per-item refs (`TopLevelLoop.childRefs`) and
+  // emits `(fn)(__rf)` inside the multi-line factory body — once per
+  // `renderItem` invocation, which is every actual mount (SSR
+  // hydration, initial CSR creation, same-key remount). mapArray
+  // does not call `renderItem` for same-key reactive updates, so
+  // the same callback does not over-fire on plain prop changes.
   //
-  // The body asserts the intended emit shape: the emitted client JS
-  // must contain a *call* to the user-supplied ref callback (named
-  // `attach` in the source). Today the const is dropped entirely
-  // because nothing references it. We deliberately avoid pinning the
-  // call site to specific factory-internal variable names (`__el`,
-  // `__existing`, …) — those are implementation details of the loop
-  // stringifier. Whether the call lands inside the mapArray factory
-  // (so remount re-fires it) is the Layer 6 E2E's job to verify;
-  // Layer 1 just locks in that the callback isn't silently dropped.
-  // Drop `.todo` once fixed.
-  test.todo('the ref callback is invoked from the emitted client JS', () => {
+  // The Layer 1 assertion verifies the call appears in the emit. We
+  // deliberately avoid pinning the call site to specific factory-
+  // internal variable names (`__el`, `__existing`, …); whether the
+  // call lands inside the `mapArray` factory (so remount re-fires
+  // it) is the Layer 6 E2E's job (`ref-remount` fixme in
+  // `site/ui/e2e/stress-1244.spec.ts`).
+  test('the ref callback is invoked from the emitted client JS', () => {
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -925,7 +916,12 @@ describe('ref callback re-invocation on remount under the same key', () => {
     `
     const c = compile(src)
     expectNoFatalErrors(c)
-    expect(c.clientJs).toMatch(/\battach\s*\(/)
+    // `attach` must appear as the callee of a call expression. The compiler's
+    // `emitRefCall` wraps the bare identifier as `(attach)(...)` for symmetry
+    // with the prop-access form `(_p.cb)?.(...)`, so the regex accepts an
+    // optional surrounding `(...)` around the identifier. The shape of the
+    // wrapper is an internal detail we don't want to over-pin here.
+    expect(c.clientJs).toMatch(/\battach\b\s*(?:\)\s*)?\(/)
   })
 })
 
