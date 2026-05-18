@@ -5,31 +5,16 @@
  *   GET /{slug}     → Rendered HTML
  *   GET /{slug}.md  → Raw Markdown
  *
- * Quick Start (slug `quick-start`) is rendered through a JSX handler
- * instead of pure markdown so we can embed `<PackageManagerTabs>` for
- * the `npm create barefootjs@latest` command. Authors put a placeholder
- * comment in the markdown source — the handler splits the rendered
- * HTML around it and slots the component in between.
+ * Quick Start lives in `./pages/quick-start.tsx` because its content
+ * is JSX, not markdown — the page embeds `<PackageManagerTabs>`.
  */
 
 import { Hono } from 'hono'
 import { renderer } from './renderer'
-import { initHighlighter, renderMarkdown, parseFrontmatter } from './lib/markdown'
+import { initHighlighter, renderMarkdown } from './lib/markdown'
 import { getDocsNavLinks } from './lib/navigation'
 import type { Page, ContentMap } from './lib/content'
-import type { TocItem } from '../shared/components/table-of-contents'
-import { PackageManagerTabs } from '@/components/package-manager-tabs'
-
-const QUICK_START_PM_TABS_PLACEHOLDER = '<!-- pm-tabs:create barefootjs@latest my-app -->'
-
-async function renderQuickStart(pageContent: string) {
-  const { frontmatter, body } = parseFrontmatter(pageContent)
-  const [beforeRaw, afterRaw] = body.split(QUICK_START_PM_TABS_PLACEHOLDER)
-  const before = await renderMarkdown(beforeRaw)
-  const after = await renderMarkdown(afterRaw ?? '')
-  const toc: TocItem[] = [...before.toc, ...after.toc]
-  return { frontmatter, before, after, toc }
-}
+import { registerQuickStartRoutes } from './pages/quick-start'
 
 /**
  * Create the Hono app with routes for all documentation pages.
@@ -43,59 +28,40 @@ export async function createDocsApp(content: ContentMap, pages: Page[]): Promise
   const app = new Hono()
   app.use(renderer)
 
+  registerQuickStartRoutes(app)
+
   // All pages: HTML version + raw Markdown version
   for (const page of pages.filter((p) => p.slug !== '')) {
     const pageContent = content[page.slug]
     if (pageContent === undefined) continue
 
-    if (page.slug === 'quick-start') {
-      app.get(`/${page.slug}`, async (c) => {
-        const { frontmatter, before, after, toc } = await renderQuickStart(pageContent)
-        const navLinks = getDocsNavLinks(page.slug)
-        return c.render(
-          <>
-            <div dangerouslySetInnerHTML={{ __html: before.html }} />
-            <PackageManagerTabs command="barefootjs@latest my-app" mode="create" />
-            <div dangerouslySetInnerHTML={{ __html: after.html }} />
-          </>,
-          {
-            title: frontmatter.title,
-            description: frontmatter.description,
-            slug: page.slug,
-            toc,
-            prev: navLinks.prev,
-            next: navLinks.next,
-          }
-        )
-      })
-    } else {
-      app.get(`/${page.slug}`, async (c) => {
-        const parsed = await renderMarkdown(pageContent)
+    // HTML version
+    app.get(`/${page.slug}`, async (c) => {
+      const parsed = await renderMarkdown(pageContent)
 
-        // Collect extra meta tags from frontmatter
-        const meta: Record<string, string> = {}
-        for (const [key, value] of Object.entries(parsed.frontmatter)) {
-          if (key !== 'title' && key !== 'description' && value) {
-            meta[key] = value
-          }
+      // Collect extra meta tags from frontmatter
+      const meta: Record<string, string> = {}
+      for (const [key, value] of Object.entries(parsed.frontmatter)) {
+        if (key !== 'title' && key !== 'description' && value) {
+          meta[key] = value
         }
+      }
 
-        const navLinks = getDocsNavLinks(page.slug)
+      const navLinks = getDocsNavLinks(page.slug)
 
-        return c.render(
-          <div dangerouslySetInnerHTML={{ __html: parsed.html }} />,
-          {
-            title: parsed.frontmatter.title,
-            description: parsed.frontmatter.description,
-            meta: Object.keys(meta).length > 0 ? meta : undefined,
-            slug: page.slug,
-            toc: parsed.toc,
-            prev: navLinks.prev,
-            next: navLinks.next,
-          }
-        )
-      })
-    }
+      return c.render(
+        <div dangerouslySetInnerHTML={{ __html: parsed.html }} />,
+        {
+          title: parsed.frontmatter.title,
+          description: parsed.frontmatter.description,
+          meta: Object.keys(meta).length > 0 ? meta : undefined,
+          slug: page.slug,
+          toc: parsed.toc,
+          prev: navLinks.prev,
+          next: navLinks.next,
+        }
+      )
+    })
 
     // Raw Markdown version
     app.get(`/${page.slug}.md`, (c) => {
