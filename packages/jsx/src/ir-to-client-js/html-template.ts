@@ -173,6 +173,122 @@ function renderTemplateAttrPart(
   }
 }
 
+/**
+ * Emit element attribute tokens.
+ *
+ * When a `{...spread}` shares an element with non-`key` user attrs, the
+ * source-order inline emission would silently invert JSX rightmost-wins
+ * semantics on key collision: browser HTML parsing keeps the FIRST
+ * occurrence of a duplicate attribute, so `class="x" ${spreadAttrs(rest)}`
+ * leaves `class="x"` in the parsed DOM even when `rest.class` is supposed
+ * to override (rest is to the right in JSX source). Instead we emit a
+ * single `spreadAttrs({merged})` call whose argument is an object literal
+ * built in source order — JS object-literal evaluation resolves the
+ * rightmost-wins collision before serialization, so the helper sees a
+ * deduplicated map and emits a single attribute per key. (#1244)
+ *
+ * `key` (which becomes `data-key`) is intentionally kept outside the merge
+ * to preserve the unconditional `data-key="${value}"` emit contract
+ * (`templateAttrExpr` special-case at line 97): `spreadAttrs` skips
+ * `undefined` values, so a `key={undefined}` mistake would silently lose
+ * its `data-key="undefined"` debug surface inside the merge.
+ *
+ * The merge path runs only when both a spread and a non-`key` non-spread
+ * attr coexist; otherwise the legacy inline path is used so existing
+ * fixtures (no collision possible) keep their attribute order.
+ *
+ * `valueExprForExpression` / `valueExprForTemplate` are injected because
+ * the two call sites (`irToHtmlTemplate`, `irToComponentTemplate`) lower
+ * expressions to JS differently — `wrap`-only vs constant-inlining
+ * + props-object rewrite. Keeping that knob outside the helper means
+ * neither caller leaks its emit conventions into the merge logic.
+ */
+function renderElementAttrParts(args: {
+  attrs: ReadonlyArray<IRAttribute>
+  wrap: (expr: string) => string
+  loopDepth: number
+  restSpreadNames?: Set<string>
+  valueExprForExpression: (v: Extract<AttrValue, { kind: 'expression' }>) => string
+  valueExprForTemplate: (v: Extract<AttrValue, { kind: 'template' }>) => string
+  /** Optional per-attr filter (defaults to identity) used by component template path
+   *  to skip `clientOnly` attrs. */
+  attrFilter?: (a: IRAttribute) => boolean
+}): string[] {
+  const { attrs, wrap, loopDepth, restSpreadNames, valueExprForExpression, valueExprForTemplate, attrFilter } = args
+  const filtered = attrFilter ? attrs.filter(attrFilter) : attrs
+
+  const hasMergeableSpread = filtered.some(a => {
+    if (a.value.kind !== 'spread') return false
+    return !restSpreadNames?.has(a.value.expr)
+  })
+  const hasNonKeyExplicit = filtered.some(a => {
+    if (a.name === 'key') return false
+    if (a.value.kind === 'spread') return false
+    if (a.value.kind === 'jsx-children') return false
+    if (a.value.kind === 'boolean-shorthand') return false
+    return true
+  })
+
+  if (!hasMergeableSpread || !hasNonKeyExplicit) {
+    // Legacy inline path — keep when there's no collision risk.
+    return filtered
+      .map((a) => {
+        const attrName = a.name === '...'
+          ? '...'
+          : (a.name === 'key' ? keyAttrName(loopDepth) : toHtmlAttrName(a.name))
+        return renderTemplateAttrPart(a, attrName, wrap, restSpreadNames)
+      })
+      .filter(Boolean)
+  }
+
+  // Merge path: build `spreadAttrs({...source-order...})` so JS object-
+  // literal evaluation does rightmost-wins. `key` (→ `data-key`) is kept
+  // outside the merge to preserve the unconditional emit contract.
+  const objMembers: string[] = []
+  for (const a of filtered) {
+    const v = a.value
+    if (a.name === 'key') continue
+    if (v.kind === 'jsx-children') continue
+    if (v.kind === 'spread') {
+      if (restSpreadNames?.has(v.expr)) continue
+      objMembers.push(`...(${wrap(v.expr)})`)
+      continue
+    }
+    const attrName = toHtmlAttrName(a.name)
+    const memberKey = JSON.stringify(attrName)
+    let valueExpr: string
+    switch (v.kind) {
+      case 'boolean-attr':
+        valueExpr = 'true'
+        break
+      case 'boolean-shorthand':
+        valueExpr = 'true'
+        break
+      case 'literal':
+        valueExpr = JSON.stringify(v.value)
+        break
+      case 'expression':
+        valueExpr = valueExprForExpression(v)
+        break
+      case 'template':
+        valueExpr = valueExprForTemplate(v)
+        break
+    }
+    objMembers.push(`${memberKey}: ${valueExpr}`)
+  }
+
+  const parts: string[] = [`\${spreadAttrs({${objMembers.join(', ')}})}`]
+
+  const keyAttr = filtered.find(a => a.name === 'key')
+  if (keyAttr) {
+    const attrName = keyAttrName(loopDepth)
+    const part = renderTemplateAttrPart(keyAttr, attrName, wrap, restSpreadNames)
+    if (part) parts.push(part)
+  }
+
+  return parts
+}
+
 /** Convert an IR node tree to an HTML template string (for conditionals/loops).
  *  @param loopDepth - Current nesting depth inside inner loops. 0 = outer loop level.
  *    When > 0, `key` attributes are converted to `data-key-{depth}` instead of `data-key`.
@@ -196,14 +312,14 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
 
   switch (node.type) {
     case 'element': {
-      const attrParts = node.attrs
-        .map((a) => {
-          const attrName = a.name === '...'
-            ? '...'
-            : (a.name === 'key' ? keyAttrName(loopDepth) : toHtmlAttrName(a.name))
-          return renderTemplateAttrPart(a, attrName, wrapExpr, restSpreadNames)
-        })
-        .filter(Boolean)
+      const attrParts = renderElementAttrParts({
+        attrs: node.attrs,
+        wrap: wrapExpr,
+        loopDepth,
+        restSpreadNames,
+        valueExprForExpression: (v) => wrapExpr(v.expr),
+        valueExprForTemplate: (v) => wrapExpr(attrValueToString(v) ?? ''),
+      })
 
       const hoistedScopeAttr = maybeHoistedScopeAttr(inHoistedChildren, node)
       if (hoistedScopeAttr) attrParts.push(hoistedScopeAttr)
@@ -641,16 +757,91 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
 
   switch (node.type) {
     case 'element': {
+      // When a `{...spread}` shares an element with other non-`key` user
+      // attrs, source-order inline emission inverts JSX rightmost-wins on
+      // collision (browser HTML parsing keeps the FIRST duplicate). Merge
+      // via `spreadAttrs({...source-order...})` so JS object-literal
+      // evaluation resolves the collision before serialization. (#1244)
+      //
+      // The merge path mirrors `irToHtmlTemplate`'s helper but uses this
+      // path's `transformExpr` for expression / template lowering, and
+      // the `templateExpr ?? expr` rest-prop detector for spread filtering.
+      // `key` stays inline below (outer loops skip it entirely; inner
+      // loops emit `data-key-N` unconditionally per the reconciliation
+      // contract).
+      const isFilteredSpread = (v: AttrValue): boolean => {
+        if (v.kind !== 'spread') return false
+        const spreadExpr = v.templateExpr ?? v.expr
+        return !!restSpreadNames?.has(spreadExpr)
+      }
+      const hasMergeableSpread = node.attrs.some(a =>
+        !a.clientOnly && a.value.kind === 'spread' && !isFilteredSpread(a.value)
+      )
+      const hasNonKeyExplicit = node.attrs.some(a => {
+        if (a.clientOnly) return false
+        if (a.name === 'key') return false
+        if (a.value.kind === 'spread') return false
+        if (a.value.kind === 'jsx-children') return false
+        if (a.value.kind === 'boolean-shorthand') return false
+        return true
+      })
+      const useMerge = hasMergeableSpread && hasNonKeyExplicit
+
       const attrParts = node.attrs
-        .map((a) => {
+        .map((a, idx) => {
           // `/* @client */` defers the attribute to hydrate via
           // `reactiveAttrs`. Skip from the SSR template so init's
           // createEffect is the sole authority on the attribute.
           if (a.clientOnly) return ''
           const v = a.value
+          // Merge path: replace the first mergeable attr with a single
+          // `${spreadAttrs({...merged...})}` token and elide every other
+          // mergeable attr (they're already inside the merge object).
+          // `key` stays inline below.
+          if (useMerge && a.name !== 'key' && v.kind !== 'jsx-children' && v.kind !== 'boolean-shorthand') {
+            const isMergeable = (attr: IRAttribute): boolean => {
+              if (attr.clientOnly) return false
+              if (attr.name === 'key') return false
+              const av = attr.value
+              if (av.kind === 'jsx-children') return false
+              if (av.kind === 'boolean-shorthand') return false
+              if (av.kind === 'spread') return !isFilteredSpread(av)
+              return true
+            }
+            // Only the first mergeable attr emits the spreadAttrs call;
+            // later mergeable attrs return '' so they don't double-emit.
+            const firstMergeableIdx = node.attrs.findIndex(isMergeable)
+            if (idx !== firstMergeableIdx) return ''
+            const objMembers: string[] = []
+            for (const m of node.attrs) {
+              if (!isMergeable(m)) continue
+              const mv = m.value
+              if (mv.kind === 'spread') {
+                objMembers.push(`...(${transformExpr(mv.expr, mv.templateExpr)})`)
+                continue
+              }
+              const memberKey = JSON.stringify(toHtmlAttrName(m.name))
+              switch (mv.kind) {
+                case 'boolean-attr':
+                  objMembers.push(`${memberKey}: true`)
+                  break
+                case 'literal':
+                  objMembers.push(`${memberKey}: ${JSON.stringify(mv.value)}`)
+                  break
+                case 'expression':
+                  objMembers.push(`${memberKey}: ${transformExpr(mv.expr, mv.templateExpr)}`)
+                  break
+                case 'template': {
+                  const tmplStr = attrValueToString(mv, { useTemplate: true }) ?? ''
+                  objMembers.push(`${memberKey}: ${transformExpr(tmplStr)}`)
+                  break
+                }
+              }
+            }
+            return `\${spreadAttrs({${objMembers.join(', ')}})}`
+          }
           if (v.kind === 'spread') {
-            const spreadExpr = v.templateExpr ?? v.expr
-            if (restSpreadNames?.has(spreadExpr)) return ''
+            if (isFilteredSpread(v)) return ''
             return `\${spreadAttrs(${transformExpr(v.expr, v.templateExpr)})}`
           }
           // Skip key for outer loop elements (reconcileTemplates sets data-key at runtime).
@@ -983,8 +1174,42 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
 
   switch (node.type) {
     case 'element': {
+      // Same JSX-rightmost-wins merge rationale as `irToHtmlTemplate` /
+      // `irToComponentTemplate`: when a `{...spread}` shares an element
+      // with non-`key` user attrs, emit a single `spreadAttrs({...})` so
+      // JS object-literal evaluation resolves the collision before
+      // serialization (browser HTML parse is first-wins on duplicate
+      // attributes, which inverts the JSX semantic). (#1244)
+      const isFilteredSpread = (v: AttrValue): boolean => {
+        if (v.kind !== 'spread') return false
+        const spreadExpr = v.templateExpr ?? v.expr
+        return !!restSpreadNames?.has(spreadExpr)
+      }
+      const hasMergeableSpread = node.attrs.some(a =>
+        !a.clientOnly && a.value.kind === 'spread' && !isFilteredSpread(a.value)
+      )
+      const hasNonKeyExplicit = node.attrs.some(a => {
+        if (a.clientOnly) return false
+        if (a.name === 'key') return false
+        if (a.value.kind === 'spread') return false
+        if (a.value.kind === 'jsx-children') return false
+        if (a.value.kind === 'boolean-shorthand') return false
+        return true
+      })
+      const useMerge = hasMergeableSpread && hasNonKeyExplicit
+      const isMergeable = (attr: IRAttribute): boolean => {
+        if (attr.clientOnly) return false
+        if (attr.name === 'key') return false
+        const av = attr.value
+        if (av.kind === 'jsx-children') return false
+        if (av.kind === 'boolean-shorthand') return false
+        if (av.kind === 'spread') return !isFilteredSpread(av)
+        return true
+      }
+      const firstMergeableIdx = useMerge ? node.attrs.findIndex(isMergeable) : -1
+
       const attrParts = node.attrs
-        .map((a) => {
+        .map((a, idx) => {
           // `/* @client */` defers the attribute to hydrate. The
           // `reactiveAttrs` push in collect-elements wires a
           // `createEffect` that sets the attribute via the existing
@@ -993,9 +1218,41 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
           // entirely here.
           if (a.clientOnly) return ''
           const v = a.value
+          if (useMerge && isMergeable(a)) {
+            // Only the first mergeable attr emits the spreadAttrs call;
+            // every other mergeable attr returns '' (its key/value is
+            // already inside the merge object).
+            if (idx !== firstMergeableIdx) return ''
+            const objMembers: string[] = []
+            for (const m of node.attrs) {
+              if (!isMergeable(m)) continue
+              const mv = m.value
+              if (mv.kind === 'spread') {
+                objMembers.push(`...(${transformExpr(mv.expr, mv.templateExpr)})`)
+                continue
+              }
+              const memberKey = JSON.stringify(toHtmlAttrName(m.name))
+              switch (mv.kind) {
+                case 'boolean-attr':
+                  objMembers.push(`${memberKey}: true`)
+                  break
+                case 'literal':
+                  objMembers.push(`${memberKey}: ${JSON.stringify(mv.value)}`)
+                  break
+                case 'expression':
+                  objMembers.push(`${memberKey}: ${transformExpr(mv.expr, mv.templateExpr)}`)
+                  break
+                case 'template': {
+                  const valueStr = attrValueToString(mv, { useTemplate: true }) ?? ''
+                  objMembers.push(`${memberKey}: ${transformExpr(valueStr)}`)
+                  break
+                }
+              }
+            }
+            return `\${spreadAttrs({${objMembers.join(', ')}})}`
+          }
           if (v.kind === 'spread') {
-            const spreadExpr = v.templateExpr ?? v.expr
-            if (restSpreadNames?.has(spreadExpr)) return ''
+            if (isFilteredSpread(v)) return ''
             return `\${spreadAttrs(${transformExpr(v.expr, v.templateExpr)})}`
           }
           const attrName = a.name === 'key'

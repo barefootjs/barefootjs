@@ -457,6 +457,62 @@ describe('destructured loop param with rest spread back onto the root', () => {
     `
     expectNoFatalErrors(compile(src))
   })
+
+  // Regression contract for #1244: when an explicit attribute on the
+  // loop body root collides with a key inside `rest`, JSX/React semantics
+  // say the rightmost wins — `rest` is to the right of the explicit
+  // attribute in source order, so `rest.data-priority` must override.
+  //
+  // HTML's duplicate-attribute parse rule is first-wins. Emitting tokens
+  // in source order (`data-priority="medium" ${spreadAttrs(rest)}`) lands
+  // a `<li data-priority="medium" data-priority="REST">` in the parsed
+  // DOM; the browser keeps `medium` (the first occurrence) and silently
+  // inverts the JSX semantics. The fix collapses both into a single
+  // `spreadAttrs({"data-priority": "medium", ...rest})` call so JS
+  // object-literal evaluation does the rightmost-wins resolution before
+  // serialization — the helper emits a single attribute per key.
+  //
+  // Both emit sites carry the same merge: `mapArray`'s per-item factory
+  // (`irToHtmlTemplate`) and the `hydrate(..., { template })` SSR lambda
+  // (`generateCsrTemplate`).
+  test('CSR emit: spread + colliding explicit attr merge into a single spreadAttrs({...}) call', () => {
+    const src = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      type Task = { id: string; title: string; 'data-priority': string }
+      export function Demo() {
+        const [tasks, setTasks] = createSignal<Task[]>([])
+        return (
+          <ul onClick={() => setTasks(t => t)}>
+            {tasks().map(({ id, title, ...rest }) => (
+              <li key={id} data-priority="medium" {...rest}>{title}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const c = compile(src)
+    expectNoFatalErrors(c)
+
+    // Inline-token form would be the silently-inverted shape — assert
+    // its absence on the loop body root.
+    expect(c.clientJs).not.toMatch(/<li[^>]*data-priority="medium"[^>]*\$\{spreadAttrs\(/)
+
+    // Both emit sites (mapArray renderItem + hydrate template lambda)
+    // must open `spreadAttrs({` carrying the explicit `"data-priority":
+    // "medium"` member. Counting prefixes — rather than a full balanced
+    // match — keeps the regex robust against nested destructure
+    // patterns (`{ id: __bfR0, title: __bfR1, ...__bfRest }`) inside
+    // the IIFE residual accessor on the runtime path.
+    const mergePrefixes = c.clientJs.match(/spreadAttrs\(\{"data-priority":\s*"medium"/g)
+    expect(mergePrefixes).not.toBeNull()
+    expect(mergePrefixes!.length).toBeGreaterThanOrEqual(2)
+    // The merge object splices the rest expression so a runtime
+    // `data-priority` in rest can override the literal `medium`.
+    // Runtime path: IIFE residual accessor. SSR template path: the
+    // destructured `rest` local. Both reach the same merge call.
+    expect(c.clientJs).toMatch(/spreadAttrs\(\{"data-priority":\s*"medium",\s*\.\.\./)
+  })
 })
 
 describe('nested destructuring in loop param', () => {
