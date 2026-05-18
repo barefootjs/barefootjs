@@ -617,20 +617,40 @@ function renderLoopBindingAccess(b: LoopParamBinding, base: string): string {
  */
 export function wrapLoopParamAsAccessor(expr: string, paramName: string, bindings?: readonly LoopParamBinding[]): string {
   if (bindings && bindings.length > 0) {
-    // Build a single alternation regex so rewriting is a one-pass operation.
-    // Iterating per-binding risks re-matching the replacement text (e.g. a
-    // binding named `a` with path `.a` would cascade into `__bfItem().a`
-    // then back into `__bfItem().__bfItem().a`).
-    const byName = new Map<string, LoopParamBinding>()
-    for (const b of bindings) byName.set(b.name, b)
-    const names = new Set(byName.keys())
-    const preprocessed = expandShorthandBindings(expr, names)
-    const alt = bindings.map(b => escapeRegExp(b.name)).join('|')
-    const re = new RegExp(`\\b(${alt})\\b`, 'g')
-    return replaceInExprContexts(preprocessed, re, (_m: string, name: string) => renderLoopBindingAccess(byName.get(name)!, '__bfItem()'))
+    return rewriteLoopBindingRefs(expr, bindings, '__bfItem()')
   }
   const re = new RegExp(`\\b${escapeRegExp(paramName)}\\b(?!\\s*\\()(?!-)`, 'g')
   return replaceInExprContexts(expr, re, `${paramName}()`)
+}
+
+/**
+ * Rewrite each reference to a destructured loop-param binding in
+ * `expr` to the corresponding `${accessor}${path}` form.
+ *
+ * Single alternation regex so rewriting is one-pass — iterating per
+ * binding risks re-matching the replacement text (a binding named
+ * `a` with path `.a` would cascade into `__bfItem().a` then back
+ * into `__bfItem().__bfItem().a`).
+ *
+ * `expandShorthandBindings` runs first so object-literal shorthand
+ * references (`{ name }`) are lifted to a string-key form before
+ * the identifier regex hits them — otherwise the rewrite would land
+ * `${accessor}` in a position JS reserves for bare identifiers
+ * (`{ __bfItem().name }` ⇒ SyntaxError). (#1244)
+ */
+function rewriteLoopBindingRefs(
+  expr: string,
+  bindings: readonly LoopParamBinding[],
+  accessor: string,
+): string {
+  const byName = new Map<string, LoopParamBinding>()
+  for (const b of bindings) byName.set(b.name, b)
+  const preprocessed = expandShorthandBindings(expr, new Set(byName.keys()))
+  const alt = bindings.map(b => escapeRegExp(b.name)).join('|')
+  const re = new RegExp(`\\b(${alt})\\b`, 'g')
+  return replaceInExprContexts(preprocessed, re, (_m: string, name: string) =>
+    renderLoopBindingAccess(byName.get(name)!, accessor),
+  )
 }
 
 /**
@@ -715,13 +735,7 @@ export function substituteLoopBindings(
   accessor: string,
 ): string {
   if (!bindings || bindings.length === 0) return expr
-  const byName = new Map<string, LoopParamBinding>()
-  for (const b of bindings) byName.set(b.name, b)
-  const names = new Set(byName.keys())
-  const preprocessed = expandShorthandBindings(expr, names)
-  const alt = bindings.map(b => escapeRegExp(b.name)).join('|')
-  const re = new RegExp(`\\b(${alt})\\b`, 'g')
-  return replaceInExprContexts(preprocessed, re, (_m: string, name: string) => renderLoopBindingAccess(byName.get(name)!, accessor))
+  return rewriteLoopBindingRefs(expr, bindings, accessor)
 }
 
 /**
