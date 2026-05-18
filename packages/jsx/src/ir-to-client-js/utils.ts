@@ -3,6 +3,7 @@
  * No dependencies on ClientJsContext or other internal modules.
  */
 
+import ts from 'typescript'
 import type { AttrValue, IRTemplatePart, LoopParamBinding, FreeReference, IRNode } from '../types'
 import type { TopLevelLoop } from './types'
 import { replaceInExprContexts } from '../scanner/js-scanner'
@@ -622,55 +623,81 @@ export function wrapLoopParamAsAccessor(expr: string, paramName: string, binding
     // then back into `__bfItem().__bfItem().a`).
     const byName = new Map<string, LoopParamBinding>()
     for (const b of bindings) byName.set(b.name, b)
+    const names = new Set(byName.keys())
+    const preprocessed = expandShorthandBindings(expr, names)
     const alt = bindings.map(b => escapeRegExp(b.name)).join('|')
     const re = new RegExp(`\\b(${alt})\\b`, 'g')
-    return replaceInExprContexts(expr, re, (m: string, name: string, offset: number, slice: string) => {
-      const accessor = renderLoopBindingAccess(byName.get(name)!, '__bfItem()')
-      return expandShorthandIfNeeded(name, accessor, m, offset, slice)
-    })
+    return replaceInExprContexts(preprocessed, re, (_m: string, name: string) => renderLoopBindingAccess(byName.get(name)!, '__bfItem()'))
   }
   const re = new RegExp(`\\b${escapeRegExp(paramName)}\\b(?!\\s*\\()(?!-)`, 'g')
   return replaceInExprContexts(expr, re, `${paramName}()`)
 }
 
 /**
- * If the matched identifier sits in object-literal shorthand-property
- * position (`{ name }`, `{ a, name, b }`), expand to the explicit
- * `name: accessor` form. JS only accepts a bare identifier as a
- * shorthand property name — leaving `{ __bfItem().path }` after the
- * naive replacement would produce a SyntaxError at module load time
- * and the entire compiled component would fail to import. (#1244)
+ * Expand object-literal shorthand properties whose name matches a
+ * destructured loop-param binding into the equivalent
+ * `"name": name` form (string-literal key + identifier value).
  *
- * The detection walks the surrounding slice for the previous /
- * following non-whitespace characters. Shorthand context is:
- *   - prev non-WS in `{` or `,` (object-literal start or property
- *     separator)
- *   - next non-WS in `}` or `,` (object-literal end or property
- *     separator)
+ * Why: JS only accepts a bare identifier as a shorthand property
+ * name, so the downstream `${accessor}` rewrite of `{ color }` would
+ * produce `{ __bfItem().color }` — a SyntaxError that takes down the
+ * whole compiled component at module load time, before any runtime
+ * code runs. (#1244)
  *
- * `wrapLoopParamAsAccessor` is only called on user-written reference
- * expressions (attribute values, child interpolations), never on
- * destructure patterns, so the `{` or `,` always opens an object
- * literal — there's no block-vs-object ambiguity to resolve here.
- * Computed property keys (`[name]: ...`) are preceded by `[`, not
- * `{` / `,`, so they don't trigger the expansion and the rewrite
- * lands inside the bracket as `__bfItem().name`.
+ * Why string-literal key (not `name: name`): the subsequent
+ * identifier-replacement regex (`replaceInExprContexts`) skips string
+ * literal contents, so the key stays as the literal `"color"` while
+ * the value-position `color` gets rewritten to `__bfItem().color`.
+ * The alternative `name: name` would have the regex match BOTH
+ * occurrences and produce `{ __bfItem().color: __bfItem().color }`
+ * — same SyntaxError, just one indirection deeper.
+ *
+ * AST-based detection (TS `ShorthandPropertyAssignment`) is
+ * intentionally chosen over character-by-character lookbehind on the
+ * raw expression text — the codebase's recurring "hand-rolled JS
+ * source scanners" pattern (#1244 §D) explicitly flags that approach
+ * as drift-prone (computed keys, comments, nested template literals
+ * all need separate handling). The TS scanner already knows what a
+ * shorthand prop is.
+ *
+ * The `(${expr})` wrap forces TS to parse a bare object literal as
+ * an expression — otherwise `{ color }` would be a block statement
+ * containing an expression statement, with no `ShorthandPropertyAssignment`
+ * node to find.
  */
-function expandShorthandIfNeeded(
-  name: string,
-  accessor: string,
-  match: string,
-  offset: number,
-  slice: string,
-): string {
-  let i = offset - 1
-  while (i >= 0 && (slice[i] === ' ' || slice[i] === '\t' || slice[i] === '\n' || slice[i] === '\r')) i--
-  const prev = i >= 0 ? slice[i] : ''
-  let j = offset + match.length
-  while (j < slice.length && (slice[j] === ' ' || slice[j] === '\t' || slice[j] === '\n' || slice[j] === '\r')) j++
-  const next = j < slice.length ? slice[j] : ''
-  const isShorthand = (prev === '{' || prev === ',') && (next === '}' || next === ',')
-  return isShorthand ? `${name}: ${accessor}` : accessor
+function expandShorthandBindings(expr: string, bindingNames: ReadonlySet<string>): string {
+  // Fast path: no `{` means no object literal means no shorthand to
+  // expand. Skip the parser cost on the common case.
+  if (!expr.includes('{')) return expr
+  const wrapped = `(${expr})`
+  const sf = ts.createSourceFile('__bf_expr.ts', wrapped, ts.ScriptTarget.Latest, /* setParentNodes */ true)
+  const edits: Array<{ start: number; end: number; replacement: string }> = []
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isShorthandPropertyAssignment(node)
+      && ts.isIdentifier(node.name)
+      && bindingNames.has(node.name.text)
+    ) {
+      // `node` spans just the bare identifier on the shorthand entry.
+      // Position offsets are in `wrapped`; subtract the leading `(`
+      // to map back to `expr`.
+      const start = node.getStart(sf) - 1
+      const end = node.getEnd() - 1
+      const name = node.name.text
+      edits.push({ start, end, replacement: `${JSON.stringify(name)}: ${name}` })
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  if (edits.length === 0) return expr
+  // Apply right-to-left so earlier offsets stay valid as later ones
+  // grow.
+  edits.sort((a, b) => b.start - a.start)
+  let out = expr
+  for (const e of edits) {
+    out = out.slice(0, e.start) + e.replacement + out.slice(e.end)
+  }
+  return out
 }
 
 /**
@@ -690,12 +717,11 @@ export function substituteLoopBindings(
   if (!bindings || bindings.length === 0) return expr
   const byName = new Map<string, LoopParamBinding>()
   for (const b of bindings) byName.set(b.name, b)
+  const names = new Set(byName.keys())
+  const preprocessed = expandShorthandBindings(expr, names)
   const alt = bindings.map(b => escapeRegExp(b.name)).join('|')
   const re = new RegExp(`\\b(${alt})\\b`, 'g')
-  return replaceInExprContexts(expr, re, (m: string, name: string, offset: number, slice: string) => {
-    const resolved = renderLoopBindingAccess(byName.get(name)!, accessor)
-    return expandShorthandIfNeeded(name, resolved, m, offset, slice)
-  })
+  return replaceInExprContexts(preprocessed, re, (_m: string, name: string) => renderLoopBindingAccess(byName.get(name)!, accessor))
 }
 
 /**

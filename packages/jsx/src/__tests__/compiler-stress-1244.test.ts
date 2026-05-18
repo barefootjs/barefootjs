@@ -611,16 +611,24 @@ describe('nested destructuring in loop param', () => {
 
   // Destructured loop param referenced as a shorthand property in an
   // object literal (`style={{ color }}`, `{...{ name }}`, …): the
-  // `__bfItem().path` rewrite must EXPAND the shorthand to `key:
-  // __bfItem().key` because JS only accepts a bare identifier in
-  // shorthand position. Without expansion the rewrite produces
-  // `{ __bfItem().color }` — a SyntaxError that takes down the whole
-  // compiled module at parse time, before any runtime code runs.
+  // `__bfItem().path` rewrite must NOT land in shorthand position
+  // because JS only accepts a bare identifier there. Without
+  // expansion the rewrite produces `{ __bfItem().color }` — a
+  // SyntaxError that takes down the whole compiled module at parse
+  // time, before any runtime code runs.
+  //
+  // The IR-side preprocessing (`expandShorthandBindings`) walks the
+  // expression's TS AST, finds `ShorthandPropertyAssignment` whose
+  // name matches a binding, and rewrites the entry to a string-literal
+  // key + identifier value (`{ "color": color }`). The subsequent
+  // identifier-replacement regex skips string-literal contents, so the
+  // key stays as the literal `"color"` while the value-position
+  // `color` lowers to `__bfItem().color`.
   //
   // `style={{ color }}` is the most common surface (Tailwind-style
   // dynamic colour bindings on per-item tables / lists) and is the
   // shape this test pins.
-  test('shorthand property in object literal is expanded to `key: accessor` (CSR runtime path)', () => {
+  test('shorthand property in object literal lowers via string-key expansion (CSR runtime path)', () => {
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -642,16 +650,16 @@ describe('nested destructuring in loop param', () => {
     // The invalid shorthand form `{ __bfItem().color }` is a SyntaxError;
     // its presence in the emit means the module won't load at all.
     expect(c.clientJs).not.toMatch(/\{\s*__bfItem\(\)\.color\s*\}/)
-    // Expansion to the explicit-property form lets the accessor reach
-    // the value.
-    expect(c.clientJs).toMatch(/\{\s*color:\s*__bfItem\(\)\.color\s*\}/)
+    // The IR-side expansion uses a string-literal key — the regex
+    // pass leaves it intact and rewrites only the value position.
+    expect(c.clientJs).toMatch(/\{\s*"color":\s*__bfItem\(\)\.color\s*\}/)
   })
 
   test('shorthand property survives nested destructure (object-in-array)', () => {
     // Nested: tuple element destructured as object. Same shorthand
-    // pitfall as the flat case above — the rewrite must expand the
-    // shorthand position to a full property even though the path is
-    // deeper (`__bfItem()[1].color`).
+    // pitfall as the flat case above — the AST preprocessing finds the
+    // shorthand even though the binding path is deeper
+    // (`__bfItem()[1].color`).
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -671,7 +679,7 @@ describe('nested destructuring in loop param', () => {
     expectNoFatalErrors(c)
 
     expect(c.clientJs).not.toMatch(/\{\s*__bfItem\(\)\[1\]\.color\s*\}/)
-    expect(c.clientJs).toMatch(/\{\s*color:\s*__bfItem\(\)\[1\]\.color\s*\}/)
+    expect(c.clientJs).toMatch(/\{\s*"color":\s*__bfItem\(\)\[1\]\.color\s*\}/)
   })
 })
 
