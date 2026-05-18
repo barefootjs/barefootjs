@@ -774,9 +774,13 @@ function ZoomControls() {
 function ExportBar() {
   return (
     <div className="flex items-center justify-center gap-3 px-4 py-2 bg-card border-t">
-      <code className="rounded-md bg-muted border px-3 py-1.5 font-mono text-[11px] text-foreground max-w-xl truncate" data-studio-export-code>
-        barefoot studio apply "https://ui.barefootjs.dev/studio?c=..."
-      </code>
+      <input
+        type="text"
+        readonly
+        className="rounded-md bg-muted border px-3 py-1.5 font-mono text-[11px] text-foreground flex-1 max-w-xl outline-none"
+        data-studio-export-code
+        value={`barefoot studio apply "https://ui.barefootjs.dev/studio?c=..."`}
+      />
       <button className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0" data-studio-copy>
         <IconCopy />
         <span data-studio-copy-label>Copy</span>
@@ -1660,9 +1664,9 @@ const studioScript = `
     var baseUrl = location.origin + '/studio';
     if (Object.keys(config).length > 0) {
       var encoded = encodeConfig(config);
-      codeEl.textContent = 'barefoot studio apply "' + baseUrl + '?c=' + encoded + '"';
+      codeEl.value = 'barefoot studio apply "' + baseUrl + '?c=' + encoded + '"';
     } else {
-      codeEl.textContent = 'barefoot studio apply "' + baseUrl + '"';
+      codeEl.value = 'barefoot studio apply "' + baseUrl + '"';
     }
   }
 
@@ -1691,6 +1695,13 @@ const studioScript = `
     }
   }
 
+  // ── Export input: select-all on focus so the user can verify and copy
+  // the full URL even when it overflows the visible width ──
+  document.addEventListener('focusin', function(e) {
+    var input = e.target.closest('[data-studio-export-code]');
+    if (input) input.select();
+  });
+
   // ── Copy button ──
   document.addEventListener('click', function(e) {
     var btn = e.target.closest('[data-studio-copy]');
@@ -1698,7 +1709,7 @@ const studioScript = `
     e.preventDefault();
     var codeEl = document.querySelector('[data-studio-export-code]');
     if (!codeEl) return;
-    var text = codeEl.textContent;
+    var text = codeEl.value;
     navigator.clipboard.writeText(text).then(function() {
       var label = btn.querySelector('[data-studio-copy-label]');
       if (label) {
