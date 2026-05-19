@@ -100,6 +100,21 @@ export interface AnalyzerContext {
   typeDefinitions: TypeDefinition[]
   /** Maps constant names to their JSX initializer AST nodes (#547) */
   jsxConstants: Map<string, ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment>
+  /**
+   * Maps constant names to initializer AST nodes whose shape contains
+   * JSX at a non-root position — ternary with JSX on either side,
+   * logical-AND / OR / nullish-coalescing with JSX on either side,
+   * parenthesized wrappers around any of the above. The pure-JSX-
+   * literal case (root JSX) stays in `jsxConstants` and routes through
+   * the #547 `transformNode` shim; this map is consulted only after
+   * that miss and routes through `transformExpressionInner` so the
+   * existing JSX-expression dispatcher handles the lowering, including
+   * `clientOnly` propagation. Without this, an outer-scope ternary-
+   * typed JSX local referenced from a JSX expression left a bare
+   * identifier in the emitted client JS at init scope and tripped a
+   * runtime ReferenceError (#1409 follow-up).
+   */
+  inlineableJsxConsts: Map<string, ts.Expression>
   /** Maps function names to their JSX return AST and parameter names (#569) */
   jsxFunctions: Map<string, {
     jsxReturn: ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment
@@ -195,6 +210,7 @@ export function createAnalyzerContext(
     ambientGlobals: new Set(),
     typeDefinitions: [],
     jsxConstants: new Map(),
+    inlineableJsxConsts: new Map(),
     jsxFunctions: new Map(),
     reactiveFactories: new Map(),
     signalTupleRefs: new Map(),

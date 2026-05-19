@@ -1158,6 +1158,19 @@ function transformExpressionInner(
     if (branchInit) {
       return transformExpressionInner(branchInit, ctx, node, isClientOnly)
     }
+
+    // #1409 follow-up: same inlining for outer-scope consts whose
+    // initializer holds JSX at a non-root position
+    // (`cond ? <jsx/> : null`, `flag && <jsx/>`, `value ?? <jsx/>`).
+    // The pure-JSX-literal case is handled by `jsxConstants` above;
+    // these are picked up by the analyzer into `inlineableJsxConsts`
+    // and routed through the same `transformExpressionInner` re-entry
+    // so the dispatcher lowers the ternary / binary to IRConditional
+    // with `clientOnly` propagated.
+    const inlineableInit = ctx.analyzer.inlineableJsxConsts.get(expr.text)
+    if (inlineableInit) {
+      return transformExpressionInner(inlineableInit, ctx, node, isClientOnly)
+    }
   }
 
   // Delegate all other JSX-structural dispatch to the shared core (#971).
