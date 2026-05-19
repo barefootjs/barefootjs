@@ -22,8 +22,13 @@
 Requires Node 22+.
 
 ```sh
-npm create barefootjs@latest my-app
-cd my-app
+npm create barefootjs@latest
+```
+
+You'll be prompted for a target directory (defaults to `my-app`). After scaffolding:
+
+```sh
+cd my-app   # or whatever name you entered at the prompt
 npm install
 npm run dev
 ```

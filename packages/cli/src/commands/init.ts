@@ -59,10 +59,10 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
   if (process.env[INIT_GATE_ENV] !== '1') {
     console.error('`bf init` is internal — invoke it via `npm create barefootjs@latest`.')
     console.error('')
-    console.error('Quick start:')
-    console.error('  npm create barefootjs@latest my-app')
-    console.error('  # or: bun create barefootjs my-app')
-    console.error('  # or: pnpm create barefootjs my-app')
+    console.error('Quick start (you\'ll be prompted for a target directory):')
+    console.error('  npm create barefootjs@latest')
+    console.error('  # or: bun create barefootjs')
+    console.error('  # or: pnpm create barefootjs')
     process.exit(1)
   }
 

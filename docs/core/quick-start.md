@@ -14,32 +14,38 @@ This page walks through scaffolding a runnable BarefootJS app, starting the dev 
 <!-- tabs:pm -->
 <!-- tab:npm -->
 ```sh
-npm create barefootjs@latest my-app
+npm create barefootjs@latest
 ```
 
 <!-- tab:bun -->
 ```sh
-bun create barefootjs my-app
+bun create barefootjs
 ```
 
 <!-- tab:pnpm -->
 ```sh
-pnpm create barefootjs my-app
+pnpm create barefootjs
 ```
 
 <!-- tab:yarn -->
 ```sh
-yarn create barefootjs my-app
+yarn create barefootjs
 ```
 
 <!-- /tabs -->
 
-You'll be prompted for an adapter (default: **Hono** on Cloudflare Workers) and a CSS library (default: **UnoCSS**). Pass `--yes` to accept all defaults.
+You'll be prompted for three things:
+
+1. **Target directory** (default: `my-app`)
+2. **Adapter** (default: **Hono** on Cloudflare Workers)
+3. **CSS library** (default: **UnoCSS**)
+
+Pass `--yes` to accept every default — including `my-app` for the directory — without prompting.
 
 ## 2. Install and run
 
 ```sh
-cd my-app
+cd my-app   # the name you entered at the prompt (default: my-app)
 npm install
 npm run dev
 ```
