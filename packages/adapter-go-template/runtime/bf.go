@@ -296,7 +296,17 @@ func SpreadAttrs(bag any) template.HTMLAttr {
 		if len(key) > 2 && key[0] == 'o' && key[1] == 'n' && !(key[2] >= 'a' && key[2] <= 'z') {
 			continue
 		}
-		if key == "children" || key == "ref" {
+		// `children` is a JSX construct rendered inside the element,
+		// never a DOM attribute. `ref` is intentionally NOT filtered
+		// here so output stays byte-equal with the JS reference
+		// `spreadAttrs` in packages/client/src/runtime/spread-attrs.ts
+		// (which only filters null/false, event handlers, and
+		// children) — aligning Go's filter set diverges from JS in
+		// the opposite direction. Filtering `ref` consistently across
+		// both SSR runtimes is a separate concern tracked alongside
+		// the JS `applyRestAttrs` vs `spreadAttrs` mismatch (#1411
+		// review).
+		if key == "children" {
 			continue
 		}
 		val := rv.MapIndex(reflect.ValueOf(key))

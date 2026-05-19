@@ -573,11 +573,17 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     // Generate Input struct for main component
     this.generateInputStruct(lines, ir, componentName, nestedComponents, propTypeOverrides)
 
+    // Compute spread slot info once and thread it through both
+    // generators — `collectSpreadSlots` walks the IR tree, so caching
+    // here saves a second full walk when the component has nested
+    // structure (#1411 review).
+    const spreadSlots = this.collectSpreadSlots(ir.root)
+
     // Generate Props struct for main component
-    this.generatePropsStruct(lines, ir, componentName, nestedComponents, propTypeOverrides)
+    this.generatePropsStruct(lines, ir, componentName, nestedComponents, propTypeOverrides, spreadSlots)
 
     // Generate NewXxxProps function
-    this.generateNewPropsFunction(lines, ir, componentName, nestedComponents)
+    this.generateNewPropsFunction(lines, ir, componentName, nestedComponents, spreadSlots)
 
     // Imports come at the top, but `usesHtmlTemplate` is only known
     // after the body has been generated. Compose package + imports +
@@ -733,7 +739,8 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     ir: ComponentIR,
     componentName: string,
     nestedComponents: NestedComponentInfo[],
-    propTypeOverrides: Map<string, string>
+    propTypeOverrides: Map<string, string>,
+    spreadSlots: SpreadSlotInfo[]
   ): void {
     const propsTypeName = `${componentName}Props`
     lines.push(`// ${propsTypeName} is the props type for the ${componentName} component.`)
@@ -824,8 +831,10 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     // Each non-loop spread gets a `Spread_<slotId> map[string]any`
     // field; the Go template references it as `.Spread_<slotId>` via
     // `{{bf_spread_attrs}}`. Loop-internal spreads emit inline and
-    // don't appear here.
-    const spreadSlots = this.collectSpreadSlots(ir.root)
+    // don't appear here. The slot list is computed once in
+    // `generateTypes` and threaded through both struct/init emitters
+    // so the IR walk runs exactly once per `generate()` call (#1411
+    // review).
     for (const slot of spreadSlots) {
       const jsonTag = this.toJsonTag(slot.slotId)
       lines.push(`\t${slot.slotId} map[string]any \`json:"${jsonTag}"\``)
@@ -842,7 +851,8 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     lines: string[],
     ir: ComponentIR,
     componentName: string,
-    nestedComponents: NestedComponentInfo[]
+    nestedComponents: NestedComponentInfo[],
+    spreadSlots: SpreadSlotInfo[]
   ): void {
     const inputTypeName = `${componentName}Input`
     const propsTypeName = `${componentName}Props`
@@ -1009,7 +1019,8 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     // identifiers that don't resolve to a propsParam) fall through to
     // BF101 below — the field is still declared on the struct so the
     // template compiles even when the initializer is missing.
-    const spreadSlots = this.collectSpreadSlots(ir.root)
+    // `spreadSlots` is computed once in `generateTypes` and threaded
+    // through to avoid a second IR walk (#1411 review).
     for (const slot of spreadSlots) {
       const goExpr = this.buildSpreadInitializer(slot.expr, ir)
       if (goExpr) {
@@ -1329,6 +1340,17 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         goVal = JSON.stringify(val.text)
       } else if (ts.isNumericLiteral(val)) {
         goVal = val.text
+      } else if (
+        // TypeScript parses `-1` and `+1` as `PrefixUnaryExpression`
+        // rather than `NumericLiteral` — accept both signs explicitly
+        // so a bag like `{count: -1}` doesn't collapse to BF101
+        // (#1411 review).
+        ts.isPrefixUnaryExpression(val)
+        && (val.operator === ts.SyntaxKind.MinusToken || val.operator === ts.SyntaxKind.PlusToken)
+        && ts.isNumericLiteral(val.operand)
+      ) {
+        const sign = val.operator === ts.SyntaxKind.MinusToken ? '-' : ''
+        goVal = `${sign}${val.operand.text}`
       } else if (val.kind === ts.SyntaxKind.TrueKeyword) {
         goVal = 'true'
       } else if (val.kind === ts.SyntaxKind.FalseKeyword) {

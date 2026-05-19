@@ -191,6 +191,17 @@ export function normalizeHTML(html: string): string {
   // non-void tags (`<svg foo="x"/>`, the trailing `/` was consumed
   // as a stray attribute) and `>` characters inside quoted
   // attribute values — are handled correctly (#1411 review).
+  //
+  // **Fixture-author note**: this normalisation is applied to BOTH
+  // expected and actual HTML uniformly, so any fixture that needs to
+  // assert source-order-sensitive attribute emission (duplicate-key
+  // last-wins behaviour, `<meta charset>` ordering in `<head>`,
+  // etc.) cannot use plain `expectedHtml` comparison — those cases
+  // should be pinned via a dedicated assertion in the test file
+  // instead. Today the BarefootJS adapter suite has no such fixture;
+  // if one is added, surface this limitation prominently in its
+  // comment so the next maintainer doesn't wonder why a deliberate
+  // re-ordering "doesn't fail" the conformance check (#1411 review).
   return normalizeTagAttributeOrder(stripped)
 }
 

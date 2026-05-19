@@ -830,9 +830,11 @@ func TestSpreadAttrs(t *testing.T) {
 			want: `id="a"`,
 		},
 		{
-			name: "ref skipped",
+			// Parity with JS `spreadAttrs` — it doesn't filter `ref`,
+			// so neither do we (#1411 review).
+			name: "ref passes through (parity with JS spreadAttrs)",
 			bag:  map[string]any{"ref": "x", "id": "a"},
-			want: `id="a"`,
+			want: `id="a" ref="x"`,
 		},
 		{
 			name: "nil value skipped",
