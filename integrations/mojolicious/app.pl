@@ -192,15 +192,12 @@ $r->get('/' => sub ($c) {
 });
 
 $r->get('/counter' => sub ($c) {
-    $c->render_component('Counter',
-        props => { initial => 0 },
-        stash => {
-            count   => 0,
-            initial => 0,
-            doubled => 0,
-        },
-        heading => 'Counter Component',
-    );
+    # Auto-init via the plugin's `before_render` hook: scope_id +
+    # manifest-derived child renderers + signal/memo SSR defaults are
+    # all derived from dist/templates/manifest.json. The route is left
+    # as a one-liner; override defaults via stash if needed.
+    $c->stash(heading => 'Counter Component');
+    $c->render(template => 'Counter', layout => 'default');
 });
 
 $r->get('/toggle' => sub ($c) {
