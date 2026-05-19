@@ -536,6 +536,7 @@ export const ECHO_ADAPTER: AdapterTemplate = {
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/test': 'latest',
     concurrently: '^9.0.0',
     typescript: '^5.6.0',
   },

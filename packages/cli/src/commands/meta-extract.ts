@@ -220,8 +220,80 @@ function mapCompilerErrors(ctx: AnalyzerContext): CompilerErrorMeta[] | undefine
   }))
 }
 
+/**
+ * Build a `ComponentMeta` for a single component file. Pure with respect
+ * to the filesystem on input — callers handle writing the JSON out.
+ *
+ * The bulk-scan `run()` below uses this in a loop; `bf add` uses it
+ * one-at-a-time to keep `meta/<name>.json` in sync with each newly
+ * fetched registry item. The `source` field is computed relative to
+ * `projectRoot` so the same helper produces correct paths in both the
+ * monorepo (`ui/components/ui/...`) and scaffolded apps
+ * (`components/ui/...`).
+ */
+export function extractMetaForFile(
+  filePath: string,
+  projectRoot: string,
+  registry: Record<string, { title: string; description: string }> = {},
+): { meta: ComponentMeta; subComponents: SubComponentMeta[] } {
+  const name = fileToName(filePath)
+  const source = readFileSync(filePath, 'utf-8')
+
+  const analyzerCtx = analyzeComponent(source, filePath)
+
+  const description = extractDescription(source) || registry[name]?.description || ''
+  const title = registry[name]?.title || toTitle(name)
+  const examples = extractExamples(source)
+
+  const props = extractMainProps(analyzerCtx, source)
+  const subComponentsList = extractSubComponents(analyzerCtx, source)
+  const variants = extractVariants(analyzerCtx)
+  const dependencies = extractDependencies(analyzerCtx)
+  const accessibility = extractAccessibility(source)
+  const category = categoryMap[name] || 'display'
+  const tags = detectTags(source)
+  const related = relatedMap[name] || []
+
+  const meta: ComponentMeta = {
+    name,
+    title,
+    category,
+    description,
+    tags,
+    stateful: analyzerCtx.hasUseClientDirective && analyzerCtx.signals.length > 0,
+    props,
+    subComponents: subComponentsList.length > 0 ? subComponentsList : undefined,
+    variants: Object.keys(variants).length > 0 ? variants : undefined,
+    examples,
+    accessibility,
+    dependencies,
+    related,
+    source: path.relative(projectRoot, filePath),
+    signals: mapSignals(analyzerCtx),
+    memos: mapMemos(analyzerCtx),
+    effects: mapEffects(analyzerCtx),
+    compilerErrors: mapCompilerErrors(analyzerCtx),
+  }
+
+  return { meta, subComponents: subComponentsList }
+}
+
 export async function run(_args: string[], ctx: CliContext): Promise<void> {
-  const componentsDir = path.join(ctx.root, 'ui/components/ui')
+  // Two layouts to support:
+  //   - Monorepo dev: components live at `<root>/ui/components/ui/` and
+  //     `<root>/docs/core/` is present. Pre-fix behavior — kept verbatim.
+  //   - Scaffolded app: components live at
+  //     `<projectDir>/<paths.components>/` (default `components/ui`).
+  //     The pre-fix command scanned `<ctx.root>/ui/components/ui` —
+  //     which in a scaffolded app is `node_modules/ui/components/ui/`,
+  //     where the only files are leftover scaffolding artifacts. We
+  //     then overwrote `meta/index.json` with the partial result,
+  //     clobbering meta written by `bf add`.
+  const inProject = ctx.config !== null && ctx.projectDir !== null
+  const componentsDir = inProject
+    ? path.resolve(ctx.projectDir!, ctx.config!.paths.components)
+    : path.join(ctx.root, 'ui/components/ui')
+  const writeRoot = inProject ? ctx.projectDir! : ctx.root
 
   // Ensure output directory exists
   if (!existsSync(ctx.metaDir)) {
@@ -238,61 +310,25 @@ export async function run(_args: string[], ctx: CliContext): Promise<void> {
   let count = 0
 
   for (const filePath of files) {
-    const name = fileToName(filePath)
-    const source = readFileSync(filePath, 'utf-8')
-
-    // Compiler-based analysis
-    const analyzerCtx = analyzeComponent(source, filePath)
-
-    // JSDoc-based extraction (regex)
-    const description = extractDescription(source) || registry[name]?.description || ''
-    const title = registry[name]?.title || toTitle(name)
-    const examples = extractExamples(source)
-
-    // Map analyzer data to metadata
-    const props = extractMainProps(analyzerCtx, source)
-    const subComponentsList = extractSubComponents(analyzerCtx, source)
-    const variants = extractVariants(analyzerCtx)
-    const dependencies = extractDependencies(analyzerCtx)
-    const accessibility = extractAccessibility(source)
-    const category = categoryMap[name] || 'display'
-    const tags = detectTags(source)
-    const related = relatedMap[name] || []
-
-    const meta: ComponentMeta = {
-      name,
-      title,
-      category,
-      description,
-      tags,
-      stateful: analyzerCtx.hasUseClientDirective && analyzerCtx.signals.length > 0,
-      props,
-      subComponents: subComponentsList.length > 0 ? subComponentsList : undefined,
-      variants: Object.keys(variants).length > 0 ? variants : undefined,
-      examples,
-      accessibility,
-      dependencies,
-      related,
-      source: `ui/components/ui/${name}/index.tsx`,
-      signals: mapSignals(analyzerCtx),
-      memos: mapMemos(analyzerCtx),
-      effects: mapEffects(analyzerCtx),
-      compilerErrors: mapCompilerErrors(analyzerCtx),
-    }
+    const { meta, subComponents: subComponentsList } = extractMetaForFile(
+      filePath,
+      writeRoot,
+      registry,
+    )
 
     // Write per-component JSON
     writeFileSync(
-      path.join(ctx.metaDir, `${name}.json`),
+      path.join(ctx.metaDir, `${meta.name}.json`),
       JSON.stringify(meta, null, 2) + '\n',
     )
 
     // Build index entry
     const indexEntry: MetaIndexEntry = {
-      name,
-      title,
-      category,
-      description,
-      tags,
+      name: meta.name,
+      title: meta.title,
+      category: meta.category,
+      description: meta.description,
+      tags: meta.tags,
       stateful: meta.stateful,
     }
     if (subComponentsList.length > 0) {
@@ -317,15 +353,20 @@ export async function run(_args: string[], ctx: CliContext): Promise<void> {
   const uiLlmsTxt = generateUiLlmsTxt(index, 'https://ui.barefootjs.dev/r')
   writeFileSync(path.join(ctx.metaDir, 'llms.txt'), uiLlmsTxt)
 
+  // Display paths relative to the user's project root so the summary
+  // matches what they'd `cd` into. In monorepo mode this is the same
+  // `ui/meta/` it always printed; in scaffolded apps it's `meta/`
+  // (or whatever `paths.meta` resolves to).
+  const metaRel = path.relative(writeRoot, ctx.metaDir) || '.'
   const docsDir = path.join(ctx.root, 'docs/core')
   if (existsSync(docsDir)) {
     const coreDocs = scanCoreDocs(docsDir)
     const coreLlmsTxt = generateCoreLlmsTxt(coreDocs, 'https://barefootjs.dev/docs')
     writeFileSync(path.join(docsDir, 'llms.txt'), coreLlmsTxt)
-    console.log(`Extracted metadata for ${count} components → ui/meta/`)
-    console.log('Generated: ui/meta/llms.txt, docs/core/llms.txt')
+    console.log(`Extracted metadata for ${count} components → ${metaRel}/`)
+    console.log(`Generated: ${metaRel}/llms.txt, docs/core/llms.txt`)
   } else {
-    console.log(`Extracted metadata for ${count} components → ui/meta/`)
-    console.log('Generated: ui/meta/llms.txt')
+    console.log(`Extracted metadata for ${count} components → ${metaRel}/`)
+    console.log(`Generated: ${metaRel}/llms.txt`)
   }
 }

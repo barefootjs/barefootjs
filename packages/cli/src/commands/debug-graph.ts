@@ -18,10 +18,12 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
 
   const { buildComponentGraph, formatComponentGraph, graphToJSON } = await import('@barefootjs/jsx')
 
-  const resolved = resolveComponentSource(componentName, ctx)
+  const searched: string[] = []
+  const resolved = resolveComponentSource(componentName, ctx, searched)
   if (!resolved) {
     console.error(`Error: Cannot find component "${componentName}".`)
-    console.error('Looked in: ui/components/ui/, and by file path.')
+    console.error('Looked in:')
+    for (const p of searched) console.error(`  - ${p}`)
     process.exit(1)
   }
 

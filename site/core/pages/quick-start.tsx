@@ -175,7 +175,7 @@ This runs \`bf build\`, generates the final \`uno.css\`, and calls \`wrangler de
 - Pick a different backend by passing \`--adapter\` to the scaffolder:
 
   \`\`\`bash
-  npm create barefootjs@latest my-app -- --adapter go-template
+  npm create barefootjs@latest -- --adapter go-template
   \`\`\`
 
   See [Adapter Architecture](./adapters/adapter-architecture.md) for the full list.

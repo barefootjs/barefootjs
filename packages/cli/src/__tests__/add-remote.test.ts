@@ -223,6 +223,33 @@ describe('addFromRegistry', () => {
     expect(existsSync(path.join(tmpDir, 'components/ui/button/index.tsx'))).toBe(false)
   })
 
+  test('writes meta/<name>.json for each added component so bf docs works after add', async () => {
+    // The registry's `<name>.json` ships sources only — `registry:ui`
+    // files — so before this behavior was wired in, `bf add button`
+    // left `meta/` empty and `bf docs button` failed with a "not
+    // found" error. Lock it in: meta extraction runs against the
+    // freshly-written source and the index lists the new entry.
+    globalThis.fetch = async () => new Response(JSON.stringify(buttonItem), { status: 200 })
+
+    await addFromRegistry(['button'], 'https://example.com/r/', tmpDir, config, false)
+
+    const buttonMetaPath = path.join(tmpDir, 'meta/button.json')
+    expect(existsSync(buttonMetaPath)).toBe(true)
+    const buttonMeta = JSON.parse(readFileSync(buttonMetaPath, 'utf-8'))
+    expect(buttonMeta.name).toBe('button')
+    // `source` is relative to projectDir — locks in the path shape the
+    // scaffolded app expects (not `ui/components/ui/...` from the monorepo).
+    expect(buttonMeta.source).toBe(path.join('components/ui/button/index.tsx'))
+
+    // index.json should pick the new entry up via rebuildMetaIndex.
+    const indexPath = path.join(tmpDir, 'meta/index.json')
+    expect(existsSync(indexPath)).toBe(true)
+    const index = JSON.parse(readFileSync(indexPath, 'utf-8'))
+    const names = (index.components as Array<{ name: string }>).map(c => c.name)
+    expect(names).toContain('button')
+    expect(names).toContain('slot')
+  })
+
   test('resolves requires dependencies transitively', async () => {
     const slotItem: RegistryItem = {
       $schema: 'https://ui.shadcn.com/schema/registry-item.json',

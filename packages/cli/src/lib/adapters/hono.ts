@@ -200,6 +200,11 @@ export const HONO_ADAPTER: AdapterTemplate = {
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
     '@cloudflare/workers-types': '^4.20250101.0',
+    // `@barefootjs/test` powers `renderToTest()` — the canonical
+    // millisecond IR test the docs (and `bf gen test`) point new users
+    // at. Without it the scaffold's `bun test` is a no-op and any
+    // generated `index.test.tsx` fails with a module-not-found error.
+    '@barefootjs/test': 'latest',
     concurrently: '^9.0.0',
     typescript: '^5.6.0',
   },

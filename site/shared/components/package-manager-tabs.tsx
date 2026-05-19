@@ -6,9 +6,10 @@ import { createSignal, createMemo } from '@barefootjs/client'
 //   dlx    — run a one-shot binary (default). `command` is the bare CLI;
 //            tabs render `npx <cmd>` / `bunx --bun <cmd>` / etc.
 //   create — `npm create <starter>` family. `command` is the part after
-//            `create`, e.g. `barefootjs@latest my-app`. The npm tab keeps
-//            `@latest`; the others strip it (only npm honours that suffix
-//            in the create-* flow).
+//            `create`, e.g. `barefootjs@latest` (no positional — the
+//            scaffolder prompts for the target dir). The npm tab keeps
+//            `@latest`; the others strip it (only npm honours that
+//            suffix in the create-* flow).
 export interface PackageManagerTabsProps {
   command: string
   mode?: 'dlx' | 'create'

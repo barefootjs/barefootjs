@@ -17,6 +17,30 @@
 
 ---
 
+## Quick Start
+
+Requires Node 22+.
+
+```sh
+npm create barefootjs@latest
+```
+
+You'll be prompted for a target directory (defaults to `my-app`). After scaffolding:
+
+```sh
+cd my-app   # or whatever name you entered at the prompt
+npm install
+npm run dev
+```
+
+Then open the URL the dev server prints (defaults to `http://localhost:8787`). The starter app ships a Counter component you can edit at `components/Counter.tsx`.
+
+The full walkthrough — adapter / CSS choices, generated layout, and the alpha pkg-pr-new install path — lives in [`docs/core/quick-start.md`](./docs/core/quick-start.md).
+
+> While BarefootJS is in alpha (pre-first-npm-publish), `npm create barefootjs@latest` 404s on the npm registry. Use the [pkg-pr-new install path](./docs/core/quick-start.md#alpha-install-from-pkg-pr-new) until the first publish.
+
+---
+
 ## Design Principles
 
 - **Backend Freedom** — Same JSX works with Hono, Go, Mojolicious, etc. No Node.js lock-in.

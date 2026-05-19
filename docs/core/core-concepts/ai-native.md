@@ -15,7 +15,7 @@ BarefootJS is designed so both humans and AI agents can build components without
 `renderToTest()` verifies component structure, signals, events, and accessibility against the compiler's IR — in milliseconds, without a browser. Real interactions and visual behavior still need E2E tests, but structural issues are caught before you get there:
 
 ```tsx
-import { renderToTest } from '@barefootjs/test-utils'
+import { renderToTest } from '@barefootjs/test'
 
 test('Counter has a button with click handler', () => {
   const ir = renderToTest(<Counter />)
@@ -59,8 +59,8 @@ bf search settings-form --json
 bf docs field --json
 bf docs switch --json
 bf gen component settings-form field switch label
-# edit ui/components/ui/settings-form/index.tsx
-bun test ui/components/ui/settings-form/index.test.tsx
+# edit components/ui/settings-form/index.tsx
+bun test components/ui/settings-form/index.test.tsx
 bf debug graph settings-form
 ```
 
