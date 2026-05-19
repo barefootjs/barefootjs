@@ -228,6 +228,56 @@ describe('branch-local at element-attribute position (#1414)', () => {
     expect(hydrate).not.toMatch(/(?<![._])\bchildren\b/)
   })
 
+  test('branch-local substitution preserves raw form in non-template paths (#1425 SSR-leak guard)', () => {
+    // Regression for the false start on #1425: pre-rewriting
+    // `branchSubs` text to `_p.X` at substitution-build time fixed
+    // the CSR template arrow but poisoned the SSR adapter's JSX
+    // emission. The hono / test adapters evaluate the same
+    // expression text on the server in a scope where `_p` doesn't
+    // exist (function params are destructured as named locals
+    // `children` / `className`), so a `_p.children` reference
+    // surfaced via substitution throws `ReferenceError: _p is not
+    // defined` during SSR.
+    //
+    // Pin the asymmetry: the IR's `expr` field (consumed by the SSR
+    // adapter) stays in raw source-level form; the bridged-prop
+    // form lives only on `templateExpr` (consumed by CSR template
+    // emission). A child-component prop binding exercises the path
+    // that broke first.
+    const source = `
+      'use client'
+
+      function isValidElement(element: unknown): element is { tag: unknown; props: Record<string, unknown> } {
+        return !!(element && typeof element === 'object' && 'tag' in element && 'props' in element)
+      }
+
+      function Tag(_p: any) { return null as any }
+
+      export function Slot({ children, className }: { children?: unknown; className?: string }) {
+        if (children && isValidElement(children)) {
+          const childProps = children.props || {}
+          const childClass = (childProps.className as string) || ''
+          const mergedClass = [className, childClass].filter(Boolean).join(' ')
+          return <Tag className={mergedClass || undefined}>X</Tag>
+        }
+        return <div>fallback</div>
+      }
+    `
+    const result = compileJSX(source, 'Slot.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+
+    const clientJs = clientJsContent(result)
+    // The child-component path's prop getter — `get className()` /
+    // `initChild(... { className: ... })` — runs at `initSlot` scope
+    // where `_p` is destructured into named locals at the top, so
+    // the substituted text must reference `children` / `className`
+    // (NOT `_p.children` / `_p.className`). The same text shape is
+    // what the SSR adapter sees, and `_p` doesn't exist on the
+    // server. Pin both occurrences.
+    expect(clientJs).toMatch(/get className\(\)[^{]*\{[^}]*\bchildren\.props\b/)
+    expect(clientJs).not.toMatch(/get className\(\)[^{]*\{[^}]*_p\.children/)
+  })
+
   test('outer-scope string const at attribute position keeps existing inliner path', () => {
     // Negative-side regression: an outer-scope const at attribute
     // position must keep going through `compute-inlinability`
