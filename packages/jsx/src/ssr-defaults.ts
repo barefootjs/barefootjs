@@ -248,10 +248,8 @@ function evalNode(node: ts.Expression, ctx: EvalContext): EvalResult {
     // `props.X` / `props?.X` / `props['X']` — read of a binding we know
     // nothing about, so resolve to `undefined`. Chained access (`a.b.c`)
     // collapses the same way because the base read is already undefined.
-    const base = ts.isPropertyAccessExpression(node) ? node.expression : node.expression
-    const baseResult = evalNode(base, ctx)
+    const baseResult = evalNode(node.expression, ctx)
     if (baseResult === undefined) return undefined
-    if (baseResult === UNRESOLVED) return UNRESOLVED
     return UNRESOLVED
   }
 
