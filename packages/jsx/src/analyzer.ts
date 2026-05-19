@@ -823,6 +823,38 @@ function collectScopeVariables(
 }
 
 /**
+ * Walk the ancestor chain of `node` looking for any enclosing
+ * conditional-return `if`-block. Returns a map from branch-local const
+ * name to the text of its initializer. Innermost branch wins on
+ * collision (lexical shadowing). JSX-bearing initializers are skipped —
+ * substituting them as raw text would emit JSX as TypeScript syntax,
+ * which is invalid in raw-JS capture contexts (function bodies, ref
+ * callbacks, event handlers). #1422.
+ */
+function collectEnclosingBranchVars(
+  node: ts.Node,
+  ctx: AnalyzerContext,
+): Map<string, string> {
+  const result = new Map<string, string>()
+  let current: ts.Node | undefined = node.parent
+  while (current) {
+    for (const cr of ctx.conditionalReturns) {
+      if (cr.ifStatement.thenStatement !== current) continue
+      for (const decl of cr.scopeVariables) {
+        if (!ts.isIdentifier(decl.name) || !decl.initializer) continue
+        const varName = decl.name.text
+        // Innermost wins — skip if a deeper branch already set this name.
+        if (result.has(varName)) continue
+        if (initializerShapeContainsJsx(decl.initializer)) continue
+        result.set(varName, ctx.getJS(decl.initializer))
+      }
+    }
+    current = current.parent
+  }
+  return result
+}
+
+/**
  * Walk an if-block body for `createSignal(...)` declarations and add
  * them to `ctx.signals` tagged with `branchCondition`. The emitter
  * then wraps each in `if (<branchCondition>) [getter, setter] =
@@ -1768,9 +1800,46 @@ function collectFunction(
     defaultValue: p.initializer ? ctx.getJS(p.initializer) : undefined,
     isRest: !!p.dotDotDotToken || undefined,
   }))
-  const body = node.body ? ctx.getJS(node.body) : ''
+  let body = node.body ? ctx.getJS(node.body) : ''
   const typedBody = node.body ? node.body.getText(ctx.sourceFile) : undefined
   const returnType = typeNodeToTypeInfo(node.type, ctx.sourceFile)
+
+  // #1422: a function declaration nested inside an early-return `if`-block
+  // is captured here with its body as raw text. Downstream
+  // (`compute-scope`) hoists it to outer init scope when it references
+  // any init-required name, so bare references to branch-local consts
+  // resolve at outer scope — wrong-value (when sibling branches declare
+  // the same name) or undefined (single-branch case). The
+  // `_branchScopeVars` text-substitution in `jsx-to-ir.ts` already covers
+  // raw-text capture inside the JSX return (ref callbacks, event
+  // handlers, `{local()}` child positions) but doesn't reach function
+  // declarations because they're collected in this analyzer pass before
+  // Phase 1 runs. Substitute branch-local references in the body here
+  // — same trade-off as #547 / #1410 / #1412 / #1415: text-level
+  // substitution duplicates the initializer per use site.
+  if (node.body && ctx.conditionalReturns.length > 0) {
+    const branchVars = collectEnclosingBranchVars(node, ctx)
+    if (branchVars.size > 0) {
+      const paramNames = new Set(params.map(p => p.name))
+      const branchNames: string[] = []
+      const branchSubs = new Map<string, string>()
+      for (const [varName, initText] of branchVars) {
+        // Params shadow outer names inside the function body.
+        if (paramNames.has(varName)) continue
+        branchNames.push(varName)
+        branchSubs.set(varName, initText)
+      }
+      if (branchNames.length > 0) {
+        // `(?<!\.)` skips member-access tail names like `el.dataset.size`
+        // so substitution only fires on free-identifier reads. Property
+        // keys in object literals and destructure binding names still
+        // slip through — same trade-off as the existing
+        // `_branchScopeVars` regex in `jsx-to-ir.ts`.
+        const re = new RegExp(`(?<!\\.)\\b(${branchNames.join('|')})\\b`, 'g')
+        body = body.replace(re, (_m, n) => `(${branchSubs.get(n)!})`)
+      }
+    }
+  }
 
   // Check if function contains JSX
   const containsJsx = body.includes('<') && (body.includes('/>') || body.includes('</'))
