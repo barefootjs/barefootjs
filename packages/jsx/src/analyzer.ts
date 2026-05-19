@@ -1833,6 +1833,35 @@ export function extractFreeIdentifiersFromNode(node: ts.Node): Set<string> {
 }
 
 /**
+ * Check if a const initializer expression contains JSX at a non-root
+ * position — ternary with JSX on either side, logical-AND / OR /
+ * nullish-coalescing with JSX on either side, parenthesized wrappers
+ * around any of the above. Used to qualify constants for `inlineableJsxConsts`
+ * (#1409 follow-up): pure JSX literals already go through `jsxConstants`,
+ * but ternary-typed JSX locals (`cond ? <jsx/> : null`) need the same
+ * inline-at-use-site treatment so a downstream `{/* @client * /
+ * cLocal}` doesn't leak the bare identifier into the emitted client
+ * JS. The walk stops at function / arrow boundaries so JSX inside a
+ * helper's body isn't mistaken for the initializer's own JSX.
+ */
+function initializerShapeContainsJsx(node: ts.Node): boolean {
+  let found = false
+  function visit(n: ts.Node): void {
+    if (found) return
+    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxFragment(n)) {
+      found = true
+      return
+    }
+    if (ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n) || ts.isArrowFunction(n)) {
+      return
+    }
+    ts.forEachChild(n, visit)
+  }
+  visit(node)
+  return found
+}
+
+/**
  * Check if an AST node contains an arrow function or function expression.
  */
 function nodeContainsArrow(node: ts.Node): boolean {
@@ -1934,6 +1963,16 @@ function collectConstant(
     if (ts.isJsxElement(init) || ts.isJsxSelfClosingElement(init) || ts.isJsxFragment(init)) {
       isJsx = true
       ctx.jsxConstants.set(name, init)
+    } else if (initializerShapeContainsJsx(init)) {
+      // Non-root JSX initializer (ternary / `&&` / `||` / `??` whose
+      // operand is JSX). Stored here so `transformExpressionInner` can
+      // inline at the use site instead of leaving the bare identifier
+      // in the emitted client JS — the same way pure-JSX literals are
+      // inlined via `jsxConstants`, but routed through the JSX-
+      // expression dispatcher so the conditional / binary shape lowers
+      // to IRConditional (with `clientOnly` preserved when applicable)
+      // (#1409 follow-up).
+      ctx.inlineableJsxConsts.set(name, init)
     }
 
     // Detect arrow function constants with JSX return (#569)
