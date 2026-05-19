@@ -1406,7 +1406,7 @@ export interface CompileOptions {
 export interface FileOutput {
   path: string
   content: string
-  type: 'markedTemplate' | 'clientJs' | 'ir' | 'sourceMap' | 'types'
+  type: 'markedTemplate' | 'clientJs' | 'ir' | 'sourceMap' | 'types' | 'ssrDefaults'
 }
 
 export interface CompileResult {
