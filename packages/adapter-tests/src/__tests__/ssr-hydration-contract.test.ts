@@ -82,6 +82,12 @@ const statelessFixtures = new Set([
   'static-array-children',
   'if-statement',
   'top-level-ternary',
+  // #1421: fallback branch is rendered at SSR (no `on` prop), but the
+  // emitted client JS still wires up the truthy branch's `className`
+  // slot. The marker for that slot doesn't appear in the falsy-branch
+  // expectedHtml — same SSR/CSR-branch divergence that motivates
+  // `if-statement` / `top-level-ternary`.
+  'branch-local-filter-join',
 ])
 
 describe('SSR-Hydration Contract', () => {

@@ -128,6 +128,12 @@ runAdapterConformanceTests({
     'rest-destructure-object-spread-in-map': [{ code: 'BF104', severity: 'error' }],
     'rest-destructure-array-in-map': [{ code: 'BF104', severity: 'error' }],
     'rest-destructure-nested-in-map': [{ code: 'BF104', severity: 'error' }],
+    // #1421: branch-local higher-order chain at an attribute
+    // (`const merged = [a, b].filter(Boolean).join(' ')` referenced as
+    // `className={merged}`). `convertExpressionToGo` already refuses
+    // the array-literal callee with BF101 — the shared fixture pins the
+    // contract so the Mojo / Go refusal shapes stay aligned.
+    'branch-local-filter-join': [{ code: 'BF101', severity: 'error' }],
   },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `GoTemplateAdapter.templatePrimitives` (#1188). The two

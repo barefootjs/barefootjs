@@ -101,6 +101,14 @@ runAdapterConformanceTests({
     // (`cn\`base \${tone()}\``) — same family as #1322 above and refused
     // via the same gate.
     'tagged-template-classname': [{ code: 'BF101', severity: 'error' }],
+    // #1421: branch-local higher-order chain inlined at an attribute
+    // (`const merged = [a, b].filter(Boolean).join(' ')` referenced as
+    // `className={merged}`). The array-literal callee isn't a signal /
+    // prop the Mojo expression translator can lower into Embedded Perl,
+    // so `convertHigherOrderExpr` records BF101. The pin also locks in
+    // the recursion-cycle fix — before the cycle guard, this fixture
+    // crashed `bf build` with `RangeError: Maximum call stack size`.
+    'branch-local-filter-join': [{ code: 'BF101', severity: 'error' }],
   },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `MojoAdapter.templatePrimitives` (#1189). The two remaining
@@ -259,6 +267,38 @@ export function Page() {
 `)
     expect(result.template).not.toContain('begin %>')
     expect(result.template).not.toContain('children =>')
+  })
+
+  test('breaks the convertHigherOrderExpr ↔ unsupported-emitter loop (#1421)', () => {
+    // Regression: a branch-local `.filter(Boolean).join(' ')` chain
+    // referenced at an attribute used to crash `bf build` with
+    // `RangeError: Maximum call stack size exceeded`. The parser
+    // returns `unsupported` for the array-literal callee while keeping
+    // the full original `raw`, so `MojoTopLevelEmitter.unsupported` →
+    // `_convertExpressionToPerlPublic` → `convertExpressionToPerl`
+    // re-detected `.filter` and re-entered `convertHigherOrderExpr`
+    // forever. The in-flight guard breaks the cycle and surfaces a
+    // BF101 instead.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(
+      `
+"use client"
+function Slot({ children, className }: { children?: unknown; className?: string }) {
+  if (children) {
+    const merged = [className].filter(Boolean).join(' ')
+    return <div className={merged}>x</div>
+  }
+  return <div>fallback</div>
+}
+export { Slot }
+`.trimStart(),
+      'slot.tsx',
+      { adapter },
+    )
+    const bf101 = result.errors?.find(e => e.code === 'BF101')
+    expect(bf101).toBeDefined()
+    expect(bf101!.message).toContain('higher-order')
+    expect(bf101!.message).toContain('.filter(Boolean).join')
   })
 
   test('does not leak module-level export statements into the .html.ep template', () => {

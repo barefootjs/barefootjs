@@ -47,6 +47,7 @@ import { fixture as nullishCoalescingJsx } from './nullish-coalescing-jsx'
 import { fixture as logicalOrJsx } from './logical-or-jsx'
 import { fixture as branchSelfClosing } from './branch-self-closing'
 import { fixture as branchMap } from './branch-map'
+import { fixture as branchLocalFilterJoin } from './branch-local-filter-join'
 import { fixture as returnLogicalAnd } from './return-logical-and'
 import { fixture as returnLogicalOr } from './return-logical-or'
 import { fixture as returnNullishCoalescing } from './return-nullish-coalescing'
@@ -136,6 +137,7 @@ export const jsxFixtures: JSXFixture[] = [
   logicalOrJsx,
   branchSelfClosing,
   branchMap,
+  branchLocalFilterJoin,
   returnLogicalAnd,
   returnLogicalOr,
   returnNullishCoalescing,
