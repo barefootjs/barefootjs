@@ -5,6 +5,7 @@ import path from 'path'
 import type { CliContext } from '../context'
 import type { BarefootConfig } from '../context'
 import { resolveDependencies } from '../lib/dependency-resolver'
+import { extractMetaForFile } from './meta-extract'
 import type { MetaIndex, MetaIndexEntry, ComponentMeta, RegistryItem } from '../lib/types'
 
 export async function run(args: string[], ctx: CliContext): Promise<void> {
@@ -39,12 +40,34 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
   const projectDir = ctx.projectDir
   const config = ctx.config
 
+  // Resolution order for source-of-truth:
+  //   1. Explicit `--registry <url>` always wins (used for staging URLs,
+  //      local mirrors, pkg-pr-new previews, etc.).
+  //   2. Monorepo dev: in the BarefootJS source repo, `ui/components/ui/`
+  //      exists next to `ctx.root` and `addFromLocal` lets contributors
+  //      iterate without a network round-trip.
+  //   3. Everywhere else (i.e. scaffolded apps): fall back to the public
+  //      registry. Before this, `bf add button` in a scaffolded app went
+  //      down `addFromLocal` and failed with "not found in source
+  //      registry" because it was looking inside `node_modules/`.
+  const monorepoSourceDir = path.resolve(ctx.root, 'ui/components/ui')
+  const monorepoMode = existsSync(monorepoSourceDir)
+
   if (registryUrl) {
     await addFromRegistry(componentNames, registryUrl, projectDir, config, force, false)
-  } else {
+  } else if (monorepoMode) {
     addFromLocal(componentNames, ctx, projectDir, config, force)
+  } else {
+    await addFromRegistry(componentNames, DEFAULT_REGISTRY_URL, projectDir, config, force, false)
   }
 }
+
+// Default UI registry. Mirrors `commands/init.ts`'s constant so a
+// freshly scaffolded app and a follow-up `bf add` both reach the same
+// host. Keeping a duplicate constant here (rather than re-exporting
+// init's) avoids importing init's full surface, which carries a
+// spinner / TTY-prompt dependency.
+const DEFAULT_REGISTRY_URL = 'https://ui.barefootjs.dev/r/'
 
 /**
  * Fetch a single registry item. Returns null if skipErrors is true and fetch fails.
@@ -150,6 +173,11 @@ export async function addFromRegistry(
 
   const added: string[] = []
   const skipped: string[] = []
+  // `index.tsx` paths we just wrote. Each one is a freshly-added
+  // component whose meta we still need to extract — the registry only
+  // ships sources (`registry:ui` files), so without this step
+  // `meta/<name>.json` stays missing and `bf docs <name>` fails.
+  const writtenIndexPaths: string[] = []
 
   for (const [filePath, content] of fileMap) {
     // Map path: "components/ui/xxx/..." → config.paths.components/xxx/...
@@ -170,6 +198,28 @@ export async function addFromRegistry(
     mkdirSync(path.dirname(destPath), { recursive: true })
     writeFileSync(destPath, content)
     added.push(filePath)
+    if (destPath.endsWith(`${path.sep}index.tsx`) && filePath.startsWith('components/ui/')) {
+      writtenIndexPaths.push(destPath)
+    }
+  }
+
+  // Extract meta for each freshly-written component so `bf docs <name>`
+  // resolves immediately after `bf add`. We swallow per-file extraction
+  // failures (malformed source, analyzer crash) instead of failing the
+  // whole add — the source files are already on disk and the user can
+  // re-run `bf meta extract` to retry. `silent` callers (e.g. init)
+  // still get the warning via stderr so transient bugs aren't hidden.
+  for (const indexPath of writtenIndexPaths) {
+    try {
+      const { meta } = extractMetaForFile(indexPath, projectDir)
+      writeFileSync(
+        path.join(destMetaDir, `${meta.name}.json`),
+        JSON.stringify(meta, null, 2) + '\n',
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn(`  Warning: failed to extract meta for ${indexPath}: ${msg}`)
+    }
   }
 
   // Rebuild meta/index.json if meta dir exists
