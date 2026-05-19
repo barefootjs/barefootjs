@@ -3958,8 +3958,30 @@ function buildIfStatementChain(
       // (#1410). Text substitution into raw-captured JS would emit
       // the JSX as TypeScript syntax inside a JS string — invalid.
       if (initializerShapeContainsJsx(initExpr)) continue
+      // #1425: pre-resolve nested branch-local refs AND destructured
+      // prop refs in this initializer so a downstream substitution
+      // that pulls this entry in doesn't leave an earlier-declared
+      // local OR a bare prop identifier as a free reference in the
+      // emitted output. `branchScopeVars` records entries in source
+      // declaration order, so by the time we reach `name`, every
+      // earlier-declared local (the only kind its initializer can
+      // reference — TS rejects forward refs) is already resolved in
+      // `branchSubs` with its own prop refs already bridged to
+      // `_p.X`. Substitution → prop rewrite order matters: the
+      // substituted text from `branchSubs` is already in `_p.X`
+      // form, and `rewriteBarePropRefs`'s regex has a `(?<!_p\.)`
+      // negative lookbehind, so it's idempotent on the inner subs.
+      // The walk of `initExpr` then picks up the current entry's
+      // own AST-visible prop references.
+      let text = baseGetJS(initExpr)
+      if (branchNames.length > 0) {
+        const innerPattern = new RegExp(`\\b(${branchNames.join('|')})\\b`, 'g')
+        text = text.replace(innerPattern, (_match, ref) => `(${branchSubs.get(ref)!})`)
+      }
+      const propRewritten = rewriteBarePropRefs(text, initExpr, ctx)
+      if (propRewritten !== undefined) text = propRewritten
       branchNames.push(name)
-      branchSubs.set(name, baseGetJS(initExpr))
+      branchSubs.set(name, text)
     }
     // Identifier names are syntactically [A-Za-z_$][A-Za-z0-9_$]*, all of
     // which are regex-safe — no escape needed.
