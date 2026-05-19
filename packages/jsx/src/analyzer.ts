@@ -1881,7 +1881,19 @@ function collectFunction(
         // `_branchScopeVars` regex in `jsx-to-ir.ts`; users who need
         // single-evaluation or string-literal-safe semantics should
         // hoist the local to outer init scope themselves.
-        body = body.replace(re, (_m, n) => `(${branchSubs.get(n)!})`)
+        //
+        // Fixpoint iteration: a branch-local initializer can itself
+        // reference an earlier branch-local (e.g.
+        // `const a = 1; const b = a + 1; function f() { return b }`
+        // → first pass rewrites `b` to `(a + 1)`, leaving a fresh `a`
+        // that the next pass rewrites to `(1)`). Bound by
+        // `branchNames.length + 1` — the worst-case chain length.
+        const maxIter = branchNames.length + 1
+        for (let i = 0; i < maxIter; i++) {
+          const next = body.replace(re, (_m, n) => `(${branchSubs.get(n)!})`)
+          if (next === body) break
+          body = next
+        }
       }
     }
   }

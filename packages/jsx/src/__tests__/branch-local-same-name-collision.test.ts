@@ -227,6 +227,41 @@ describe('same-name branch-local const referenced from nested function decl (#14
     expect(content).not.toMatch(/=\s*\$size\b/)
   })
 
+  test('chained branch-locals — substitution fixpoints across initializer references', () => {
+    // Copilot review feedback: a branch-local initializer can itself
+    // reference an earlier branch-local. A single replacement pass
+    // would inline the second const but leave the first still bare in
+    // the body. The fixpoint loop closes this.
+    const source = `
+      'use client'
+
+      interface Props { kind: 'a' | 'b' }
+
+      export function ChainedLocals(props: Props) {
+        if (props.kind === 'a') {
+          const a = 1
+          const b = a + 1
+          function attach(el: HTMLElement) {
+            el.dataset.value = String(b)
+          }
+          return <div ref={attach}>A</div>
+        }
+        return <div>B</div>
+      }
+    `
+    const result = compileJSX(source, 'ChainedLocals.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toEqual([])
+    const content = clientJsContent(result)
+    // After fixpoint substitution: `b` → `(a + 1)` → `((1) + 1)`.
+    // Neither `a` nor `b` should survive as a bare identifier read in
+    // the attach body.
+    const attachBody = content.match(/attach\s*=[^{]*\{[\s\S]*?\}/)?.[0] ?? ''
+    expect(attachBody).not.toMatch(/=\s*String\(b\)/)
+    expect(attachBody).not.toMatch(/\(a\s*\+\s*1\)/)
+    // The final inlined form preserves the numeric literal.
+    expect(attachBody).toContain('1')
+  })
+
   test('non-colliding branch-local — substitution still applies (covers prior single-branch shape)', () => {
     // Same fix path covers the prior single-branch case where a closure
     // references a branch-local without a same-name sibling. Without
