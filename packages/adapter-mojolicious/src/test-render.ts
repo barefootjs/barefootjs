@@ -438,7 +438,13 @@ function parseLiteral(expr: string): unknown {
   if (expr === 'true') return true
   if (expr === 'false') return false
   if (expr === '[]') return []
-  if (/^['"](.*)['"]$/.test(expr)) return expr.slice(1, -1)
+  // String literal — require matching opener/closer (the previous
+  // regex `^['"]…['"]$` accepted mixed quotes like `'foo"`) and
+  // unescape JS-style escape sequences so `'a\\'b'` round-trips as
+  // `a\'b` instead of leaking the source-level escapes into the
+  // Perl literal (#1413 review).
+  const stringMatch = expr.match(/^(['"])(.*)\1$/s)
+  if (stringMatch) return unescapeJsString(stringMatch[2])
   // JS object literal (#1407 follow-up): `{ id: 'a', class: 'on' }`.
   // Used for spread-bag signal initial values in the `jsx-spread-*`
   // fixture family. Keys may be bare identifiers or string
@@ -466,7 +472,19 @@ function parseLiteral(expr: string): unknown {
     for (let i = 0; i < inner.length; i++) {
       const c = inner[i]
       if (quote) {
-        if (c === quote && inner[i - 1] !== '\\') quote = null
+        // Quote-termination check: count consecutive backslashes
+        // immediately before the current position. An EVEN count
+        // means each `\\` pair represents a literal backslash and
+        // the quote is unescaped, closing the string. An ODD
+        // count means the trailing `\` escapes the quote, so the
+        // string keeps going. The naive `inner[i-1] !== '\\'`
+        // check mis-classifies even runs (`\\"`) as escaped
+        // (#1413 review).
+        if (c === quote) {
+          let backslashes = 0
+          for (let j = i - 1; j >= 0 && inner[j] === '\\'; j--) backslashes++
+          if (backslashes % 2 === 0) quote = null
+        }
         continue
       }
       if (c === '"' || c === "'") {
@@ -489,9 +507,11 @@ function parseLiteral(expr: string): unknown {
       if (colonIdx < 0) return null
       let key = pair.slice(0, colonIdx).trim()
       const val = pair.slice(colonIdx + 1).trim()
-      // Strip key quotes if any.
-      const keyMatch = key.match(/^['"](.*)['"]$/)
-      if (keyMatch) key = keyMatch[1]
+      // Strip key quotes if any — require matching open/close
+      // quote and unescape, same shape as the value-side string
+      // literal handling above (#1413 review).
+      const keyMatch = key.match(/^(['"])(.*)\1$/s)
+      if (keyMatch) key = unescapeJsString(keyMatch[2])
       const parsedVal = parseLiteral(val)
       if (parsedVal === null && val !== 'null') return null
       obj[key] = parsedVal
@@ -499,6 +519,32 @@ function parseLiteral(expr: string): unknown {
     return obj
   }
   return null
+}
+
+/**
+ * Unescape a JS string-literal body (the content between the
+ * matching opening and closing quotes, not the quotes themselves).
+ * Handles the common single-character escapes `\\`, `\'`, `\"`,
+ * `\n`, `\r`, `\t`, `\0`, and the backslash-anything fallback that
+ * mirrors JS's "unknown escape is the character itself" semantics.
+ * Hex / unicode / octal escapes are intentionally out of scope —
+ * the spread-bag fixture corpus uses ASCII identifiers and short
+ * literal values, so the harness doesn't need a full JS string
+ * decoder (#1413 review).
+ */
+function unescapeJsString(s: string): string {
+  return s.replace(/\\(.)/g, (_, c) => {
+    switch (c) {
+      case 'n': return '\n'
+      case 'r': return '\r'
+      case 't': return '\t'
+      case '0': return '\0'
+      // `\\`, `\'`, `\"`, and any other single-character escape
+      // collapse to the literal character (matches JS semantics
+      // for unrecognised escapes).
+      default: return c
+    }
+  })
 }
 
 /**
