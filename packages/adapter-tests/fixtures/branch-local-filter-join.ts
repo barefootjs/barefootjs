@@ -32,6 +32,6 @@ function BranchLocalFilterJoin({ on, label }: { on?: boolean; label?: string }) 
 export { BranchLocalFilterJoin }
 `,
   expectedHtml: `
-    <div>fallback</div>
+    <div bf-s="test">fallback</div>
   `,
 })
