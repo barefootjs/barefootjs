@@ -259,6 +259,7 @@ export const HONO_NODE_ADAPTER: AdapterTemplate = {
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/test': 'latest',
     '@types/node': '^22.0.0',
     concurrently: '^9.0.0',
     tsx: '^4.19.0',

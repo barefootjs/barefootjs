@@ -187,6 +187,7 @@ export const CSR_ADAPTER: AdapterTemplate = {
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/test': 'latest',
     '@types/bun': '^1.1.0',
     concurrently: '^9.0.0',
     typescript: '^5.6.0',
