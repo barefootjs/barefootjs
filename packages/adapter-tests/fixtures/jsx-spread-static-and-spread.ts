@@ -22,6 +22,6 @@ export function JsxSpreadStaticAndSpread() {
 }
 `,
   expectedHtml: `
-    <div class="static-class" id="a" bf-s="test" bf="s0"></div>
+    <div bf-s="test" bf="s0" class="static-class" id="a"></div>
   `,
 })

@@ -26,6 +26,6 @@ export function JsxSpreadMultiple() {
 }
 `,
   expectedHtml: `
-    <div id="x" class="y" bf-s="test" bf="s0"></div>
+    <div bf-s="test" bf="s0" class="y" id="x"></div>
   `,
 })
