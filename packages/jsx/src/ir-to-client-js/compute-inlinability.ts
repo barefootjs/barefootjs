@@ -493,7 +493,11 @@ function collectTemplateRiskyNames(irRoot: IRNode): Set<string> {
       descend()
     },
     ifStatement: ({ node: i, descend }) => {
-      if (i.clientOnly) return
+      // `IRIfStatement` has no `clientOnly` field today — `/* @client */`
+      // never reaches this IR node from `jsx-to-ir.ts`, so there's
+      // nothing to carve out here yet. When `if`-statement support
+      // gains a clientOnly path, add the same `if (i.clientOnly) return`
+      // the `conditional` / `loop` visitors above use.
       addExprIdents(i.templateCondition ?? i.condition)
       descend()
     },
