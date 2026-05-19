@@ -151,6 +151,21 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
   private errors: CompilerError[] = []
   private inLoop: boolean = false
   /**
+   * Re-entry guard for `convertHigherOrderExpr` (#1421).
+   *
+   * `MojoTopLevelEmitter.unsupported` falls back to the regex pipeline
+   * via `_convertExpressionToPerlPublic`, which re-detects the
+   * `.filter|every|some` short-circuit and re-enters
+   * `convertHigherOrderExpr` with the same raw text. When the parser
+   * carries the full original expression down to every nested
+   * `unsupported` node (e.g. an array-literal callee that the AST
+   * can't classify), the cycle has no terminator and the JS stack
+   * blows. The guard records the expression on entry, emits BF101 on
+   * second visit, and bails out — so the user sees an actionable
+   * diagnostic instead of `RangeError: Maximum call stack size`.
+   */
+  private higherOrderInFlight: Set<string> = new Set()
+  /**
    * SolidJS-style props identifier (`function(props: P)`) and the
    * analyzer-extracted prop names. Stashed at `generate()` entry so
    * the per-attribute `emitSpread` callback can build a propsObject
@@ -173,6 +188,7 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     this.propsObjectName = ir.metadata.propsObjectName ?? null
     this.propsParams = ir.metadata.propsParams.map(p => ({ name: p.name }))
     this.errors = []
+    this.higherOrderInFlight = new Set()
     this.childrenCaptureCounter = 0
 
     // Mirror of the Go adapter's BF103 check (#1266): when a child
@@ -1254,8 +1270,25 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
    * - todos().filter(t => t.done).length > 0 → scalar(grep { $_->{done} } @{$todos}) > 0
    */
   private convertHigherOrderExpr(expr: string): string {
-    const parsed = parseExpression(expr)
-    return this.renderParsedExprToPerl(parsed)
+    if (this.higherOrderInFlight.has(expr)) {
+      this.errors.push({
+        code: 'BF101',
+        severity: 'error',
+        message: `Cannot lower higher-order chain to Embedded Perl: ${expr.trim()}`,
+        loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+        suggestion: {
+          message: "The Mojo adapter cannot lower this `.filter()` / `.every()` / `.some()` chain — typically because the array source is a JS array literal or a non-signal expression the AST classifier doesn't recognise. Move the expression into a `'use client'` component (so hydration computes it client-side), or rewrite it to operate on a signal getter or a prop directly.",
+        },
+      })
+      return ''
+    }
+    this.higherOrderInFlight.add(expr)
+    try {
+      const parsed = parseExpression(expr)
+      return this.renderParsedExprToPerl(parsed)
+    } finally {
+      this.higherOrderInFlight.delete(expr)
+    }
   }
 
   /**
