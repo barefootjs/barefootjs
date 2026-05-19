@@ -133,7 +133,7 @@ export function normalizeHTML(html: string): string {
   // regex chain so a fallback containing nested `<div>` doesn't mislead
   // any later matcher. See `stripAsyncPlaceholders` for the depth-
   // counted match. (#1298)
-  return stripAsyncPlaceholders(html)
+  const stripped = stripAsyncPlaceholders(html)
     // Remove loop boundary comment markers (template detail, not semantic).
     // Matches both legacy unscoped (`<!--bf-loop-->`) and scoped per-call-site
     // (`<!--bf-loop:l7-->`) forms (#1087). The marker id is `l\d+` — kept
@@ -176,21 +176,97 @@ export function normalizeHTML(html: string): string {
     .replace(/>\s+</g, '><')
     // Collapse whitespace
     .replace(/\s+/g, ' ')
-    // Normalize attribute order within tags (#1407). Attribute order is
-    // HTML-semantically irrelevant — `<div id="a" class="b">` and
-    // `<div class="b" id="a">` produce identical DOM — but adapters
-    // diverge: Hono / hono/jsx iterate JS object keys in insertion
-    // order, Go's `bf_spread_attrs` sorts keys for deterministic
-    // output (map[string]any has no insertion order). Sorting
-    // attributes alphabetically inside each tag here lets the SSR
-    // conformance comparison stay byte-equal across adapters.
-    .replace(/<([a-zA-Z][a-zA-Z0-9-]*)((?:\s+[^>]+?)?)\s*>/g, (_match, tag, attrs) => {
-      const trimmedAttrs = (attrs as string).trim()
-      if (!trimmedAttrs) return `<${tag}>`
-      const parts = sortHtmlAttributes(trimmedAttrs)
-      return parts.length > 0 ? `<${tag} ${parts.join(' ')}>` : `<${tag}>`
-    })
     .trim()
+  // Normalize attribute order within tags (#1407). Attribute order is
+  // HTML-semantically irrelevant — `<div id="a" class="b">` and
+  // `<div class="b" id="a">` produce identical DOM — but adapters
+  // diverge: Hono / hono/jsx iterate JS object keys in insertion
+  // order, Go's `bf_spread_attrs` sorts keys for deterministic
+  // output (map[string]any has no insertion order). Sorting
+  // attributes alphabetically inside each tag here lets the SSR
+  // conformance comparison stay byte-equal across adapters.
+  //
+  // The scan is a small purpose-built tokenizer rather than a regex
+  // so two edge cases the regex previously fumbled — self-closing
+  // non-void tags (`<svg foo="x"/>`, the trailing `/` was consumed
+  // as a stray attribute) and `>` characters inside quoted
+  // attribute values — are handled correctly (#1411 review).
+  return normalizeTagAttributeOrder(stripped)
+}
+
+function normalizeTagAttributeOrder(html: string): string {
+  let result = ''
+  let i = 0
+  while (i < html.length) {
+    if (html[i] !== '<' || i + 1 >= html.length) {
+      result += html[i]
+      i++
+      continue
+    }
+    const next = html[i + 1]
+    // Closing tags (`</foo>`), comments (`<!--`), and processing
+    // instructions / doctype (`<!`, `<?`) pass through unchanged —
+    // none of them carry attributes that need sorting.
+    if (next === '/' || next === '!' || next === '?' || !/[a-zA-Z]/.test(next)) {
+      result += html[i]
+      i++
+      continue
+    }
+    // Open tag — scan the tag name, the attrs, an optional
+    // self-close `/`, and the closing `>`.
+    const tagStart = i
+    i++ // skip <
+    const nameStart = i
+    while (i < html.length && /[a-zA-Z0-9-]/.test(html[i])) i++
+    const tagName = html.slice(nameStart, i)
+    // Read body up to `>`, respecting quoted spans so a `>` inside
+    // an attribute value doesn't terminate the tag.
+    let attrText = ''
+    let selfClose = false
+    let closed = false
+    while (i < html.length) {
+      const c = html[i]
+      if (c === '"' || c === "'") {
+        // Consume the quoted span verbatim — `>` inside a quoted
+        // value is legal HTML.
+        attrText += c
+        i++
+        while (i < html.length && html[i] !== c) {
+          attrText += html[i]
+          i++
+        }
+        if (i < html.length) {
+          attrText += html[i]
+          i++
+        }
+        continue
+      }
+      if (c === '/' && i + 1 < html.length && html[i + 1] === '>') {
+        selfClose = true
+        i += 2
+        closed = true
+        break
+      }
+      if (c === '>') {
+        i++
+        closed = true
+        break
+      }
+      attrText += c
+      i++
+    }
+    if (!closed) {
+      // Unterminated tag — emit the raw substring and stop.
+      result += html.slice(tagStart)
+      break
+    }
+    const trimmedAttrs = attrText.trim()
+    const sorted = trimmedAttrs ? sortHtmlAttributes(trimmedAttrs) : []
+    const attrsPart = sorted.length > 0 ? ' ' + sorted.join(' ') : ''
+    const closer = selfClose ? '/>' : '>'
+    result += `<${tagName}${attrsPart}${closer}`
+  }
+  return result
 }
 
 /**

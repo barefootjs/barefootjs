@@ -1257,6 +1257,16 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     }
     if (node.type === 'component') {
       const comp = node as IRComponent
+      // `IRComponent.children` are the JSX children passed to *this*
+      // component instance at the call site (`<Child>...</Child>`).
+      // They are part of the PARENT's IR and evaluate in the parent's
+      // render scope, so any spreads inside them belong on the parent's
+      // Props struct. The child component's own template body is a
+      // separate `ComponentIR` with its own `ir.root`, compiled in a
+      // separate `generate()` pass — it never appears in the parent's
+      // IR tree, so the recursion never crosses a component boundary
+      // and the per-component `spreadIdCounter` can't collide across
+      // unrelated components (#1411 review).
       for (const child of comp.children) {
         this.collectSpreadSlotsRecursive(child, result)
       }

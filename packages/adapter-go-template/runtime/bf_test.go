@@ -869,6 +869,28 @@ func TestSpreadAttrs(t *testing.T) {
 			bag:  map[string]any{"style": "color:red"},
 			want: `style="color:red"`,
 		},
+		// #1411 review parity tests — mirror JS `spreadAttrs` for
+		// edge keys.
+		{
+			name: "leading-uppercase key emits leading dash (parity with JS)",
+			bag:  map[string]any{"XData": "x"},
+			want: `-x-data="x"`,
+		},
+		{
+			name: "event handler with underscore third char skipped (parity with JS)",
+			bag:  map[string]any{"on_custom": "fn", "id": "a"},
+			want: `id="a"`,
+		},
+		{
+			name: "event handler with digit third char skipped (parity with JS)",
+			bag:  map[string]any{"on0": "fn", "id": "a"},
+			want: `id="a"`,
+		},
+		{
+			name: "on followed by lowercase letter NOT treated as event",
+			bag:  map[string]any{"oncology": "x"},
+			want: `oncology="x"`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

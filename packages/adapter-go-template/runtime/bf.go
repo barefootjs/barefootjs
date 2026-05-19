@@ -161,15 +161,17 @@ func toAttrName(key string) string {
 	if _, ok := svgCamelCaseAttrs[key]; ok {
 		return key
 	}
-	// camelCase → kebab-case: insert '-' before each uppercase ASCII
-	// letter, then lowercase. Same shape as the JS regex
-	// /([A-Z])/g → '-$1' → toLowerCase().
+	// camelCase → kebab-case: mirror the JS reference exactly
+	// (`key.replace(/([A-Z])/g, '-$1').toLowerCase()`). The JS shape
+	// produces a leading `-` for an initial uppercase letter
+	// (`XData` → `-x-data`); both this Go path and the matching JS
+	// runtime are wrong-by-construction for that case (the resulting
+	// HTML attribute name is invalid), but keeping them byte-equal
+	// avoids silent SSR/CSR divergence (#1411 review).
 	var b strings.Builder
-	for i, r := range key {
+	for _, r := range key {
 		if r >= 'A' && r <= 'Z' {
-			if i > 0 {
-				b.WriteByte('-')
-			}
+			b.WriteByte('-')
 			b.WriteRune(r + 32)
 		} else {
 			b.WriteRune(r)
@@ -282,10 +284,16 @@ func SpreadAttrs(bag any) template.HTMLAttr {
 	sort.Strings(sortedKeys)
 	parts := make([]string, 0, len(sortedKeys))
 	for _, key := range sortedKeys {
-		// Event handlers (on[A-Z]…) are runtime-only — skip at SSR
-		// the same way packages/client/src/runtime/spread-attrs.ts
-		// does at hydration.
-		if len(key) > 2 && key[0] == 'o' && key[1] == 'n' && key[2] >= 'A' && key[2] <= 'Z' {
+		// Event handlers — skip at SSR the same way
+		// packages/client/src/runtime/spread-attrs.ts does at
+		// hydration. The JS predicate is
+		// `key.startsWith('on') && key.length > 2 && key[2] === key[2].toUpperCase()`,
+		// which is true for any character whose uppercase form is
+		// itself: ASCII A-Z, digits, underscore, and non-letter
+		// symbols. Mirror that here by skipping when key[2] is NOT
+		// a lowercase ASCII letter — so `onClick`, `on_custom`, and
+		// `on0` all match (#1411 review).
+		if len(key) > 2 && key[0] == 'o' && key[1] == 'n' && !(key[2] >= 'a' && key[2] <= 'z') {
 			continue
 		}
 		if key == "children" || key == "ref" {
