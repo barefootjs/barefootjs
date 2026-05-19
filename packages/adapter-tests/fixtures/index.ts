@@ -1,6 +1,7 @@
 import { fixture as counter } from './counter'
 // Priority 1: Core reactivity
 import { fixture as signalWithFallback } from './signal-with-fallback'
+import { fixture as signalDefaultFromJsx } from './signal-default-from-jsx'
 import { fixture as controlledSignal } from './controlled-signal'
 import { fixture as signalPropSameName } from './signal-prop-same-name'
 import { fixture as memo } from './memo'
@@ -89,6 +90,7 @@ export const jsxFixtures: JSXFixture[] = [
   counter,
   // Priority 1: Core reactivity
   signalWithFallback,
+  signalDefaultFromJsx,
   controlledSignal,
   signalPropSameName,
   memo,

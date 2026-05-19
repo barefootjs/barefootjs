@@ -118,6 +118,22 @@ interface SpreadSlotInfo {
   bagSource: 'inline' | 'input-bag'
 }
 
+/**
+ * (#1423) Hoisted local var representing a prop with a signal-time
+ * `??` fallback. Used by `generateNewPropsFunction` to share the
+ * fallback-applied value across the prop, signal, and memo fields.
+ */
+interface PropFallbackVar {
+  /** Local variable name (typically the lowercase prop identifier). */
+  varName: string
+  /** Capitalised Go field name on the `Input` struct. */
+  fieldName: string
+  /** Go literal used when the input value equals its zero value. */
+  goFallback: string
+  /** Go zero literal for the prop's type (`0`, `""`, etc.). */
+  zeroLiteral: string
+}
+
 export interface GoTemplateAdapterOptions {
   /** Go package name for generated types (default: 'components') */
   packageName?: string
@@ -934,6 +950,23 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       }
     }
 
+    // (#1423) Collect signal-time prop fallbacks: when a signal is
+    // initialized via `createSignal(props.X ?? N)`, hoist `N` as a
+    // local variable so the signal, any memo derived from it, and the
+    // prop field itself all derive from the same fallback-applied
+    // value. Mirrors the Mojo adapter's `ssrDefaults` consumption
+    // (#1419) — Go's primitive zero values can't distinguish an
+    // explicit `Initial: 0` from an omitted field, so the substitution
+    // also fires when the caller passes the type's zero value.
+    const propFallbackVars = this.collectPropFallbackVars(ir)
+    for (const [, info] of propFallbackVars) {
+      lines.push(`\t${info.varName} := in.${info.fieldName}`)
+      lines.push(`\tif ${info.varName} == ${info.zeroLiteral} {`)
+      lines.push(`\t\t${info.varName} = ${info.goFallback}`)
+      lines.push(`\t}`)
+    }
+    if (propFallbackVars.size > 0) lines.push('')
+
     lines.push(`\treturn ${propsTypeName}{`)
     lines.push('\t\tScopeID: scopeID,')
     // (#1249) Forward host context for when *this* component is itself a
@@ -947,16 +980,23 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     // Add props params, tracking field names to skip duplicate signal assignments.
     // When the JSX function declared a default (e.g. `variant = 'default'`),
     // bake that fallback into the generated assignment so a Go zero value
-    // doesn't silently shadow the JSX-side default.
+    // doesn't silently shadow the JSX-side default. The same logic
+    // applies for signal-side fallbacks (`createSignal(props.X ?? N)`)
+    // via the hoisted variable from `propFallbackVars` (#1423).
     const propFieldNames = new Set<string>()
     for (const param of ir.metadata.propsParams) {
       const fieldName = this.capitalizeFieldName(param.name)
       if (nestedArrayFields.has(fieldName)) continue
-      const fallback = this.goPropDefault(param.defaultValue)
-      if (fallback !== null) {
-        lines.push(`\t\t${fieldName}: ${this.applyGoFallback(`in.${fieldName}`, fallback)},`)
+      const hoisted = propFallbackVars.get(param.name)
+      if (hoisted) {
+        lines.push(`\t\t${fieldName}: ${hoisted.varName},`)
       } else {
-        lines.push(`\t\t${fieldName}: in.${fieldName},`)
+        const fallback = this.goPropDefault(param.defaultValue)
+        if (fallback !== null) {
+          lines.push(`\t\t${fieldName}: ${this.applyGoFallback(`in.${fieldName}`, fallback)},`)
+        } else {
+          lines.push(`\t\t${fieldName}: in.${fieldName},`)
+        }
       }
       propFieldNames.add(fieldName)
     }
@@ -965,8 +1005,17 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     for (const signal of ir.metadata.signals) {
       const fieldName = this.capitalizeFieldName(signal.getter)
       if (propFieldNames.has(fieldName)) continue
-      const initialValue = this.convertInitialValue(signal.initialValue, signal.type, ir.metadata.propsParams)
-      lines.push(`\t\t${fieldName}: ${initialValue},`)
+      // (#1423) If this signal's initial value is `props.X ?? N` and we
+      // hoisted a fallback variable for `X`, reuse the hoisted variable
+      // so the signal and any memo computation share the same value.
+      const fallbackMatch = this.extractPropFallback(signal.initialValue)
+      const hoisted = fallbackMatch ? propFallbackVars.get(fallbackMatch.propName) : undefined
+      if (hoisted) {
+        lines.push(`\t\t${fieldName}: ${hoisted.varName},`)
+      } else {
+        const initialValue = this.convertInitialValue(signal.initialValue, signal.type, ir.metadata.propsParams)
+        lines.push(`\t\t${fieldName}: ${initialValue},`)
+      }
     }
 
     // Add nested component arrays (static only; dynamic ones are set by the handler)
@@ -978,7 +1027,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     // Add memo initial values (computed from signal initial values)
     for (const memo of ir.metadata.memos) {
       const fieldName = this.capitalizeFieldName(memo.name)
-      const memoValue = this.computeMemoInitialValue(memo, ir.metadata.signals, ir.metadata.propsParams)
+      const memoValue = this.computeMemoInitialValue(memo, ir.metadata.signals, ir.metadata.propsParams, propFallbackVars)
       lines.push(`\t\t${fieldName}: ${memoValue},`)
     }
 
@@ -1638,16 +1687,28 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   /**
    * Get signal's initial value as Go code.
    * Handles both literal values (0, true, "str") and props references (initial).
+   *
+   * (#1423) When the signal references a prop via `props.X ?? N` and
+   * the caller hoisted a fallback variable for `X`, return the hoisted
+   * variable's name so the memo inherits the signal-time fallback.
    */
-  private getSignalInitialValueAsGo(initialValue: string, propsParams: { name: string }[]): string {
+  private getSignalInitialValueAsGo(
+    initialValue: string,
+    propsParams: { name: string }[],
+    propFallbackVars: ReadonlyMap<string, PropFallbackVar> = GoTemplateAdapter.EMPTY_PROP_FALLBACK_VARS,
+  ): string {
     // Check if it's a props param reference
     if (propsParams.some(p => p.name === initialValue)) {
+      const hoisted = propFallbackVars.get(initialValue)
+      if (hoisted) return hoisted.varName
       return `in.${this.capitalizeFieldName(initialValue)}`
     }
 
     // Check for props.xxx pattern (e.g., "props.initial ?? 0")
     const propName = this.extractPropNameFromInitialValue(initialValue)
     if (propName && propsParams.some(p => p.name === propName)) {
+      const hoisted = propFallbackVars.get(propName)
+      if (hoisted) return hoisted.varName
       return `in.${this.capitalizeFieldName(propName)}`
     }
 
@@ -1776,13 +1837,24 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
    * Compute the initial value for a memo based on its computation and signal initial values.
    * Handles simple cases like `() => count() * 2` → `in.Initial * 2`
    * Also handles props.xxx patterns like `() => props.value * 10` → `in.Value * 10`
+   *
+   * (#1423) When `propFallbackVars` carries a hoisted variable for the
+   * referenced prop, substitute it for `in.FieldName` so the memo
+   * inherits the signal-time `??` fallback.
    */
   private computeMemoInitialValue(
     memo: { name: string; computation: string; deps: string[] },
     signals: { getter: string; initialValue: string }[],
-    propsParams: { name: string; type?: TypeInfo; defaultValue?: string }[]
+    propsParams: { name: string; type?: TypeInfo; defaultValue?: string }[],
+    propFallbackVars: ReadonlyMap<string, PropFallbackVar> = GoTemplateAdapter.EMPTY_PROP_FALLBACK_VARS,
   ): string {
     const computation = memo.computation
+    // Helper to pick the hoisted var (if any) or fall back to `in.X`.
+    const propRef = (propName: string): string => {
+      const hoisted = propFallbackVars.get(propName)
+      if (hoisted) return hoisted.varName
+      return `in.${this.capitalizeFieldName(propName)}`
+    }
 
     // Pattern: () => dep() * N or () => dep() + N etc.
     const arithmeticMatch = computation.match(/\(\)\s*=>\s*(\w+)\(\)\s*([*+\-/])\s*(\d+)/)
@@ -1791,7 +1863,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       const signal = signals.find(s => s.getter === depName)
       if (signal) {
         // Get the signal's initial value in Go format
-        const signalInitial = this.getSignalInitialValueAsGo(signal.initialValue, propsParams)
+        const signalInitial = this.getSignalInitialValueAsGo(signal.initialValue, propsParams, propFallbackVars)
         return `${signalInitial} ${operator} ${operand}`
       }
     }
@@ -1803,6 +1875,8 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       // Check if this prop is in propsParams (passed from parent)
       const param = propsParams.find(p => p.name === propName)
       if (param) {
+        const hoisted = propFallbackVars.get(propName)
+        if (hoisted) return `${hoisted.varName} ${operator} ${operand}`
         const fieldName = this.capitalizeFieldName(propName)
         // Guard: if the prop resolves to interface{}, use type assertion for arithmetic
         if (param.type) {
@@ -1819,7 +1893,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       const [, depName] = simpleMatch
       const signal = signals.find(s => s.getter === depName)
       if (signal) {
-        return this.getSignalInitialValueAsGo(signal.initialValue, propsParams)
+        return this.getSignalInitialValueAsGo(signal.initialValue, propsParams, propFallbackVars)
       }
     }
 
@@ -1829,7 +1903,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       const [, propName] = propsSimpleMatch
       const param = propsParams.find(p => p.name === propName)
       if (param) {
-        return `in.${this.capitalizeFieldName(propName)}`
+        return propRef(propName)
       }
     }
 
@@ -1927,6 +2001,96 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   }
 
   /**
+   * (#1423) Hoisted-variable record for a prop with a signal-time
+   * `??` fallback. The same record is referenced from the prop field
+   * loop, the signal field loop, and the memo computation path.
+   */
+  private static EMPTY_PROP_FALLBACK_VARS: ReadonlyMap<string, PropFallbackVar> = new Map()
+
+  /**
+   * (#1423) Walk signals to collect prop fallbacks. Skips props that
+   * already have a destructure-side default (`{ X = N }`) or signals
+   * whose fallback resolves to the type's Go zero value (no-op).
+   */
+  private collectPropFallbackVars(ir: ComponentIR): Map<string, PropFallbackVar> {
+    const result = new Map<string, PropFallbackVar>()
+    const localTaken = new Set(['scopeID'])
+    for (const nested of this.findNestedComponents(ir.root)) {
+      localTaken.add(`${nested.name.charAt(0).toLowerCase()}${nested.name.slice(1)}s`)
+    }
+
+    for (const signal of ir.metadata.signals) {
+      const match = this.extractPropFallback(signal.initialValue)
+      if (!match) continue
+      if (result.has(match.propName)) continue
+      const param = ir.metadata.propsParams.find(p => p.name === match.propName)
+      if (!param) continue
+      // A destructure default already wins via applyGoFallback below.
+      if (this.goPropDefault(param.defaultValue) !== null) continue
+      const fieldName = this.capitalizeFieldName(match.propName)
+      // Pick the zero literal based on the fallback's literal shape.
+      // Bool fallbacks (`?? true`) hoist against the `false` zero —
+      // matches the same Go-zero conflation the int / string cases
+      // accept: caller can't distinguish "explicit false" from
+      // "unset", but for SSR-time defaults that's the documented
+      // trade-off (#1423 Option B).
+      let zeroLiteral: string
+      if (match.goFallback === 'true' || match.goFallback === 'false') {
+        zeroLiteral = 'false'
+      } else if (/^-?\d+(\.\d+)?$/.test(match.goFallback)) {
+        zeroLiteral = '0'
+      } else if (match.goFallback.startsWith('"')) {
+        zeroLiteral = '""'
+      } else {
+        continue
+      }
+      // Zero-equivalent fallback is a no-op against the Go zero value
+      // (`?? 0`, `?? ''`, `?? false`, `?? 0.0`). Compare against the
+      // computed zeroLiteral so spelling variants like `0.0` collapse
+      // to the same skip as `0`.
+      if (match.goFallback === zeroLiteral) continue
+      if (zeroLiteral === '0' && Number(match.goFallback) === 0) continue
+      // The JSX-side identifier is the natural local name.
+      // Suffix with `_` if it collides with a Go keyword or a local we
+      // already emit.
+      let varName = match.propName
+      while (localTaken.has(varName) || GoTemplateAdapter.GO_KEYWORDS.has(varName)) {
+        varName += '_'
+      }
+      localTaken.add(varName)
+      result.set(match.propName, { varName, fieldName, goFallback: match.goFallback, zeroLiteral })
+    }
+    return result
+  }
+
+  /**
+   * (#1423) Parse a signal-time initial value of the form
+   * `props.X ?? <literal>` into the source prop name and the Go-formatted
+   * fallback. Returns null when:
+   *   - the expression isn't a `??` against a property access on
+   *     `propsObjectName`
+   *   - the fallback isn't a simple literal `goPropDefault` can translate
+   *
+   * The Go-adapter equivalent of the same parse already done by the
+   * static evaluator in `ssr-defaults.ts` — duplicated here because we
+   * need the original prop reference (not just the resolved value)
+   * to honour caller-supplied non-zero inputs.
+   */
+  private extractPropFallback(initialValue: string): { propName: string; goFallback: string } | null {
+    if (!this.propsObjectName) return null
+    const trimmed = initialValue.trim()
+    const name = this.propsObjectName
+
+    // `props.X ?? <rhs>` — capture RHS greedily up to end of string.
+    const re = new RegExp(`^${name}\\.(\\w+)\\s*\\?\\?\\s*(.+)$`)
+    const m = trimmed.match(re)
+    if (!m) return null
+    const goFallback = this.goPropDefault(m[2].trim())
+    if (goFallback === null) return null
+    return { propName: m[1], goFallback }
+  }
+
+  /**
    * Extract prop name from a signal's initialValue that uses props.xxx pattern.
    * e.g., "props.initial ?? 0" → "initial", "props.checked" → "checked"
    */
@@ -1953,6 +2117,18 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     'id', 'url', 'http', 'https', 'api', 'json', 'xml', 'html', 'css', 'sql',
     'ip', 'tcp', 'udp', 'dns', 'ssh', 'tls', 'ssl', 'uri', 'uid', 'uuid',
     'ascii', 'utf8', 'eof', 'grpc', 'rpc', 'cpu', 'gpu', 'ram', 'os',
+  ])
+
+  /**
+   * (#1423) Go reserved keywords. When we hoist a local var named after
+   * a JSX prop, the prop name could collide with one of these — append
+   * `_` until the name is free.
+   */
+  private static GO_KEYWORDS = new Set([
+    'break', 'case', 'chan', 'const', 'continue', 'default', 'defer',
+    'else', 'fallthrough', 'for', 'func', 'go', 'goto', 'if', 'import',
+    'interface', 'map', 'package', 'range', 'return', 'select', 'struct',
+    'switch', 'type', 'var',
   ])
 
   private capitalizeFieldName(name: string): string {

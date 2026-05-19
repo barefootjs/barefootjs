@@ -5,7 +5,7 @@
  * Used by adapter-tests conformance runner.
  */
 
-import { compileJSX } from '@barefootjs/jsx'
+import { compileJSX, extractSsrDefaults } from '@barefootjs/jsx'
 import type { ComponentIR } from '@barefootjs/jsx'
 import { mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
@@ -411,12 +411,17 @@ function buildPerlProps(
     }
   }
 
-  // Add memo values — simple pass-through for SSR
+  // Add memo values. The production Mojo plugin seeds these from the
+  // manifest's `ssrDefaults` (see Plugin/BarefootJS.pm `before_render`
+  // hook), which carries the statically-evaluated result of each memo
+  // computation. Mirror that here so the test harness doesn't diverge
+  // from the plugin: hard-coding `0` masked memos with non-zero
+  // initial values until #1423 added a fixture that exposed the gap.
+  const ssrDefaults = extractSsrDefaults(ir.metadata) ?? {}
   for (const memo of ir.metadata.memos) {
-    // Try to evaluate simple memo computations
-    const computation = memo.computation.trim()
-    // count() * 2 → look up count in entries
-    entries.push(`${memo.name} => 0`)
+    const entry = ssrDefaults[memo.name]
+    const value = entry && typeof entry === 'object' && 'value' in entry ? entry.value : 0
+    entries.push(`${memo.name} => ${toPerlLiteral(value ?? 0)}`)
   }
 
   return `{${entries.join(', ')}}`
