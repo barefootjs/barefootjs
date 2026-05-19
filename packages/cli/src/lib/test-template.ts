@@ -16,8 +16,12 @@ export function generateTestTemplate(componentPath: string): string {
   const fileName = path.basename(componentPath)
   const baseName = fileName.replace(/\.tsx$/, '')
 
-  // Determine the relative path from __tests__/ to the component
-  const relativePath = `../${fileName}`
+  // Match the layout `bf gen component` writes — test sits next to the
+  // source (`components/ui/foo/index.tsx` + `…/index.test.tsx`) — so the
+  // generated `readFileSync` reaches its source via a bare filename
+  // rather than a `../` hop into a `__tests__/` subdir we don't actually
+  // create anywhere in the scaffold (#1403 papercut).
+  const relativePath = fileName
 
   const varName = toCamelCase(baseName) + 'Source'
   const exportedNames = parsed.exportedNames
@@ -167,17 +171,21 @@ function generateDescribeBlock(
     lines.push(``)
   }
 
-  // Events
+  // Events. We can't tell from a regex scan whether `onClick=` is on
+  // an intrinsic element (`<button onClick>` → IR `events` array) or
+  // on a component (`<Button onClick>` → IR `props.onClick` on the
+  // component node — Counter's pattern). Walk the whole tree and
+  // accept either, so the generated test passes regardless of which
+  // pattern the source happens to use. The user can tighten it down
+  // to a specific node once they know what they're asserting against.
   if (funcInfo.events.length > 0) {
     lines.push(`  test('has event handlers', () => {`)
-    const findTarget = funcInfo.role
-      ? `result.find({ role: '${funcInfo.role}' })!`
-      : funcInfo.rootTag
-        ? `result.find({ tag: '${funcInfo.rootTag}' })!`
-        : 'result.root'
-    lines.push(`    const el = ${findTarget}`)
+    lines.push(`    const all = result.findAll({})`)
     for (const event of funcInfo.events) {
-      lines.push(`    expect(el.events).toContain('${event}')`)
+      const onProp = 'on' + event.charAt(0).toUpperCase() + event.slice(1)
+      lines.push(`    expect(`)
+      lines.push(`      all.some(n => n.events.includes('${event}') || n.props['${onProp}'] != null),`)
+      lines.push(`    ).toBe(true)`)
     }
     lines.push(`  })`)
     lines.push(``)

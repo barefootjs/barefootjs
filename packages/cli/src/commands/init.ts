@@ -277,7 +277,13 @@ async function scaffoldApp(
       // only needs the BarefootJS asset pipeline to keep pace.
       watch:
         'concurrently -k -n build,uno -c blue,magenta "bf build --watch" "unocss --watch"',
-      test: 'echo "no tests yet"',
+      // `bf gen component` writes `*.test.tsx` using `bun:test`, and the
+      // AI-native workflow doc (`bf guide core-concepts/ai-native`)
+      // points users at `bun test` as step 4 of the loop. Default the
+      // scaffold's `test` script to the same so `npm test` / `bun run
+      // test` Just Works after the first generated component, instead
+      // of falling back to the "no tests yet" placeholder (#1403).
+      test: 'bun test',
     },
     dependencies: { ...adapter.dependencies },
     devDependencies: { ...adapter.devDependencies },

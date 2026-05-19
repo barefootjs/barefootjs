@@ -1,6 +1,13 @@
 // Shared type definitions for component metadata extraction and CLI
 
-export type ComponentCategory = 'input' | 'overlay' | 'navigation' | 'layout' | 'display'
+// `'page'` covers top-level page / route components surfaced by the
+// source-derived `bf docs` fallback (#1403). They live under
+// `sourceDirs` (e.g. `components/Counter.tsx`) rather than the UI
+// registry path that `bf meta extract` scans, so they have no
+// persistent JSON in `meta/` — the meta object is reconstructed from
+// the source on demand. The category serves as a visible marker that
+// the user is looking at a source-derived view, not a registry entry.
+export type ComponentCategory = 'input' | 'overlay' | 'navigation' | 'layout' | 'display' | 'page'
 
 export interface PropMeta {
   name: string

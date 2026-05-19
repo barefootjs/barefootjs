@@ -1,13 +1,20 @@
 // bf docs — show detailed component documentation.
 
+import path from 'path'
 import type { CliContext } from '../context'
 import type { ComponentMeta } from '../lib/types'
-import { loadComponent } from '../lib/meta-loader'
+import { formatMissingComponentError, tryLoadComponent } from '../lib/meta-loader'
+import { resolveComponentSource } from '../lib/resolve-source'
+import { extractMetaForFile } from './meta-extract'
 
-function printComponent(meta: ComponentMeta, jsonFlag: boolean) {
+function printComponent(meta: ComponentMeta, jsonFlag: boolean, banner?: string) {
   if (jsonFlag) {
     console.log(JSON.stringify(meta, null, 2))
     return
+  }
+  if (banner) {
+    console.log(banner)
+    console.log()
   }
 
   console.log(`# ${meta.title}`)
@@ -90,5 +97,51 @@ export function run(args: string[], ctx: CliContext): void {
     console.error('Error: Component name required. Usage: bf docs <component>')
     process.exit(1)
   }
-  printComponent(loadComponent(ctx.metaDir, query), ctx.jsonFlag)
+
+  // 1. Preferred path: meta JSON written by `bf meta extract` / `bf add`.
+  const registryMeta = tryLoadComponent(ctx.metaDir, query)
+  if (registryMeta) {
+    printComponent(registryMeta, ctx.jsonFlag)
+    return
+  }
+
+  // 2. Source-derived fallback for top-level page components
+  //    (#1403). `bf meta extract` only scans `paths.components`, so
+  //    user-authored components living under `sourceDirs`
+  //    (`components/Counter.tsx` etc.) never get a persistent
+  //    meta/<name>.json. Rebuild a minimal `ComponentMeta` on the fly
+  //    via the same `extractMetaForFile` machinery `bf meta extract`
+  //    uses for registry components, and mark it with the `page`
+  //    category so the user can tell at a glance which path produced
+  //    this output.
+  const resolved = resolveComponentSource(query, ctx)
+  if (resolved) {
+    const { meta } = extractMetaForFile(
+      resolved.filePath,
+      ctx.projectDir ?? ctx.root,
+      {},
+    )
+    // `extractMetaForFile` derives the component name from the parent
+    // directory of the source file (correct for the registry layout
+    // `<name>/index.tsx`, wrong for the flat `components/<Name>.tsx`
+    // layout page components use — `fileToName(.../components/Counter.tsx)`
+    // would return `'components'`). Use the query as the canonical
+    // name since that's what the user typed in.
+    const sourceDerivedMeta: ComponentMeta = {
+      ...meta,
+      name: query,
+      title: query,
+      category: 'page',
+    }
+    const rel = path.relative(ctx.projectDir ?? ctx.root, resolved.filePath)
+    const banner = `(source-derived view of ${rel} — no registry meta. Run \`bf docs\` again after \`bf meta extract\` only if you've moved this file under \`paths.components\`.)`
+    printComponent(sourceDerivedMeta, ctx.jsonFlag, banner)
+    return
+  }
+
+  // 3. Hard error — neither meta nor source matches.
+  for (const line of formatMissingComponentError(ctx.metaDir, query, ctx)) {
+    console.error(line)
+  }
+  process.exit(1)
 }

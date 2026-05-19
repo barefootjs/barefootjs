@@ -20,7 +20,7 @@ Scaffold a new project with \`npm create barefootjs@latest\`, then:
 Daily:
   add <comp...> [--force] [--registry <url>]  Add component(s) to your project
   docs <component>                            Show docs for a component
-  guide [topic]                               Show framework guides (concepts, API)
+  guide [topic]                               Show framework guides (run \`bf guide\` to list)
   search <query> [--dir <path>] [--registry <url>]  Search components and docs
   preview [component]                         Open visual preview (no arg lists previewable)
   build [--minify] [--force] [--watch]        Compile components using barefoot.config.ts

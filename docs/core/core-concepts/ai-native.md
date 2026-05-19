@@ -15,16 +15,30 @@ BarefootJS is designed so both humans and AI agents can build components without
 `renderToTest()` verifies component structure, signals, events, and accessibility against the compiler's IR — in milliseconds, without a browser. Real interactions and visual behavior still need E2E tests, but structural issues are caught before you get there:
 
 ```tsx
+import { describe, test, expect } from 'bun:test'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 import { renderToTest } from '@barefootjs/test'
 
-test('Counter has a button with click handler', () => {
-  const ir = renderToTest(<Counter />)
+const source = readFileSync(resolve(__dirname, 'Counter.tsx'), 'utf-8')
 
-  expect(ir).toContainElement('button')
-  expect(ir).toHaveEventHandler('click')
-  expect(ir).toHaveSignal('count', { initialValue: 0 })
+describe('Counter', () => {
+  const ir = renderToTest(source, 'Counter.tsx')
+
+  test('compiles cleanly with a `count` signal', () => {
+    expect(ir.errors).toEqual([])
+    expect(ir.signals).toContain('count')
+  })
+
+  test('has a button wired to a click handler', () => {
+    const button = ir.find({ tag: 'button' })
+    expect(button).not.toBeNull()
+    expect(button!.events).toContain('click')
+  })
 })
 ```
+
+`renderToTest(source, filePath)` takes the component source as a string and returns a queryable `TestResult` (`root`, `signals`, `memos`, `errors`, plus `find`/`findAll`/`findByText` for traversal). The same call shape is what `bf gen component` and `bf gen test` write — see the auto-generated `index.test.tsx` next to any component for a richer worked example.
 
 See [IR Schema Reference](../advanced/ir-schema.md) for the full specification.
 
