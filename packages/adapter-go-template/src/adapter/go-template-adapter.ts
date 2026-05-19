@@ -226,6 +226,14 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   private loopParamStack: string[] = []
   private errors: CompilerError[] = []
   private propsObjectName: string | null = null
+  /**
+   * Component-scoped rest binding identifier (`function({ a, ...rest }: P)`
+   * → `'rest'`). Stashed at `generate()` entry so per-attribute
+   * emitter callbacks can classify a spread expression against it
+   * without threading the IR through each recursion (#1407
+   * follow-up).
+   */
+  private restPropsName: string | null = null
   /** Local type names resolved from typeDefinitions (populated during generateTypes) */
   private localTypeNames: Set<string> = new Set()
   /** Local type aliases mapping type name to base type (e.g., Filter → 'string') */
@@ -253,6 +261,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     this.componentName = ir.metadata.componentName
     this.errors = []
     this.propsObjectName = ir.metadata.propsObjectName
+    this.restPropsName = ir.metadata.restPropsName ?? null
 
     // Surface loop-body usages of components imported from sibling
     // .tsx files. The adapter emits `{{template "X" .}}` for these,
@@ -589,7 +598,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     // `Spread_<N> map[string]any` field for `input-bag` slots so the
     // caller can populate the open-ended restPropsName spread bag
     // (#1407 follow-up).
-    const spreadSlots = this.collectSpreadSlots(ir.root, ir)
+    const spreadSlots = this.collectSpreadSlots(ir.root)
 
     // Generate Input struct for main component
     this.generateInputStruct(lines, ir, componentName, nestedComponents, propTypeOverrides, spreadSlots)
@@ -1265,9 +1274,9 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
    * loop bodies. Each `IRElement.attrs[i].value` of kind `'spread'`
    * that has a `slotId` becomes one `SpreadSlotInfo` entry.
    */
-  private collectSpreadSlots(node: IRNode, ir: ComponentIR): SpreadSlotInfo[] {
+  private collectSpreadSlots(node: IRNode): SpreadSlotInfo[] {
     const result: SpreadSlotInfo[] = []
-    this.collectSpreadSlotsRecursive(node, result, ir)
+    this.collectSpreadSlotsRecursive(node, result)
     return result
   }
 
@@ -1280,17 +1289,21 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
    * other shape — signal getter, `propsObjectName`, plain
    * propsParam, object literal — can be constructed inline in
    * `NewXxxProps` from compile-time-known data.
+   *
+   * Reads `this.restPropsName` (stashed at `generate()` entry)
+   * rather than receiving the IR per-call — matches the existing
+   * `this.propsObjectName` / `this.componentName` storage pattern.
    */
-  private classifySpreadBagSource(spreadExpr: string, ir: ComponentIR): 'input-bag' | 'inline' {
+  private classifySpreadBagSource(spreadExpr: string): 'input-bag' | 'inline' {
     const trimmed = spreadExpr.trim()
     if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)
-      && ir.metadata.restPropsName === trimmed) {
+      && this.restPropsName === trimmed) {
       return 'input-bag'
     }
     return 'inline'
   }
 
-  private collectSpreadSlotsRecursive(node: IRNode, result: SpreadSlotInfo[], ir: ComponentIR): void {
+  private collectSpreadSlotsRecursive(node: IRNode, result: SpreadSlotInfo[]): void {
     if (node.type === 'element') {
       const element = node as IRElement
       for (const attr of element.attrs) {
@@ -1300,31 +1313,31 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
           slotId: attr.value.slotId,
           expr: attr.value.expr,
           templateExpr: attr.value.templateExpr,
-          bagSource: this.classifySpreadBagSource(attr.value.expr, ir),
+          bagSource: this.classifySpreadBagSource(attr.value.expr),
         })
       }
       for (const child of element.children) {
-        this.collectSpreadSlotsRecursive(child, result, ir)
+        this.collectSpreadSlotsRecursive(child, result)
       }
       return
     }
     if (node.type === 'fragment') {
       const fragment = node as IRFragment
       for (const child of fragment.children) {
-        this.collectSpreadSlotsRecursive(child, result, ir)
+        this.collectSpreadSlotsRecursive(child, result)
       }
       return
     }
     if (node.type === 'conditional') {
       const cond = node as IRConditional
-      this.collectSpreadSlotsRecursive(cond.whenTrue, result, ir)
-      if (cond.whenFalse) this.collectSpreadSlotsRecursive(cond.whenFalse, result, ir)
+      this.collectSpreadSlotsRecursive(cond.whenTrue, result)
+      if (cond.whenFalse) this.collectSpreadSlotsRecursive(cond.whenFalse, result)
       return
     }
     if (node.type === 'if-statement') {
       const stmt = node as IRIfStatement
-      this.collectSpreadSlotsRecursive(stmt.consequent, result, ir)
-      if (stmt.alternate) this.collectSpreadSlotsRecursive(stmt.alternate, result, ir)
+      this.collectSpreadSlotsRecursive(stmt.consequent, result)
+      if (stmt.alternate) this.collectSpreadSlotsRecursive(stmt.alternate, result)
       return
     }
     if (node.type === 'component') {
@@ -1340,22 +1353,22 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       // and the per-component `spreadIdCounter` can't collide across
       // unrelated components (#1411 review).
       for (const child of comp.children) {
-        this.collectSpreadSlotsRecursive(child, result, ir)
+        this.collectSpreadSlotsRecursive(child, result)
       }
       return
     }
     if (node.type === 'provider') {
       const p = node as IRProvider
       for (const child of p.children) {
-        this.collectSpreadSlotsRecursive(child, result, ir)
+        this.collectSpreadSlotsRecursive(child, result)
       }
       return
     }
     if (node.type === 'async') {
       const a = node as IRAsync
-      this.collectSpreadSlotsRecursive(a.fallback, result, ir)
+      this.collectSpreadSlotsRecursive(a.fallback, result)
       for (const child of a.children) {
-        this.collectSpreadSlotsRecursive(child, result, ir)
+        this.collectSpreadSlotsRecursive(child, result)
       }
       return
     }
