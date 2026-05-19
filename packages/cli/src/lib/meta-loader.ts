@@ -57,7 +57,10 @@ export async function fetchRegistryItem(registryUrl: string, name: string): Prom
 export function loadComponent(metaDir: string, name: string): ComponentMeta {
   const filePath = path.join(metaDir, `${name}.json`)
   if (!existsSync(filePath)) {
-    console.error(`Error: Component "${name}" not found. Available components are in ui/meta/index.json.`)
+    const indexPath = path.join(metaDir, 'index.json')
+    console.error(`Error: Component "${name}" not found at ${filePath}.`)
+    console.error(`Available components are listed in ${indexPath}.`)
+    console.error(`If you just ran \`bf add ${name}\`, run \`bf meta extract\` to regenerate the meta index.`)
     process.exit(1)
   }
   return JSON.parse(readFileSync(filePath, 'utf-8'))

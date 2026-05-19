@@ -16,6 +16,14 @@ const thisDir = path.dirname(fileURLToPath(import.meta.url))
 export interface BarefootConfig {
   name?: string
   paths: BarefootPaths
+  /**
+   * Source directories that `bf build` compiles, mirrored from
+   * `barefoot.config.ts`'s `components` array. Used by commands like
+   * `bf debug graph` to locate user-authored components living outside
+   * `paths.components` — the scaffold's `components/Counter.tsx` is at
+   * `components/`, not `components/ui/`.
+   */
+  sourceDirs?: string[]
 }
 
 export interface CliContext {
@@ -89,7 +97,7 @@ export async function createContext(jsonFlag: boolean): Promise<CliContext> {
     try {
       const buildConfig = await loadBuildConfigCached(found.tsConfigPath)
       const paths: BarefootPaths = { ...DEFAULT_PATHS, ...(buildConfig.paths ?? {}) }
-      const config: BarefootConfig = { paths }
+      const config: BarefootConfig = { paths, sourceDirs: buildConfig.components }
       const metaDir = path.resolve(found.dir, paths.meta)
       return { root, metaDir, jsonFlag, config, projectDir: found.dir }
     } catch (err) {
