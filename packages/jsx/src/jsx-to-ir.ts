@@ -36,7 +36,7 @@ import { createError, ErrorCodes, internalInvariant } from './errors'
 import { containsReactiveExpression } from './reactivity-checker'
 import { rewriteBarePropRefs as rewriteBarePropRefsCore } from './prop-rewrite'
 import { resolveFreeRefs, type BindingEnvironment } from './free-refs'
-import { extractFreeIdentifiersFromNode } from './analyzer'
+import { extractFreeIdentifiersFromNode, initializerShapeContainsJsx } from './analyzer'
 import { iterateJsTokens } from './scanner/js-scanner'
 
 // =============================================================================
@@ -3032,7 +3032,24 @@ function getAttributeValue(attr: ts.JsxAttribute, ctx: TransformContext): AttrVa
   // The distinction between "dynamic" (JSX expression) and "reactive" (needs client updates)
   // is handled separately in client JS generation
   if (ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
-    const expr = attr.initializer.expression
+    let expr = attr.initializer.expression
+
+    // #1414: a bare-identifier attribute value that resolves to a
+    // local declared inside the surrounding early-return `if`-block
+    // would leak into the emitted template lambda at outer scope
+    // (`style={local}` → `${styleToCss(local)}` → ReferenceError at
+    // hydrate). Substitute the identifier with the initializer's AST
+    // so downstream attribute processing (template-literal /
+    // ternary / generic-expression paths below) sees the resolved
+    // form. JSX-bearing initializers are skipped — attribute values
+    // can't host JSX, so the substitution would produce invalid
+    // output; the JSX-child-position fix (#1410) covers those.
+    if (ts.isIdentifier(expr)) {
+      const branchInit = ctx._branchScopeVars?.get(expr.text)
+      if (branchInit && !initializerShapeContainsJsx(branchInit)) {
+        expr = branchInit
+      }
+    }
 
     // Check for bare signal/memo identifier (BF044)
     checkBareSignalOrMemoIdentifier(expr, ctx)

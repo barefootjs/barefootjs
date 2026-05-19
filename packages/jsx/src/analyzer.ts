@@ -1844,7 +1844,7 @@ export function extractFreeIdentifiersFromNode(node: ts.Node): Set<string> {
  * JS. The walk stops at function / arrow boundaries so JSX inside a
  * helper's body isn't mistaken for the initializer's own JSX.
  */
-function initializerShapeContainsJsx(node: ts.Node): boolean {
+export function initializerShapeContainsJsx(node: ts.Node): boolean {
   let found = false
   function visit(n: ts.Node): void {
     if (found) return
