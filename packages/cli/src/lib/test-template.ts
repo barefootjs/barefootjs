@@ -171,17 +171,17 @@ function generateDescribeBlock(
     lines.push(``)
   }
 
-  // Events
+  // Events. We can't tell from a regex scan whether `onClick=` lives on
+  // the root tag or on a nested element / child component (e.g.
+  // Counter's `<Button onClick={...}>`), so walk the whole tree and
+  // assert the handler exists somewhere in the IR. The generated test
+  // is a starting point — the user can tighten it once they know which
+  // node should own the event.
   if (funcInfo.events.length > 0) {
     lines.push(`  test('has event handlers', () => {`)
-    const findTarget = funcInfo.role
-      ? `result.find({ role: '${funcInfo.role}' })!`
-      : funcInfo.rootTag
-        ? `result.find({ tag: '${funcInfo.rootTag}' })!`
-        : 'result.root'
-    lines.push(`    const el = ${findTarget}`)
+    lines.push(`    const all = result.findAll({})`)
     for (const event of funcInfo.events) {
-      lines.push(`    expect(el.events).toContain('${event}')`)
+      lines.push(`    expect(all.some(n => n.events.includes('${event}'))).toBe(true)`)
     }
     lines.push(`  })`)
     lines.push(``)

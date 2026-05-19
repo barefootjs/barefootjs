@@ -40,8 +40,10 @@ describe('generateTestTemplate', () => {
     expect(tpl).toContain(`expect(result.componentName).toBe('Counter')`)
     // signal extraction
     expect(tpl).toContain(`expect(result.signals).toContain('count')`)
-    // event handler picked up
-    expect(tpl).toContain(`expect(el.events).toContain('click')`)
+    // event handler picked up — assertion walks the whole tree so
+    // events on nested components (e.g. `<Button onClick>`) still
+    // count, not just events bound to the root tag.
+    expect(tpl).toContain(`all.some(n => n.events.includes('click'))`)
   })
 
   test('reads source via bare filename (same-dir layout)', () => {
