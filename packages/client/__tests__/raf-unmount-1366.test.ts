@@ -41,8 +41,19 @@ describe('onCleanup with requestAnimationFrame (#1366)', () => {
   })
 
   afterEach(() => {
-    if (originalRAF) globalThis.requestAnimationFrame = originalRAF
-    if (originalCAF) globalThis.cancelAnimationFrame = originalCAF
+    // `globalThis.requestAnimationFrame` is `undefined` in pure-bun test
+    // environments. Restore by `delete` in that case so the stub doesn't
+    // leak into sibling test files that share this bun process.
+    if (originalRAF === undefined) {
+      delete (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame
+    } else {
+      globalThis.requestAnimationFrame = originalRAF
+    }
+    if (originalCAF === undefined) {
+      delete (globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame
+    } else {
+      globalThis.cancelAnimationFrame = originalCAF
+    }
   })
 
   function tickFrame() {
