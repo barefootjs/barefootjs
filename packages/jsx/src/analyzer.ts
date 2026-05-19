@@ -1783,7 +1783,13 @@ function extractValueBranches(node: ts.Expression, ctx: AnalyzerContext): string
 
 /**
  * Extract free identifier references from an AST node by walking the tree.
- * Skips property keys, member access properties, and bound parameter names.
+ * Skips property keys, member access properties, bound parameter names,
+ * and identifiers nested inside TypeScript type nodes (`as { … }` cast
+ * type, type parameter constraints, return type annotations). Type-only
+ * identifiers never reference runtime bindings — including them in the
+ * free-id set surfaces them as init-locals downstream and demotes the
+ * referenced const to `external-name`, which cascades into spurious
+ * BF061 diagnostics and `(undefined …)` template fallbacks (#1404).
  */
 export function extractFreeIdentifiersFromNode(node: ts.Node): Set<string> {
   const ids = new Set<string>()
@@ -1796,6 +1802,11 @@ export function extractFreeIdentifiersFromNode(node: ts.Node): Set<string> {
   }
 
   function visit(n: ts.Node): void {
+    // Type-only nodes (`as { compact?: boolean }`, `: Props`, …) carry
+    // identifiers that exist solely in the type checker — they aren't
+    // emitted, so they can't be runtime references. Stop the descent
+    // here.
+    if (ts.isTypeNode(n)) return
     if (ts.isIdentifier(n)) {
       const parent = n.parent
       if (parent && ts.isPropertyAccessExpression(parent) && parent.name === n) return
