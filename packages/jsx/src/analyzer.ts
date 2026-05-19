@@ -823,6 +823,33 @@ function collectScopeVariables(
 }
 
 /**
+ * Collect the set of identifier names bound by a function's parameter
+ * list, recursing into `ObjectBindingPattern` / `ArrayBindingPattern`
+ * so destructured params like `function f({ size })` or
+ * `function f([size])` correctly contribute `size` to the bound set.
+ * Mirrors `addBindingNames` inside `extractFreeIdentifiersFromNode`.
+ * #1422.
+ */
+function collectParamBindingNames(
+  params: ts.NodeArray<ts.ParameterDeclaration>,
+): Set<string> {
+  const out = new Set<string>()
+  const addBindingNames = (name: ts.BindingName): void => {
+    if (ts.isIdentifier(name)) {
+      out.add(name.text)
+    } else if (ts.isObjectBindingPattern(name)) {
+      name.elements.forEach(e => addBindingNames(e.name))
+    } else if (ts.isArrayBindingPattern(name)) {
+      name.elements.forEach(e => {
+        if (!ts.isOmittedExpression(e)) addBindingNames(e.name)
+      })
+    }
+  }
+  for (const p of params) addBindingNames(p.name)
+  return out
+}
+
+/**
  * Walk the ancestor chain of `node` looking for any enclosing
  * conditional-return `if`-block. Returns a map from branch-local const
  * name to the text of its initializer. Innermost branch wins on
@@ -1820,22 +1847,40 @@ function collectFunction(
   if (node.body && ctx.conditionalReturns.length > 0) {
     const branchVars = collectEnclosingBranchVars(node, ctx)
     if (branchVars.size > 0) {
-      const paramNames = new Set(params.map(p => p.name))
+      const paramNames = collectParamBindingNames(node.parameters)
       const branchNames: string[] = []
       const branchSubs = new Map<string, string>()
       for (const [varName, initText] of branchVars) {
-        // Params shadow outer names inside the function body.
+        // Params shadow outer names inside the function body. This
+        // handles destructured params (`({ size })`, `([size])`) via
+        // the recursive BindingName walk, not just bare identifiers.
         if (paramNames.has(varName)) continue
         branchNames.push(varName)
         branchSubs.set(varName, initText)
       }
       if (branchNames.length > 0) {
-        // `(?<!\.)` skips member-access tail names like `el.dataset.size`
-        // so substitution only fires on free-identifier reads. Property
-        // keys in object literals and destructure binding names still
-        // slip through — same trade-off as the existing
-        // `_branchScopeVars` regex in `jsx-to-ir.ts`.
-        const re = new RegExp(`(?<!\\.)\\b(${branchNames.join('|')})\\b`, 'g')
+        // Identifier-aware boundaries: `\b` treats `$` as a word
+        // separator, which both breaks substitution for valid JS
+        // identifiers containing `$` and lets `foo$bar` partial-match
+        // a `foo` branch name. Use `(?<![\w$])` / `(?![\w$])` to
+        // anchor at true identifier boundaries. The leading guard also
+        // excludes member-access tails (`el.dataset.size`) — `.` is
+        // not in `[\w$]`, but the previous char before `.` is, so the
+        // identifier after `.` still has a `\w` before it once you
+        // step past the dot. We add `(?<![.\w$])` explicitly to skip
+        // the member-access case.
+        //
+        // Branch names are JS identifiers so they have no regex
+        // metacharacters except `$`, which is escaped here for safety
+        // (regex `$` means end-of-input).
+        const escaped = branchNames.map(n => n.replace(/\$/g, '\\$'))
+        const re = new RegExp(`(?<![.\\w$])(${escaped.join('|')})(?![\\w$])`, 'g')
+        // NOTE: this is text-level replacement and so will also rewrite
+        // occurrences inside string literals / comments inside the
+        // captured body. Same trade-off as the existing
+        // `_branchScopeVars` regex in `jsx-to-ir.ts`; users who need
+        // single-evaluation or string-literal-safe semantics should
+        // hoist the local to outer init scope themselves.
         body = body.replace(re, (_m, n) => `(${branchSubs.get(n)!})`)
       }
     }

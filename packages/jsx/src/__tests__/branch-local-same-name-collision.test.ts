@@ -159,6 +159,74 @@ describe('same-name branch-local const referenced from nested function decl (#14
     expect(attachBBody).not.toContain("'string-value'")
   })
 
+  test('destructured param shadows branch-local of the same name', () => {
+    // Copilot review feedback: param-binding detection must recurse
+    // into `ObjectBindingPattern` / `ArrayBindingPattern` so a
+    // destructured param like `function f({ size }: { size: string })`
+    // correctly shadows an outer branch-local `size`. Without the
+    // recursive walk the substitution wrongly rewrites the param read
+    // and the function body sees the wrong value.
+    const source = `
+      'use client'
+
+      interface Props { mode: 'a' | 'b' }
+
+      export function DestructuredParam(props: Props) {
+        if (props.mode === 'a') {
+          const size = 'small'
+          function attach({ size }: { size: string }) {
+            // Reads must reference the destructured param, NOT the
+            // outer branch-local — text substitution must skip
+            // identifiers shadowed by destructured params.
+            return size
+          }
+          return <div ref={() => attach({ size: 'inner' })}>A</div>
+        }
+        return <div>B</div>
+      }
+    `
+    const result = compileJSX(source, 'DestructuredParam.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toEqual([])
+    const content = clientJsContent(result)
+    const attachBody = content.match(/attach\s*=[^{]*\{[\s\S]*?\breturn\b[^}]*\}/)?.[0] ?? ''
+    // The branch-local `('small')` literal must NOT be injected — the
+    // param shadows it.
+    expect(attachBody).not.toContain("'small'")
+    // The `return size` reference must survive verbatim.
+    expect(attachBody).toMatch(/return\s+size\b/)
+  })
+
+  test('branch-local identifier containing `$` substitutes correctly', () => {
+    // Copilot review feedback: identifier-aware boundaries must allow
+    // `$` as a name char (and escape it for regex use). Pre-fix the
+    // `\\b` boundary treated `$` as a separator, and a name like
+    // `wrapperHeight$0` would either fail to match or partial-match a
+    // bare `wrapperHeight`.
+    const source = `
+      'use client'
+
+      interface Props { kind: 'a' | 'b' }
+
+      export function DollarIdent(props: Props) {
+        if (props.kind === 'a') {
+          const $size = '36px'
+          function attach(el: HTMLElement) {
+            el.style.minHeight = $size
+          }
+          return <div ref={attach}>A</div>
+        }
+        return <div>B</div>
+      }
+    `
+    const result = compileJSX(source, 'DollarIdent.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toEqual([])
+    const content = clientJsContent(result)
+    // The branch-local should be substituted to its literal.
+    expect(content).toContain("'36px'")
+    // The bare `$size` reference must not survive (would ReferenceError at runtime).
+    expect(content).not.toMatch(/=\s*\$size\b/)
+  })
+
   test('non-colliding branch-local — substitution still applies (covers prior single-branch shape)', () => {
     // Same fix path covers the prior single-branch case where a closure
     // references a branch-local without a same-name sibling. Without
