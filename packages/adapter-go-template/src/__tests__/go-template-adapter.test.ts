@@ -229,6 +229,82 @@ export function Counter(props: { initial?: number }) {
       expect(result.types).toContain('Initial int')
       expect(result.types).toContain('Count int')
     })
+
+    test('hoists signal-time `props.X ?? N` fallback into shared local var (#1423)', () => {
+      // Mirrors the Mojo manifest-defaults coverage (#1419): when the
+      // signal default lives on a `??` against a bare prop access, the
+      // generator hoists the fallback so the signal, the prop field,
+      // and any derived memo share one fallback-applied value.
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal, createMemo } from "@barefootjs/client"
+
+export function Counter(props: { initial?: number }) {
+  const [count, setCount] = createSignal(props.initial ?? 99)
+  const doubled = createMemo(() => count() * 2)
+  return <div>{count()} {doubled()}</div>
+}
+`)
+      const result = adapter.generate(ir)
+      expect(result.types).toBeDefined()
+      const types = result.types!
+
+      // Hoist: `initial := in.Initial` + zero-check + fallback assign.
+      expect(types).toContain('initial := in.Initial')
+      expect(types).toMatch(/if initial == 0 \{\s*initial = 99\s*\}/)
+
+      // Prop, signal, and memo all reference the hoisted variable.
+      expect(types).toContain('Initial: initial,')
+      expect(types).toContain('Count: initial,')
+      expect(types).toContain('Doubled: initial * 2,')
+
+      // Pre-fix output is no longer present.
+      expect(types).not.toContain('Count: in.Initial,')
+      expect(types).not.toContain('Doubled: in.Initial * 2,')
+    })
+
+    test('zero-fallback (`??  0`) leaves NewXxxProps unchanged (#1423)', () => {
+      // The hoist is a no-op when the fallback is the Go zero value;
+      // emitting `if initial == 0 { initial = 0 }` would be noise.
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function Counter(props: { initial?: number }) {
+  const [count, setCount] = createSignal(props.initial ?? 0)
+  return <div>{count()}</div>
+}
+`)
+      const result = adapter.generate(ir)
+      const types = result.types!
+      expect(types).not.toContain('initial := in.Initial')
+      expect(types).toContain('Initial: in.Initial,')
+      expect(types).toContain('Count: in.Initial,')
+    })
+
+    test('hoists string fallback for `props.X ?? "default"` (#1423)', () => {
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function Label(props: { label?: string }) {
+  const [text, setText] = createSignal(props.label ?? 'Default')
+  return <div>{text()}</div>
+}
+`)
+      const result = adapter.generate(ir)
+      const types = result.types!
+      expect(types).toContain('label := in.Label')
+      expect(types).toMatch(/if label == ""\s*\{\s*label = "Default"\s*\}/)
+      expect(types).toContain('Label: label,')
+      // Signal name `text` differs from prop name `label`, so the
+      // signal field gets its own entry that resolves through the
+      // hoisted var.
+      expect(types).toContain('Text: label,')
+    })
   })
 
   describe('JSX children forwarding (#1203)', () => {
