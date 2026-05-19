@@ -957,8 +957,19 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
       return node.children.map(innerRecurse).join('')
     }
 
-    case 'if-statement':
-      return ''
+    case 'if-statement': {
+      // Lower a component-level multi-return body to a ternary chain
+      // (#1401). Previously this case returned `''`, which produced an
+      // empty `template:` field — consumers resolving the component via
+      // `createComponent(name, props)` then hit the "Template not found"
+      // runtime warning and a placeholder rendered. The CSR template
+      // path (`generateCsrTemplate`) already handles this shape the
+      // same way; mirror it here so the static-template path agrees
+      // with the conditional-template path.
+      const consequent = recurse(node.consequent)
+      const alternate = node.alternate ? recurse(node.alternate) : ''
+      return `\${${transformExpr(node.condition, node.templateCondition)} ? \`${consequent}\` : \`${alternate}\`}`
+    }
 
     case 'provider':
     case 'async':
