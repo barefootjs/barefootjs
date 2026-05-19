@@ -16,7 +16,11 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
     process.exit(1)
   }
 
-  const meta = loadComponent(ctx.metaDir, name)
+  // Pass `ctx` so the missing-component error path detects when
+  // `name` is a top-level page component (no registry meta possible)
+  // and redirects the user at `bf debug graph` instead of repeating
+  // the misleading "run `bf meta extract`" hint (#1403).
+  const meta = loadComponent(ctx.metaDir, name, ctx)
   const { writeRoot, componentsBasePath } = resolveScaffoldLayout(ctx)
   const result = generatePreview(meta, componentsBasePath)
   const absPath = path.join(writeRoot, result.filePath)

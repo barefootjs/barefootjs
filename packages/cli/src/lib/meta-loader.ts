@@ -2,7 +2,9 @@
 
 import { readFileSync, existsSync } from 'fs'
 import path from 'path'
+import type { CliContext } from '../context'
 import type { MetaIndex, ComponentMeta, RegistryItem } from './types'
+import { resolveComponentSource } from './resolve-source'
 
 export function loadIndex(metaDir: string): MetaIndex {
   const indexPath = path.join(metaDir, 'index.json')
@@ -54,14 +56,96 @@ export async function fetchRegistryItem(registryUrl: string, name: string): Prom
   throw new Error('unreachable')
 }
 
-export function loadComponent(metaDir: string, name: string): ComponentMeta {
+/**
+ * Try to load a component's meta JSON. Returns `null` instead of
+ * exiting when the file isn't present, so callers can fall back to
+ * source-derived rendering (`bf docs` for top-level page components,
+ * #1403) before deciding whether to surface a hard error.
+ */
+export function tryLoadComponent(metaDir: string, name: string): ComponentMeta | null {
   const filePath = path.join(metaDir, `${name}.json`)
-  if (!existsSync(filePath)) {
-    const indexPath = path.join(metaDir, 'index.json')
-    console.error(`Error: Component "${name}" not found at ${filePath}.`)
-    console.error(`Available components are listed in ${indexPath}.`)
-    console.error(`If you just ran \`bf add ${name}\`, run \`bf meta extract\` to regenerate the meta index.`)
-    process.exit(1)
-  }
+  if (!existsSync(filePath)) return null
   return JSON.parse(readFileSync(filePath, 'utf-8'))
+}
+
+/**
+ * Build the user-facing error message for a missing component lookup.
+ *
+ * When `ctx` is provided, the formatter consults `resolveComponentSource`
+ * to detect when the user is asking about a component whose source
+ * lives **outside** `paths.components` (e.g. the scaffold's
+ * `components/Counter.tsx`) — meaning `bf meta extract` would not have
+ * picked it up no matter how many times it was run. In that case the
+ * error redirects the user at the commands that actually work for
+ * top-level page components (`bf debug graph`, `bf gen test`) instead
+ * of repeating the misleading "run `bf meta extract`" hint (#1403).
+ */
+export function formatMissingComponentError(
+  metaDir: string,
+  name: string,
+  ctx?: CliContext,
+): string[] {
+  const filePath = path.join(metaDir, `${name}.json`)
+  const lines: string[] = []
+  lines.push(`Error: Component "${name}" not found at ${filePath}.`)
+
+  if (ctx) {
+    const resolved = resolveComponentSource(name, ctx)
+    if (resolved && isTopLevelSource(resolved.filePath, ctx)) {
+      const rel = path.relative(ctx.projectDir ?? ctx.root, resolved.filePath)
+      lines.push(``)
+      lines.push(
+        `"${name}" appears to be a top-level page component (${rel}), not a UI`,
+      )
+      lines.push(
+        `registry component. \`bf docs\` / \`bf gen preview\` only cover registry`,
+      )
+      lines.push(`components (under \`paths.components\` in barefoot.config.ts).`)
+      lines.push(``)
+      lines.push(`For top-level components, try:`)
+      lines.push(`  bf debug graph ${name}    — reactive structure`)
+      lines.push(`  bf debug signals ${name}  — signal initialisation trace`)
+      lines.push(`  bf gen test ${name}       — generate an IR test`)
+      return lines
+    }
+  }
+
+  const indexPath = path.join(metaDir, 'index.json')
+  lines.push(`Available components are listed in ${indexPath}.`)
+  lines.push(
+    `If you just ran \`bf add ${name}\`, run \`bf meta extract\` to regenerate the meta index.`,
+  )
+  return lines
+}
+
+/**
+ * `true` when `filePath` lies under one of the project's `sourceDirs`
+ * (e.g. `components/Counter.tsx`) rather than the UI registry path
+ * (`paths.components`, e.g. `components/ui/`). Used by the docs error
+ * formatter to decide whether the user is asking about a page
+ * component vs. a missing registry entry.
+ */
+function isTopLevelSource(filePath: string, ctx: CliContext): boolean {
+  if (!ctx.projectDir || !ctx.config) return false
+  const registryRoot = path.resolve(ctx.projectDir, ctx.config.paths.components)
+  const abs = path.resolve(filePath)
+  // A source under `paths.components` is a registry hit, not page.
+  if (abs.startsWith(registryRoot + path.sep) || abs === registryRoot) return false
+  // It's a "top-level" source iff it lies under one of the
+  // configured source dirs — otherwise it might be a stray file the
+  // formatter shouldn't editorialise about.
+  for (const dir of ctx.config.sourceDirs ?? []) {
+    const base = path.resolve(ctx.projectDir, dir)
+    if (abs.startsWith(base + path.sep) || abs === base) return true
+  }
+  return false
+}
+
+export function loadComponent(metaDir: string, name: string, ctx?: CliContext): ComponentMeta {
+  const meta = tryLoadComponent(metaDir, name)
+  if (meta) return meta
+  for (const line of formatMissingComponentError(metaDir, name, ctx)) {
+    console.error(line)
+  }
+  process.exit(1)
 }
