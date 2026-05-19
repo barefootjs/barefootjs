@@ -309,4 +309,141 @@ sub round ($self, $value) {
     return POSIX::floor($n + 0.5);
 }
 
+# ---------------------------------------------------------------------------
+# JSX intrinsic-element spread (#1407)
+# ---------------------------------------------------------------------------
+#
+# Mirrors the JS `spreadAttrs` runtime
+# (`packages/client/src/runtime/spread-attrs.ts`) and the Go adapter's
+# `bf.SpreadAttrs` so SSR output stays byte-equal across the three
+# adapters. Generated Mojo templates invoke this as
+# `<%== bf->spread_attrs($bag) %>`.
+#
+# Skip rules: nil/false values, event handlers (`on[A-Z]…` shape
+# matching JS `key[2] === key[2].toUpperCase()` — true for any
+# character whose uppercase is itself, including digits and
+# underscore), `children`. `ref` is intentionally NOT filtered,
+# matching the JS reference.
+#
+# Key remap: className → class, htmlFor → for; SVG camelCase
+# attrs preserved (case-sensitive XML spec); other camelCase keys
+# lowered to kebab-case with a leading `-` for an initial
+# uppercase letter (mirrors JS `key.replace(/([A-Z])/g, '-$1')`).
+#
+# `style` is routed through `_style_to_css` so object literals
+# serialise to a real CSS string instead of Perl's default
+# `HASH(0x...)` form.
+#
+# Output is deterministic: keys are sorted alphabetically before
+# emission, matching the Go adapter's `sort.Strings(keys)` policy
+# and Mojo::JSON's marshal order.
+#
+# The return value is a Mojo::ByteStream so the calling template's
+# `<%==` raw-emit skips re-escaping (the helper has already
+# HTML-escaped each value).
+
+my %SVG_CAMEL_CASE_ATTRS = map { $_ => 1 } qw(
+    allowReorder attributeName attributeType autoReverse
+    baseFrequency baseProfile calcMode clipPathUnits
+    contentScriptType contentStyleType diffuseConstant edgeMode
+    externalResourcesRequired filterRes filterUnits glyphRef
+    gradientTransform gradientUnits kernelMatrix kernelUnitLength
+    keyPoints keySplines keyTimes lengthAdjust limitingConeAngle
+    markerHeight markerUnits markerWidth maskContentUnits
+    maskUnits numOctaves pathLength patternContentUnits
+    patternTransform patternUnits pointsAtX pointsAtY pointsAtZ
+    preserveAlpha preserveAspectRatio primitiveUnits refX refY
+    repeatCount repeatDur requiredExtensions requiredFeatures
+    specularConstant specularExponent spreadMethod startOffset
+    stdDeviation stitchTiles surfaceScale systemLanguage
+    tableValues targetX targetY textLength viewBox viewTarget
+    xChannelSelector yChannelSelector zoomAndPan
+);
+
+sub _to_attr_name ($key) {
+    return 'class' if $key eq 'className';
+    return 'for'   if $key eq 'htmlFor';
+    return $key    if $SVG_CAMEL_CASE_ATTRS{$key};
+    # camelCase → kebab-case, with a leading `-` for an initial
+    # uppercase letter (JS-reference parity, even though that case
+    # produces an HTML-invalid attribute name — same documented
+    # behaviour as the Go adapter's `toAttrName`).
+    my $out = $key;
+    $out =~ s/([A-Z])/-\L$1/g;
+    return $out;
+}
+
+sub _html_escape ($value) {
+    # Match the JS `String(v)` → setAttribute path, which escapes
+    # ", &, <, >. Go's `template.HTMLEscapeString` produces the
+    # same shape (using &#34; for the double-quote rather than the
+    # named entity); align here so the byte-equal contract holds.
+    my $s = defined $value ? "$value" : '';
+    $s =~ s/&/&amp;/g;
+    $s =~ s/</&lt;/g;
+    $s =~ s/>/&gt;/g;
+    $s =~ s/"/&#34;/g;
+    $s =~ s/'/&#39;/g;
+    return $s;
+}
+
+sub _style_to_css ($value) {
+    return undef unless defined $value;
+    # Non-hashref values pass through stringified — matches the JS
+    # `typeof value !== 'object'` branch in `styleToCss`.
+    if (ref($value) ne 'HASH') {
+        my $s = "$value";
+        return length $s ? $s : undef;
+    }
+    my @parts;
+    for my $key (sort keys %$value) {
+        my $v = $value->{$key};
+        next unless defined $v;
+        my $prop = $key;
+        $prop =~ s/([A-Z])/-\L$1/g;
+        push @parts, "$prop:$v";
+    }
+    return @parts ? join(';', @parts) : undef;
+}
+
+sub spread_attrs ($self, $bag) {
+    return '' unless defined $bag && ref($bag) eq 'HASH';
+    my @parts;
+    for my $key (sort keys %$bag) {
+        # Event handlers: skip when key starts `on` and the third
+        # character is its own uppercase form (uppercase letter,
+        # digit, underscore, …). Mirrors the JS predicate.
+        if (length($key) > 2 && substr($key, 0, 2) eq 'on') {
+            my $c = substr($key, 2, 1);
+            next if uc($c) eq $c;
+        }
+        next if $key eq 'children';
+        my $val = $bag->{$key};
+        # null / undef → drop.
+        next unless defined $val;
+        # Boolean false (Perl-side: empty string or 0 produced by
+        # a JSON unmarshal of `false`) → drop. Boolean true → bare
+        # attribute.
+        if (ref($val) eq 'JSON::PP::Boolean' || ref($val) eq 'Mojo::JSON::_Bool') {
+            next unless $val;
+            push @parts, _to_attr_name($key);
+            next;
+        }
+        # `style` routes through `_style_to_css` so object literals
+        # serialise to a real CSS string.
+        if ($key eq 'style') {
+            my $css = _style_to_css($val);
+            next unless defined $css && length $css;
+            push @parts, qq{style="} . _html_escape($css) . qq{"};
+            next;
+        }
+        my $name = _to_attr_name($key);
+        push @parts, $name . qq{="} . _html_escape($val) . qq{"};
+    }
+    return '' unless @parts;
+    # Return a Mojo::ByteStream so the calling template's `<%==`
+    # raw-emit doesn't re-escape the already-escaped values.
+    return b(join(' ', @parts));
+}
+
 1;

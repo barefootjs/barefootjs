@@ -101,16 +101,6 @@ runAdapterConformanceTests({
     // (`cn\`base \${tone()}\``) — same family as #1322 above and refused
     // via the same gate.
     'tagged-template-classname': [{ code: 'BF101', severity: 'error' }],
-    // #1244 stress catalog #13 (#1324): JSX spread of a reactive object
-    // (`<div {...attrs()} />`). Mojo can't loop a runtime hash into
-    // `key="value"` pairs with the escaping / event-filter semantics
-    // that Hono / CSR's `applyRestAttrs` provides — surfaces BF101
-    // instead of silently dropping the spread. The Go adapter grew an
-    // SSR lowering for these in #1407; Mojo will follow in a separate
-    // PR.
-    'jsx-spread-reactive': [{ code: 'BF101', severity: 'error' }],
-    'jsx-spread-multiple': [{ code: 'BF101', severity: 'error' }],
-    'jsx-spread-static-and-spread': [{ code: 'BF101', severity: 'error' }],
   },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `MojoAdapter.templatePrimitives` (#1189). The two remaining

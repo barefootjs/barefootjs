@@ -434,14 +434,75 @@ function parseLiteral(expr: string): unknown {
   if (expr === 'false') return false
   if (expr === '[]') return []
   if (/^['"](.*)['"]$/.test(expr)) return expr.slice(1, -1)
+  // Plain JS object literal (#1407 follow-up): `{ id: 'a', class: 'on' }`.
+  // Sufficient for spread-bag signal initial values used by the
+  // `jsx-spread-*` fixture family — keys are bare identifiers or
+  // string literals, values are scalars. Anything more elaborate
+  // (nested objects, function calls, identifiers) keeps returning
+  // null and the harness falls back to its existing `undef`
+  // behaviour.
+  const trimmed = expr.trim()
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    const inner = trimmed.slice(1, -1).trim()
+    if (!inner) return {}
+    const obj: Record<string, unknown> = {}
+    // Split on commas at depth 0; values may contain `:` so use a
+    // simple state machine instead of a regex.
+    const pairs: string[] = []
+    let depth = 0
+    let start = 0
+    let quote: string | null = null
+    for (let i = 0; i < inner.length; i++) {
+      const c = inner[i]
+      if (quote) {
+        if (c === quote && inner[i - 1] !== '\\') quote = null
+        continue
+      }
+      if (c === '"' || c === "'") {
+        quote = c
+        continue
+      }
+      if (c === '{' || c === '[') depth++
+      else if (c === '}' || c === ']') depth--
+      else if (c === ',' && depth === 0) {
+        pairs.push(inner.slice(start, i))
+        start = i + 1
+      }
+    }
+    pairs.push(inner.slice(start))
+    for (const pair of pairs) {
+      const colonIdx = pair.indexOf(':')
+      if (colonIdx < 0) return null
+      let key = pair.slice(0, colonIdx).trim()
+      const val = pair.slice(colonIdx + 1).trim()
+      // Strip key quotes if any.
+      const keyMatch = key.match(/^['"](.*)['"]$/)
+      if (keyMatch) key = keyMatch[1]
+      const parsedVal = parseLiteral(val)
+      if (parsedVal === null && val !== 'null') return null
+      obj[key] = parsedVal
+    }
+    return obj
+  }
   return null
 }
 
 function toPerlLiteral(value: unknown): string {
-  if (typeof value === 'string') return `'${value}'`
+  if (typeof value === 'string') return `'${value.replace(/'/g, "\\'")}'`
   if (typeof value === 'number') return String(value)
   if (typeof value === 'boolean') return value ? '1' : '0'
   if (Array.isArray(value)) return '[]'
+  // Plain object → Perl hashref literal. Used by the spread-bag
+  // signal initial values (#1407 follow-up). Keys are quoted as
+  // Perl strings; values recurse so nested-but-simple shapes
+  // still work.
+  if (value && typeof value === 'object') {
+    const entries: string[] = []
+    for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+      entries.push(`'${key.replace(/'/g, "\\'")}' => ${toPerlLiteral(v)}`)
+    }
+    return `{${entries.join(', ')}}`
+  }
   return 'undef'
 }
 
