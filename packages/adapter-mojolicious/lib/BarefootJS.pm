@@ -421,9 +421,15 @@ sub spread_attrs ($self, $bag) {
         my $val = $bag->{$key};
         # null / undef → drop.
         next unless defined $val;
-        # Boolean false (Perl-side: empty string or 0 produced by
-        # a JSON unmarshal of `false`) → drop. Boolean true → bare
-        # attribute.
+        # Boolean values arrive as Mojo::JSON sentinel objects
+        # (`Mojo::JSON::true` / `false`) — both from JSON-deserialised
+        # props and from the test harness's `toPerlLiteral`
+        # (which emits the sentinels rather than plain 0/1 to avoid
+        # conflating booleans with numeric attribute values like
+        # `tabindex="0"`). The contract is: callers MUST use the
+        # sentinels for boolean values; plain Perl scalars 0/1
+        # render as numeric attribute values, matching how JS
+        # `spreadAttrs` treats a `0`/`1` JS number.
         if (ref($val) eq 'JSON::PP::Boolean' || ref($val) eq 'Mojo::JSON::_Bool') {
             next unless $val;
             push @parts, _to_attr_name($key);

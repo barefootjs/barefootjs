@@ -794,7 +794,16 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     // identifier resolves directly. `IRAttribute.slotId` is set by
     // the IR pass but the Mojo adapter ignores it — the slot field
     // exists only for the Go adapter's static-typed Props struct.
+    //
+    // Gate unsupported shapes (object literals, tagged-template
+    // literals, etc.) up front via `refuseUnsupportedAttrExpression`
+    // so a spread like `{...{id: 'x'}}` surfaces BF101 instead of
+    // letting `convertExpressionToPerl` emit invalid Embedded Perl
+    // that would crash at render time (#1413 review).
     emitSpread: (value) => {
+      if (this.refuseUnsupportedAttrExpression(value.expr, '...')) {
+        return ''
+      }
       const perlExpr = this.convertExpressionToPerl(value.expr)
       return `<%== bf->spread_attrs(${perlExpr}) %>`
     },

@@ -195,6 +195,11 @@ use utf8;
 use lib '${LIB_DIR}';
 use Mojolicious;
 use Mojo::Template;
+# Boolean values in spread bags arrive as Mojo::JSON::true /
+# Mojo::JSON::false from the JS-side toPerlLiteral so
+# BarefootJS::spread_attrs can detect them via ref() and apply
+# boolean-attr semantics (#1407 follow-up, #1413 review).
+use Mojo::JSON;
 
 use BarefootJS;
 
@@ -434,13 +439,13 @@ function parseLiteral(expr: string): unknown {
   if (expr === 'false') return false
   if (expr === '[]') return []
   if (/^['"](.*)['"]$/.test(expr)) return expr.slice(1, -1)
-  // Plain JS object literal (#1407 follow-up): `{ id: 'a', class: 'on' }`.
-  // Sufficient for spread-bag signal initial values used by the
-  // `jsx-spread-*` fixture family — keys are bare identifiers or
-  // string literals, values are scalars. Anything more elaborate
-  // (nested objects, function calls, identifiers) keeps returning
-  // null and the harness falls back to its existing `undef`
-  // behaviour.
+  // JS object literal (#1407 follow-up): `{ id: 'a', class: 'on' }`.
+  // Used for spread-bag signal initial values in the `jsx-spread-*`
+  // fixture family. Supports nested objects and arrays via
+  // recursive `parseLiteral`. Trailing commas (`{ id: 'a', }`) are
+  // accepted by skipping empty segments. Anything the recursive
+  // call can't handle (identifiers, function calls, member access)
+  // surfaces as null from the inner call and bubbles up.
   const trimmed = expr.trim()
   if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
     const inner = trimmed.slice(1, -1).trim()
@@ -471,6 +476,9 @@ function parseLiteral(expr: string): unknown {
     }
     pairs.push(inner.slice(start))
     for (const pair of pairs) {
+      // Skip empty segments — typically a trailing comma's tail
+      // (#1413 review).
+      if (!pair.trim()) continue
       const colonIdx = pair.indexOf(':')
       if (colonIdx < 0) return null
       let key = pair.slice(0, colonIdx).trim()
@@ -487,19 +495,35 @@ function parseLiteral(expr: string): unknown {
   return null
 }
 
+/**
+ * Perl single-quoted string escape: `'` AND `\` need escaping.
+ * Perl single quotes treat a trailing backslash as escaping the
+ * closing quote (`'foo\'` is invalid), so values ending in `\`
+ * must double the backslash (#1413 review).
+ */
+function perlSingleQuote(s: string): string {
+  return `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+}
+
 function toPerlLiteral(value: unknown): string {
-  if (typeof value === 'string') return `'${value.replace(/'/g, "\\'")}'`
+  if (typeof value === 'string') return perlSingleQuote(value)
   if (typeof value === 'number') return String(value)
-  if (typeof value === 'boolean') return value ? '1' : '0'
+  // JS booleans → Mojo::JSON sentinel objects so `BarefootJS::spread_attrs`
+  // can detect them via `ref()` and apply boolean-attr semantics
+  // (true → bare attribute, false → omitted). Emitting plain Perl
+  // 0/1 would conflate genuine numeric values with booleans and
+  // turn `disabled: false` into `disabled="0"` (#1413 review).
+  if (typeof value === 'boolean') return value ? 'Mojo::JSON::true' : 'Mojo::JSON::false'
   if (Array.isArray(value)) return '[]'
   // Plain object → Perl hashref literal. Used by the spread-bag
   // signal initial values (#1407 follow-up). Keys are quoted as
-  // Perl strings; values recurse so nested-but-simple shapes
-  // still work.
+  // Perl strings (escaped via `perlSingleQuote` so values
+  // containing `\` or `'` round-trip safely); values recurse so
+  // nested-but-simple shapes still work.
   if (value && typeof value === 'object') {
     const entries: string[] = []
     for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
-      entries.push(`'${key.replace(/'/g, "\\'")}' => ${toPerlLiteral(v)}`)
+      entries.push(`${perlSingleQuote(key)} => ${toPerlLiteral(v)}`)
     }
     return `{${entries.join(', ')}}`
   }
