@@ -195,6 +195,11 @@ use utf8;
 use lib '${LIB_DIR}';
 use Mojolicious;
 use Mojo::Template;
+# Boolean values in spread bags arrive as Mojo::JSON::true /
+# Mojo::JSON::false from the JS-side toPerlLiteral so
+# BarefootJS::spread_attrs can detect them via ref() and apply
+# boolean-attr semantics (#1407 follow-up, #1413 review).
+use Mojo::JSON;
 
 use BarefootJS;
 
@@ -433,15 +438,147 @@ function parseLiteral(expr: string): unknown {
   if (expr === 'true') return true
   if (expr === 'false') return false
   if (expr === '[]') return []
-  if (/^['"](.*)['"]$/.test(expr)) return expr.slice(1, -1)
+  // String literal — require matching opener/closer (the previous
+  // regex `^['"]…['"]$` accepted mixed quotes like `'foo"`) and
+  // unescape JS-style escape sequences so `'a\\'b'` round-trips as
+  // `a\'b` instead of leaking the source-level escapes into the
+  // Perl literal (#1413 review).
+  const stringMatch = expr.match(/^(['"])(.*)\1$/s)
+  if (stringMatch) return unescapeJsString(stringMatch[2])
+  // JS object literal (#1407 follow-up): `{ id: 'a', class: 'on' }`.
+  // Used for spread-bag signal initial values in the `jsx-spread-*`
+  // fixture family. Keys may be bare identifiers or string
+  // literals; values are scalars (string / number / boolean /
+  // null) or nested object literals via recursive `parseLiteral`.
+  // Non-empty array values (`[1, 2]`) are NOT supported — only
+  // the `[]` empty-array literal recognised by the early-return
+  // above lowers. Trailing commas (`{ id: 'a', }`) are accepted
+  // by skipping empty segments (#1413 review). Anything the
+  // recursive call can't handle (identifiers, function calls,
+  // member access, non-empty arrays) surfaces as null and bubbles
+  // up so the harness falls back to its existing `undef`
+  // behaviour.
+  const trimmed = expr.trim()
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    const inner = trimmed.slice(1, -1).trim()
+    if (!inner) return {}
+    const obj: Record<string, unknown> = {}
+    // Split on commas at depth 0; values may contain `:` so use a
+    // simple state machine instead of a regex.
+    const pairs: string[] = []
+    let depth = 0
+    let start = 0
+    let quote: string | null = null
+    for (let i = 0; i < inner.length; i++) {
+      const c = inner[i]
+      if (quote) {
+        // Quote-termination check: count consecutive backslashes
+        // immediately before the current position. An EVEN count
+        // means each `\\` pair represents a literal backslash and
+        // the quote is unescaped, closing the string. An ODD
+        // count means the trailing `\` escapes the quote, so the
+        // string keeps going. The naive `inner[i-1] !== '\\'`
+        // check mis-classifies even runs (`\\"`) as escaped
+        // (#1413 review).
+        if (c === quote) {
+          let backslashes = 0
+          for (let j = i - 1; j >= 0 && inner[j] === '\\'; j--) backslashes++
+          if (backslashes % 2 === 0) quote = null
+        }
+        continue
+      }
+      if (c === '"' || c === "'") {
+        quote = c
+        continue
+      }
+      if (c === '{' || c === '[') depth++
+      else if (c === '}' || c === ']') depth--
+      else if (c === ',' && depth === 0) {
+        pairs.push(inner.slice(start, i))
+        start = i + 1
+      }
+    }
+    pairs.push(inner.slice(start))
+    for (const pair of pairs) {
+      // Skip empty segments — typically a trailing comma's tail
+      // (#1413 review).
+      if (!pair.trim()) continue
+      const colonIdx = pair.indexOf(':')
+      if (colonIdx < 0) return null
+      let key = pair.slice(0, colonIdx).trim()
+      const val = pair.slice(colonIdx + 1).trim()
+      // Strip key quotes if any — require matching open/close
+      // quote and unescape, same shape as the value-side string
+      // literal handling above (#1413 review).
+      const keyMatch = key.match(/^(['"])(.*)\1$/s)
+      if (keyMatch) key = unescapeJsString(keyMatch[2])
+      const parsedVal = parseLiteral(val)
+      if (parsedVal === null && val !== 'null') return null
+      obj[key] = parsedVal
+    }
+    return obj
+  }
   return null
 }
 
+/**
+ * Unescape a JS string-literal body (the content between the
+ * matching opening and closing quotes, not the quotes themselves).
+ * Handles the common single-character escapes `\\`, `\'`, `\"`,
+ * `\n`, `\r`, `\t`, `\0`, and the backslash-anything fallback that
+ * mirrors JS's "unknown escape is the character itself" semantics.
+ * Hex / unicode / octal escapes are intentionally out of scope —
+ * the spread-bag fixture corpus uses ASCII identifiers and short
+ * literal values, so the harness doesn't need a full JS string
+ * decoder (#1413 review).
+ */
+function unescapeJsString(s: string): string {
+  return s.replace(/\\(.)/g, (_, c) => {
+    switch (c) {
+      case 'n': return '\n'
+      case 'r': return '\r'
+      case 't': return '\t'
+      case '0': return '\0'
+      // `\\`, `\'`, `\"`, and any other single-character escape
+      // collapse to the literal character (matches JS semantics
+      // for unrecognised escapes).
+      default: return c
+    }
+  })
+}
+
+/**
+ * Perl single-quoted string escape: `'` AND `\` need escaping.
+ * Perl single quotes treat a trailing backslash as escaping the
+ * closing quote (`'foo\'` is invalid), so values ending in `\`
+ * must double the backslash (#1413 review).
+ */
+function perlSingleQuote(s: string): string {
+  return `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+}
+
 function toPerlLiteral(value: unknown): string {
-  if (typeof value === 'string') return `'${value}'`
+  if (typeof value === 'string') return perlSingleQuote(value)
   if (typeof value === 'number') return String(value)
-  if (typeof value === 'boolean') return value ? '1' : '0'
+  // JS booleans → Mojo::JSON sentinel objects so `BarefootJS::spread_attrs`
+  // can detect them via `ref()` and apply boolean-attr semantics
+  // (true → bare attribute, false → omitted). Emitting plain Perl
+  // 0/1 would conflate genuine numeric values with booleans and
+  // turn `disabled: false` into `disabled="0"` (#1413 review).
+  if (typeof value === 'boolean') return value ? 'Mojo::JSON::true' : 'Mojo::JSON::false'
   if (Array.isArray(value)) return '[]'
+  // Plain object → Perl hashref literal. Used by the spread-bag
+  // signal initial values (#1407 follow-up). Keys are quoted as
+  // Perl strings (escaped via `perlSingleQuote` so values
+  // containing `\` or `'` round-trip safely); values recurse so
+  // nested-but-simple shapes still work.
+  if (value && typeof value === 'object') {
+    const entries: string[] = []
+    for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+      entries.push(`${perlSingleQuote(key)} => ${toPerlLiteral(v)}`)
+    }
+    return `{${entries.join(', ')}}`
+  }
   return 'undef'
 }
 

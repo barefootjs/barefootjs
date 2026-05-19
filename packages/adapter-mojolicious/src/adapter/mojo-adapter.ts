@@ -780,33 +780,32 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     emitBooleanAttr: (_value, name) => name,
     emitTemplate: (value, name) =>
       `${name}="<%= ${this.convertTemplateLiteralPartsToPerl(value.parts)} %>"`,
-    // Spread attributes (`<div {...attrs()} />`) have no idiomatic
-    // Embedded Perl form — looping over a hash with key-by-key
-    // attribute emission requires HTML escaping and event-handler
-    // filtering that don't round-trip through Hono / CSR's
-    // `applyRestAttrs` semantics. Record BF101 so the user gets a
-    // diagnostic instead of a silently dropped spread (#1324).
+    // Spread attributes (`<div {...attrs()} />`) lower through the
+    // `bf->spread_attrs` Perl runtime helper (#1407), mirroring the
+    // Go adapter's `bf_spread_attrs` and the JS `spreadAttrs` from
+    // `@barefootjs/client/runtime`. The bag's source JS expression
+    // is translated to a Perl expression via `convertExpressionToPerl`
+    // (e.g. `attrs()` → `$attrs`, `props.bag` → `$bag`); the helper
+    // accepts a hashref and emits a Mojo::ByteStream with sorted,
+    // escaped `key="value"` pairs.
+    //
+    // No struct-field plumbing is needed on Perl: templates evaluate
+    // expressions inline against the props hash, so the spread
+    // identifier resolves directly. `IRAttribute.slotId` is set by
+    // the IR pass but the Mojo adapter ignores it — the slot field
+    // exists only for the Go adapter's static-typed Props struct.
+    //
+    // Gate unsupported shapes (object literals, tagged-template
+    // literals, etc.) up front via `refuseUnsupportedAttrExpression`
+    // so a spread like `{...{id: 'x'}}` surfaces BF101 instead of
+    // letting `convertExpressionToPerl` emit invalid Embedded Perl
+    // that would crash at render time (#1413 review).
     emitSpread: (value) => {
-      this.errors.push({
-        code: 'BF101',
-        severity: 'error',
-        message: `JSX spread '{...${value.expr}}' on an intrinsic element has no Mojo template lowering`,
-        loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
-        suggestion: {
-          // The Mojo SSR path doesn't currently honor
-          // `IRAttribute.clientOnly` for non-rest spreads, and the
-          // client-JS pipeline skips them too — `/* @client */`
-          // wouldn't apply the spread at hydration either. Recommend
-          // the only two workarounds that actually work today: move
-          // the JSX into a `'use client'` component (where the
-          // hydrated runtime's `spreadAttrs` helper handles the bag),
-          // or expand the spread into discrete attribute props at the
-          // call site so each key reaches a lowering the adapter
-          // supports.
-          message: 'Move the JSX into a `\'use client\'` component (so hydration applies the spread via `spreadAttrs`), or expand the spread into discrete attribute props at the call site.',
-        },
-      })
-      return ''
+      if (this.refuseUnsupportedAttrExpression(value.expr, '...')) {
+        return ''
+      }
+      const perlExpr = this.convertExpressionToPerl(value.expr)
+      return `<%== bf->spread_attrs(${perlExpr}) %>`
     },
     // Neither variant is legal on intrinsic elements.
     emitBooleanShorthand: () => '',
