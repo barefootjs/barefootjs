@@ -114,7 +114,7 @@ Save the file — `bf build --watch` recompiles and `wrangler dev` live-reloads.
 
 ## 5. Next steps
 
-- `bf docs <component>` — show props, variants, examples for a registry component (after running `bf add <name>`, you may need to extract meta first with `bf meta extract`).
+- `bf docs <component>` — show props, variants, examples for a registry component (`bf add` writes `meta/<name>.json` automatically, so this works straight after).
 - `bf debug graph <component>` — show the signal dependency graph before editing a `"use client"` component.
 - `bf add <name>` — add another shadcn/ui-style component from `https://ui.barefootjs.dev/`.
 - `bf search <query>` — find components and docs across the registry.
