@@ -40,10 +40,12 @@ describe('generateTestTemplate', () => {
     expect(tpl).toContain(`expect(result.componentName).toBe('Counter')`)
     // signal extraction
     expect(tpl).toContain(`expect(result.signals).toContain('count')`)
-    // event handler picked up — assertion walks the whole tree so
-    // events on nested components (e.g. `<Button onClick>`) still
-    // count, not just events bound to the root tag.
-    expect(tpl).toContain(`all.some(n => n.events.includes('click'))`)
+    // event handler picked up — assertion walks the whole tree and
+    // accepts both intrinsic `events` (`<button onClick>` → `events:
+    // ['click']`) and component `props` (`<Button onClick>` →
+    // `props.onClick != null`), so it passes regardless of which
+    // pattern the source uses.
+    expect(tpl).toMatch(/all\.some\(n => n\.events\.includes\('click'\) \|\| n\.props\['onClick'\] != null\)/)
   })
 
   test('reads source via bare filename (same-dir layout)', () => {

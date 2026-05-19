@@ -171,17 +171,21 @@ function generateDescribeBlock(
     lines.push(``)
   }
 
-  // Events. We can't tell from a regex scan whether `onClick=` lives on
-  // the root tag or on a nested element / child component (e.g.
-  // Counter's `<Button onClick={...}>`), so walk the whole tree and
-  // assert the handler exists somewhere in the IR. The generated test
-  // is a starting point — the user can tighten it once they know which
-  // node should own the event.
+  // Events. We can't tell from a regex scan whether `onClick=` is on
+  // an intrinsic element (`<button onClick>` → IR `events` array) or
+  // on a component (`<Button onClick>` → IR `props.onClick` on the
+  // component node — Counter's pattern). Walk the whole tree and
+  // accept either, so the generated test passes regardless of which
+  // pattern the source happens to use. The user can tighten it down
+  // to a specific node once they know what they're asserting against.
   if (funcInfo.events.length > 0) {
     lines.push(`  test('has event handlers', () => {`)
     lines.push(`    const all = result.findAll({})`)
     for (const event of funcInfo.events) {
-      lines.push(`    expect(all.some(n => n.events.includes('${event}'))).toBe(true)`)
+      const onProp = 'on' + event.charAt(0).toUpperCase() + event.slice(1)
+      lines.push(`    expect(`)
+      lines.push(`      all.some(n => n.events.includes('${event}') || n.props['${onProp}'] != null),`)
+      lines.push(`    ).toBe(true)`)
     }
     lines.push(`  })`)
     lines.push(``)
