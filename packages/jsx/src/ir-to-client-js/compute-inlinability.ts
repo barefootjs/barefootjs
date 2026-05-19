@@ -319,12 +319,27 @@ function populateCsrInlinable(ctx: ClientJsContext, relocateEnv: RelocateEnv): v
   // Fixed-point loop: each iteration resolves any const whose
   // substitution succeeds. Bounded by `localConstants.length + 1` —
   // longest possible chain.
+  //
+  // The env (constSubs merged into baseEnv) is rebuilt for EACH const
+  // inside the iter, not once per iter. When two consts in the same
+  // source order chain (`const a = props.x; const b = a.y < 1`), the
+  // dependent (`b`) must observe `a`'s substitution before its own
+  // `csrSubstitute` runs — otherwise `a` stays a bare identifier in
+  // `b`'s value, the post-substitution `isInlinableInTemplate` re-runs
+  // relocate on the un-substituted text and falls `a` back to
+  // `undefined` (init-local without inlinable form), and `b`'s
+  // `csrInlinable` entry freezes that fallback into `(undefined < 1)`.
+  // The user-visible defect is BF061-shape templates emitting
+  // `(undefined < N)` for `if`-statement conditions built from chained
+  // init-locals (#1404). Rebuilding env inside the loop costs an extra
+  // Map merge per const but keeps the substitution table monotonic
+  // within an iter.
   const maxIter = ctx.localConstants.length + 1
   for (let iter = 0; iter < maxIter; iter++) {
     let progressed = false
-    const env = buildEnvWithConsts()
     for (const c of ctx.localConstants) {
       if (finalised.has(c.name)) continue
+      const env = buildEnvWithConsts()
       // Use raw `value` (not `templateValue`) so the relocate gate
       // sees `props.X` and can detect bridged-arg calls. The final
       // emit-time substitution applies the bare-prop rewrite.
