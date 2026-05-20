@@ -1322,10 +1322,24 @@ function collectMemo(node: ts.VariableDeclaration, ctx: AnalyzerContext): void {
   // Extract dependencies from computation
   const deps = extractDependencies(computation, ctx)
 
-  // Try to infer type
+  // Try to infer type. Prefer the explicit `<T>` type argument when
+  // present; otherwise fall back to the same value-shape inference
+  // signals use (`inferTypeFromValue` handles `.length`, `.some(...)`,
+  // `.every(...)`, etc.). Without this, `createMemo(() =>
+  // todos().filter(...).length)` ends up as `unknown` and the Go
+  // adapter renders the field as `interface{}`, even though the
+  // expression is clearly a number.
   let type: TypeInfo = { kind: 'unknown', raw: 'unknown' }
   if (callExpr.typeArguments && callExpr.typeArguments.length > 0) {
     type = typeNodeToTypeInfo(callExpr.typeArguments[0], ctx.sourceFile) ?? type
+  } else {
+    // The memo computation is an arrow function; the type we want is
+    // the body's, not the arrow itself. Pull `() => <body>` apart so
+    // `inferTypeFromValue` sees the actual expression.
+    const arrowBody = computation.replace(/^\s*\([^)]*\)\s*=>\s*/, '').trim()
+    if (arrowBody && arrowBody !== computation) {
+      type = inferTypeFromValue(arrowBody)
+    }
   }
 
   ctx.memos.push({
@@ -2546,6 +2560,27 @@ function inferTypeFromValue(value: string): TypeInfo {
   const nullishMatch = trimmed.match(/^.+\?\?\s*(.+)$/)
   if (nullishMatch) {
     return inferTypeFromValue(nullishMatch[1])
+  }
+
+  // Trailing method/property accesses that transform the operand type.
+  // Without these, `createSignal((props.todos ?? []).length)` would fall
+  // through to "unknown" and adapters would either pick `interface{}`
+  // or copy the underlying array's element type — both worse than the
+  // actual `number`. The accessor is the rightmost suffix, so a single
+  // regex on the tail is enough; we don't need to fully parse the LHS.
+  //
+  //   .length / .size       → number
+  //   .some(...) / .every(...) / .includes(...)           → boolean
+  //   .indexOf(...) / .findIndex(...) / .lastIndexOf(...) → number
+  //   .at(...) / .find(...) → unknown (element type; can't recover here)
+  if (/\.(length|size)\s*$/.test(trimmed)) {
+    return { kind: 'primitive', raw: 'number', primitive: 'number' }
+  }
+  if (/\.(some|every|includes)\s*\([\s\S]*\)\s*$/.test(trimmed)) {
+    return { kind: 'primitive', raw: 'boolean', primitive: 'boolean' }
+  }
+  if (/\.(indexOf|findIndex|lastIndexOf)\s*\([\s\S]*\)\s*$/.test(trimmed)) {
+    return { kind: 'primitive', raw: 'number', primitive: 'number' }
   }
 
   // Number
