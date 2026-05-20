@@ -70,14 +70,6 @@ export const renderer = jsxRenderer(({ children, title }) => (
     </head>
     <body>
       {children}
-      {/* BfScripts emits <script> tags only for components actually
-          rendered on the current request — driven by the per-request
-          bfCollectedScripts set populated during SSR. The /app fallback
-          dumps every manifest entry on every page; switching once an
-          app has more than one route saves shipping unrelated client
-          bundles. Pass manifest+base to also walk transitive stubDeps
-          for any 'use client' children reached through the imperative
-          createComponent rewrite (#1243). */}
       <BfScripts base={componentsBase} manifest={manifest} />
     </body>
   </html>
