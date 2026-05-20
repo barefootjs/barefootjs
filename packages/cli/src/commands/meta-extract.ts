@@ -30,7 +30,12 @@ export function pickGeneratedAt(
     const prev = JSON.parse(previousIndexJson) as MetaIndex
     const prevSig = JSON.stringify({ ...prev, generatedAt: '' })
     const nextSig = JSON.stringify({ version: 1, generatedAt: '', components: nextEntries })
-    if (prevSig === nextSig) return prev.generatedAt
+    // Guard against a corrupt-but-parseable index.json where `generatedAt`
+    // got nulled out, replaced with a number, etc. — preserving such a
+    // value would silently break the `MetaIndex` schema contract.
+    if (prevSig === nextSig && typeof prev.generatedAt === 'string' && prev.generatedAt !== '') {
+      return prev.generatedAt
+    }
   } catch {
     // Corrupt or unreadable — fall through to a fresh timestamp.
   }

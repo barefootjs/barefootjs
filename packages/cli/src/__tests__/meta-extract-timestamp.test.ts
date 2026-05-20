@@ -49,6 +49,33 @@ describe('pickGeneratedAt', () => {
     expect(pickGeneratedAt('not-json', entries, fakeNow)).toBe(FIXED_NOW)
   })
 
+  test('returns fresh timestamp when previous generatedAt is not a string', () => {
+    // Parseable but schema-violating — we must not propagate a non-string
+    // into the freshly written MetaIndex.
+    const prevWithNull = JSON.stringify({
+      version: 1,
+      generatedAt: null,
+      components: entries,
+    })
+    expect(pickGeneratedAt(prevWithNull, entries, fakeNow)).toBe(FIXED_NOW)
+
+    const prevWithNumber = JSON.stringify({
+      version: 1,
+      generatedAt: 1234567890,
+      components: entries,
+    })
+    expect(pickGeneratedAt(prevWithNumber, entries, fakeNow)).toBe(FIXED_NOW)
+  })
+
+  test('returns fresh timestamp when previous generatedAt is empty string', () => {
+    const prev = JSON.stringify({
+      version: 1,
+      generatedAt: '',
+      components: entries,
+    })
+    expect(pickGeneratedAt(prev, entries, fakeNow)).toBe(FIXED_NOW)
+  })
+
   test('treats undefined optional fields as identical to omitted fields', () => {
     // JSON.stringify drops undefined values, so this should still match.
     const prev = JSON.stringify({
