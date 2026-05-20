@@ -1,5 +1,5 @@
 import { describe, test, expect, spyOn, beforeEach, afterEach } from 'bun:test'
-import { search } from '../commands/search'
+import { search, resolvePrintOptions, printSearchResults, type SearchResult } from '../commands/search'
 import { loadIndex, fetchIndex } from '../lib/meta-loader'
 import { scanCoreDocs } from '../lib/docs-loader'
 import type { MetaIndex } from '../lib/types'
@@ -159,5 +159,101 @@ describe('search - core docs', () => {
   test('returns empty when no match in either source', () => {
     const results = search('zzz_nonexistent_zzz', index, coreDocs)
     expect(results).toEqual([])
+  })
+})
+
+describe('resolvePrintOptions — source label + hint trigger', () => {
+  // The hint exists so `bf search` from a fresh scaffold doesn't read
+  // as "this component doesn't exist" when in fact it lives in the
+  // upstream registry the caller hasn't `--registry`'d yet. The hint
+  // SHOULD fire on the default path and SHOULD NOT fire when the
+  // caller already made an explicit scope choice (`--registry` /
+  // `--dir`).
+
+  test('default: local meta/ + registry hint', () => {
+    const opts = resolvePrintOptions({
+      dirFlagUsed: false,
+      metaDir: '/proj/meta',
+      rootDir: '/proj',
+    })
+    expect(opts.sourceLabel).toBe('local meta/')
+    expect(opts.hintRegistry).toBe(true)
+  })
+
+  test('--registry <url>: hostname label, no hint', () => {
+    const opts = resolvePrintOptions({
+      registryUrl: 'https://ui.barefootjs.dev/r/',
+      dirFlagUsed: false,
+      metaDir: '/proj/meta',
+      rootDir: '/proj',
+    })
+    expect(opts.sourceLabel).toBe('ui.barefootjs.dev')
+    expect(opts.hintRegistry).toBe(false)
+  })
+
+  test('--dir <path>: relative path label, no hint', () => {
+    const opts = resolvePrintOptions({
+      dirFlagUsed: true,
+      metaDir: '/proj/custom/meta',
+      rootDir: '/proj',
+    })
+    expect(opts.sourceLabel).toBe('local meta at custom/meta')
+    expect(opts.hintRegistry).toBe(false)
+  })
+
+  test('--dir absolute path outside root: falls back to absolute', () => {
+    const opts = resolvePrintOptions({
+      dirFlagUsed: true,
+      metaDir: '/elsewhere/meta',
+      rootDir: '/proj',
+    })
+    // path.relative returns ../../elsewhere/meta; we just check it's
+    // not the empty string fallback path.
+    expect(opts.sourceLabel.startsWith('local meta at ')).toBe(true)
+    expect(opts.hintRegistry).toBe(false)
+  })
+})
+
+describe('printSearchResults — registry hint surface', () => {
+  let logSpy: ReturnType<typeof spyOn>
+  let logs: string[]
+
+  beforeEach(() => {
+    logs = []
+    logSpy = spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      logs.push(args.map(String).join(' '))
+    })
+  })
+
+  afterEach(() => {
+    logSpy.mockRestore()
+  })
+
+  const oneResult: SearchResult[] = [
+    { name: 'button', type: 'component', category: 'input', description: 'A button' },
+  ]
+
+  test('prints "Searching: local meta/" + registry hint on default path', () => {
+    printSearchResults(oneResult, false, { sourceLabel: 'local meta/', hintRegistry: true })
+    expect(logs[0]).toBe('Searching: local meta/')
+    expect(logs[1]).toContain('--registry https://ui.barefootjs.dev/r/')
+  })
+
+  test('omits the hint when caller passed --registry', () => {
+    printSearchResults(oneResult, false, { sourceLabel: 'ui.barefootjs.dev', hintRegistry: false })
+    expect(logs[0]).toBe('Searching: ui.barefootjs.dev')
+    expect(logs.some((l) => l.includes('--registry'))).toBe(false)
+  })
+
+  test('hint fires even when the result set is empty (the case the hint exists for)', () => {
+    printSearchResults([], false, { sourceLabel: 'local meta/', hintRegistry: true })
+    expect(logs.some((l) => l.includes('--registry https://ui.barefootjs.dev/r/'))).toBe(true)
+    expect(logs.some((l) => l === 'No results found.')).toBe(true)
+  })
+
+  test('--json: header is suppressed (machine output stays just the JSON)', () => {
+    printSearchResults(oneResult, true, { sourceLabel: 'local meta/', hintRegistry: true })
+    expect(logs).toHaveLength(1)
+    expect(JSON.parse(logs[0])).toEqual(oneResult)
   })
 })
