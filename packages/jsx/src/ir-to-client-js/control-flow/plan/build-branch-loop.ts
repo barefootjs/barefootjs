@@ -11,7 +11,7 @@
  */
 
 import type { BranchLoop } from '../../types'
-import { varSlotId, wrapLoopParamAsAccessor } from '../../utils'
+import { buildChainedArrayExpr, varSlotId, wrapLoopParamAsAccessor } from '../../utils'
 import { buildBranchCompositePlan } from './build-composite-loop'
 import { buildBranchLoopDelegationPlan } from './build-event-delegation'
 import { buildReactiveEffectsPlan } from './build-reactive-effects'
@@ -47,7 +47,7 @@ export function buildBranchLoopPlan(loop: BranchLoop): BranchLoopPlan {
     containerSlotId,
     containerVar,
     markerId: loop.markerId,
-    arrayExpr: loop.array,
+    arrayExpr: buildChainedArrayExpr(loop),
     keyFn: loopKeyFn(loop),
     paramHead,
     paramUnwrap,

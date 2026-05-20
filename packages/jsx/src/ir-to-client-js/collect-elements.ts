@@ -903,6 +903,16 @@ function collectBranchLoops(
         bindings: branchBindings,
         innerLoops: useElementReconciliation ? innerLoopsCollected : undefined,
         useElementReconciliation: useElementReconciliation || undefined,
+        filterPredicate: n.filterPredicate ? {
+          param: n.filterPredicate.param,
+          raw: n.filterPredicate.raw,
+        } : undefined,
+        sortComparator: n.sortComparator ? {
+          paramA: n.sortComparator.paramA,
+          paramB: n.sortComparator.paramB,
+          raw: n.sortComparator.raw,
+        } : undefined,
+        chainOrder: n.chainOrder,
       })
       // Don't recurse into the loop — nested loops are handled by the loop's own reconciliation.
     },

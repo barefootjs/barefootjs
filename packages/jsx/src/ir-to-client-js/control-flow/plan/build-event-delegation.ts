@@ -10,7 +10,7 @@
  */
 
 import type { TopLevelLoop, BranchLoop, LoopChildEvent } from '../../types'
-import { varSlotId, substituteLoopBindings } from '../../utils'
+import { buildChainedArrayExpr, varSlotId, substituteLoopBindings } from '../../utils'
 import type {
   EventDelegationPlan,
   ItemLookup,
@@ -22,7 +22,11 @@ export function buildDynamicLoopDelegationPlan(elem: TopLevelLoop): EventDelegat
     containerVar: `_${varSlotId(elem.slotId)}`,
     events: elem.bindings.events,
     itemLookup: buildKeyedOrIndexLookup({
-      array: elem.array,
+      // Chain `.filter()` / `.toSorted()` so the index-based lookup walks
+      // the same array shape mapArray reconciled into the DOM (#1434).
+      // Keyed `.find()` is identity-based and works either way; using the
+      // chained array keeps the two delegation paths consistent.
+      array: buildChainedArrayExpr(elem),
       param: elem.param,
       paramBindings: elem.paramBindings,
       key: elem.key,
@@ -37,7 +41,8 @@ export function buildBranchLoopDelegationPlan(loop: BranchLoop, cv: string): Eve
     containerVar: `__loop_${cv}`,
     events: loop.bindings.events,
     itemLookup: buildKeyedOrIndexLookup({
-      array: loop.array,
+      // See note on `buildDynamicLoopDelegationPlan` above (#1434).
+      array: buildChainedArrayExpr(loop),
       param: loop.param,
       paramBindings: loop.paramBindings,
       key: loop.key,
@@ -58,7 +63,10 @@ export function buildStaticArrayDelegationPlan(elem: TopLevelLoop): EventDelegat
     events: elem.bindings.events,
     itemLookup: {
       kind: 'static-index',
-      arrayExpr: elem.array,
+      // Static arrays render through the same `.filter()`/`.toSorted()`
+      // chain at runtime, so the indexOf lookup must walk the chained
+      // array too (#1434).
+      arrayExpr: buildChainedArrayExpr(elem),
       param: elem.param,
       mapPreamble: elem.mapPreamble ?? null,
       siblingOffset: elem.siblingOffset ?? null,
