@@ -269,6 +269,50 @@ export function Page() {
     expect(result.template).not.toContain('children =>')
   })
 
+  describe('emits BF101 for JS-only filter / array patterns the Mojo adapter cannot lower to EP', () => {
+    // These patterns previously fell through Mojo's regex pipeline and
+    // emitted broken Embedded Perl silently (e.g. `$items->{filter}->[...]`
+    // for a destructured filter, `[grep {...}]->{length}` for nested
+    // higher-order). The Go adapter rejects them via its
+    // `convertExpressionToGo` / `renderFilterExpr` gates with BF101;
+    // these tests pin Mojo to the same contract so users on
+    // non-JS-runtime adapters see a compile error and can either
+    // rewrite or add `/* @client */`.
+    const wrap = (body: string) => `'use client'
+import { createSignal } from '@barefootjs/client'
+export function C() {
+  const [items] = createSignal<any[]>([])
+  return ${body}
+}`
+
+    const cases: { name: string; body: string; needle: string }[] = [
+      { name: 'reduce',            body: `<div>{items().reduce((s, x) => s + x, 0)}</div>`,                                                          needle: '.reduce(' },
+      { name: 'forEach',           body: `<ul>{items().forEach(x => x)}</ul>`,                                                                       needle: '.forEach(' },
+      { name: 'flatMap',           body: `<ul>{items().flatMap(x => x.tags).map(t => <li key={t}>{t}</li>)}</ul>`,                                  needle: '.flatMap(' },
+      { name: 'destructured filter param', body: `<ul>{items().filter(({done}) => done).map(t => <li key={t.id}>{t.name}</li>)}</ul>`,              needle: '.filter(' },
+      { name: 'function-keyword filter',   body: `<ul>{items().filter(function(x) { return x.done }).map(t => <li key={t.id}>{t.name}</li>)}</ul>`, needle: '.filter(' },
+      { name: 'nested higher-order in filter predicate', body: `<ul>{items().filter(x => x.tags.filter(t => t.active).length > 0).map(t => <li key={t.id}>{t.name}</li>)}</ul>`, needle: 'higher-order' },
+    ]
+
+    for (const { name, body, needle } of cases) {
+      test(`${name} → BF101`, () => {
+        const adapter = new MojoAdapter()
+        const result = compileJSX(wrap(body), 'C.tsx', { adapter })
+        const bf101 = result.errors?.filter(e => e.code === 'BF101') ?? []
+        expect(bf101.length).toBeGreaterThan(0)
+        expect(bf101.some(e => e.message.includes(needle))).toBe(true)
+      })
+
+      test(`${name} + /* @client */ suppresses BF101`, () => {
+        const adapter = new MojoAdapter()
+        const wrappedBody = body.replace(/\{(?!\/\* @client \*\/)/, '{/* @client */ ')
+        const result = compileJSX(wrap(wrappedBody), 'C.tsx', { adapter })
+        const bf101 = result.errors?.filter(e => e.code === 'BF101') ?? []
+        expect(bf101).toEqual([])
+      })
+    }
+  })
+
   test('breaks the convertHigherOrderExpr ↔ unsupported-emitter loop (#1421)', () => {
     // Regression: a branch-local `.filter(Boolean).join(' ')` chain
     // referenced at an attribute used to crash `bf build` with

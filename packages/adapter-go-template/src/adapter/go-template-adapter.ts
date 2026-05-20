@@ -45,6 +45,7 @@ import {
   isBooleanAttr,
   parseExpression,
   isSupported,
+  exprToString,
   identifierPath,
   emitParsedExpr,
   emitIRNode,
@@ -3072,8 +3073,26 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         return `or (${left}) (${right})`
       }
 
-      default:
-        return '[UNSUPPORTED-FILTER-EXPR]'
+      default: {
+        // The filter predicate body contains a node kind we can't lower
+        // to a Go template action — most commonly a nested higher-order
+        // (`x => x.tags.filter(...).length > 0`). Surface BF101 with the
+        // offending expression so the user can either rewrite the
+        // predicate or add `/* @client */`. Returning the placeholder
+        // string previously let the template through with a literal
+        // `[UNSUPPORTED-FILTER-EXPR]` token that only failed at
+        // `text/template` execution time.
+        this.errors.push({
+          code: 'BF101',
+          severity: 'error',
+          message: `Filter predicate contains an expression that cannot be lowered to a Go template action: ${exprToString(expr)}`,
+          loc: this.makeLoc(),
+          suggestion: {
+            message: 'Options:\n1. Use /* @client */ for client-side evaluation\n2. Rewrite the predicate to avoid nested higher-order methods (`.filter()` / `.map()` / etc. inside the predicate body)',
+          },
+        })
+        return 'false'
+      }
     }
   }
 

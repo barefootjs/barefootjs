@@ -89,24 +89,35 @@ Some comparators (e.g., `localeCompare`, block bodies) are not supported and wil
 
 ## Limitations
 
-Some JavaScript expressions cannot be translated into marked template syntax. The compiler emits `BF021` for these. Add [`/* @client */`](./client-directive.md) to opt into client-only evaluation.
+Some JavaScript expressions cannot be translated into marked template syntax. Which expressions error depends on the adapter — non-JS template backends (Go `html/template`, Mojolicious EP) have a narrower expression surface than JS-runtime adapters (Hono, etc.) that can execute JS at SSR time.
 
-### Unsupported patterns
+| Pattern | Hono / JS-runtime adapters | Go / Mojo adapters |
+|---|---|---|
+| `.filter()` with destructured param (`({done}) => done`) | works (runs as JS) | **BF101** |
+| `.filter()` with `function` keyword callback | works | **BF101** |
+| `.reduce()`, `.forEach()`, `.flatMap()` | works | **BF101** |
+| Nested higher-order in filter predicate (`x => x.tags.filter(...).length > 0`) | works | **BF101** |
+| Sort comparator using `localeCompare` or a block body | **BF021** (all adapters) | **BF021** |
+| `typeof` in a filter predicate | **BF021** (all adapters) | **BF021** |
+
+`BF021` is raised at the IR layer and applies to every adapter. `BF101` is raised by adapters that can't lower the expression to their template language. Either way, add [`/* @client */`](./client-directive.md) to opt into client-only evaluation and suppress the error.
+
+### Patterns that error on Go / Mojo
 
 **Nested higher-order methods:**
 
 ```tsx
-// ❌ Compile error (BF021)
-{items().filter(x => x.tags().filter(t => t.active).length > 0)}
+// ❌ BF101 on Go/Mojo; works on Hono
+{items().filter(x => x.tags.filter(t => t.active).length > 0).map(...)}
 
 // ✅ Add /* @client */ to evaluate on the client
-{/* @client */ items().filter(x => x.tags().filter(t => t.active).length > 0)}
+{/* @client */ items().filter(x => x.tags.filter(t => t.active).length > 0).map(...)}
 ```
 
-**Unsupported array methods** (`.reduce()`, `.forEach()`, `.flatMap()`):
+**`.reduce()` / `.forEach()` / `.flatMap()`:**
 
 ```tsx
-// ❌ Compile error (BF021)
+// ❌ BF101 on Go/Mojo; works on Hono
 {items().reduce((sum, x) => sum + x.price, 0)}
 
 // ✅ Use /* @client */
@@ -116,27 +127,29 @@ Some JavaScript expressions cannot be translated into marked template syntax. Th
 **Destructuring in predicate parameters:**
 
 ```tsx
-// ❌ Compile error (BF021)
+// ❌ BF101 on Go/Mojo; works on Hono
 {items().filter(({done}) => done).map(...)}
 
-// ✅ Use a named parameter instead
+// ✅ Use a named parameter for adapter portability
 {items().filter(t => t.done).map(...)}
 ```
 
 **Function expressions** (`function` keyword):
 
 ```tsx
-// ❌ Compile error (BF021)
+// ❌ BF101 on Go/Mojo; works on Hono
 {items().filter(function(x) { return x.done })}
 
-// ✅ Use arrow functions instead
+// ✅ Use arrow functions for adapter portability
 {items().filter(x => x.done)}
 ```
+
+### Patterns that error on all adapters
 
 **Unsupported sort comparators** (`localeCompare`, block bodies):
 
 ```tsx
-// ❌ Compile error (BF021)
+// ❌ BF021 (all adapters)
 {items().sort((a, b) => a.name.localeCompare(b.name)).map(...)}
 
 // ✅ Use /* @client */
