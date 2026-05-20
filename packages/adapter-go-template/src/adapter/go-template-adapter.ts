@@ -38,6 +38,7 @@ import {
   type TemplateSections,
   type ParsedExprEmitter,
   type HigherOrderMethod,
+  type ArrayMethod,
   type LiteralType,
   type IRNodeEmitter,
   type EmitIRNode,
@@ -2637,6 +2638,28 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     return `[UNSUPPORTED: ${method}]`
   }
 
+  arrayMethod(
+    _method: ArrayMethod,
+    _object: ParsedExpr,
+    _args: ParsedExpr[],
+    _emit: (e: ParsedExpr) => string,
+  ): string {
+    // Array methods (currently just `.join`) need runtime-helper
+    // lowering (`bf_join`) that the Go adapter doesn't ship in this
+    // PR. Refuse with BF101 so the cross-adapter contract pins the
+    // Go-side gap until the Go lowering lands in the stacked PR.
+    this.errors.push({
+      code: 'BF101',
+      severity: 'error',
+      message: `Array method '.${_method}' cannot be lowered to Go template syntax in this build`,
+      loc: this.makeLoc(),
+      suggestion: {
+        message: 'Options:\n1. Use @client directive for client-side evaluation\n2. Pre-compute the value in Go code',
+      },
+    })
+    return `""`
+  }
+
   unsupported(raw: string, _reason: string): string {
     // Should not happen if `isSupported` was checked at parse time.
     return `[UNSUPPORTED: ${raw}]`
@@ -3629,6 +3652,12 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         // Array literals in conditions have no Go template form —
         // delegate to renderParsedExpr so the `arrayLiteral` BF101
         // gate fires consistently with non-condition positions.
+        return this.renderParsedExpr(expr)
+
+      case 'array-method':
+        // Same delegation pattern — `arrayMethod` records the
+        // refusal diagnostic at one site rather than duplicating it
+        // for condition-position emission.
         return this.renderParsedExpr(expr)
 
       case 'unsupported':

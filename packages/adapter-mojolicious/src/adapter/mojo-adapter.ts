@@ -31,6 +31,7 @@ import {
   type TemplateSections,
   type ParsedExprEmitter,
   type HigherOrderMethod,
+  type ArrayMethod,
   type LiteralType,
   type IRNodeEmitter,
   type EmitIRNode,
@@ -1369,6 +1370,33 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
 // ===========================================================================
 
 /**
+ * Lowering for `array-method` IR nodes (#1443) — shared between the
+ * filter and top-level emitters so the Embedded Perl form stays
+ * consistent regardless of which context the chain lands in. The
+ * exhaustive switch on `method` makes future additions (e.g.
+ * `.concat`, `.slice`) a TS compile error here, mirroring the drift
+ * defence on `ParsedExpr.kind`.
+ */
+function renderMojoArrayMethod(
+  method: ArrayMethod,
+  object: ParsedExpr,
+  args: ParsedExpr[],
+  emit: (e: ParsedExpr) => string,
+): string {
+  switch (method) {
+    case 'join': {
+      // arr.join(sep) → join(sep, @{arr}). The default `${obj}->{join}`
+      // hash-lookup fallback would emit invalid Perl, which is why the
+      // IR carves out a dedicated method node instead of routing
+      // through the generic call dispatcher.
+      const obj = emit(object)
+      const sep = emit(args[0])
+      return `join(${sep}, @{${obj}})`
+    }
+  }
+}
+
+/**
  * Lowering for the predicate body of a filter / every / some / find,
  * plus the same shape used by `renderBlockBodyCondition` for complex
  * block-body filters. Identifiers resolve against:
@@ -1477,6 +1505,19 @@ class MojoFilterEmitter implements ParsedExprEmitter {
     return `[${elements.map(emit).join(', ')}]`
   }
 
+  arrayMethod(
+    method: ArrayMethod,
+    object: ParsedExpr,
+    args: ParsedExpr[],
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    // Filter-context array methods are vanishingly rare — predicates
+    // operate on scalars, not arrays. Defer to the top-level rendering
+    // (`join(sep, @{...})`) for any case that does land here so the
+    // emission stays consistent across contexts.
+    return renderMojoArrayMethod(method, object, args, emit)
+  }
+
   conditional(_test: ParsedExpr, _consequent: ParsedExpr, _alternate: ParsedExpr): string {
     return '1'
   }
@@ -1530,23 +1571,12 @@ class MojoTopLevelEmitter implements ParsedExprEmitter {
     if (callee.kind === 'identifier' && args.length === 0) {
       return `$${callee.name}`
     }
-    // arr.join(sep) → join(sep, @{$arr}) — needed for the registry
-    // Slot's `[a, b].filter(Boolean).join(' ')` chain (#1443). The
-    // default member fallback below would render `${arr}->{join}`
-    // (a hash lookup), so detecting `.join` here is the only way to
-    // produce valid Perl. One-arg form only; zero-arg `.join()`
-    // defaults to ',' in JS but Perl's `join` requires a separator,
-    // and no in-tree component uses the implicit form.
-    if (
-      callee.kind === 'member' &&
-      !callee.computed &&
-      callee.property === 'join' &&
-      args.length === 1
-    ) {
-      const obj = emit(callee.object)
-      const sep = emit(args[0])
-      return `join(${sep}, @{${obj}})`
-    }
+    // Array methods (`.join` and any others added to ArrayMethod, #1443)
+    // are lifted into the `array-method` IR kind at parse time, so they
+    // never reach this dispatcher. Per-method detection here would mix
+    // value-builtin lowering with signal-call lowering — keeping them
+    // separated forces every adapter to declare the full array-method
+    // surface in one place (the `arrayMethod` emitter below).
     return emit(callee)
   }
 
@@ -1604,6 +1634,15 @@ class MojoTopLevelEmitter implements ParsedExprEmitter {
     // #1443). Empty `[]` stays as `[]` — a valid empty Perl array
     // ref that grep/join handle naturally.
     return `[${elements.map(emit).join(', ')}]`
+  }
+
+  arrayMethod(
+    method: ArrayMethod,
+    object: ParsedExpr,
+    args: ParsedExpr[],
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    return renderMojoArrayMethod(method, object, args, emit)
   }
 
   conditional(

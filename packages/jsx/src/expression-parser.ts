@@ -25,6 +25,13 @@ export type ParsedExpr =
   | { kind: 'arrow-fn'; param: string; body: ParsedExpr }
   | { kind: 'higher-order'; method: 'filter' | 'every' | 'some' | 'find' | 'findIndex'; object: ParsedExpr; param: string; predicate: ParsedExpr }
   | { kind: 'array-literal'; elements: ParsedExpr[] }
+  // Non-higher-order array methods. Discriminated by `method` so each
+  // adapter handles the full set via one exhaustive switch instead of
+  // sprinkling per-method branches across the call / member emitters.
+  // The set is intentionally narrow; extending it adds a TS compile
+  // error in every adapter that hasn't been updated (the same drift
+  // defence used for `ParsedExpr.kind`).
+  | { kind: 'array-method'; method: 'join'; object: ParsedExpr; args: ParsedExpr[] }
   | { kind: 'unsupported'; raw: string; reason: string }
 
 export type TemplatePart =
@@ -172,6 +179,19 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
           param: '_',
           predicate: { kind: 'identifier', name: '_' },
         }
+      }
+    }
+
+    // Non-higher-order array methods (#1443). Lifting these into an
+    // `array-method` IR node — instead of detecting at each adapter's
+    // `call()` emitter — keeps the abstraction at the IR layer where
+    // it belongs: an array supports `.join`, and the per-target
+    // lowering is the adapter's choice. Adding `.concat` / `.slice` /
+    // etc. later means widening the IR discriminator, not adding more
+    // branches to every adapter's call dispatch.
+    if (callee.kind === 'member' && !callee.computed) {
+      if (callee.property === 'join' && args.length === 1) {
+        return { kind: 'array-method', method: 'join', object: callee.object, args }
       }
     }
 
@@ -412,6 +432,16 @@ function checkSupport(expr: ParsedExpr): SupportResult {
       return { supported: true, level: 'L2' }
     }
 
+    case 'array-method': {
+      const objSupport = checkSupport(expr.object)
+      if (!objSupport.supported) return objSupport
+      for (const arg of expr.args) {
+        const argSupport = checkSupport(arg)
+        if (!argSupport.supported) return argSupport
+      }
+      return { supported: true, level: 'L2' }
+    }
+
 
     case 'call': {
       // Check if callee is supported
@@ -553,6 +583,8 @@ export function containsHigherOrder(expr: ParsedExpr): boolean {
       return containsHigherOrder(expr.body)
     case 'array-literal':
       return expr.elements.some(containsHigherOrder)
+    case 'array-method':
+      return containsHigherOrder(expr.object) || expr.args.some(containsHigherOrder)
     default:
       return false
   }
@@ -728,6 +760,8 @@ export function exprToString(expr: ParsedExpr): string {
       return `${exprToString(expr.object)}.${expr.method}(${expr.param} => ${exprToString(expr.predicate)})`
     case 'array-literal':
       return `[${expr.elements.map(exprToString).join(', ')}]`
+    case 'array-method':
+      return `${exprToString(expr.object)}.${expr.method}(${expr.args.map(exprToString).join(', ')})`
     case 'unsupported':
       return `[UNSUPPORTED: ${expr.raw}]`
   }
@@ -781,6 +815,8 @@ export function stringifyParsedExpr(expr: ParsedExpr): string {
       return `${stringifyParsedExpr(expr.object)}.${expr.method}(${expr.param} => ${stringifyParsedExpr(expr.predicate)})`
     case 'array-literal':
       return `[${expr.elements.map(stringifyParsedExpr).join(', ')}]`
+    case 'array-method':
+      return `${stringifyParsedExpr(expr.object)}.${expr.method}(${expr.args.map(stringifyParsedExpr).join(', ')})`
     case 'unsupported':
       return expr.raw
   }
