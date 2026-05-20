@@ -168,7 +168,9 @@
     ]
   },
   "dependencies": {
-    "internal": [],
+    "internal": [
+      "icon"
+    ],
     "external": [
       "@barefootjs/client"
     ]
@@ -184,6 +186,17 @@
       "getter": "open",
       "setter": "setOpen",
       "initialValue": "false"
+    },
+    {
+      "getter": "internalValue",
+      "setter": "setInternalValue",
+      "initialValue": "props.value ?? ''"
+    }
+  ],
+  "memos": [
+    {
+      "name": "isControlled",
+      "deps": []
     }
   ]
 }

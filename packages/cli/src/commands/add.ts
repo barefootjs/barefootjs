@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, readd
 import path from 'path'
 import type { CliContext } from '../context'
 import type { BarefootConfig } from '../context'
-import { resolveDependencies } from '../lib/dependency-resolver'
+import { resolveDependenciesFromSource } from '../lib/dependency-resolver'
 import { extractMetaForFile } from './meta-extract'
 import type { MetaIndex, MetaIndexEntry, ComponentMeta, RegistryItem } from '../lib/types'
 
@@ -269,8 +269,11 @@ function addFromLocal(
     }
   }
 
-  // Resolve dependencies
-  const allComponents = resolveDependencies(componentNames, srcMetaDir)
+  // Resolve dependencies by scanning source. We deliberately avoid
+  // `ui/meta/<name>.json` here — meta is a derived artefact that can
+  // drift between `bf meta extract` runs, and trusting it dropped
+  // co-required siblings like `icon` from `bf add checkbox` (#1435).
+  const allComponents = resolveDependenciesFromSource(componentNames, srcComponentsDir)
   const autoDeps = allComponents.filter(c => !componentNames.includes(c))
 
   if (autoDeps.length > 0) {

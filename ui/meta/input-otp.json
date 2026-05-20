@@ -44,9 +44,9 @@
     },
     {
       "name": "pattern",
-      "type": "RegExp",
+      "type": "RegExp | PatternPreset",
       "required": false,
-      "description": "Pattern to validate input (default: digits only)"
+      "description": "Pattern to validate input. Accepts a RegExp or a preset name: 'digits' | 'chars' | 'digits-and-chars'. Default: 'digits'."
     },
     {
       "name": "disabled",
@@ -145,6 +145,12 @@
       "getter": "isFocused",
       "setter": "setIsFocused",
       "initialValue": "false"
+    }
+  ],
+  "memos": [
+    {
+      "name": "pattern",
+      "deps": []
     }
   ]
 }

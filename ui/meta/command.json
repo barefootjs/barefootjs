@@ -194,7 +194,8 @@
   },
   "dependencies": {
     "internal": [
-      "dialog"
+      "dialog",
+      "icon"
     ],
     "external": [
       "@barefootjs/client"
@@ -212,6 +213,12 @@
       "getter": "selectedValue",
       "setter": "setSelectedValue",
       "initialValue": "''"
+    }
+  ],
+  "memos": [
+    {
+      "name": "filterFn",
+      "deps": []
     }
   ]
 }

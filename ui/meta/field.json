@@ -1,0 +1,205 @@
+{
+  "name": "field",
+  "title": "Field",
+  "category": "display",
+  "description": "Field Component A form field wrapper that provides structure for labels, descriptions, and error messages. Supports vertical and horizontal orientations. Based on shadcn/ui Field with native HTML + ARIA.",
+  "tags": [
+    "multi-component",
+    "aria"
+  ],
+  "stateful": false,
+  "props": [
+    {
+      "name": "className",
+      "type": "string",
+      "required": false,
+      "description": "Additional CSS class names."
+    },
+    {
+      "name": "children",
+      "type": "Child",
+      "required": false,
+      "description": "Content displayed inside the fieldset."
+    }
+  ],
+  "subComponents": [
+    {
+      "name": "FieldLegend",
+      "description": "Props for the FieldLegend component.",
+      "props": [
+        {
+          "name": "variant",
+          "type": "FieldLegendVariant",
+          "required": false,
+          "description": "The visual variant of the legend."
+        },
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": "Additional CSS class names."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": "Content displayed inside the legend."
+        }
+      ]
+    },
+    {
+      "name": "FieldGroup",
+      "description": "Props for the FieldGroup component.",
+      "props": [
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": "Additional CSS class names."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": "Content displayed inside the group."
+        }
+      ]
+    },
+    {
+      "name": "Field",
+      "description": "Props for the Field component.",
+      "props": [
+        {
+          "name": "orientation",
+          "type": "FieldOrientation",
+          "required": false,
+          "description": "Layout orientation."
+        },
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": "Additional CSS class names."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": "Content displayed inside the field."
+        }
+      ]
+    },
+    {
+      "name": "FieldContent",
+      "description": "Props for the FieldContent component.",
+      "props": [
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": "Additional CSS class names."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": "Content displayed inside the field content area."
+        }
+      ]
+    },
+    {
+      "name": "FieldLabel",
+      "description": "Props for the FieldLabel component.",
+      "props": [
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": "Additional CSS class names."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": "Content displayed inside the label."
+        }
+      ]
+    },
+    {
+      "name": "FieldDescription",
+      "description": "Props for the FieldDescription component.",
+      "props": [
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": "Additional CSS class names."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": "Content displayed inside the description."
+        }
+      ]
+    },
+    {
+      "name": "FieldError",
+      "description": "Props for the FieldError component.",
+      "props": [
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": "Additional CSS class names."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": "Error message content."
+        }
+      ]
+    }
+  ],
+  "variants": {
+    "FieldLegendVariant": [
+      "legend",
+      "label"
+    ],
+    "FieldOrientation": [
+      "vertical",
+      "horizontal"
+    ]
+  },
+  "examples": [
+    {
+      "title": "Basic usage",
+      "code": "<Field>\n  <FieldLabel>Email</FieldLabel>\n  <FieldContent>\n    <Input type=\"email\" />\n    <FieldDescription>Enter your email address.</FieldDescription>\n  </FieldContent>\n</Field>"
+    },
+    {
+      "title": "With error",
+      "code": "<Field data-invalid=\"true\">\n  <FieldLabel>Username</FieldLabel>\n  <FieldContent>\n    <Input aria-invalid />\n    <FieldError>Username is required.</FieldError>\n  </FieldContent>\n</Field>"
+    },
+    {
+      "title": "Horizontal layout",
+      "code": "<Field orientation=\"horizontal\">\n  <FieldLabel>Newsletter</FieldLabel>\n  <Checkbox />\n</Field>"
+    }
+  ],
+  "accessibility": {
+    "role": "group, alert",
+    "ariaAttributes": [
+      "aria-invalid"
+    ],
+    "dataAttributes": [
+      "data-slot",
+      "data-orientation"
+    ]
+  },
+  "dependencies": {
+    "internal": [],
+    "external": []
+  },
+  "related": [],
+  "source": "ui/components/ui/field/index.tsx"
+}

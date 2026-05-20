@@ -129,6 +129,7 @@
   },
   "dependencies": {
     "internal": [
+      "icon",
       "button",
       "popover",
       "calendar"
@@ -144,12 +145,25 @@
       "getter": "open",
       "setter": "setOpen",
       "initialValue": "false"
+    },
+    {
+      "getter": "internalSelected",
+      "setter": "setInternalSelected",
+      "initialValue": "undefined"
     }
   ],
   "memos": [
     {
+      "name": "currentSelected",
+      "deps": [
+        "internalSelected"
+      ]
+    },
+    {
       "name": "displayText",
-      "deps": []
+      "deps": [
+        "currentSelected"
+      ]
     }
   ]
 }

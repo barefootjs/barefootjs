@@ -2,7 +2,7 @@
   "name": "spinner",
   "title": "Spinner",
   "category": "display",
-  "description": "Spinner Component An animated loading indicator using the LoaderCircle SVG icon. Provides visual feedback during async operations with proper ARIA accessibility attributes.",
+  "description": "Spinner Component An animated loading indicator using the LoaderCircle SVG icon. Provides visual feedback during async operations with proper ARIA accessibility attributes. Uses the same SVG path as LoaderCircleIcon from '../icon', rendered inline for compiler compatibility with conditional rendering.",
   "tags": [
     "aria"
   ],

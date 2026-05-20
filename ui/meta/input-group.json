@@ -1,0 +1,150 @@
+{
+  "name": "input-group",
+  "title": "Input Group",
+  "category": "display",
+  "description": "InputGroup Component Input with addons, prefixes, and suffixes. Groups an input control with decorative or interactive elements. Based on shadcn/ui InputGroup with native HTML + ARIA.",
+  "tags": [
+    "multi-component",
+    "aria"
+  ],
+  "stateful": false,
+  "props": [
+    {
+      "name": "className",
+      "type": "string",
+      "required": false,
+      "description": ""
+    },
+    {
+      "name": "children",
+      "type": "Child",
+      "required": false,
+      "description": ""
+    }
+  ],
+  "subComponents": [
+    {
+      "name": "InputGroupAddon",
+      "description": "",
+      "props": [
+        {
+          "name": "align",
+          "type": "InputGroupAddonAlign",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "InputGroupButton",
+      "description": "",
+      "props": [
+        {
+          "name": "size",
+          "type": "InputGroupButtonSize",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "InputGroupText",
+      "description": "",
+      "props": [
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "InputGroupInput",
+      "description": "",
+      "props": [
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "InputGroupTextarea",
+      "description": "",
+      "props": [
+        {
+          "name": "className",
+          "type": "string",
+          "required": false,
+          "description": ""
+        }
+      ]
+    }
+  ],
+  "variants": {
+    "InputGroupButtonSize": [
+      "xs",
+      "sm",
+      "icon-xs",
+      "icon-sm"
+    ]
+  },
+  "examples": [
+    {
+      "title": "Basic with icon prefix",
+      "code": "<InputGroup>\n  <InputGroupAddon>\n    <InputGroupText><SearchIcon /></InputGroupText>\n  </InputGroupAddon>\n  <InputGroupInput placeholder=\"Search...\" />\n</InputGroup>"
+    },
+    {
+      "title": "With suffix addon",
+      "code": "<InputGroup>\n  <InputGroupInput placeholder=\"Enter amount\" />\n  <InputGroupAddon align=\"inline-end\">\n    <InputGroupText>USD</InputGroupText>\n  </InputGroupAddon>\n</InputGroup>"
+    }
+  ],
+  "accessibility": {
+    "role": "group",
+    "ariaAttributes": [
+      "aria-invalid"
+    ],
+    "dataAttributes": [
+      "data-slot"
+    ]
+  },
+  "dependencies": {
+    "internal": [],
+    "external": []
+  },
+  "related": [],
+  "source": "ui/components/ui/input-group/index.tsx"
+}

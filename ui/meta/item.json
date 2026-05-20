@@ -1,0 +1,188 @@
+{
+  "name": "item",
+  "title": "Item",
+  "category": "display",
+  "description": "Item Components A generic list/menu item component with composable sub-components. Supports visual variants and sizes for flexible list layouts. Inspired by shadcn/ui with CSS variable theming support.",
+  "tags": [
+    "multi-component",
+    "aria"
+  ],
+  "stateful": false,
+  "props": [
+    {
+      "name": "children",
+      "type": "Child",
+      "required": false,
+      "description": ""
+    }
+  ],
+  "subComponents": [
+    {
+      "name": "ItemSeparator",
+      "description": "",
+      "props": [
+        {
+          "name": "decorative",
+          "type": "boolean",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "Item",
+      "description": "",
+      "props": [
+        {
+          "name": "variant",
+          "type": "ItemVariant",
+          "required": false,
+          "description": "Visual style of the item."
+        },
+        {
+          "name": "size",
+          "type": "ItemSize",
+          "required": false,
+          "description": "Size of the item."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "ItemMedia",
+      "description": "",
+      "props": [
+        {
+          "name": "variant",
+          "type": "ItemMediaVariant",
+          "required": false,
+          "description": "Visual style of the media container."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "ItemContent",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "ItemTitle",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "ItemDescription",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "ItemActions",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "ItemHeader",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "ItemFooter",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    }
+  ],
+  "variants": {
+    "ItemVariant": [
+      "default",
+      "outline",
+      "muted"
+    ],
+    "ItemSize": [
+      "default",
+      "sm"
+    ],
+    "ItemMediaVariant": [
+      "default",
+      "icon",
+      "image"
+    ]
+  },
+  "examples": [
+    {
+      "title": "Basic item with content",
+      "code": "<Item>\n  <ItemContent>\n    <ItemTitle>Item Title</ItemTitle>\n    <ItemDescription>Item description here</ItemDescription>\n  </ItemContent>\n</Item>"
+    },
+    {
+      "title": "Item group with separator",
+      "code": "<ItemGroup>\n  <Item>\n    <ItemContent>\n      <ItemTitle>First Item</ItemTitle>\n    </ItemContent>\n  </Item>\n  <ItemSeparator />\n  <Item>\n    <ItemContent>\n      <ItemTitle>Second Item</ItemTitle>\n    </ItemContent>\n  </Item>\n</ItemGroup>"
+    }
+  ],
+  "accessibility": {
+    "role": "list",
+    "ariaAttributes": [],
+    "dataAttributes": [
+      "data-slot"
+    ]
+  },
+  "dependencies": {
+    "internal": [
+      "separator"
+    ],
+    "external": []
+  },
+  "related": [],
+  "source": "ui/components/ui/item/index.tsx"
+}

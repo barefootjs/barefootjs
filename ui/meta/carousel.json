@@ -114,8 +114,7 @@
     "role": "region, group",
     "ariaAttributes": [
       "aria-roledescription",
-      "aria-label",
-      "aria-hidden"
+      "aria-label"
     ],
     "dataAttributes": [
       "data-orientation",
@@ -123,7 +122,9 @@
     ]
   },
   "dependencies": {
-    "internal": [],
+    "internal": [
+      "icon"
+    ],
     "external": [
       "@barefootjs/client"
     ]
@@ -140,6 +141,12 @@
       "getter": "canScrollNext",
       "setter": "setCanScrollNext",
       "initialValue": "false"
+    }
+  ],
+  "memos": [
+    {
+      "name": "orientation",
+      "deps": []
     }
   ]
 }

@@ -400,7 +400,6 @@
   "accessibility": {
     "role": "none",
     "ariaAttributes": [
-      "aria-hidden",
       "aria-label"
     ],
     "dataAttributes": [
@@ -412,7 +411,9 @@
     ]
   },
   "dependencies": {
-    "internal": [],
+    "internal": [
+      "icon"
+    ],
     "external": [
       "@barefootjs/client"
     ]

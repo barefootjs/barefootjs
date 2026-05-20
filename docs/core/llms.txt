@@ -4,7 +4,7 @@
 
 ## Core Concepts
 
-- [AI-native Development](https://barefootjs.dev/docs/core-concepts/ai-native.md): Millisecond component tests via IR, CLI-driven component discovery
+- [AI-native Development](https://barefootjs.dev/docs/core-concepts/ai-native.md): Millisecond IR tests and the bf CLI for human + agent workflows
 - [Backend Freedom](https://barefootjs.dev/docs/core-concepts/backend-freedom.md): How adapters let the same JSX run on any server — Hono, Go, and beyond
 - [How It Works](https://barefootjs.dev/docs/core-concepts/how-it-works.md): Two-phase compilation and hydration markers
 - [MPA-style Development](https://barefootjs.dev/docs/core-concepts/mpa-style.md): Server-rendering by default, with client JavaScript only where you need it

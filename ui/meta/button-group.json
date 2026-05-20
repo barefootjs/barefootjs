@@ -1,0 +1,101 @@
+{
+  "name": "button-group",
+  "title": "Button Group",
+  "category": "display",
+  "description": "ButtonGroup Component A container that groups related buttons together with consistent styling. Removes inner border-radius and merges borders between adjacent children. Inspired by shadcn/ui with CSS variable theming support.",
+  "tags": [
+    "multi-component",
+    "aria"
+  ],
+  "stateful": false,
+  "props": [
+    {
+      "name": "orientation",
+      "type": "ButtonGroupOrientation",
+      "required": false,
+      "default": "horizontal",
+      "description": "The orientation of the button group."
+    },
+    {
+      "name": "children",
+      "type": "Child",
+      "required": false,
+      "description": "Children to render inside the button group."
+    }
+  ],
+  "subComponents": [
+    {
+      "name": "ButtonGroupText",
+      "description": "Props for the ButtonGroupText component.",
+      "props": [
+        {
+          "name": "asChild",
+          "type": "boolean",
+          "required": false,
+          "default": "false",
+          "description": "When true, renders child element instead of `<div>`."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": "Children to render inside the text container."
+        }
+      ]
+    },
+    {
+      "name": "ButtonGroupSeparator",
+      "description": "Props for the ButtonGroupSeparator component.",
+      "props": [
+        {
+          "name": "orientation",
+          "type": "'horizontal' | 'vertical'",
+          "required": false,
+          "default": "vertical",
+          "description": "The separator orientation."
+        }
+      ]
+    }
+  ],
+  "variants": {
+    "ButtonGroupOrientation": [
+      "horizontal",
+      "vertical"
+    ]
+  },
+  "examples": [
+    {
+      "title": "Basic usage",
+      "code": "<ButtonGroup>\n  <Button variant=\"outline\">Left</Button>\n  <Button variant=\"outline\">Center</Button>\n  <Button variant=\"outline\">Right</Button>\n</ButtonGroup>"
+    },
+    {
+      "title": "Vertical orientation",
+      "code": "<ButtonGroup orientation=\"vertical\">\n  <Button variant=\"outline\">Top</Button>\n  <Button variant=\"outline\">Middle</Button>\n  <Button variant=\"outline\">Bottom</Button>\n</ButtonGroup>"
+    },
+    {
+      "title": "With separator",
+      "code": "<ButtonGroup>\n  <Button variant=\"outline\">Save</Button>\n  <ButtonGroupSeparator />\n  <Button variant=\"outline\" size=\"icon\">▼</Button>\n</ButtonGroup>"
+    },
+    {
+      "title": "With text",
+      "code": "<ButtonGroup>\n  <ButtonGroupText>Label</ButtonGroupText>\n  <Button variant=\"outline\">Action</Button>\n</ButtonGroup>"
+    }
+  ],
+  "accessibility": {
+    "role": "group",
+    "ariaAttributes": [],
+    "dataAttributes": [
+      "data-slot",
+      "data-orientation"
+    ]
+  },
+  "dependencies": {
+    "internal": [
+      "slot",
+      "separator"
+    ],
+    "external": []
+  },
+  "related": [],
+  "source": "ui/components/ui/button-group/index.tsx"
+}

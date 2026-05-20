@@ -67,6 +67,12 @@
       "description": "Props for CollapsibleContent component.",
       "props": [
         {
+          "name": "defaultOpen",
+          "type": "boolean",
+          "required": false,
+          "description": "Whether the content is initially open (for SSR)"
+        },
+        {
           "name": "children",
           "type": "Child",
           "required": false,

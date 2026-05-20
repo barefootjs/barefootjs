@@ -3,7 +3,9 @@
   "title": "xyflow",
   "category": "display",
   "description": "xyflow JSX Components JSX-native renderer components for `@barefootjs/xyflow`. The package itself ships utility helpers (signal hooks, store, types, edge-path geometry, imperative pointer-paced subsystems for `ref` attach), and these components compose them into a `<Flow>` graph editor. Mirrors the chart pattern — utility helpers live in `@barefootjs/chart`, JSX components in `ui/components/ui/chart/`. See the package README at `packages/xyflow/README.md` for the full architecture rationale and the issue at piconic-ai/barefootjs#1081 for the migration history. Components exported: - `<Flow>` — top-level container, owns the store + viewport - `<Background>` — SVG pattern background that moves with viewport - `<Controls>` — zoom in / zoom out / fit view / lock buttons - `<MiniMap>` — overview map with viewport mask - `<Handle>` — per-node connection handle (source / target) - `<NodeWrapper>` — per-node `<div>` with reactive class / transform - `<SimpleEdge>` — per-edge `<path>` (hit area + visible) Pointer-paced subsystems (selection rectangle, connection drag, node-resize, pan-zoom, keyboard handlers) stay imperative inside `@barefootjs/xyflow` and attach via `ref` callbacks.",
-  "tags": [],
+  "tags": [
+    "stateful"
+  ],
   "stateful": false,
   "props": [
     {
@@ -35,6 +37,12 @@
           "type": "(element: HTMLElement) => void",
           "required": false,
           "description": "Optional ref callback. The cutover step that retires `createNodeWrapper` passes the imperative drag/measure/handle-bounds machinery here."
+        },
+        {
+          "name": "custom",
+          "type": "boolean",
+          "required": false,
+          "description": "When true, append the `bf-flow__node--custom` modifier so the default card styling (padding / border / background) is stripped — the children render as the entire node visual. Set automatically by Flow when `renderNode` / `nodeTypes` is provided."
         }
       ]
     },
@@ -158,6 +166,41 @@
       "props": []
     },
     {
+      "name": "DefaultNodeBody",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "FlowNodeTypeBridge",
+      "description": "",
+      "props": [
+        {
+          "name": "noExplicitAny",
+          "type": "nodes can be any narrowed shape",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "forNode",
+          "type": "any",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "noExplicitAny",
+          "type": "per-type init signatures vary",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "nodeTypes",
+          "type": "Record<string, (this: HTMLElement, props: any) => void | Node | undefined>",
+          "required": true,
+          "description": ""
+        }
+      ]
+    },
+    {
       "name": "Flow",
       "description": "",
       "props": []
@@ -191,7 +234,6 @@
     "internal": [],
     "external": [
       "@barefootjs/client",
-      "@xyflow/system",
       "@barefootjs/xyflow"
     ]
   },

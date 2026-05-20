@@ -1,0 +1,74 @@
+{
+  "name": "kbd",
+  "title": "Kbd",
+  "category": "display",
+  "description": "Kbd Component Displays a keyboard key or shortcut indicator. Inspired by shadcn/ui with CSS variable theming support.",
+  "tags": [
+    "multi-component"
+  ],
+  "stateful": false,
+  "props": [
+    {
+      "name": "asChild",
+      "type": "boolean",
+      "required": false,
+      "default": "false",
+      "description": "When true, renders child element with kbd styling instead of `<kbd>`. Useful for custom elements with keyboard key appearance."
+    },
+    {
+      "name": "children",
+      "type": "Child",
+      "required": false,
+      "description": "Children to render inside the kbd element."
+    }
+  ],
+  "subComponents": [
+    {
+      "name": "KbdGroup",
+      "description": "Props for the KbdGroup component.",
+      "props": [
+        {
+          "name": "asChild",
+          "type": "boolean",
+          "required": false,
+          "default": "false",
+          "description": "When true, renders child element with group styling instead of `<kbd>`."
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": "Children to render inside the group."
+        }
+      ]
+    }
+  ],
+  "examples": [
+    {
+      "title": "Basic usage",
+      "code": "<Kbd>K</Kbd>"
+    },
+    {
+      "title": "Keyboard shortcut",
+      "code": "<Kbd>⌘</Kbd><Kbd>K</Kbd>"
+    },
+    {
+      "title": "Grouped keys",
+      "code": "<KbdGroup>\n  <Kbd>Ctrl</Kbd>\n  <Kbd>C</Kbd>\n</KbdGroup>"
+    }
+  ],
+  "accessibility": {
+    "ariaAttributes": [],
+    "dataAttributes": [
+      "data-slot"
+    ]
+  },
+  "dependencies": {
+    "internal": [
+      "slot"
+    ],
+    "external": []
+  },
+  "related": [],
+  "source": "ui/components/ui/kbd/index.tsx"
+}
