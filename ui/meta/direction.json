@@ -1,0 +1,51 @@
+{
+  "name": "direction",
+  "title": "Direction",
+  "category": "display",
+  "description": "Direction Component A provider that sets the text direction (LTR/RTL) for its children. Uses the native HTML `dir` attribute for proper bidirectional text support.",
+  "tags": [],
+  "stateful": false,
+  "props": [
+    {
+      "name": "dir",
+      "type": "Direction",
+      "required": false,
+      "default": "ltr",
+      "description": "The text direction for child content."
+    },
+    {
+      "name": "className",
+      "type": "string",
+      "required": false,
+      "description": "Additional CSS class names."
+    },
+    {
+      "name": "children",
+      "type": "Child",
+      "required": false,
+      "description": "Content to render within the direction context."
+    }
+  ],
+  "examples": [
+    {
+      "title": "Basic usage",
+      "code": "<DirectionProvider dir=\"rtl\">\n  <p>This text will be right-to-left</p>\n</DirectionProvider>"
+    },
+    {
+      "title": "Nested directions",
+      "code": "<DirectionProvider dir=\"rtl\">\n  <p>RTL content</p>\n  <DirectionProvider dir=\"ltr\">\n    <p>LTR content inside RTL</p>\n  </DirectionProvider>\n</DirectionProvider>"
+    }
+  ],
+  "accessibility": {
+    "ariaAttributes": [],
+    "dataAttributes": [
+      "data-slot"
+    ]
+  },
+  "dependencies": {
+    "internal": [],
+    "external": []
+  },
+  "related": [],
+  "source": "ui/components/ui/direction/index.tsx"
+}

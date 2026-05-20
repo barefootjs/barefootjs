@@ -4,6 +4,7 @@
   "category": "navigation",
   "description": "Pagination Component Navigation component for paginated content. Built with accessible nav, list, and link elements.",
   "tags": [
+    "stateful",
     "multi-component",
     "aria"
   ],
@@ -97,7 +98,9 @@
     "internal": [
       "icon"
     ],
-    "external": []
+    "external": [
+      "@barefootjs/client"
+    ]
   },
   "related": [
     "breadcrumb"

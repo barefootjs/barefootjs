@@ -88,7 +88,9 @@
     ]
   },
   "dependencies": {
-    "internal": [],
+    "internal": [
+      "icon"
+    ],
     "external": []
   },
   "related": [

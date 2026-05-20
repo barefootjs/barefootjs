@@ -86,8 +86,11 @@ export const relatedMap: Record<string, string[]> = {
 export function detectTags(source: string): string[] {
   const tags: string[] = []
 
-  // stateful: uses createSignal/createEffect/createMemo
-  if (/import\s+\{[^}]*(?:createSignal|createEffect|createMemo)[^}]*\}\s+from\s+['"]@barefootjs\/dom['"]/.test(source)) {
+  // stateful: imports any reactive primitive from `@barefootjs/client`.
+  // The runtime package was renamed from `@barefootjs/dom` → `@barefootjs/client`,
+  // but this regex was not updated alongside it, so the tag silently
+  // disappeared from every `ui/meta/*.json` regen after the move.
+  if (/import\s+\{[^}]*(?:createSignal|createEffect|createMemo)[^}]*\}\s+from\s+['"]@barefootjs\/client['"]/.test(source)) {
     tags.push('stateful')
   }
 

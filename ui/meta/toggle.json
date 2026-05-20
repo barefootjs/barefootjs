@@ -119,6 +119,10 @@
         "controlledPressed",
         "isControlled"
       ]
+    },
+    {
+      "name": "classes",
+      "deps": []
     }
   ]
 }

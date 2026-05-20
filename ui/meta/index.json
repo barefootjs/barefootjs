@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-09T15:19:42.638Z",
+  "generatedAt": "2026-05-20T03:15:21.314Z",
   "components": [
     {
       "name": "accordion",
@@ -112,6 +112,21 @@
       ]
     },
     {
+      "name": "button-group",
+      "title": "Button Group",
+      "category": "display",
+      "description": "ButtonGroup Component A container that groups related buttons together with consistent styling. Removes inner border-radius and merges borders between adjacent children. Inspired by shadcn/ui with CSS variable theming support.",
+      "tags": [
+        "multi-component",
+        "aria"
+      ],
+      "stateful": false,
+      "subComponents": [
+        "ButtonGroupText",
+        "ButtonGroupSeparator"
+      ]
+    },
+    {
       "name": "button",
       "title": "Button",
       "category": "input",
@@ -174,8 +189,9 @@
       "name": "chart",
       "title": "Chart",
       "category": "display",
-      "description": "Chart JSX Components \"use client\" wrappers that delegate to @barefootjs/chart init functions via ref callbacks. Follows the Dialog pattern: ref runs during init, before children's initChild calls, so provideContext/useContext works.",
+      "description": "Chart JSX Components Every chart component (containers, primitives, and tooltips) is JSX-native: containers own the `<svg viewBox>` and inner `<g transform>`, primitives return SVG fragments inside `<g>` wrappers, and tooltips render their floating HTML body via `<foreignObject>` so SVG context is preserved. The Phase 9 chart migration (#1080) is complete after step 5.",
       "tags": [
+        "stateful",
         "multi-component"
       ],
       "stateful": false,
@@ -183,9 +199,28 @@
         "BarChart",
         "Bar",
         "CartesianGrid",
+        "AreaCartesianGrid",
         "XAxis",
         "YAxis",
-        "ChartTooltip"
+        "ChartTooltip",
+        "RadialChart",
+        "RadialBar",
+        "RadialChartLabel",
+        "RadarChart",
+        "Radar",
+        "PolarGrid",
+        "PolarAngleAxis",
+        "RadarTooltip",
+        "PieChart",
+        "Pie",
+        "PieTooltip",
+        "AreaChart",
+        "Area",
+        "AreaXAxis",
+        "AreaYAxis",
+        "AreaChartTooltip",
+        "LineChart",
+        "Line"
       ]
     },
     {
@@ -300,8 +335,7 @@
       "category": "display",
       "description": "Data Table Helper Components Reusable sub-components for building sortable, filterable, paginated tables. Compose with the existing Table component for data display patterns.",
       "tags": [
-        "multi-component",
-        "aria"
+        "multi-component"
       ],
       "stateful": false,
       "subComponents": [
@@ -345,6 +379,14 @@
         "DialogFooter",
         "DialogClose"
       ]
+    },
+    {
+      "name": "direction",
+      "title": "Direction",
+      "category": "display",
+      "description": "Direction Component A provider that sets the text direction (LTR/RTL) for its children. Uses the native HTML `dir` attribute for proper bidirectional text support.",
+      "tags": [],
+      "stateful": false
     },
     {
       "name": "drawer",
@@ -398,6 +440,43 @@
         "DropdownMenuSeparator",
         "DropdownMenuShortcut",
         "DropdownMenuGroup"
+      ]
+    },
+    {
+      "name": "empty",
+      "title": "Empty",
+      "category": "display",
+      "description": "Empty State Components A placeholder component for empty states with icon, title, description, and action slots. Sub-components: Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent",
+      "tags": [
+        "multi-component"
+      ],
+      "stateful": false,
+      "subComponents": [
+        "EmptyHeader",
+        "EmptyMedia",
+        "EmptyTitle",
+        "EmptyDescription",
+        "EmptyContent"
+      ]
+    },
+    {
+      "name": "field",
+      "title": "Field",
+      "category": "display",
+      "description": "Field Component A form field wrapper that provides structure for labels, descriptions, and error messages. Supports vertical and horizontal orientations. Based on shadcn/ui Field with native HTML + ARIA.",
+      "tags": [
+        "multi-component",
+        "aria"
+      ],
+      "stateful": false,
+      "subComponents": [
+        "FieldLegend",
+        "FieldGroup",
+        "Field",
+        "FieldContent",
+        "FieldLabel",
+        "FieldDescription",
+        "FieldError"
       ]
     },
     {
@@ -456,7 +535,28 @@
         "CircleXIcon",
         "TriangleAlertIcon",
         "InfoIcon",
+        "CalendarIcon",
+        "GripVerticalIcon",
+        "LoaderCircleIcon",
         "PanelLeftIcon"
+      ]
+    },
+    {
+      "name": "input-group",
+      "title": "Input Group",
+      "category": "display",
+      "description": "InputGroup Component Input with addons, prefixes, and suffixes. Groups an input control with decorative or interactive elements. Based on shadcn/ui InputGroup with native HTML + ARIA.",
+      "tags": [
+        "multi-component",
+        "aria"
+      ],
+      "stateful": false,
+      "subComponents": [
+        "InputGroupAddon",
+        "InputGroupButton",
+        "InputGroupText",
+        "InputGroupInput",
+        "InputGroupTextarea"
       ]
     },
     {
@@ -487,6 +587,41 @@
         "aria"
       ],
       "stateful": false
+    },
+    {
+      "name": "item",
+      "title": "Item",
+      "category": "display",
+      "description": "Item Components A generic list/menu item component with composable sub-components. Supports visual variants and sizes for flexible list layouts. Inspired by shadcn/ui with CSS variable theming support.",
+      "tags": [
+        "multi-component",
+        "aria"
+      ],
+      "stateful": false,
+      "subComponents": [
+        "ItemSeparator",
+        "Item",
+        "ItemMedia",
+        "ItemContent",
+        "ItemTitle",
+        "ItemDescription",
+        "ItemActions",
+        "ItemHeader",
+        "ItemFooter"
+      ]
+    },
+    {
+      "name": "kbd",
+      "title": "Kbd",
+      "category": "display",
+      "description": "Kbd Component Displays a keyboard key or shortcut indicator. Inspired by shadcn/ui with CSS variable theming support.",
+      "tags": [
+        "multi-component"
+      ],
+      "stateful": false,
+      "subComponents": [
+        "KbdGroup"
+      ]
     },
     {
       "name": "label",
@@ -527,6 +662,21 @@
       ]
     },
     {
+      "name": "native-select",
+      "title": "Native Select",
+      "category": "display",
+      "description": "NativeSelect Component A styled native HTML select element following shadcn/ui design. Wraps the native <select> in a container with a custom chevron icon.",
+      "tags": [
+        "multi-component",
+        "aria"
+      ],
+      "stateful": false,
+      "subComponents": [
+        "NativeSelectOption",
+        "NativeSelectOptGroup"
+      ]
+    },
+    {
       "name": "navigation-menu",
       "title": "Navigation Menu",
       "category": "display",
@@ -553,6 +703,7 @@
       "category": "navigation",
       "description": "Pagination Component Navigation component for paginated content. Built with accessible nav, list, and link elements.",
       "tags": [
+        "stateful",
         "multi-component",
         "aria"
       ],
@@ -779,7 +930,7 @@
       "name": "spinner",
       "title": "Spinner",
       "category": "display",
-      "description": "Spinner Component An animated loading indicator using the LoaderCircle SVG icon. Provides visual feedback during async operations with proper ARIA accessibility attributes.",
+      "description": "Spinner Component An animated loading indicator using the LoaderCircle SVG icon. Provides visual feedback during async operations with proper ARIA accessibility attributes. Uses the same SVG path as LoaderCircleIcon from '../icon', rendered inline for compiler compatibility with conditional rendering.",
       "tags": [
         "aria"
       ],
@@ -903,6 +1054,49 @@
         "aria"
       ],
       "stateful": true
+    },
+    {
+      "name": "typography",
+      "title": "Typography",
+      "category": "display",
+      "description": "Typography Components A collection of styled text elements for consistent typographic hierarchy. Inspired by shadcn/ui typography with CSS variable theming support.",
+      "tags": [
+        "multi-component"
+      ],
+      "stateful": false,
+      "subComponents": [
+        "TypographyH2",
+        "TypographyH3",
+        "TypographyH4",
+        "TypographyP",
+        "TypographyBlockquote",
+        "TypographyList",
+        "TypographyInlineCode",
+        "TypographyLead",
+        "TypographyLarge",
+        "TypographySmall",
+        "TypographyMuted"
+      ]
+    },
+    {
+      "name": "xyflow",
+      "title": "xyflow",
+      "category": "display",
+      "description": "xyflow JSX Components JSX-native renderer components for `@barefootjs/xyflow`. The package itself ships utility helpers (signal hooks, store, types, edge-path geometry, imperative pointer-paced subsystems for `ref` attach), and these components compose them into a `<Flow>` graph editor. Mirrors the chart pattern — utility helpers live in `@barefootjs/chart`, JSX components in `ui/components/ui/chart/`. See the package README at `packages/xyflow/README.md` for the full architecture rationale and the issue at piconic-ai/barefootjs#1081 for the migration history. Components exported: - `<Flow>` — top-level container, owns the store + viewport - `<Background>` — SVG pattern background that moves with viewport - `<Controls>` — zoom in / zoom out / fit view / lock buttons - `<MiniMap>` — overview map with viewport mask - `<Handle>` — per-node connection handle (source / target) - `<NodeWrapper>` — per-node `<div>` with reactive class / transform - `<SimpleEdge>` — per-edge `<path>` (hit area + visible) Pointer-paced subsystems (selection rectangle, connection drag, node-resize, pan-zoom, keyboard handlers) stay imperative inside `@barefootjs/xyflow` and attach via `ref` callbacks.",
+      "tags": [
+        "stateful"
+      ],
+      "stateful": false,
+      "subComponents": [
+        "NodeWrapper",
+        "Handle",
+        "Background",
+        "Controls",
+        "MiniMap",
+        "DefaultNodeBody",
+        "FlowNodeTypeBridge",
+        "Flow"
+      ]
     }
   ]
 }

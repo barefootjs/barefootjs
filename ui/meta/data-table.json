@@ -4,8 +4,7 @@
   "category": "display",
   "description": "Data Table Helper Components Reusable sub-components for building sortable, filterable, paginated tables. Compose with the existing Table component for data display patterns.",
   "tags": [
-    "multi-component",
-    "aria"
+    "multi-component"
   ],
   "stateful": false,
   "props": [
@@ -34,34 +33,34 @@
       "description": "",
       "props": [
         {
-          "name": "page",
-          "type": "number",
+          "name": "canPrev",
+          "type": "boolean",
           "required": true,
-          "description": "Current page (0-indexed)"
+          "description": "Whether previous page is available"
         },
         {
-          "name": "pageCount",
-          "type": "number",
+          "name": "canNext",
+          "type": "boolean",
           "required": true,
-          "description": "Total number of pages"
+          "description": "Whether next page is available"
         },
         {
-          "name": "onPageChange",
-          "type": "(page: number) => void",
+          "name": "onPrev",
+          "type": "() => void",
           "required": true,
-          "description": "Callback when page changes"
+          "description": "Callback for previous page"
         },
         {
-          "name": "selectedCount",
-          "type": "number",
+          "name": "onNext",
+          "type": "() => void",
+          "required": true,
+          "description": "Callback for next page"
+        },
+        {
+          "name": "children",
+          "type": "Child",
           "required": false,
-          "description": "Number of selected rows (optional)"
-        },
-        {
-          "name": "totalCount",
-          "type": "number",
-          "required": false,
-          "description": "Total number of rows (optional)"
+          "description": "Page info label (rendered as children)"
         }
       ]
     }
@@ -73,19 +72,19 @@
     },
     {
       "title": "Pagination",
-      "code": "<DataTablePagination\n  page={page()}\n  pageCount={totalPages()}\n  onPageChange={setPage}\n/>"
+      "code": "<DataTablePagination\n  canPrev={page() > 0}\n  canNext={page() < pageCount() - 1}\n  onPrev={() => setPage(p => p - 1)}\n  onNext={() => setPage(p => p + 1)}\n>\n  Page {page() + 1} of {pageCount()}\n</DataTablePagination>"
     }
   ],
   "accessibility": {
-    "ariaAttributes": [
-      "aria-hidden"
-    ],
+    "ariaAttributes": [],
     "dataAttributes": [
       "data-slot"
     ]
   },
   "dependencies": {
-    "internal": [],
+    "internal": [
+      "icon"
+    ],
     "external": []
   },
   "related": [],

@@ -157,6 +157,21 @@
       "props": []
     },
     {
+      "name": "CalendarIcon",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "GripVerticalIcon",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "LoaderCircleIcon",
+      "description": "",
+      "props": []
+    },
+    {
       "name": "PanelLeftIcon",
       "description": "",
       "props": []

@@ -1,0 +1,106 @@
+{
+  "name": "empty",
+  "title": "Empty",
+  "category": "display",
+  "description": "Empty State Components A placeholder component for empty states with icon, title, description, and action slots. Sub-components: Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent",
+  "tags": [
+    "multi-component"
+  ],
+  "stateful": false,
+  "props": [
+    {
+      "name": "children",
+      "type": "Child",
+      "required": false,
+      "description": ""
+    }
+  ],
+  "subComponents": [
+    {
+      "name": "EmptyHeader",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "EmptyMedia",
+      "description": "",
+      "props": [
+        {
+          "name": "variant",
+          "type": "EmptyMediaVariant",
+          "required": false,
+          "default": "default",
+          "description": ""
+        },
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "EmptyTitle",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "EmptyDescription",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "EmptyContent",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "Child",
+          "required": false,
+          "description": ""
+        }
+      ]
+    }
+  ],
+  "variants": {
+    "EmptyMediaVariant": [
+      "default",
+      "icon"
+    ]
+  },
+  "examples": [],
+  "accessibility": {
+    "ariaAttributes": [],
+    "dataAttributes": [
+      "data-slot"
+    ]
+  },
+  "dependencies": {
+    "internal": [],
+    "external": []
+  },
+  "related": [],
+  "source": "ui/components/ui/empty/index.tsx"
+}

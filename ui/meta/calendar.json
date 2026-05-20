@@ -84,7 +84,9 @@
     ]
   },
   "dependencies": {
-    "internal": [],
+    "internal": [
+      "icon"
+    ],
     "external": [
       "@barefootjs/client"
     ]

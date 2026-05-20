@@ -69,16 +69,30 @@
   ],
   "memos": [
     {
+      "name": "max",
+      "deps": []
+    },
+    {
       "name": "percentage",
       "deps": [
-        "currentValue"
+        "currentValue",
+        "max"
       ]
     },
     {
       "name": "dataState",
       "deps": [
-        "currentValue"
+        "currentValue",
+        "max"
       ]
+    },
+    {
+      "name": "rootClasses",
+      "deps": []
+    },
+    {
+      "name": "indicatorClasses",
+      "deps": []
     }
   ]
 }

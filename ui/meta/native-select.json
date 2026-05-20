@@ -1,0 +1,61 @@
+{
+  "name": "native-select",
+  "title": "Native Select",
+  "category": "display",
+  "description": "NativeSelect Component A styled native HTML select element following shadcn/ui design. Wraps the native <select> in a container with a custom chevron icon.",
+  "tags": [
+    "multi-component",
+    "aria"
+  ],
+  "stateful": false,
+  "props": [
+    {
+      "name": "size",
+      "type": "NativeSelectSize",
+      "required": false,
+      "description": "Size variant of the select."
+    }
+  ],
+  "subComponents": [
+    {
+      "name": "NativeSelectOption",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "NativeSelectOptGroup",
+      "description": "",
+      "props": []
+    }
+  ],
+  "variants": {
+    "NativeSelectSize": [
+      "sm",
+      "default"
+    ]
+  },
+  "examples": [
+    {
+      "title": "Basic usage",
+      "code": "<NativeSelect>\n  <NativeSelectOption value=\"1\">Option 1</NativeSelectOption>\n  <NativeSelectOption value=\"2\">Option 2</NativeSelectOption>\n</NativeSelect>"
+    },
+    {
+      "title": "With size",
+      "code": "<NativeSelect size=\"sm\">\n  <NativeSelectOption value=\"a\">Small</NativeSelectOption>\n</NativeSelect>"
+    }
+  ],
+  "accessibility": {
+    "ariaAttributes": [],
+    "dataAttributes": [
+      "data-slot"
+    ]
+  },
+  "dependencies": {
+    "internal": [
+      "icon"
+    ],
+    "external": []
+  },
+  "related": [],
+  "source": "ui/components/ui/native-select/index.tsx"
+}

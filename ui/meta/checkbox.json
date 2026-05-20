@@ -67,7 +67,9 @@
     ]
   },
   "dependencies": {
-    "internal": [],
+    "internal": [
+      "icon"
+    ],
     "external": [
       "@barefootjs/client"
     ]
@@ -102,6 +104,10 @@
         "controlledChecked",
         "isControlled"
       ]
+    },
+    {
+      "name": "classes",
+      "deps": []
     }
   ]
 }

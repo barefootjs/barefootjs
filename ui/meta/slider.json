@@ -99,7 +99,7 @@
     {
       "getter": "internalValue",
       "setter": "setInternalValue",
-      "initialValue": "props.defaultValue ?? min"
+      "initialValue": "props.defaultValue ?? min()"
     },
     {
       "getter": "controlledValue",
@@ -108,6 +108,18 @@
     }
   ],
   "memos": [
+    {
+      "name": "min",
+      "deps": []
+    },
+    {
+      "name": "max",
+      "deps": []
+    },
+    {
+      "name": "step",
+      "deps": []
+    },
     {
       "name": "isControlled",
       "deps": []
@@ -123,6 +135,8 @@
     {
       "name": "percentage",
       "deps": [
+        "min",
+        "max",
         "currentValue"
       ]
     }

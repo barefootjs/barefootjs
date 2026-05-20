@@ -2,8 +2,9 @@
   "name": "chart",
   "title": "Chart",
   "category": "display",
-  "description": "Chart JSX Components \"use client\" wrappers that delegate to @barefootjs/chart init functions via ref callbacks. Follows the Dialog pattern: ref runs during init, before children's initChild calls, so provideContext/useContext works.",
+  "description": "Chart JSX Components Every chart component (containers, primitives, and tooltips) is JSX-native: containers own the `<svg viewBox>` and inner `<g transform>`, primitives return SVG fragments inside `<g>` wrappers, and tooltips render their floating HTML body via `<foreignObject>` so SVG context is preserved. The Phase 9 chart migration (#1080) is complete after step 5.",
   "tags": [
+    "stateful",
     "multi-component"
   ],
   "stateful": false,
@@ -89,6 +90,24 @@
       ]
     },
     {
+      "name": "AreaCartesianGrid",
+      "description": "",
+      "props": [
+        {
+          "name": "vertical",
+          "type": "boolean",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "horizontal",
+          "type": "boolean",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
       "name": "XAxis",
       "description": "",
       "props": [
@@ -132,6 +151,252 @@
     },
     {
       "name": "ChartTooltip",
+      "description": "",
+      "props": [
+        {
+          "name": "labelFormatter",
+          "type": "(label: string) => string",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "RadialChart",
+      "description": "",
+      "props": [
+        {
+          "name": "data",
+          "type": "Record<string, unknown>[]",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "innerRadius",
+          "type": "number",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "outerRadius",
+          "type": "number",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "startAngle",
+          "type": "number",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "endAngle",
+          "type": "number",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "children",
+          "type": "unknown",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "RadialBar",
+      "description": "",
+      "props": [
+        {
+          "name": "dataKey",
+          "type": "string",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "fill",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "stackId",
+          "type": "string",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "RadialChartLabel",
+      "description": "",
+      "props": [
+        {
+          "name": "children",
+          "type": "unknown",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "RadarChart",
+      "description": "",
+      "props": [
+        {
+          "name": "data",
+          "type": "Record<string, unknown>[]",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "children",
+          "type": "unknown",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "Radar",
+      "description": "",
+      "props": [
+        {
+          "name": "dataKey",
+          "type": "string",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "fill",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "fillOpacity",
+          "type": "number",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "PolarGrid",
+      "description": "",
+      "props": [
+        {
+          "name": "gridType",
+          "type": "'polygon' | 'circle'",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "show",
+          "type": "boolean",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "PolarAngleAxis",
+      "description": "",
+      "props": [
+        {
+          "name": "dataKey",
+          "type": "string",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "tickFormatter",
+          "type": "(value: string) => string",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "hide",
+          "type": "boolean",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "RadarTooltip",
+      "description": "",
+      "props": [
+        {
+          "name": "labelFormatter",
+          "type": "(label: string) => string",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "PieChart",
+      "description": "",
+      "props": [
+        {
+          "name": "data",
+          "type": "Record<string, unknown>[]",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "children",
+          "type": "unknown",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "Pie",
+      "description": "",
+      "props": [
+        {
+          "name": "dataKey",
+          "type": "string",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "nameKey",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "fill",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "innerRadius",
+          "type": "number",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "outerRadius",
+          "type": "number",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "paddingAngle",
+          "type": "number",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "PieTooltip",
       "description": "",
       "props": [
         {
@@ -191,24 +456,6 @@
       ]
     },
     {
-      "name": "AreaCartesianGrid",
-      "description": "",
-      "props": [
-        {
-          "name": "vertical",
-          "type": "boolean",
-          "required": false,
-          "description": ""
-        },
-        {
-          "name": "horizontal",
-          "type": "boolean",
-          "required": false,
-          "description": ""
-        }
-      ]
-    },
-    {
       "name": "AreaXAxis",
       "description": "",
       "props": [
@@ -261,18 +508,74 @@
           "description": ""
         }
       ]
+    },
+    {
+      "name": "LineChart",
+      "description": "",
+      "props": [
+        {
+          "name": "data",
+          "type": "Record<string, unknown>[]",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "children",
+          "type": "unknown",
+          "required": false,
+          "description": ""
+        }
+      ]
+    },
+    {
+      "name": "Line",
+      "description": "",
+      "props": [
+        {
+          "name": "dataKey",
+          "type": "string",
+          "required": true,
+          "description": ""
+        },
+        {
+          "name": "stroke",
+          "type": "string",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "strokeWidth",
+          "type": "number",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "type",
+          "type": "'linear' | 'monotone'",
+          "required": false,
+          "description": ""
+        },
+        {
+          "name": "dot",
+          "type": "boolean",
+          "required": false,
+          "description": ""
+        }
+      ]
     }
   ],
   "examples": [],
   "accessibility": {
     "ariaAttributes": [],
     "dataAttributes": [
-      "data-slot"
+      "data-slot",
+      "data-value"
     ]
   },
   "dependencies": {
     "internal": [],
     "external": [
+      "@barefootjs/client",
       "@barefootjs/chart"
     ]
   },

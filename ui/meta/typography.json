@@ -1,0 +1,105 @@
+{
+  "name": "typography",
+  "title": "Typography",
+  "category": "display",
+  "description": "Typography Components A collection of styled text elements for consistent typographic hierarchy. Inspired by shadcn/ui typography with CSS variable theming support.",
+  "tags": [
+    "multi-component"
+  ],
+  "stateful": false,
+  "props": [
+    {
+      "name": "children",
+      "type": "Child",
+      "required": false,
+      "description": ""
+    }
+  ],
+  "subComponents": [
+    {
+      "name": "TypographyH2",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "TypographyH3",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "TypographyH4",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "TypographyP",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "TypographyBlockquote",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "TypographyList",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "TypographyInlineCode",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "TypographyLead",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "TypographyLarge",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "TypographySmall",
+      "description": "",
+      "props": []
+    },
+    {
+      "name": "TypographyMuted",
+      "description": "",
+      "props": []
+    }
+  ],
+  "examples": [
+    {
+      "title": "Headings",
+      "code": "<TypographyH1>Main Heading</TypographyH1>\n<TypographyH2>Section Heading</TypographyH2>\n<TypographyH3>Sub Heading</TypographyH3>\n<TypographyH4>Minor Heading</TypographyH4>"
+    },
+    {
+      "title": "Paragraph and lead",
+      "code": "<TypographyLead>A larger introductory paragraph.</TypographyLead>\n<TypographyP>Regular body text paragraph.</TypographyP>"
+    },
+    {
+      "title": "Inline styles",
+      "code": "<TypographyLarge>Large emphasis text</TypographyLarge>\n<TypographySmall>Small caption text</TypographySmall>\n<TypographyMuted>Muted secondary text</TypographyMuted>\n<TypographyInlineCode>code</TypographyInlineCode>"
+    },
+    {
+      "title": "Blockquote and list",
+      "code": "<TypographyBlockquote>A notable quote.</TypographyBlockquote>\n<TypographyList>\n  <li>First item</li>\n  <li>Second item</li>\n</TypographyList>"
+    }
+  ],
+  "accessibility": {
+    "ariaAttributes": [],
+    "dataAttributes": [
+      "data-slot"
+    ]
+  },
+  "dependencies": {
+    "internal": [],
+    "external": []
+  },
+  "related": [],
+  "source": "ui/components/ui/typography/index.tsx"
+}
