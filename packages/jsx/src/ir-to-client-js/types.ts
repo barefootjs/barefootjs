@@ -274,6 +274,19 @@ export interface BranchLoop extends LoopCore {
   nestedComponents?: IRLoopChildComponent[]
   innerLoops?: NestedLoop[]
   useElementReconciliation?: boolean
+  // Filter / sort chain metadata — must be carried so the mapArray call
+  // emitted inside the branch keeps the `.filter()` / `.toSorted()` chain
+  // and tracks signals read by the predicate / comparator (#1434).
+  filterPredicate?: {
+    param: string
+    raw: string
+  }
+  sortComparator?: {
+    paramA: string
+    paramB: string
+    raw: string
+  }
+  chainOrder?: 'filter-sort' | 'sort-filter'
   // Per-item bindings (events / reactiveAttrs / reactiveTexts / refs / conditionals)
   // now live on `LoopCore.bindings` — see issue #1244 §B.
 }

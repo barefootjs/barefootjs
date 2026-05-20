@@ -86,9 +86,10 @@ export function buildBranchCompositePlan(loop: BranchLoop, cv: string): Composit
     kind: 'composite',
     containerVar: `__loop_${cv}`,
     markerId: loop.markerId,
-    // Branch-scoped loops use the raw array expression (no filter/sort chaining
-    // path — BranchLoop doesn't carry those fields).
-    arrayExpr: loop.array,
+    // Chain `.filter()` / `.toSorted()` onto the source array so the mapArray
+    // call emitted inside the branch tracks signals read by the predicate
+    // / comparator (#1434).
+    arrayExpr: buildChainedArrayExpr(loop),
     keyFn: loopKeyFn(loop),
     paramHead,
     paramUnwrap,

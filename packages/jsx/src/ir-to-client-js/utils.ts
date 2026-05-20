@@ -5,7 +5,7 @@
 
 import ts from 'typescript'
 import type { AttrValue, IRTemplatePart, LoopParamBinding, FreeReference, IRNode } from '../types'
-import type { TopLevelLoop } from './types'
+import type { TopLevelLoop, BranchLoop } from './types'
 import { replaceInExprContexts } from '../scanner/js-scanner'
 import {
   BF_KEY as DATA_KEY,
@@ -124,8 +124,13 @@ export function exhaustiveAttrValue(value: never): never {
  * Build the chained array expression for reconcileList.
  * Chains .toSorted() and .filter() in the correct order based on chainOrder.
  * Always uses .toSorted() (non-mutating) regardless of source method.
+ *
+ * Accepts both top-level and branch-scoped loops — branch loops carry the
+ * same `filterPredicate` / `sortComparator` / `chainOrder` shape so the
+ * mapArray call emitted inside a conditional branch preserves the chain
+ * (#1434).
  */
-export function buildChainedArrayExpr(elem: TopLevelLoop): string {
+export function buildChainedArrayExpr(elem: TopLevelLoop | BranchLoop): string {
   const sortExpr = elem.sortComparator
     ? `.toSorted((${elem.sortComparator.paramA}, ${elem.sortComparator.paramB}) => ${elem.sortComparator.raw})`
     : ''

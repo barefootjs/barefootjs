@@ -2535,4 +2535,105 @@ describe('Client JS generation', () => {
       expect(js).toMatch(/__disposers\.push\(createDisposableEffect\(\(\)\s*=>\s*\{[\s\S]*?insert\(__branchScope/)
     })
   })
+
+  describe('filter/sort chain inside conditional branch (#1434)', () => {
+    test('preserves .filter() in mapArray when the loop is inside a ternary branch', () => {
+      // Regression for #1434: `.filter().map()` inside a conditional branch
+      // silently dropped the `.filter()` call, breaking reactivity for any
+      // signal read inside the predicate.
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/client'
+
+        export function Repro() {
+          const [items] = createSignal([{ id: 1, done: false }, { id: 2, done: true }])
+          const [showDone, setShowDone] = createSignal(false)
+          return (
+            <div>
+              <button onClick={() => setShowDone(v => !v)}>toggle</button>
+              {items().length === 0
+                ? <p>empty</p>
+                : (
+                  <ul>
+                    {items().filter(i => i.done === showDone()).map(i => (
+                      <li key={i.id}>{i.id}</li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+          )
+        }
+      `
+      const result = compileJSX(source, 'Repro.tsx', { adapter })
+      expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+      const js = result.files.find(f => f.type === 'clientJs')!.content
+      expect(js).toContain('.filter(i =>')
+      expect(js).toContain('showDone()')
+    })
+
+    test('preserves .filter() with a block-body predicate inside a ternary branch', () => {
+      // The doc-supported "block body with simple statements" predicate must
+      // survive the same way as the expression-body form.
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/client'
+
+        export function Repro() {
+          const [items] = createSignal([{ id: 1, done: false }, { id: 2, done: true }])
+          const [showDone, setShowDone] = createSignal(false)
+          return (
+            <div>
+              <button onClick={() => setShowDone(v => !v)}>toggle</button>
+              {items().length === 0
+                ? <p>empty</p>
+                : (
+                  <ul>
+                    {items().filter(i => {
+                      if (showDone()) return i.done
+                      return !i.done
+                    }).map(i => (
+                      <li key={i.id}>{i.id}</li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+          )
+        }
+      `
+      const result = compileJSX(source, 'Repro.tsx', { adapter })
+      expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+      const js = result.files.find(f => f.type === 'clientJs')!.content
+      expect(js).toContain('.filter(i =>')
+      expect(js).toContain('showDone()')
+    })
+
+    test('preserves .toSorted() comparator inside a conditional branch', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/client'
+
+        export function Repro() {
+          const [items] = createSignal([{ id: 1, n: 2 }, { id: 2, n: 1 }])
+          const [show] = createSignal(true)
+          return (
+            <div>
+              {show()
+                ? (
+                  <ul>
+                    {items().toSorted((a, b) => a.n - b.n).map(i => (
+                      <li key={i.id}>{i.id}</li>
+                    ))}
+                  </ul>
+                )
+                : <p>off</p>}
+            </div>
+          )
+        }
+      `
+      const result = compileJSX(source, 'Repro.tsx', { adapter })
+      expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+      const js = result.files.find(f => f.type === 'clientJs')!.content
+      expect(js).toContain('.toSorted(')
+    })
+  })
 })
