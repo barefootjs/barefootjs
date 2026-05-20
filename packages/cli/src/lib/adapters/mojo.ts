@@ -9,7 +9,7 @@ import { execSync } from 'node:child_process'
 import type { AdapterTemplate } from '../templates'
 import {
   COMPONENTS_MANIFEST_SEED,
-  SHARED_COUNTER_TSX,
+  NATIVE_BUTTON_COUNTER_TSX,
   STYLES_CSS,
   TOKENS_CSS,
   UNOCSS_DEV_DEPENDENCIES,
@@ -154,7 +154,12 @@ export const MOJO_ADAPTER: AdapterTemplate = {
       'components/**/*.tsx',
       'dist/components/**/*.tsx',
     ]),
-    'components/Counter.tsx': SHARED_COUNTER_TSX,
+    // Registry <Button> is not auto-installed for mojo (see
+    // `bundledRegistryComponents` below), so the starter uses raw
+    // <button> elements with utility classes inline — keeps the
+    // scaffold runnable without referencing a component that isn't
+    // on disk yet.
+    'components/Counter.tsx': NATIVE_BUTTON_COUNTER_TSX,
     'public/styles.css': STYLES_CSS,
     'public/tokens.css': TOKENS_CSS,
     'public/uno.css': UNO_CSS_PLACEHOLDER,
@@ -188,6 +193,16 @@ export const MOJO_ADAPTER: AdapterTemplate = {
     concurrently: '^9.0.0',
     typescript: '^5.6.0',
   },
+  // The registry <Button> depends on <Slot>, whose
+  // `[a, b].filter(Boolean).join(' ')` className-merge expression the
+  // mojolicious adapter cannot yet lower to Embedded Perl (BF101). A
+  // persistent compile error in slot/index.tsx would in turn keep the
+  // CLI from writing the dev-reload sentinel after every rebuild,
+  // silently breaking `/_bf/reload` for the entire scaffold. Skip the
+  // bundled add until the adapter learns to lower that chain — `bf add
+  // button` will surface the same error explicitly when the user opts
+  // in.
+  bundledRegistryComponents: [],
   prereqWarnings: () => perlPrereqs(),
   // Mojolicious itself is a Perl dependency, not an npm one — point
   // the user at the bundled cpanfile so they don't trip over a

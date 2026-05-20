@@ -1500,12 +1500,22 @@ export const DEV_SENTINEL_FILENAME = 'build-id'
 
 /**
  * Dev-only sentinel for signalling browsers to reload after a watch rebuild.
- * Written at `<outDir>/.dev/build-id` only when the build both succeeded and
- * actually changed output on disk — so a touch-save that produces no diff
- * does not trigger a reload.
+ * Written at `<outDir>/.dev/build-id` whenever output actually changed on
+ * disk — so a touch-save that produces no diff does not trigger a reload.
+ *
+ * Errors elsewhere in the build do not block the sentinel: errored entries
+ * preserve their prior cache row (so their on-disk output stays consistent),
+ * and other entries that compiled cleanly still write their fresh outputs.
+ * Suppressing the reload whenever *any* file errored would mean a single
+ * persistently-broken component in the project (e.g. one that the active
+ * adapter cannot lower yet) silently disables auto-reload for the entire
+ * app — the user edits a working file, sees nothing happen in the browser,
+ * and has no obvious cause. Firing on `changed` lets the browser pick up
+ * every successful incremental edit while the compile errors stay visible
+ * in the watch terminal.
  */
 async function writeBuildId(outDir: string, result: BuildResult): Promise<void> {
-  if (result.errorCount > 0 || !result.changed) return
+  if (!result.changed) return
   const devDir = resolve(outDir, DEV_SENTINEL_SUBDIR)
   await mkdir(devDir, { recursive: true })
   const path = resolve(devDir, DEV_SENTINEL_FILENAME)
