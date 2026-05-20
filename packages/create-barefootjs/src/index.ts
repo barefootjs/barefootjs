@@ -12,10 +12,11 @@
 //      flags. `--yes` short-circuits all prompts by forcing the
 //      adapter / css defaults too.
 
-import { existsSync, mkdirSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs'
 import { basename, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
 import { text } from './text'
 
 const require = createRequire(import.meta.url)
@@ -227,11 +228,21 @@ async function main(): Promise<void> {
 // pure helpers (`parsePkgPrNewCliDep`, ...). The bundled `dist/index.js`
 // is always run as the entry; the import-time branch only matters for
 // tests that point bun at the TS source.
+//
+// `realpathSync` is mandatory on both sides: npm publishes the bin as
+// `node_modules/.bin/create-barefootjs` → symlink to
+// `../create-barefootjs/dist/index.js`. Node sets `process.argv[1]` to
+// the symlink path it was launched with, but `import.meta.url` always
+// resolves to the underlying file. Without realpath the equality check
+// fails for every real npm install and main() never runs — which is
+// the exact regression I caught manually before pushing the fix
+// further downstream.
 const invokedAsScript = (() => {
   if (!process.argv[1]) return false
   try {
-    const entryUrl = new URL(`file://${process.argv[1]}`).href
-    return entryUrl === import.meta.url
+    const argvReal = realpathSync(process.argv[1])
+    const metaReal = realpathSync(fileURLToPath(import.meta.url))
+    return argvReal === metaReal
   } catch {
     return false
   }
