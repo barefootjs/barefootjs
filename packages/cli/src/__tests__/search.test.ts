@@ -168,16 +168,42 @@ describe('resolvePrintOptions — source label + hint trigger', () => {
   // upstream registry the caller hasn't `--registry`'d yet. The hint
   // SHOULD fire on the default path and SHOULD NOT fire when the
   // caller already made an explicit scope choice (`--registry` /
-  // `--dir`).
+  // `--dir`) or when the metaDir already IS the monorepo registry.
 
-  test('default: local meta/ + registry hint', () => {
+  test('scaffold default: relative path label + registry hint', () => {
     const opts = resolvePrintOptions({
       dirFlagUsed: false,
       metaDir: '/proj/meta',
-      rootDir: '/proj',
+      cwd: '/proj',
+      isMonorepoRegistry: false,
     })
-    expect(opts.sourceLabel).toBe('local meta/')
+    expect(opts.sourceLabel).toBe('meta')
     expect(opts.hintRegistry).toBe(true)
+  })
+
+  test('cwd === metaDir: label collapses to "."', () => {
+    const opts = resolvePrintOptions({
+      dirFlagUsed: false,
+      metaDir: '/proj/meta',
+      cwd: '/proj/meta',
+      isMonorepoRegistry: false,
+    })
+    expect(opts.sourceLabel).toBe('.')
+  })
+
+  test('monorepo registry fallback: shows the real path + suppresses the hint', () => {
+    // `createContext` falls back to `<repo>/ui/meta` when no
+    // barefoot.config.ts is found. The hint pointing at the upstream
+    // registry would be redundant there (that's exactly the data the
+    // upstream is built from), so it's suppressed.
+    const opts = resolvePrintOptions({
+      dirFlagUsed: false,
+      metaDir: '/repo/ui/meta',
+      cwd: '/repo',
+      isMonorepoRegistry: true,
+    })
+    expect(opts.sourceLabel).toBe('ui/meta')
+    expect(opts.hintRegistry).toBe(false)
   })
 
   test('--registry <url>: hostname label, no hint', () => {
@@ -185,7 +211,8 @@ describe('resolvePrintOptions — source label + hint trigger', () => {
       registryUrl: 'https://ui.barefootjs.dev/r/',
       dirFlagUsed: false,
       metaDir: '/proj/meta',
-      rootDir: '/proj',
+      cwd: '/proj',
+      isMonorepoRegistry: false,
     })
     expect(opts.sourceLabel).toBe('ui.barefootjs.dev')
     expect(opts.hintRegistry).toBe(false)
@@ -195,21 +222,24 @@ describe('resolvePrintOptions — source label + hint trigger', () => {
     const opts = resolvePrintOptions({
       dirFlagUsed: true,
       metaDir: '/proj/custom/meta',
-      rootDir: '/proj',
+      cwd: '/proj',
+      isMonorepoRegistry: false,
     })
-    expect(opts.sourceLabel).toBe('local meta at custom/meta')
+    expect(opts.sourceLabel).toBe('custom/meta')
     expect(opts.hintRegistry).toBe(false)
   })
 
-  test('--dir absolute path outside root: falls back to absolute', () => {
+  test('metaDir outside cwd: falls back to absolute path', () => {
     const opts = resolvePrintOptions({
       dirFlagUsed: true,
       metaDir: '/elsewhere/meta',
-      rootDir: '/proj',
+      cwd: '/proj',
+      isMonorepoRegistry: false,
     })
-    // path.relative returns ../../elsewhere/meta; we just check it's
-    // not the empty string fallback path.
-    expect(opts.sourceLabel.startsWith('local meta at ')).toBe(true)
+    // path.relative returns "../elsewhere/meta"; the leading "..\"
+    // triggers the absolute-path fallback so the label can't be
+    // mistaken for a sibling of the project.
+    expect(opts.sourceLabel).toBe('/elsewhere/meta')
     expect(opts.hintRegistry).toBe(false)
   })
 })
@@ -233,9 +263,9 @@ describe('printSearchResults — registry hint surface', () => {
     { name: 'button', type: 'component', category: 'input', description: 'A button' },
   ]
 
-  test('prints "Searching: local meta/" + registry hint on default path', () => {
-    printSearchResults(oneResult, false, { sourceLabel: 'local meta/', hintRegistry: true })
-    expect(logs[0]).toBe('Searching: local meta/')
+  test('prints the source label + registry hint on default path', () => {
+    printSearchResults(oneResult, false, { sourceLabel: 'meta', hintRegistry: true })
+    expect(logs[0]).toBe('Searching: meta')
     expect(logs[1]).toContain('--registry https://ui.barefootjs.dev/r/')
   })
 
@@ -246,13 +276,13 @@ describe('printSearchResults — registry hint surface', () => {
   })
 
   test('hint fires even when the result set is empty (the case the hint exists for)', () => {
-    printSearchResults([], false, { sourceLabel: 'local meta/', hintRegistry: true })
+    printSearchResults([], false, { sourceLabel: 'meta', hintRegistry: true })
     expect(logs.some((l) => l.includes('--registry https://ui.barefootjs.dev/r/'))).toBe(true)
     expect(logs.some((l) => l === 'No results found.')).toBe(true)
   })
 
   test('--json: header is suppressed (machine output stays just the JSON)', () => {
-    printSearchResults(oneResult, true, { sourceLabel: 'local meta/', hintRegistry: true })
+    printSearchResults(oneResult, true, { sourceLabel: 'meta', hintRegistry: true })
     expect(logs).toHaveLength(1)
     expect(JSON.parse(logs[0])).toEqual(oneResult)
   })

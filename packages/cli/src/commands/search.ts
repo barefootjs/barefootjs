@@ -91,7 +91,15 @@ export function resolvePrintOptions(opts: {
   registryUrl?: string
   dirFlagUsed: boolean
   metaDir: string
-  rootDir: string
+  cwd: string
+  /**
+   * `true` when the metaDir resolves into the BarefootJS monorepo's
+   * own `ui/meta/` registry — i.e. the fallback `createContext` picks
+   * when no `barefoot.config.ts` is found. The hint pointing at
+   * `ui.barefootjs.dev/r/` would be redundant there because that
+   * directory IS the source the published registry is built from.
+   */
+  isMonorepoRegistry: boolean
 }): PrintOptions {
   if (opts.registryUrl) {
     return {
@@ -99,16 +107,20 @@ export function resolvePrintOptions(opts: {
       hintRegistry: false,
     }
   }
-  if (opts.dirFlagUsed) {
-    const rel = path.relative(opts.rootDir, opts.metaDir)
-    return {
-      sourceLabel: `local meta at ${rel || opts.metaDir}`,
-      hintRegistry: false,
-    }
-  }
+  // Always show the actual path so the label can never lie. Default
+  // `metaDir` is the project's own `meta/` when invoked inside a
+  // scaffold, but falls back to the monorepo's `ui/meta/` (~30
+  // components) when no `barefoot.config.ts` is found — a fixed
+  // "local meta/" label hid that distinction and made the hint read
+  // as a contradiction in the monorepo case.
+  const rel = path.relative(opts.cwd, opts.metaDir)
+  const display = rel === '' ? '.' : rel.startsWith('..') ? opts.metaDir : rel
   return {
-    sourceLabel: 'local meta/',
-    hintRegistry: true,
+    sourceLabel: display,
+    // Skip the upstream-registry hint when reading from the monorepo's
+    // own registry source — that IS what the published registry mirrors.
+    // `--dir` is an explicit scope choice, so skip the hint there too.
+    hintRegistry: !opts.isMonorepoRegistry && !opts.dirFlagUsed,
   }
 }
 
@@ -192,11 +204,16 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
 
   // Surface the source so callers (and AI agents) don't silently miss
   // the upstream registry when running against local meta/ only.
+  // `projectDir === null` means `createContext` fell back to the
+  // monorepo's `ui/meta/` (no `barefoot.config.ts` found walking up
+  // from cwd); the upstream hint would point at the same data so we
+  // suppress it there.
   const printOpts = resolvePrintOptions({
     registryUrl,
     dirFlagUsed: dirIdx !== -1,
     metaDir,
-    rootDir: ctx.root,
+    cwd: process.cwd(),
+    isMonorepoRegistry: ctx.projectDir === null,
   })
 
   // Load core docs (skip gracefully if not available)
