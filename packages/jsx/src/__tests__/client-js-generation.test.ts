@@ -2635,5 +2635,40 @@ describe('Client JS generation', () => {
       const js = result.files.find(f => f.type === 'clientJs')!.content
       expect(js).toContain('.toSorted(')
     })
+
+    test('event delegation walks the chained array (filter()/toSorted() reach itemLookup)', () => {
+      // When the per-item event delegation uses `.find()` for keyed loops
+      // or `array[idx]` for unkeyed loops, the array it walks must be the
+      // same shape mapArray reconciled into the DOM — otherwise a click on
+      // a filtered/sorted item resolves the wrong source-array entry.
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/client'
+
+        export function Repro() {
+          const [items, setItems] = createSignal([{ id: 1, done: false }, { id: 2, done: true }])
+          const [show] = createSignal(true)
+          return (
+            <div>
+              {show()
+                ? (
+                  <ul>
+                    {items().filter(i => !i.done).map(i => (
+                      <li key={i.id} onClick={() => setItems(prev => prev.filter(p => p.id !== i.id))}>{i.id}</li>
+                    ))}
+                  </ul>
+                )
+                : <p>off</p>}
+            </div>
+          )
+        }
+      `
+      const result = compileJSX(source, 'Repro.tsx', { adapter })
+      expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+      const js = result.files.find(f => f.type === 'clientJs')!.content
+      // Delegated click-handler lookup must `.find()` against the filtered
+      // array, not the raw `items()` array.
+      expect(js).toMatch(/items\(\)\.filter\([^)]+\)\.find\(/)
+    })
   })
 })
