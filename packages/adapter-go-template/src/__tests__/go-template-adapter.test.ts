@@ -706,6 +706,60 @@ export function TodoStatus() {
 `)
       expect(result.template).toContain('bf_every .Todos "Done"')
     })
+
+    test('nested higher-order in filter predicate → BF101', () => {
+      // Predicate body contains an inner `.filter()` call —
+      // `renderFilterExpr` cannot lower this to a Go template action.
+      // Previously this fell through to the `[UNSUPPORTED-FILTER-EXPR]`
+      // placeholder which compiled into a broken template at runtime;
+      // adapters now emit BF101 with the offending expression.
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Todo = { id: number; name: string; tags: { active: boolean }[] }
+
+export function TodoList() {
+  const [items, setItems] = createSignal<Todo[]>([])
+  return (
+    <ul>
+      {items().filter(x => x.tags.filter(t => t.active).length > 0).map(t => (
+        <li key={t.id}>{t.name}</li>
+      ))}
+    </ul>
+  )
+}
+`, adapter)
+      adapter.generate(ir)
+      const bf101 = adapter.errors.filter(e => e.code === 'BF101')
+      expect(bf101.length).toBeGreaterThan(0)
+      expect(bf101[0].message).toContain('Filter predicate')
+    })
+
+    test('nested higher-order in filter predicate + /* @client */ suppresses BF101', () => {
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Todo = { id: number; name: string; tags: { active: boolean }[] }
+
+export function TodoList() {
+  const [items, setItems] = createSignal<Todo[]>([])
+  return (
+    <ul>
+      {/* @client */ items().filter(x => x.tags.filter(t => t.active).length > 0).map(t => (
+        <li key={t.id}>{t.name}</li>
+      ))}
+    </ul>
+  )
+}
+`, adapter)
+      adapter.generate(ir)
+      const bf101 = adapter.errors.filter(e => e.code === 'BF101')
+      expect(bf101).toEqual([])
+    })
   })
 
   describe('find/findIndex - adapter specific', () => {

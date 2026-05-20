@@ -38,6 +38,8 @@ import {
   isBooleanAttr,
   parseExpression,
   isSupported,
+  containsHigherOrder,
+  exprToString,
   identifierPath,
   stringifyParsedExpr,
   emitParsedExpr,
@@ -902,6 +904,24 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     param: string,
     localVarMap: Map<string, string> = new Map(),
   ): string {
+    // Nested higher-order in a filter predicate body (e.g.
+    // `x => x.tags.filter(t => t.active).length > 0`) — the emitter
+    // lowers the inner grep to a Perl anonymous array ref, but the
+    // surrounding `.length` / member accesses translate to
+    // `[ ... ]->{length}` which is undef at runtime. Surface BF101
+    // up-front instead of shipping silently-broken EP.
+    if (containsHigherOrder(expr)) {
+      this.errors.push({
+        code: 'BF101',
+        severity: 'error',
+        message: `Filter predicate contains a nested higher-order method that cannot be lowered to Embedded Perl: ${exprToString(expr)}`,
+        loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+        suggestion: {
+          message: 'Options:\n1. Use /* @client */ for client-side evaluation\n2. Rewrite the predicate to avoid nested `.filter()` / `.map()` / `.some()` / `.every()` inside the predicate body',
+        },
+      })
+      return '0'
+    }
     return emitParsedExpr(expr, new MojoFilterEmitter(param, localVarMap))
   }
 
@@ -1112,8 +1132,14 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
   }
 
   private convertExpressionToPerl(expr: string): string {
-    // Handle higher-order array methods via ParsedExpr AST
-    if (/\.\s*(?:filter|every|some)\s*\(/.test(expr)) {
+    // Handle higher-order array methods via ParsedExpr AST.
+    // `filter|every|some` lower to Embedded Perl (grep). The rest
+    // (`reduce|reduceRight|forEach|flatMap|flat|findLast|findLastIndex`)
+    // can't lower to EP at all — route them through the same AST path
+    // so `convertHigherOrderExpr`'s `isSupported` gate emits BF101
+    // instead of falling into the regex pipeline that mangles
+    // `$items->{reduce}->{...}` etc.
+    if (/\.\s*(?:filter|every|some|reduce|reduceRight|forEach|flatMap|flat|findLast|findLastIndex)\s*\(/.test(expr)) {
       return this.convertHigherOrderExpr(expr)
     }
 
@@ -1291,6 +1317,26 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     this.higherOrderInFlight.add(expr)
     try {
       const parsed = parseExpression(expr)
+      // Parity gate with the Go adapter's `convertExpressionToGo`: if the
+      // parsed expression isn't supported (e.g. `.reduce()` / `.forEach()`,
+      // destructured filter param, function-keyword callback) we cannot
+      // lower it to Embedded Perl. Emit BF101 and return a safe Perl
+      // empty-string literal so downstream concatenation doesn't blow up.
+      const support = isSupported(parsed)
+      if (!support.supported) {
+        this.errors.push({
+          code: 'BF101',
+          severity: 'error',
+          message: `Cannot lower higher-order chain to Embedded Perl: ${expr.trim()}`,
+          loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+          suggestion: {
+            message: support.reason
+              ? `${support.reason}\n\nOptions:\n1. Use /* @client */ for client-side evaluation\n2. Pre-compute the value in Perl`
+              : 'Options:\n1. Use /* @client */ for client-side evaluation\n2. Pre-compute the value in Perl',
+          },
+        })
+        return "''"
+      }
       return this.renderParsedExprToPerl(parsed)
     } finally {
       this.higherOrderInFlight.delete(expr)

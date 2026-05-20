@@ -484,7 +484,7 @@ function checkSupport(expr: ParsedExpr): SupportResult {
 /**
  * Check if expression contains any higher-order method calls.
  */
-function containsHigherOrder(expr: ParsedExpr): boolean {
+export function containsHigherOrder(expr: ParsedExpr): boolean {
   switch (expr.kind) {
     case 'higher-order':
       return true

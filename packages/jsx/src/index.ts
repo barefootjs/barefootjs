@@ -238,7 +238,7 @@ export {
 export { ErrorCodes, createError, formatError, generateCodeFrame } from './errors'
 
 // Expression Parser
-export { parseExpression, isSupported, exprToString, stringifyParsedExpr, identifierPath, parseBlockBody } from './expression-parser'
+export { parseExpression, isSupported, exprToString, stringifyParsedExpr, identifierPath, parseBlockBody, containsHigherOrder } from './expression-parser'
 export type { ParsedExpr, ParsedStatement, SupportLevel, SupportResult, TemplatePart } from './expression-parser'
 
 // Debug analysis
