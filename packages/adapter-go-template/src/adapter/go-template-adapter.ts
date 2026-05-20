@@ -950,7 +950,31 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     const inputTypeName = `${componentName}Input`
     const propsTypeName = `${componentName}Props`
 
+    // Surface the "dynamic loop slices stay empty until the handler
+    // populates them" rule as a doc comment above the generator, with
+    // a concrete example per child component. Without it the contract
+    // is implicit: `TodoAppProps` carries a `TodoItems []TodoItemProps`
+    // field, the SSR template iterates over it, but
+    // `NewTodoAppProps(TodoAppInput{Initial: ...})` returns it empty
+    // and the page renders a blank list (#1442 echo TodoApp repro).
+    const dynamicNested = nestedComponents.filter(n => n.isDynamic)
     lines.push(`// New${componentName}Props creates ${propsTypeName} from ${inputTypeName}.`)
+    for (const nested of dynamicNested) {
+      const arrayField = `${nested.name}s`
+      lines.push(`//`)
+      lines.push(`// NOTE: \`${arrayField}\` is populated by the route handler, not by`)
+      lines.push(`// New${componentName}Props — the SSR template iterates over it`)
+      lines.push(`// dynamically (\`.${arrayField}\`). Build the slice from your source data and`)
+      lines.push(`// assign it before passing the props to your renderer. Example:`)
+      lines.push(`//`)
+      lines.push(`//   props := New${componentName}Props(${inputTypeName}{ /* ... */ })`)
+      lines.push(`//   props.${arrayField} = make([]${nested.name}Props, len(items))`)
+      lines.push(`//   for i, item := range items {`)
+      lines.push(`//     props.${arrayField}[i] = New${nested.name}Props(${nested.name}Input{ /* fields */ })`)
+      lines.push(`//     props.${arrayField}[i].BfParent = props.ScopeID`)
+      lines.push(`//     props.${arrayField}[i].BfMount = "${nested.slotId}"`)
+      lines.push(`//   }`)
+    }
     lines.push(`func New${componentName}Props(in ${inputTypeName}) ${propsTypeName} {`)
     lines.push('\tscopeID := in.ScopeID')
     lines.push('\tif scopeID == "" {')

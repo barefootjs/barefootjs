@@ -236,6 +236,62 @@ export function Counter(props: { initial?: number }) {
       expect(result.types).toContain('Count int')
     })
 
+    test('dynamic loop with child component → NewXxxProps carries a populate-this-slice doc comment (#1442 echo TodoApp repro)', () => {
+      // Regression: a `todos().map(t => <TodoItem todo={t} />)` loop with a
+      // dynamic array (signal getter, not a static prop) declares
+      // `TodoItems []TodoItemProps` on the Props struct, but
+      // `NewTodoAppProps` returned it empty — and the SSR template
+      // iterated over the empty slice into a blank list with no signal
+      // anywhere. The "you must populate this in your handler" rule was
+      // pure tribal knowledge.
+      //
+      // Now `NewXxxProps`'s doc comment carries a concrete example for
+      // every dynamic loop child, including the field name, the child's
+      // Input/Props names, and the slot id needed for bf-h / bf-m.
+      // Authors land on the comment as soon as they read the generated
+      // file and see exactly what to do.
+      const adapter = new GoTemplateAdapter()
+      const todoItemIR = compileToIR(`
+"use client"
+type Todo = { id: number; text: string; done: boolean }
+export function TodoItem(props: { todo: Todo }) {
+  return <li>{props.todo.text}</li>
+}
+`)
+      // Sanity: TodoItem alone produces a Props struct; no dynamic loop
+      // inside it, so no extra comment.
+      const todoItemResult = adapter.generate(todoItemIR)
+      expect(todoItemResult.types).not.toContain('NOTE: `')
+
+      const todoAppIR = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+import { TodoItem } from './TodoItem'
+
+type Todo = { id: number; text: string; done: boolean }
+
+export function TodoApp(props: { initial?: Todo[] }) {
+  const [todos, setTodos] = createSignal<Todo[]>(props.initial ?? [])
+  return (
+    <ul>
+      {todos().map(todo => (
+        <TodoItem key={todo.id} todo={todo} />
+      ))}
+    </ul>
+  )
+}
+`)
+      const result = adapter.generate(todoAppIR)
+      // Doc-comment carries the per-child concrete example, naming the
+      // populated field, the child's Input/Props types, and the bf-h /
+      // bf-m wiring the SSR template relies on.
+      expect(result.types).toContain('NOTE: `TodoItems`')
+      expect(result.types).toContain('props.TodoItems = make([]TodoItemProps, len(items))')
+      expect(result.types).toContain('NewTodoItemProps(TodoItemInput{')
+      expect(result.types).toContain('props.TodoItems[i].BfParent = props.ScopeID')
+      expect(result.types).toContain('props.TodoItems[i].BfMount =')
+    })
+
     test('signal initialized via `(props.X ?? []).length` lands as int, not []T (#1442 echo TodoApp repro)', () => {
       // Regression: `extractPropNameFromInitialValue` greedily matched
       // any `(props.X ?? Y).<something>` shape and propagated the prop's
