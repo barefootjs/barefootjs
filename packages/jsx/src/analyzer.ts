@@ -2708,7 +2708,11 @@ function collectResolvedNames(ctx: AnalyzerContext): Set<string> {
 // Identifiers from `@barefootjs/client` whose implementations live in the
 // DOM runtime (`@barefootjs/client/runtime`). Source files importing any of
 // these must be marked with `'use client'` so the compiler rewires them.
-const BROWSER_ONLY_CLIENT_APIS = new Set([
+//
+// Exported so the CLI's skip-gate (`detectMissingUseClient` in
+// `@barefootjs/cli/lib/build`) can raise BF001 against the same trigger
+// set the analyzer uses, instead of maintaining a drifting copy.
+export const BROWSER_ONLY_CLIENT_APIS = new Set([
   'useContext',
   'provideContext',
   'createPortal',
@@ -2807,7 +2811,12 @@ export function listComponentFunctions(
 // Names of reactive primitives that a factory body must contain for the
 // factory to qualify for inlining. Identifier resolution happens at the
 // source text level, so these are matched as bare identifiers.
-const REACTIVE_PRIMITIVES = new Set([
+//
+// Exported so the CLI's skip-gate (`detectMissingUseClient` in
+// `@barefootjs/cli/lib/build`) reuses the canonical list — keeps the
+// "imports reactive primitive without 'use client'" BF001 surface
+// from drifting out of sync with the analyzer's call-site detection.
+export const REACTIVE_PRIMITIVES = new Set([
   'createSignal', 'createMemo', 'createEffect',
   'createDisposableEffect', 'onMount', 'onCleanup',
 ])

@@ -93,6 +93,24 @@ describe('resolveComponentSource', () => {
     }
   })
 
+  test('ambiguous case-insensitive match → bail (do not pick one nondeterministically)', () => {
+    // Case-sensitive filesystems can legally hold `Counter.tsx` AND
+    // `counter.tsx` side by side. A mixed-case query (`cOuNtEr`) hits
+    // *both* under case-insensitive comparison; returning either one
+    // would be `readdirSync`-order roulette. Verify we bail to null so
+    // the caller surfaces the conflict via the regular not-found path.
+    const projectDir = mktmp()
+    mkdirSync(path.join(projectDir, 'components'), { recursive: true })
+    writeFileSync(path.join(projectDir, 'components', 'Counter.tsx'), 'export {}')
+    writeFileSync(path.join(projectDir, 'components', 'counter.tsx'), 'export {}')
+    try {
+      const r = resolveComponentSource('cOuNtEr', ctxFor(projectDir, ['components']))
+      expect(r).toBeNull()
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true })
+    }
+  })
+
   test('exact-case match still wins over a case-insensitive sibling', () => {
     // If both `Counter.tsx` and `counter.tsx` somehow coexist
     // (Counter wins in case-sensitive lookup), the resolver must

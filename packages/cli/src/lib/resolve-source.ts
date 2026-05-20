@@ -32,9 +32,17 @@ function tryCandidate(candidate: string, searched: string[]): string | null {
  * but with no exact-case match. Returns the actual on-disk name (preserving
  * the directory's casing) so the caller can rebuild a correct path.
  *
- * Returns `null` if the directory doesn't exist, no case-insensitive match
- * exists, or an exact-case match already does (since the regular
- * `tryCandidate` path would have caught it).
+ * Returns `null` when:
+ *   - the directory doesn't exist or can't be read
+ *   - no case-insensitive match exists
+ *   - an exact-case match already does (the regular `tryCandidate` path
+ *     would have caught it — don't double-resolve)
+ *   - **multiple case-insensitive matches exist** (case-sensitive
+ *     filesystems can legally hold both `Counter.tsx` and `counter.tsx`).
+ *     Returning a single result there would be nondeterministic
+ *     (depends on `readdirSync` ordering); the caller falls through to
+ *     the "not found" error transcript so the user sees the conflict
+ *     before any tooling commits to one half of it.
  */
 function caseInsensitiveMatch(dir: string, target: string): string | null {
   if (!existsSync(dir)) return null
@@ -47,10 +55,13 @@ function caseInsensitiveMatch(dir: string, target: string): string | null {
   const lower = target.toLowerCase()
   // Exact-case hit means a previous tryCandidate already returned it — skip.
   if (entries.includes(target)) return null
+  const matches: string[] = []
   for (const entry of entries) {
-    if (entry.toLowerCase() === lower) return entry
+    if (entry.toLowerCase() === lower) matches.push(entry)
   }
-  return null
+  // 0 → no fallback to surface; 1 → unambiguous match; 2+ → ambiguous,
+  // fail closed so the user resolves the conflict before we pick a side.
+  return matches.length === 1 ? matches[0] : null
 }
 
 export function resolveComponentSource(

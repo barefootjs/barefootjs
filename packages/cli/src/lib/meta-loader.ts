@@ -65,6 +65,12 @@ export async function fetchRegistryItem(registryUrl: string, name: string): Prom
  * The lookup is case-sensitive first, then falls back to a case-insensitive
  * scan so `bf docs Button` works even though `bf add` writes `button.json`.
  * Exact-case behavior is unchanged.
+ *
+ * The case-insensitive fallback intentionally returns `null` when multiple
+ * meta files differ only by case (e.g. `Button.json` *and* `button.json`):
+ * picking either one would be nondeterministic — `readdirSync` ordering is
+ * filesystem-dependent — and the caller's "not found" transcript surfaces
+ * the conflict to the user instead of silently choosing.
  */
 export function tryLoadComponent(metaDir: string, name: string): ComponentMeta | null {
   const filePath = path.join(metaDir, `${name}.json`)
@@ -78,12 +84,14 @@ export function tryLoadComponent(metaDir: string, name: string): ComponentMeta |
   } catch {
     return null
   }
+  const matches: string[] = []
   for (const entry of entries) {
-    if (entry.toLowerCase() === wanted) {
-      return JSON.parse(readFileSync(path.join(metaDir, entry), 'utf-8'))
-    }
+    if (entry.toLowerCase() === wanted) matches.push(entry)
   }
-  return null
+  // 1 → unambiguous match. 0 or 2+ → bail; 2+ would otherwise be
+  // resolution-order roulette.
+  if (matches.length !== 1) return null
+  return JSON.parse(readFileSync(path.join(metaDir, matches[0]), 'utf-8'))
 }
 
 /**

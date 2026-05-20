@@ -77,6 +77,18 @@ describe('tryLoadComponent', () => {
     expect(tryLoadComponent(metaDir, 'Button')!.name).toBe('Pascal')
     expect(tryLoadComponent(metaDir, 'button')!.name).toBe('lower')
   })
+
+  test('ambiguous case-insensitive match → returns null (no readdir-order roulette)', () => {
+    // Both casings on disk; a mixed-case query (`BuTtOn`) matches both
+    // under case-insensitive comparison and neither exact-case. Picking
+    // either one would depend on `readdirSync` ordering, so the fallback
+    // bails to null and the caller falls through to the "not found" hint.
+    const metaDir = path.join(projectDir, 'meta')
+    mkdirSync(metaDir, { recursive: true })
+    writeFileSync(path.join(metaDir, 'Button.json'), JSON.stringify({ name: 'Pascal' }))
+    writeFileSync(path.join(metaDir, 'button.json'), JSON.stringify({ name: 'lower' }))
+    expect(tryLoadComponent(metaDir, 'BuTtOn')).toBeNull()
+  })
 })
 
 describe('formatMissingComponentError', () => {

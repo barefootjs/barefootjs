@@ -75,6 +75,26 @@ describe('detectMissingUseClient', () => {
     expect(hits.sort()).toEqual(['createEffect', 'createMemo', 'createSignal'])
   })
 
+  test('flags createDisposableEffect (analyzer REACTIVE_PRIMITIVES parity)', () => {
+    // Aligning the skip-gate tripwire with the analyzer's actual trigger set
+    // means createDisposableEffect — which the analyzer counts in
+    // `ctx.effects` and therefore fires BF001 on — is no longer a silent
+    // miss at the CLI surface.
+    expect(
+      detectMissingUseClient(`import { createDisposableEffect } from '@barefootjs/client'`),
+    ).toEqual(['createDisposableEffect'])
+  })
+
+  test('flags browser-only runtime imports (useContext, provideContext, createPortal)', () => {
+    // Matches `importsBrowserOnlyClientApi` in the analyzer: these names'
+    // implementations live in @barefootjs/client/runtime and need the
+    // compiler to rewire them, so an import alone is the BF001 trigger.
+    const hits = detectMissingUseClient(
+      `import { useContext, provideContext, createPortal } from '@barefootjs/client'`,
+    )
+    expect(hits.sort()).toEqual(['createPortal', 'provideContext', 'useContext'])
+  })
+
   test('handles renamed bindings via `as`', () => {
     expect(
       detectMissingUseClient(`import { createSignal as sig } from '@barefootjs/client'`),
@@ -92,6 +112,15 @@ describe('detectMissingUseClient', () => {
     // not a tripwire primitive, so the file is a legitimate server component.
     expect(
       detectMissingUseClient(`import { type Reactive } from '@barefootjs/client'`),
+    ).toEqual([])
+  })
+
+  test('does NOT flag `untrack` (not in the analyzer trigger set)', () => {
+    // `untrack` reads signals without subscribing; it doesn't populate any
+    // `ctx.signals`/`effects`/etc. array, so the analyzer never raises
+    // BF001 from an `untrack` import. The skip-gate must match.
+    expect(
+      detectMissingUseClient(`import { untrack } from '@barefootjs/client'`),
     ).toEqual([])
   })
 

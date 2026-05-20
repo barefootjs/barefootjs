@@ -1,6 +1,6 @@
 // Core build module: shared pipeline for `bf build`.
 
-import { compileJSX, combineParentChildClientJs, createProgramForCorpus, formatError } from '@barefootjs/jsx'
+import { compileJSX, combineParentChildClientJs, createProgramForCorpus, formatError, REACTIVE_PRIMITIVES, BROWSER_ONLY_CLIENT_APIS } from '@barefootjs/jsx'
 import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec, BundleEntry } from '@barefootjs/jsx'
 import type ts from 'typescript'
 import { mkdir, readdir, stat, unlink } from 'node:fs/promises'
@@ -100,19 +100,29 @@ export interface BuildRunOptions {
  * Skips leading comments (block and line).
  */
 /**
- * Reactive primitives whose presence (without `'use client'`) is the BF001
- * trigger. Matches `REACTIVE_PRIMITIVES` in the analyzer — keep the lists in
- * sync; the analyzer's runtime check stays authoritative, this helper is
- * just for surfacing the diagnostic at the CLI's skip-gate.
+ * Names from `@barefootjs/client` whose presence (without `'use client'`)
+ * matches the analyzer's BF001 trigger set. Pulled directly from the
+ * authoritative sets in `@barefootjs/jsx`'s analyzer so this CLI surface
+ * cannot drift out of sync with what `analyzeComponent` actually raises:
+ *
+ *   - `REACTIVE_PRIMITIVES` — `createSignal`/`createMemo`/`createEffect`/
+ *     `createDisposableEffect`/`onMount`/`onCleanup`. The analyzer fires
+ *     BF001 when their calls populate `ctx.signals`/`memos`/`effects`/
+ *     `onMounts`; the CLI doesn't have call-site visibility cheaply at
+ *     the skip-gate, so it raises on import as a proactive proxy.
+ *   - `BROWSER_ONLY_CLIENT_APIS` — `useContext`/`provideContext`/
+ *     `createPortal`/`isSSRPortal`/`findSiblingSlot`/
+ *     `cleanupPortalPlaceholder`. Matches `importsBrowserOnlyClientApi`
+ *     exactly: import alone (not call) is the analyzer's trigger.
+ *
+ * `untrack` is intentionally absent here — the analyzer doesn't treat it
+ * as a tripwire (it has no DOM-runtime tail and doesn't populate any of
+ * the ctx arrays), and an earlier version of this list had it as a
+ * false-positive source.
  */
-const BF001_TRIPWIRE_IMPORTS = new Set([
-  'createSignal',
-  'createEffect',
-  'createMemo',
-  'onMount',
-  'onCleanup',
-  'untrack',
-  'createPortal',
+const BF001_TRIPWIRE_IMPORTS = new Set<string>([
+  ...REACTIVE_PRIMITIVES,
+  ...BROWSER_ONLY_CLIENT_APIS,
 ])
 
 /**
@@ -1561,7 +1571,15 @@ export async function watch(
   // recompilation. By snapshotting hashes here and comparing on a
   // post-build pass, we self-heal both scenarios without requiring a
   // user keypress to nudge the watcher back to life.
+  //
+  // mtime cache co-keyed with the hash cache: on the steady-state polling
+  // path (no edits), `snapshotHashes` only needs to `stat` each file. It
+  // re-reads + re-hashes only when the mtime advances, which keeps the
+  // baseline I/O cost of the 2s poll loop bounded to one stat per file
+  // instead of one full read per file — meaningful on larger projects
+  // and on slower filesystems where reads dominate.
   const lastSeenHashes = new Map<string, string>()
+  const lastSeenMtimes = new Map<string, number>()
   const snapshotHashes = async (): Promise<Map<string, string>> => {
     const snap = new Map<string, string>()
     const entries: string[] = []
@@ -1570,7 +1588,20 @@ export async function watch(
     }
     await Promise.all(entries.map(async (entry) => {
       try {
-        snap.set(entry, hashContent(await readText(entry)))
+        const s = await stat(entry)
+        const mtimeMs = s.mtimeMs
+        const cachedMtime = lastSeenMtimes.get(entry)
+        const cachedHash = lastSeenHashes.get(entry)
+        // mtime unchanged AND we already have a hash for this file →
+        // skip the read; reuse last-known hash. This is the fast path
+        // the poll loop hits when nothing has been edited.
+        if (cachedMtime === mtimeMs && cachedHash !== undefined) {
+          snap.set(entry, cachedHash)
+          return
+        }
+        const hash = hashContent(await readText(entry))
+        lastSeenMtimes.set(entry, mtimeMs)
+        snap.set(entry, hash)
       } catch {
         // File deleted between enumeration and read — ignore; the
         // next rebuild will pick up the deletion via cache invalidation.
@@ -1644,10 +1675,22 @@ export async function watch(
   // Belt-and-suspenders poll. Linux's recursive `fs.watch` iterator has
   // a known fragility where the AsyncIterable can stop yielding events
   // after the first batch in some workloads — leaving the watch process
-  // alive but functionally dead. A low-frequency poll (every two seconds)
-  // catches missed edits via the same hash diff used by the post-build
-  // revalidation. Cheap: `hashContent` of a few dozen sources is sub-ms.
-  const pollIntervalMs = 2000
+  // alive but functionally dead. A hash-diff poll catches missed edits
+  // via the same `snapshotHashes` mechanism used by the post-build
+  // revalidation.
+  //
+  // Steady-state cost: `snapshotHashes` re-stats every file but only
+  // re-hashes when its mtime advances, so an idle project pays one stat
+  // per file per tick — sub-millisecond on typical corpora. Adaptive
+  // backoff: 2s while there's recent activity, doubling up to 30s after
+  // ten consecutive idle ticks, snapping back to 2s as soon as anything
+  // changes. The window stays responsive during edit bursts while
+  // avoiding steady I/O on long-idle sessions.
+  const pollMinMs = 2000
+  const pollMaxMs = 30000
+  const idleTicksUntilBackoff = 10
+  let pollIntervalMs = pollMinMs
+  let idleTicks = 0
   const pollLoop = async () => {
     while (signal?.aborted !== true) {
       await new Promise((r) => setTimeout(r, pollIntervalMs))
@@ -1663,10 +1706,22 @@ export async function watch(
       for (const file of lastSeenHashes.keys()) {
         if (!snap.has(file)) {
           lastSeenHashes.delete(file)
+          lastSeenMtimes.delete(file)
           changed = true
         }
       }
-      if (changed && !pending) schedule()
+      if (changed) {
+        // Reset backoff: the project just went non-idle. Schedule a
+        // rebuild if one isn't already queued by the inotify path.
+        pollIntervalMs = pollMinMs
+        idleTicks = 0
+        if (!pending) schedule()
+      } else {
+        idleTicks++
+        if (idleTicks >= idleTicksUntilBackoff && pollIntervalMs < pollMaxMs) {
+          pollIntervalMs = Math.min(pollIntervalMs * 2, pollMaxMs)
+        }
+      }
     }
   }
 
