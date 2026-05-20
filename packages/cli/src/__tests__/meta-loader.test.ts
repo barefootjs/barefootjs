@@ -52,6 +52,31 @@ describe('tryLoadComponent', () => {
     expect(meta).not.toBeNull()
     expect(meta!.name).toBe('Button')
   })
+
+  test('case-insensitive fallback: `bf docs Button` finds registry meta button.json', () => {
+    // `bf add` writes registry meta with the registry-canonical
+    // (lowercase) name. Users naturally try PascalCase first; the
+    // case-insensitive fallback rescues that case without affecting
+    // exact-case behavior.
+    const metaDir = path.join(projectDir, 'meta')
+    mkdirSync(metaDir, { recursive: true })
+    writeFileSync(
+      path.join(metaDir, 'button.json'),
+      JSON.stringify({ name: 'button', title: 'Button', category: 'input' }),
+    )
+    const meta = tryLoadComponent(metaDir, 'Button')
+    expect(meta).not.toBeNull()
+    expect(meta!.title).toBe('Button')
+  })
+
+  test('exact-case match wins when both casings exist on disk', () => {
+    const metaDir = path.join(projectDir, 'meta')
+    mkdirSync(metaDir, { recursive: true })
+    writeFileSync(path.join(metaDir, 'Button.json'), JSON.stringify({ name: 'Pascal' }))
+    writeFileSync(path.join(metaDir, 'button.json'), JSON.stringify({ name: 'lower' }))
+    expect(tryLoadComponent(metaDir, 'Button')!.name).toBe('Pascal')
+    expect(tryLoadComponent(metaDir, 'button')!.name).toBe('lower')
+  })
 })
 
 describe('formatMissingComponentError', () => {

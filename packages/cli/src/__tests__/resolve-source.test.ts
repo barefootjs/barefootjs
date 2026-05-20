@@ -62,6 +62,53 @@ describe('resolveComponentSource', () => {
     }
   })
 
+  test('case-insensitive fallback resolves `counter` → components/Counter.tsx', () => {
+    // The scaffold quick-start invites `bf docs <component>` with a
+    // lowercase placeholder. Users naturally type `bf docs counter`
+    // even though the on-disk file is PascalCase `Counter.tsx`. On
+    // case-sensitive filesystems (Linux/CI) the pre-fix resolver
+    // missed it; now it falls back to a directory scan.
+    const projectDir = mktmp()
+    mkdirSync(path.join(projectDir, 'components'), { recursive: true })
+    writeFileSync(path.join(projectDir, 'components', 'Counter.tsx'), 'export {}')
+    try {
+      const r = resolveComponentSource('counter', ctxFor(projectDir, ['components']))
+      expect(r).not.toBeNull()
+      expect(r!.filePath).toBe(path.join(projectDir, 'components', 'Counter.tsx'))
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test('case-insensitive fallback resolves nested registry entry `Button` → components/ui/button/index.tsx', () => {
+    const projectDir = mktmp()
+    mkdirSync(path.join(projectDir, 'components', 'ui', 'button'), { recursive: true })
+    writeFileSync(path.join(projectDir, 'components', 'ui', 'button', 'index.tsx'), 'export {}')
+    try {
+      const r = resolveComponentSource('Button', ctxFor(projectDir))
+      expect(r).not.toBeNull()
+      expect(r!.filePath).toBe(path.join(projectDir, 'components', 'ui', 'button', 'index.tsx'))
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test('exact-case match still wins over a case-insensitive sibling', () => {
+    // If both `Counter.tsx` and `counter.tsx` somehow coexist
+    // (Counter wins in case-sensitive lookup), the resolver must
+    // return the exact-case file — no scan-driven surprise swap.
+    const projectDir = mktmp()
+    mkdirSync(path.join(projectDir, 'components'), { recursive: true })
+    writeFileSync(path.join(projectDir, 'components', 'Counter.tsx'), 'export {}')
+    writeFileSync(path.join(projectDir, 'components', 'counter.tsx'), 'export {}')
+    try {
+      const r = resolveComponentSource('Counter', ctxFor(projectDir, ['components']))
+      expect(r!.filePath).toBe(path.join(projectDir, 'components', 'Counter.tsx'))
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true })
+    }
+  })
+
   test('returns null and populates `searched` with every candidate it tried', () => {
     // Drives the "Looked in:" error transcript surfaced by the debug
     // commands when the user types an unknown component name.

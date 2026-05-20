@@ -1,6 +1,6 @@
 // Load component metadata from ui/meta/ directory.
 
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync, existsSync, readdirSync } from 'fs'
 import path from 'path'
 import type { CliContext } from '../context'
 import type { MetaIndex, ComponentMeta, RegistryItem } from './types'
@@ -61,11 +61,29 @@ export async function fetchRegistryItem(registryUrl: string, name: string): Prom
  * exiting when the file isn't present, so callers can fall back to
  * source-derived rendering (`bf docs` for top-level page components,
  * #1403) before deciding whether to surface a hard error.
+ *
+ * The lookup is case-sensitive first, then falls back to a case-insensitive
+ * scan so `bf docs Button` works even though `bf add` writes `button.json`.
+ * Exact-case behavior is unchanged.
  */
 export function tryLoadComponent(metaDir: string, name: string): ComponentMeta | null {
   const filePath = path.join(metaDir, `${name}.json`)
-  if (!existsSync(filePath)) return null
-  return JSON.parse(readFileSync(filePath, 'utf-8'))
+  if (existsSync(filePath)) return JSON.parse(readFileSync(filePath, 'utf-8'))
+  // Case-insensitive fallback against the meta dir contents.
+  if (!existsSync(metaDir)) return null
+  const wanted = `${name.toLowerCase()}.json`
+  let entries: string[]
+  try {
+    entries = readdirSync(metaDir)
+  } catch {
+    return null
+  }
+  for (const entry of entries) {
+    if (entry.toLowerCase() === wanted) {
+      return JSON.parse(readFileSync(path.join(metaDir, entry), 'utf-8'))
+    }
+  }
+  return null
 }
 
 /**

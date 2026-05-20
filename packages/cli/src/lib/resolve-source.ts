@@ -9,7 +9,7 @@
 //    `components/Counter.tsx`)
 // 5. Current working directory (PascalCase fallback)
 
-import { existsSync } from 'fs'
+import { existsSync, readdirSync } from 'fs'
 import path from 'path'
 import type { CliContext } from '../context'
 
@@ -25,6 +25,32 @@ export interface ResolvedSource {
 function tryCandidate(candidate: string, searched: string[]): string | null {
   searched.push(candidate)
   return existsSync(candidate) ? candidate : null
+}
+
+/**
+ * Find a directory entry whose basename matches `target` case-insensitively
+ * but with no exact-case match. Returns the actual on-disk name (preserving
+ * the directory's casing) so the caller can rebuild a correct path.
+ *
+ * Returns `null` if the directory doesn't exist, no case-insensitive match
+ * exists, or an exact-case match already does (since the regular
+ * `tryCandidate` path would have caught it).
+ */
+function caseInsensitiveMatch(dir: string, target: string): string | null {
+  if (!existsSync(dir)) return null
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return null
+  }
+  const lower = target.toLowerCase()
+  // Exact-case hit means a previous tryCandidate already returned it — skip.
+  if (entries.includes(target)) return null
+  for (const entry of entries) {
+    if (entry.toLowerCase() === lower) return entry
+  }
+  return null
 }
 
 export function resolveComponentSource(
@@ -87,6 +113,31 @@ export function resolveComponentSource(
   // 5. PascalCase component name in the current working directory
   const cwdHit = tryCandidate(path.resolve(`${nameOrPath}.tsx`), searched)
   if (cwdHit) return { filePath: cwdHit }
+
+  // 6. Case-insensitive fallback. Users naturally type `bf docs counter`
+  //    when the file on disk is `Counter.tsx`; rather than punish that
+  //    with a "not found" error, re-run resolution under the canonical
+  //    on-disk casing. Only fires after every case-sensitive attempt
+  //    misses, so existing exact-case behavior is unchanged.
+  if (ctx.config && ctx.projectDir) {
+    const dirs: string[] = [
+      path.join(ctx.projectDir, ctx.config.paths.components),
+      ...((ctx.config.sourceDirs ?? []).map((d) => path.join(ctx.projectDir!, d))),
+    ]
+    for (const dir of dirs) {
+      // <Name>.tsx (flat layout)
+      const flatMatch = caseInsensitiveMatch(dir, `${nameOrPath}.tsx`)
+      if (flatMatch) {
+        return { filePath: path.join(dir, flatMatch) }
+      }
+      // <Name>/index.tsx (nested layout)
+      const dirMatch = caseInsensitiveMatch(dir, nameOrPath)
+      if (dirMatch) {
+        const indexFile = path.join(dir, dirMatch, 'index.tsx')
+        if (existsSync(indexFile)) return { filePath: indexFile }
+      }
+    }
+  }
 
   return null
 }
