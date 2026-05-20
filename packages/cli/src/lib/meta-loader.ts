@@ -1,6 +1,6 @@
 // Load component metadata from ui/meta/ directory.
 
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync, existsSync, readdirSync } from 'fs'
 import path from 'path'
 import type { CliContext } from '../context'
 import type { MetaIndex, ComponentMeta, RegistryItem } from './types'
@@ -61,11 +61,37 @@ export async function fetchRegistryItem(registryUrl: string, name: string): Prom
  * exiting when the file isn't present, so callers can fall back to
  * source-derived rendering (`bf docs` for top-level page components,
  * #1403) before deciding whether to surface a hard error.
+ *
+ * The lookup is case-sensitive first, then falls back to a case-insensitive
+ * scan so `bf docs Button` works even though `bf add` writes `button.json`.
+ * Exact-case behavior is unchanged.
+ *
+ * The case-insensitive fallback intentionally returns `null` when multiple
+ * meta files differ only by case (e.g. `Button.json` *and* `button.json`):
+ * picking either one would be nondeterministic — `readdirSync` ordering is
+ * filesystem-dependent — and the caller's "not found" transcript surfaces
+ * the conflict to the user instead of silently choosing.
  */
 export function tryLoadComponent(metaDir: string, name: string): ComponentMeta | null {
   const filePath = path.join(metaDir, `${name}.json`)
-  if (!existsSync(filePath)) return null
-  return JSON.parse(readFileSync(filePath, 'utf-8'))
+  if (existsSync(filePath)) return JSON.parse(readFileSync(filePath, 'utf-8'))
+  // Case-insensitive fallback against the meta dir contents.
+  if (!existsSync(metaDir)) return null
+  const wanted = `${name.toLowerCase()}.json`
+  let entries: string[]
+  try {
+    entries = readdirSync(metaDir)
+  } catch {
+    return null
+  }
+  const matches: string[] = []
+  for (const entry of entries) {
+    if (entry.toLowerCase() === wanted) matches.push(entry)
+  }
+  // 1 → unambiguous match. 0 or 2+ → bail; 2+ would otherwise be
+  // resolution-order roulette.
+  if (matches.length !== 1) return null
+  return JSON.parse(readFileSync(path.join(metaDir, matches[0]), 'utf-8'))
 }
 
 /**

@@ -293,21 +293,29 @@ async function scaffoldApp(
     created++
   }
 
-  // Pull the registry Button. The pre-flight probe in run() already
-  // verified reachability, so a failure here is unusual (transient
-  // registry hiccup, malformed item, etc.) — let it propagate so the
-  // user retries instead of ending up with a half-scaffolded project
-  // that points at a missing import. `silent: true` so the per-file
-  // summary doesn't fight the surrounding spinner for the same line.
-  await addFromRegistry(
-    ['button'],
-    DEFAULT_REGISTRY_URL,
-    projectDir,
-    { paths },
-    true,
-    true,
-    true,
-  )
+  // Pull the bundled registry components (default: just Button).
+  // Adapters that can't yet render the registry Button end-to-end set
+  // `bundledRegistryComponents: []` so we skip the fetch entirely
+  // instead of shipping a scaffold whose very first build errors on
+  // an as-yet-unsupported lowering. The pre-flight probe in run()
+  // already verified reachability, so a failure here is unusual
+  // (transient registry hiccup, malformed item, etc.) — let it
+  // propagate so the user retries instead of ending up with a
+  // half-scaffolded project that points at a missing import.
+  // `silent: true` so the per-file summary doesn't fight the
+  // surrounding spinner for the same line.
+  const bundledComponents = adapter.bundledRegistryComponents ?? ['button']
+  if (bundledComponents.length > 0) {
+    await addFromRegistry(
+      bundledComponents,
+      DEFAULT_REGISTRY_URL,
+      projectDir,
+      { paths },
+      true,
+      true,
+      true,
+    )
+  }
 
   return created
 }

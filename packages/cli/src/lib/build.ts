@@ -1,6 +1,6 @@
 // Core build module: shared pipeline for `bf build`.
 
-import { compileJSX, combineParentChildClientJs, createProgramForCorpus, formatError } from '@barefootjs/jsx'
+import { compileJSX, combineParentChildClientJs, createProgramForCorpus, formatError, REACTIVE_PRIMITIVES, BROWSER_ONLY_CLIENT_APIS } from '@barefootjs/jsx'
 import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec, BundleEntry } from '@barefootjs/jsx'
 import type ts from 'typescript'
 import { mkdir, readdir, stat, unlink } from 'node:fs/promises'
@@ -99,6 +99,63 @@ export interface BuildRunOptions {
  * Check if file content starts with a "use client" directive.
  * Skips leading comments (block and line).
  */
+/**
+ * Names from `@barefootjs/client` whose presence (without `'use client'`)
+ * matches the analyzer's BF001 trigger set. Pulled directly from the
+ * authoritative sets in `@barefootjs/jsx`'s analyzer so this CLI surface
+ * cannot drift out of sync with what `analyzeComponent` actually raises:
+ *
+ *   - `REACTIVE_PRIMITIVES` — `createSignal`/`createMemo`/`createEffect`/
+ *     `createDisposableEffect`/`onMount`/`onCleanup`. The analyzer fires
+ *     BF001 when their calls populate `ctx.signals`/`memos`/`effects`/
+ *     `onMounts`; the CLI doesn't have call-site visibility cheaply at
+ *     the skip-gate, so it raises on import as a proactive proxy.
+ *   - `BROWSER_ONLY_CLIENT_APIS` — `useContext`/`provideContext`/
+ *     `createPortal`/`isSSRPortal`/`findSiblingSlot`/
+ *     `cleanupPortalPlaceholder`. Matches `importsBrowserOnlyClientApi`
+ *     exactly: import alone (not call) is the analyzer's trigger.
+ *
+ * `untrack` is intentionally absent here — the analyzer doesn't treat it
+ * as a tripwire (it has no DOM-runtime tail and doesn't populate any of
+ * the ctx arrays), and an earlier version of this list had it as a
+ * false-positive source.
+ */
+const BF001_TRIPWIRE_IMPORTS = new Set<string>([
+  ...REACTIVE_PRIMITIVES,
+  ...BROWSER_ONLY_CLIENT_APIS,
+])
+
+/**
+ * Cheap pre-analyzer scan: does this source `import { ... } from '@barefootjs/client'`
+ * any name from `BF001_TRIPWIRE_IMPORTS`? Returns the offending names so the
+ * diagnostic can list them. Returns `[]` for files that genuinely don't
+ * need `'use client'` (server components, type-only imports).
+ *
+ * Regex-based instead of TS-AST because this runs in the hot skip-gate
+ * before `compileEntry` and must stay sub-millisecond. The downside is
+ * we may match commented-out imports — that's fine for a diagnostic, the
+ * user can resolve it by either adding the directive or removing the
+ * import.
+ */
+export function detectMissingUseClient(content: string): string[] {
+  const importRe = /import\s*(?:type\s+)?\{([^}]+)\}\s*from\s*['"]@barefootjs\/client['"]/g
+  const hits = new Set<string>()
+  for (const m of content.matchAll(importRe)) {
+    // Skip `import type { ... }` — type imports erase at compile time and
+    // never run, so they don't require the client runtime.
+    if (/import\s+type/.test(m[0])) continue
+    for (const raw of m[1].split(',')) {
+      // Handle `as` aliases — the imported binding is what matters.
+      const imported = raw.trim().split(/\s+as\s+/)[0].trim()
+      // Type-only specifiers inside a mixed import (`import { type X, Y }`):
+      // strip the `type` keyword and ignore the type binding itself.
+      if (imported.startsWith('type ')) continue
+      if (BF001_TRIPWIRE_IMPORTS.has(imported)) hits.add(imported)
+    }
+  }
+  return [...hits]
+}
+
 export function hasUseClientDirective(content: string): boolean {
   let trimmed = content.trimStart()
   // Skip block comments
@@ -477,6 +534,22 @@ export async function build(
   for (const entryPath of allFiles) {
     const sourceContent = sourceContents.get(entryPath)!
     if (!hasUseClientDirective(sourceContent)) {
+      // BF001 surface check (#1442). The analyzer raises BF001 when a
+      // component imports reactive primitives without `'use client'`, but
+      // the CLI used to drop these files at the skip-gate above, so the
+      // diagnostic never reached the user — their component would be
+      // compiled to plain HTML, ship zero client JS, and look broken in
+      // the browser with no console output. Mirror just the import-side
+      // check here so the same situation prints the analyzer's message.
+      const missing = detectMissingUseClient(sourceContent)
+      if (missing.length > 0) {
+        console.error(`Errors compiling ${relative(config.projectDir, entryPath)}:`)
+        console.error(
+          `  BF001: 'use client' directive required — imports reactive primitive(s) from @barefootjs/client: ${missing.join(', ')}`,
+        )
+        errorCount++
+        continue
+      }
       skippedCount++
       continue
     }
@@ -1427,12 +1500,22 @@ export const DEV_SENTINEL_FILENAME = 'build-id'
 
 /**
  * Dev-only sentinel for signalling browsers to reload after a watch rebuild.
- * Written at `<outDir>/.dev/build-id` only when the build both succeeded and
- * actually changed output on disk — so a touch-save that produces no diff
- * does not trigger a reload.
+ * Written at `<outDir>/.dev/build-id` whenever output actually changed on
+ * disk — so a touch-save that produces no diff does not trigger a reload.
+ *
+ * Errors elsewhere in the build do not block the sentinel: errored entries
+ * preserve their prior cache row (so their on-disk output stays consistent),
+ * and other entries that compiled cleanly still write their fresh outputs.
+ * Suppressing the reload whenever *any* file errored would mean a single
+ * persistently-broken component in the project (e.g. one that the active
+ * adapter cannot lower yet) silently disables auto-reload for the entire
+ * app — the user edits a working file, sees nothing happen in the browser,
+ * and has no obvious cause. Firing on `changed` lets the browser pick up
+ * every successful incremental edit while the compile errors stay visible
+ * in the watch terminal.
  */
 async function writeBuildId(outDir: string, result: BuildResult): Promise<void> {
-  if (result.errorCount > 0 || !result.changed) return
+  if (!result.changed) return
   const devDir = resolve(outDir, DEV_SENTINEL_SUBDIR)
   await mkdir(devDir, { recursive: true })
   const path = resolve(devDir, DEV_SENTINEL_FILENAME)
@@ -1490,6 +1573,53 @@ export async function watch(
     flushTimer = setTimeout(flush, debounceMs)
   }
 
+  // Fingerprint every component source file. Used after each rebuild to
+  // detect (a) edits that raced the readText snapshot taken by `build()`,
+  // and (b) edits whose inotify event was dropped by the recursive
+  // `fs.watch` iterator on Linux. Either way, the next rebuild's hash
+  // check would otherwise treat the now-stale cache as fresh and skip
+  // recompilation. By snapshotting hashes here and comparing on a
+  // post-build pass, we self-heal both scenarios without requiring a
+  // user keypress to nudge the watcher back to life.
+  //
+  // mtime cache co-keyed with the hash cache: on the steady-state polling
+  // path (no edits), `snapshotHashes` only needs to `stat` each file. It
+  // re-reads + re-hashes only when the mtime advances, which keeps the
+  // baseline I/O cost of the 2s poll loop bounded to one stat per file
+  // instead of one full read per file — meaningful on larger projects
+  // and on slower filesystems where reads dominate.
+  const lastSeenHashes = new Map<string, string>()
+  const lastSeenMtimes = new Map<string, number>()
+  const snapshotHashes = async (): Promise<Map<string, string>> => {
+    const snap = new Map<string, string>()
+    const entries: string[] = []
+    for (const dir of config.componentDirs) {
+      entries.push(...await discoverComponentFiles(dir))
+    }
+    await Promise.all(entries.map(async (entry) => {
+      try {
+        const s = await stat(entry)
+        const mtimeMs = s.mtimeMs
+        const cachedMtime = lastSeenMtimes.get(entry)
+        const cachedHash = lastSeenHashes.get(entry)
+        // mtime unchanged AND we already have a hash for this file →
+        // skip the read; reuse last-known hash. This is the fast path
+        // the poll loop hits when nothing has been edited.
+        if (cachedMtime === mtimeMs && cachedHash !== undefined) {
+          snap.set(entry, cachedHash)
+          return
+        }
+        const hash = hashContent(await readText(entry))
+        lastSeenMtimes.set(entry, mtimeMs)
+        snap.set(entry, hash)
+      } catch {
+        // File deleted between enumeration and read — ignore; the
+        // next rebuild will pick up the deletion via cache invalidation.
+      }
+    }))
+    return snap
+  }
+
   const flush = async () => {
     flushTimer = null
     if (!pending) return
@@ -1503,7 +1633,30 @@ export async function watch(
       `Rebuild: ${result.compiledCount} compiled, ${result.cachedCount} cached, ${result.errorCount} errors (${ms}ms)`,
     )
     await writeBuildId(config.outDir, result)
+
+    // Post-build revalidation. Re-hash every source and reschedule if any
+    // file changed since the build snapshot — this is what recovers from
+    // the "edit raced the build's readText" failure mode where the user
+    // saved twice in quick succession and the second save landed mid-flush.
+    const after = await snapshotHashes()
+    let staleAfterBuild = false
+    for (const [file, hash] of after) {
+      if (lastSeenHashes.get(file) !== hash) {
+        lastSeenHashes.set(file, hash)
+        staleAfterBuild = true
+      }
+    }
+    if (staleAfterBuild && !pending) {
+      // Don't go quiet here — a second rebuild that the user didn't trigger
+      // via fs.watch can otherwise look like a flake. The trailing tick
+      // catches up to whatever the disk actually shows.
+      schedule()
+    }
   }
+
+  // Seed the fingerprint map with the post-initial-build state so the
+  // first user edit registers as "changed".
+  for (const [file, hash] of await snapshotHashes()) lastSeenHashes.set(file, hash)
 
   const isRelevant = (root: string, filename: string | null): boolean => {
     if (!filename) return false
@@ -1529,9 +1682,63 @@ export async function watch(
     }
   }
 
+  // Belt-and-suspenders poll. Linux's recursive `fs.watch` iterator has
+  // a known fragility where the AsyncIterable can stop yielding events
+  // after the first batch in some workloads — leaving the watch process
+  // alive but functionally dead. A hash-diff poll catches missed edits
+  // via the same `snapshotHashes` mechanism used by the post-build
+  // revalidation.
+  //
+  // Steady-state cost: `snapshotHashes` re-stats every file but only
+  // re-hashes when its mtime advances, so an idle project pays one stat
+  // per file per tick — sub-millisecond on typical corpora. Adaptive
+  // backoff: 2s while there's recent activity, doubling up to 30s after
+  // ten consecutive idle ticks, snapping back to 2s as soon as anything
+  // changes. The window stays responsive during edit bursts while
+  // avoiding steady I/O on long-idle sessions.
+  const pollMinMs = 2000
+  const pollMaxMs = 30000
+  const idleTicksUntilBackoff = 10
+  let pollIntervalMs = pollMinMs
+  let idleTicks = 0
+  const pollLoop = async () => {
+    while (signal?.aborted !== true) {
+      await new Promise((r) => setTimeout(r, pollIntervalMs))
+      const snap = await snapshotHashes()
+      let changed = false
+      for (const [file, hash] of snap) {
+        if (lastSeenHashes.get(file) !== hash) {
+          lastSeenHashes.set(file, hash)
+          changed = true
+        }
+      }
+      // Detect deletions too, so cache invalidation can fire on rm.
+      for (const file of lastSeenHashes.keys()) {
+        if (!snap.has(file)) {
+          lastSeenHashes.delete(file)
+          lastSeenMtimes.delete(file)
+          changed = true
+        }
+      }
+      if (changed) {
+        // Reset backoff: the project just went non-idle. Schedule a
+        // rebuild if one isn't already queued by the inotify path.
+        pollIntervalMs = pollMinMs
+        idleTicks = 0
+        if (!pending) schedule()
+      } else {
+        idleTicks++
+        if (idleTicks >= idleTicksUntilBackoff && pollIntervalMs < pollMaxMs) {
+          pollIntervalMs = Math.min(pollIntervalMs * 2, pollMaxMs)
+        }
+      }
+    }
+  }
+
   await Promise.all([
     ...componentRoots.map((r) => watchRoot(r, true)),
     watchRoot(configRoot, false),
+    pollLoop(),
   ])
 }
 

@@ -125,12 +125,17 @@ export function run(args: string[], ctx: CliContext): void {
     // directory of the source file (correct for the registry layout
     // `<name>/index.tsx`, wrong for the flat `components/<Name>.tsx`
     // layout page components use — `fileToName(.../components/Counter.tsx)`
-    // would return `'components'`). Use the query as the canonical
-    // name since that's what the user typed in.
+    // would return `'components'`). Use the on-disk basename instead,
+    // not the user's query, so a case-insensitive resolve (`docs counter`
+    // → `Counter.tsx`) still prints the canonical PascalCase name.
+    const base = path.basename(resolved.filePath, path.extname(resolved.filePath))
+    const canonicalName = base === 'index'
+      ? path.basename(path.dirname(resolved.filePath))
+      : base
     const sourceDerivedMeta: ComponentMeta = {
       ...meta,
-      name: query,
-      title: query,
+      name: canonicalName,
+      title: canonicalName,
       category: 'page',
     }
     const rel = path.relative(ctx.projectDir ?? ctx.root, resolved.filePath)

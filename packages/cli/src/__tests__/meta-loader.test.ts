@@ -52,6 +52,43 @@ describe('tryLoadComponent', () => {
     expect(meta).not.toBeNull()
     expect(meta!.name).toBe('Button')
   })
+
+  test('case-insensitive fallback: `bf docs Button` finds registry meta button.json', () => {
+    // `bf add` writes registry meta with the registry-canonical
+    // (lowercase) name. Users naturally try PascalCase first; the
+    // case-insensitive fallback rescues that case without affecting
+    // exact-case behavior.
+    const metaDir = path.join(projectDir, 'meta')
+    mkdirSync(metaDir, { recursive: true })
+    writeFileSync(
+      path.join(metaDir, 'button.json'),
+      JSON.stringify({ name: 'button', title: 'Button', category: 'input' }),
+    )
+    const meta = tryLoadComponent(metaDir, 'Button')
+    expect(meta).not.toBeNull()
+    expect(meta!.title).toBe('Button')
+  })
+
+  test('exact-case match wins when both casings exist on disk', () => {
+    const metaDir = path.join(projectDir, 'meta')
+    mkdirSync(metaDir, { recursive: true })
+    writeFileSync(path.join(metaDir, 'Button.json'), JSON.stringify({ name: 'Pascal' }))
+    writeFileSync(path.join(metaDir, 'button.json'), JSON.stringify({ name: 'lower' }))
+    expect(tryLoadComponent(metaDir, 'Button')!.name).toBe('Pascal')
+    expect(tryLoadComponent(metaDir, 'button')!.name).toBe('lower')
+  })
+
+  test('ambiguous case-insensitive match → returns null (no readdir-order roulette)', () => {
+    // Both casings on disk; a mixed-case query (`BuTtOn`) matches both
+    // under case-insensitive comparison and neither exact-case. Picking
+    // either one would depend on `readdirSync` ordering, so the fallback
+    // bails to null and the caller falls through to the "not found" hint.
+    const metaDir = path.join(projectDir, 'meta')
+    mkdirSync(metaDir, { recursive: true })
+    writeFileSync(path.join(metaDir, 'Button.json'), JSON.stringify({ name: 'Pascal' }))
+    writeFileSync(path.join(metaDir, 'button.json'), JSON.stringify({ name: 'lower' }))
+    expect(tryLoadComponent(metaDir, 'BuTtOn')).toBeNull()
+  })
 })
 
 describe('formatMissingComponentError', () => {

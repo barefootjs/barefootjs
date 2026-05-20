@@ -46,7 +46,7 @@ export type {
 } from './types'
 
 // Analyzer
-export { analyzeComponent, listComponentFunctions, listComponentFunctions as listExportedComponents, createProgramForFile, needsTypeBasedDetection, type AnalyzerContext } from './analyzer'
+export { analyzeComponent, listComponentFunctions, listComponentFunctions as listExportedComponents, createProgramForFile, needsTypeBasedDetection, REACTIVE_PRIMITIVES, BROWSER_ONLY_CLIENT_APIS, type AnalyzerContext } from './analyzer'
 export { createProgramForCorpus, type SharedProgramOptions } from './shared-program'
 
 // JSX to IR transformer

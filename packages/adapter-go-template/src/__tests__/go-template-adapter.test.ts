@@ -236,6 +236,104 @@ export function Counter(props: { initial?: number }) {
       expect(result.types).toContain('Count int')
     })
 
+    test('dynamic loop with child component → NewXxxProps carries a populate-this-slice doc comment (#1442 echo TodoApp repro)', () => {
+      // Regression: a `todos().map(t => <TodoItem todo={t} />)` loop with a
+      // dynamic array (signal getter, not a static prop) declares
+      // `TodoItems []TodoItemProps` on the Props struct, but
+      // `NewTodoAppProps` returned it empty — and the SSR template
+      // iterated over the empty slice into a blank list with no signal
+      // anywhere. The "you must populate this in your handler" rule was
+      // pure tribal knowledge.
+      //
+      // Now `NewXxxProps`'s doc comment carries a concrete example for
+      // every dynamic loop child, including the field name, the child's
+      // Input/Props names, and the slot id needed for bf-h / bf-m.
+      // Authors land on the comment as soon as they read the generated
+      // file and see exactly what to do.
+      const adapter = new GoTemplateAdapter()
+      const todoItemIR = compileToIR(`
+"use client"
+type Todo = { id: number; text: string; done: boolean }
+export function TodoItem(props: { todo: Todo }) {
+  return <li>{props.todo.text}</li>
+}
+`)
+      // Sanity: TodoItem alone produces a Props struct; no dynamic loop
+      // inside it, so no extra comment.
+      const todoItemResult = adapter.generate(todoItemIR)
+      expect(todoItemResult.types).not.toContain('NOTE: `')
+
+      const todoAppIR = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+import { TodoItem } from './TodoItem'
+
+type Todo = { id: number; text: string; done: boolean }
+
+export function TodoApp(props: { initial?: Todo[] }) {
+  const [todos, setTodos] = createSignal<Todo[]>(props.initial ?? [])
+  return (
+    <ul>
+      {todos().map(todo => (
+        <TodoItem key={todo.id} todo={todo} />
+      ))}
+    </ul>
+  )
+}
+`)
+      const result = adapter.generate(todoAppIR)
+      // Doc-comment carries the per-child concrete example, naming the
+      // populated field, the child's Input/Props types, and the bf-h /
+      // bf-m wiring the SSR template relies on.
+      expect(result.types).toContain('NOTE: `TodoItems`')
+      expect(result.types).toContain('props.TodoItems = make([]TodoItemProps, len(items))')
+      expect(result.types).toContain('NewTodoItemProps(TodoItemInput{')
+      expect(result.types).toContain('props.TodoItems[i].BfParent = props.ScopeID')
+      expect(result.types).toContain('props.TodoItems[i].BfMount =')
+    })
+
+    test('signal initialized via `(props.X ?? []).length` lands as int, not []T (#1442 echo TodoApp repro)', () => {
+      // Regression: `extractPropNameFromInitialValue` greedily matched
+      // any `(props.X ?? Y).<something>` shape and propagated the prop's
+      // Go type ([]Todo) to the signal field, even when the trailing
+      // accessor (`.length`) transformed the expression to a number.
+      // The signal was `Seq []Todo` instead of `Seq int`, which is
+      // technically a Go compile error if the field is consumed
+      // arithmetically — runtime behaviour was a silent wrong-type
+      // initialisation.
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal, createMemo } from "@barefootjs/client"
+
+type Todo = { id: number; text: string; done: boolean }
+
+export function TodoApp(props: { initial?: Todo[] }) {
+  const [todos] = createSignal<Todo[]>(props.initial ?? [])
+  const [seq] = createSignal((props.initial ?? []).length)
+  const remaining = createMemo(() => todos().filter(t => !t.done).length)
+  const total = createMemo(() => todos().length)
+  return <div>{seq()} {remaining()} / {total()}</div>
+}
+`)
+      const result = adapter.generate(ir)
+      // Signal seeded from `.length` of an array → number → Go int.
+      expect(result.types).toContain('Seq int')
+      // Memos whose body is a `.length` chain → also int (analyzer
+      // now runs inferTypeFromValue on the arrow body for memos).
+      expect(result.types).toContain('Remaining int')
+      expect(result.types).toContain('Total int')
+      // Underlying prop / array signal still uses the array type.
+      expect(result.types).toContain('Initial []Todo')
+      expect(result.types).toContain('Todos []Todo')
+      // The misclassified shapes from the original repro must not
+      // resurface — even as `interface{}` (the fallback before the
+      // analyzer recognised `.length`).
+      expect(result.types).not.toContain('Seq []Todo')
+      expect(result.types).not.toContain('Remaining interface{}')
+      expect(result.types).not.toContain('Total interface{}')
+    })
+
     test('hoists signal-time `props.X ?? N` fallback into shared local var (#1423)', () => {
       // Mirrors the Mojo manifest-defaults coverage (#1419): when the
       // signal default lives on a `??` against a bare prop access, the
@@ -688,6 +786,49 @@ export function TodoApp() {
       expect(result.template).toContain('active')
       expect(result.template).toContain('completed')
       expect(result.template).toContain('TodoItem')
+    })
+
+    test('loop-param member access stays scoped to range dot (#1442 echo TodoApp repro)', () => {
+      // Regression: `todo.done` inside `{{range $_, $todo := .Todos}}`
+      // used to lower to `.Todo.Done` (a non-existent field) instead of
+      // `.Done` (the range dot's field). The bug only surfaced through
+      // the condition-expression rendering path — boolean attributes
+      // (`checked={todo.done}`) and `style` ternaries (`todo.done ? ...`)
+      // both route through `renderConditionExpr`, which had its own
+      // member-handling path that skipped the loop-param normalization
+      // applied by the main `ParsedExprEmitter`. Result was a silent
+      // failure: Go's html/template expanded the bogus field to "" and
+      // aborted the surrounding `{{if}}`, Echo returned HTTP 200 with a
+      // truncated body, and the user saw a blank list with no console
+      // signal.
+      const result = compileAndGenerate(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Todo = { id: number; text: string; done: boolean }
+
+export function TodoApp() {
+  const [todos] = createSignal<Todo[]>([])
+  return (
+    <ul>
+      {todos().map(todo => (
+        <li key={todo.id}>
+          <input type="checkbox" checked={todo.done} />
+          <span style={todo.done ? 'text-decoration: line-through' : ''}>{todo.text}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+`)
+      // The range form is unchanged — still `{{range $_, $todo := .Todos}}`.
+      expect(result.template).toContain('{{range $_, $todo := .Todos}}')
+      // Boolean attribute condition: `.Done`, NOT `.Todo.Done`.
+      expect(result.template).toContain('{{if .Done}}checked{{end}}')
+      expect(result.template).not.toContain('.Todo.Done')
+      // Ternary inside `style="..."` uses the same condition path —
+      // also `.Done`.
+      expect(result.template).toContain('{{if .Done}}text-decoration: line-through')
     })
   })
 

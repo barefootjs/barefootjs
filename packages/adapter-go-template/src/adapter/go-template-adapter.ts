@@ -865,9 +865,26 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       }
       if (referencedProp) {
         const propGoType = this.typeInfoToGo(referencedProp.type, referencedProp.defaultValue)
-        // Prefer signal's own type when prop type is too generic
+        const signalGoType = this.typeInfoToGo(signal.type, signal.initialValue)
+        // The "prop type wins" heuristic exists for cases where the
+        // signal infer is less specific than the prop (e.g. the signal
+        // is `createSignal(props.todos)` and we want `[]Todo`, not
+        // `interface{}`). It actively HURTS when the initial expression
+        // transforms the prop type — `createSignal((props.todos ?? []).length)`
+        // is a `number`, not the prop's `[]Todo`. Let a specific signal
+        // type override a less-specific prop type in either direction
+        // so `.length` / `.some()` / `.every()` chains land on their
+        // actual Go type (#1442 echo TodoApp repro).
         if (propGoType.includes('interface{}')) {
-          goType = this.typeInfoToGo(signal.type, signal.initialValue)
+          goType = signalGoType
+        } else if (
+          !signalGoType.includes('interface{}') &&
+          signalGoType !== propGoType
+        ) {
+          // Both sides resolved, but they disagree — trust the signal's
+          // inferred shape (it's based on the literal expression text,
+          // including the trailing accessor).
+          goType = signalGoType
         } else {
           goType = propGoType
         }
@@ -933,7 +950,31 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     const inputTypeName = `${componentName}Input`
     const propsTypeName = `${componentName}Props`
 
+    // Surface the "dynamic loop slices stay empty until the handler
+    // populates them" rule as a doc comment above the generator, with
+    // a concrete example per child component. Without it the contract
+    // is implicit: `TodoAppProps` carries a `TodoItems []TodoItemProps`
+    // field, the SSR template iterates over it, but
+    // `NewTodoAppProps(TodoAppInput{Initial: ...})` returns it empty
+    // and the page renders a blank list (#1442 echo TodoApp repro).
+    const dynamicNested = nestedComponents.filter(n => n.isDynamic)
     lines.push(`// New${componentName}Props creates ${propsTypeName} from ${inputTypeName}.`)
+    for (const nested of dynamicNested) {
+      const arrayField = `${nested.name}s`
+      lines.push(`//`)
+      lines.push(`// NOTE: \`${arrayField}\` is populated by the route handler, not by`)
+      lines.push(`// New${componentName}Props — the SSR template iterates over it`)
+      lines.push(`// dynamically (\`.${arrayField}\`). Build the slice from your source data and`)
+      lines.push(`// assign it before passing the props to your renderer. Example:`)
+      lines.push(`//`)
+      lines.push(`//   props := New${componentName}Props(${inputTypeName}{ /* ... */ })`)
+      lines.push(`//   props.${arrayField} = make([]${nested.name}Props, len(items))`)
+      lines.push(`//   for i, item := range items {`)
+      lines.push(`//     props.${arrayField}[i] = New${nested.name}Props(${nested.name}Input{ /* fields */ })`)
+      lines.push(`//     props.${arrayField}[i].BfParent = props.ScopeID`)
+      lines.push(`//     props.${arrayField}[i].BfMount = "${nested.slotId}"`)
+      lines.push(`//   }`)
+    }
     lines.push(`func New${componentName}Props(in ${inputTypeName}) ${propsTypeName} {`)
     lines.push('\tscopeID := in.ScopeID')
     lines.push('\tif scopeID == "" {')
@@ -2115,9 +2156,21 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     if (m1) return m1[1]
 
     // "(props.initialTodos ?? []).map(...)"
-    const wrapped = new RegExp(`^\\(${name}\\.(\\w+)\\s*(?:\\?\\?|\\|\\|)\\s*[^)]+\\)`)
+    const wrapped = new RegExp(`^\\(${name}\\.(\\w+)\\s*(?:\\?\\?|\\|\\|)\\s*[^)]+\\)(.*)$`)
     const m2 = trimmed.match(wrapped)
-    if (m2) return m2[1]
+    if (m2) {
+      const tail = m2[2]
+      // The propagation rule is "this signal's Go type is the prop's Go
+      // type". That breaks when the trailing access transforms the prop
+      // type — e.g. `(props.initial ?? []).length` is a `number`, not the
+      // prop's `[]Todo`. Bail out in those cases so the caller falls
+      // back to `inferTypeFromValue` on the full expression, which
+      // recognises `.length` / `.some()` / `.every()` etc.
+      if (/^\s*\.(length|size|some|every|includes|indexOf|findIndex|lastIndexOf)\b/.test(tail)) {
+        return null
+      }
+      return m2[1]
+    }
 
     return null
   }
@@ -3397,6 +3450,20 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   private renderConditionExpr(expr: ParsedExpr): string {
     switch (expr.kind) {
       case 'identifier':
+        // Inside a `{{range $_, $todo := .Todos}}` loop, a bare reference
+        // to the loop variable (`todo`) is just Go template's dot. The
+        // `ParsedExprEmitter` path already handles this at memberAccess
+        // (line ~2449); this condition-expression path needs the same
+        // normalization or `todo.done` ends up as `.Todo.Done` — a
+        // non-existent field that Go template silently expands to ""
+        // and then aborts the surrounding `{{if}}`/template execution
+        // (echo logs it as a 200 with truncated bytes; #1442 repro).
+        {
+          const currentLoopParam = this.loopParamStack[this.loopParamStack.length - 1]
+          if (currentLoopParam && expr.name === currentLoopParam) {
+            return '.'
+          }
+        }
         return `.${this.capitalizeFieldName(expr.name)}`
 
       case 'literal':
@@ -3428,6 +3495,20 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         // Handle SolidJS-style props pattern: props.xxx -> .Xxx
         if (expr.object.kind === 'identifier' && this.propsObjectName && expr.object.name === this.propsObjectName) {
           return `.${this.capitalizeFieldName(expr.property)}`
+        }
+
+        // Loop-param member access: `todo.done` inside
+        // `{{range $_, $todo := .Todos}}` is `.Done` (Go template's dot
+        // is the current item). The `ParsedExprEmitter` already does
+        // this for renderParsedExpr; mirror it here so condition-only
+        // positions like boolean attributes (`checked={todo.done}`)
+        // and `{{if}}` operands don't fall through to the generic
+        // `.Todo.Done` shape, which references a non-existent field.
+        {
+          const currentLoopParam = this.loopParamStack[this.loopParamStack.length - 1]
+          if (expr.object.kind === 'identifier' && currentLoopParam && expr.object.name === currentLoopParam) {
+            return `.${this.capitalizeFieldName(expr.property)}`
+          }
         }
 
         const obj = this.renderConditionExpr(expr.object)

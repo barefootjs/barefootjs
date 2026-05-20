@@ -70,6 +70,16 @@ export interface AdapterTemplate {
    * cpanm — issue #1416 item 2).
    */
   extraSetupSteps?: { label?: string; command: string }[]
+  /**
+   * Registry components fetched into `components/ui/` at init. Defaults
+   * to `['button']`, matching what the starter Counter expects on
+   * adapters whose compiler can render the registry <Button>
+   * end-to-end. Adapters that can't yet (e.g. mojo's lowering doesn't
+   * cover Slot's higher-order className-merge chain) set this to `[]`
+   * and pair it with `NATIVE_BUTTON_COUNTER_TSX` so the scaffold
+   * doesn't ship with a known-failing source on the very first build.
+   */
+  bundledRegistryComponents?: string[]
 }
 
 // CSS library options offered by `bf init`. The library is

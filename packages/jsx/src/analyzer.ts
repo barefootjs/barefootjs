@@ -1322,10 +1322,24 @@ function collectMemo(node: ts.VariableDeclaration, ctx: AnalyzerContext): void {
   // Extract dependencies from computation
   const deps = extractDependencies(computation, ctx)
 
-  // Try to infer type
+  // Try to infer type. Prefer the explicit `<T>` type argument when
+  // present; otherwise fall back to the same value-shape inference
+  // signals use (`inferTypeFromValue` handles `.length`, `.some(...)`,
+  // `.every(...)`, etc.). Without this, `createMemo(() =>
+  // todos().filter(...).length)` ends up as `unknown` and the Go
+  // adapter renders the field as `interface{}`, even though the
+  // expression is clearly a number.
   let type: TypeInfo = { kind: 'unknown', raw: 'unknown' }
   if (callExpr.typeArguments && callExpr.typeArguments.length > 0) {
     type = typeNodeToTypeInfo(callExpr.typeArguments[0], ctx.sourceFile) ?? type
+  } else {
+    // The memo computation is an arrow function; the type we want is
+    // the body's, not the arrow itself. Pull `() => <body>` apart so
+    // `inferTypeFromValue` sees the actual expression.
+    const arrowBody = computation.replace(/^\s*\([^)]*\)\s*=>\s*/, '').trim()
+    if (arrowBody && arrowBody !== computation) {
+      type = inferTypeFromValue(arrowBody)
+    }
   }
 
   ctx.memos.push({
@@ -2548,6 +2562,27 @@ function inferTypeFromValue(value: string): TypeInfo {
     return inferTypeFromValue(nullishMatch[1])
   }
 
+  // Trailing method/property accesses that transform the operand type.
+  // Without these, `createSignal((props.todos ?? []).length)` would fall
+  // through to "unknown" and adapters would either pick `interface{}`
+  // or copy the underlying array's element type — both worse than the
+  // actual `number`. The accessor is the rightmost suffix, so a single
+  // regex on the tail is enough; we don't need to fully parse the LHS.
+  //
+  //   .length / .size       → number
+  //   .some(...) / .every(...) / .includes(...)           → boolean
+  //   .indexOf(...) / .findIndex(...) / .lastIndexOf(...) → number
+  //   .at(...) / .find(...) → unknown (element type; can't recover here)
+  if (/\.(length|size)\s*$/.test(trimmed)) {
+    return { kind: 'primitive', raw: 'number', primitive: 'number' }
+  }
+  if (/\.(some|every|includes)\s*\([\s\S]*\)\s*$/.test(trimmed)) {
+    return { kind: 'primitive', raw: 'boolean', primitive: 'boolean' }
+  }
+  if (/\.(indexOf|findIndex|lastIndexOf)\s*\([\s\S]*\)\s*$/.test(trimmed)) {
+    return { kind: 'primitive', raw: 'number', primitive: 'number' }
+  }
+
   // Number
   if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
     return { kind: 'primitive', raw: 'number', primitive: 'number' }
@@ -2708,7 +2743,11 @@ function collectResolvedNames(ctx: AnalyzerContext): Set<string> {
 // Identifiers from `@barefootjs/client` whose implementations live in the
 // DOM runtime (`@barefootjs/client/runtime`). Source files importing any of
 // these must be marked with `'use client'` so the compiler rewires them.
-const BROWSER_ONLY_CLIENT_APIS = new Set([
+//
+// Exported so the CLI's skip-gate (`detectMissingUseClient` in
+// `@barefootjs/cli/lib/build`) can raise BF001 against the same trigger
+// set the analyzer uses, instead of maintaining a drifting copy.
+export const BROWSER_ONLY_CLIENT_APIS = new Set([
   'useContext',
   'provideContext',
   'createPortal',
@@ -2807,7 +2846,12 @@ export function listComponentFunctions(
 // Names of reactive primitives that a factory body must contain for the
 // factory to qualify for inlining. Identifier resolution happens at the
 // source text level, so these are matched as bare identifiers.
-const REACTIVE_PRIMITIVES = new Set([
+//
+// Exported so the CLI's skip-gate (`detectMissingUseClient` in
+// `@barefootjs/cli/lib/build`) reuses the canonical list — keeps the
+// "imports reactive primitive without 'use client'" BF001 surface
+// from drifting out of sync with the analyzer's call-site detection.
+export const REACTIVE_PRIMITIVES = new Set([
   'createSignal', 'createMemo', 'createEffect',
   'createDisposableEffect', 'onMount', 'onCleanup',
 ])
