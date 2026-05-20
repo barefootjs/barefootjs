@@ -161,9 +161,17 @@ export const MOJO_ADAPTER: AdapterTemplate = {
     'dist/components/manifest.json': COMPONENTS_MANIFEST_SEED,
   },
   scripts: {
-    // Build everything once, then run the watchers + Mojolicious's morbo
-    // (which auto-reloads on app.pl edits) side-by-side.
-    dev: 'bf build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "morbo app.pl -l http://*:3002"',
+    // Run the watchers + Mojolicious's morbo (which auto-reloads on
+    // app.pl edits) side-by-side. The watchers each do their own
+    // initial build at startup, so a separate cold-build prefix isn't
+    // needed — and used to be a hard blocker: any BF101 from the
+    // bundled `slot` component (the asChild pattern uses
+    // `.filter().join()`, which the mojo adapter can't lower to
+    // Embedded Perl) made `bf build` exit 1, the `&&` chain
+    // short-circuited, morbo never started, and the user saw "server
+    // doesn't come up" with no obvious cause. Matches the hono
+    // adapter's dev script shape.
+    dev: 'concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "morbo app.pl -l http://*:3002"',
     build: 'bf build && unocss',
     start: 'perl app.pl daemon -l http://*:3002',
   },
