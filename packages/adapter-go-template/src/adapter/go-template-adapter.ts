@@ -153,6 +153,25 @@ export interface GoTemplateAdapterOptions {
 }
 
 /**
+ * Wrap a rendered Go template fragment in parens when it would
+ * otherwise parse as multiple sibling args of an enclosing prefix
+ * call. A bare identifier / dotted path / quoted literal stays
+ * uncluttered; anything containing whitespace (a function call,
+ * `len ...`, etc.) gets `(...)` so `bf_join (...) bf_trim .Raw`
+ * doesn't degrade to four args of `bf_join`. Used by emitters that
+ * compose runtime helpers (#1443 / #1445 Copilot review).
+ */
+function wrapIfMultiToken(rendered: string): string {
+  // Already wrapped — don't double-wrap.
+  if (rendered.startsWith('(') && rendered.endsWith(')')) return rendered
+  // Quoted literals can contain spaces inside the string but parse
+  // as a single token; leave them alone.
+  if (rendered.startsWith('"') && rendered.endsWith('"')) return rendered
+  if (/\s/.test(rendered)) return `(${rendered})`
+  return rendered
+}
+
+/**
  * Convert a slot ID (e.g., 's6') to a Go struct field suffix (e.g., 'Slot6').
  * Keeps field names human-readable regardless of the internal slot ID format.
  */
@@ -2670,7 +2689,17 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       case 'join': {
         const obj = emit(object)
         const sep = emit(args[0])
-        return `bf_join (${obj}) ${sep}`
+        // Both operands need paren-wrapping when they emit a
+        // multi-token prefix-call form (e.g. `sep` lowering to
+        // `bf_trim .Raw` would make Go template parse
+        // `bf_join (...) bf_trim .Raw` as four args to `bf_join`).
+        // Identifiers / literals stay bare to keep the common case
+        // readable. Copilot review on #1445 surfaced the gap.
+        return `bf_join (${obj}) ${wrapIfMultiToken(sep)}`
+      }
+      default: {
+        const _exhaustive: never = method
+        throw new Error(`Go arrayMethod: unhandled ArrayMethod '${(_exhaustive as string)}'`)
       }
     }
   }

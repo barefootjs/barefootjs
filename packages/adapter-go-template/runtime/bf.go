@@ -471,10 +471,16 @@ func Contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
-// Join concatenates elements of a slice with sep.
+// Join concatenates elements of a slice with sep. Accepts both
+// reflect.Slice (the common case — `bf_arr` and `bf_filter_truthy`
+// both return `[]any`) AND reflect.Array (fixed-size Go arrays like
+// `[3]string{...}`), mirroring JS `Array.prototype.join` which
+// doesn't distinguish between the two. Pre-fix this returned "" for
+// fixed-size arrays passed through template data (Copilot review on
+// #1445).
 func Join(items any, sep string) string {
 	v := reflect.ValueOf(items)
-	if v.Kind() != reflect.Slice {
+	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
 		return ""
 	}
 
@@ -709,7 +715,12 @@ func isTruthy(v any) bool {
 	case uint, uint8, uint16, uint32, uint64:
 		return reflect.ValueOf(v).Uint() != 0
 	case float32:
-		return x != 0
+		// JS `Boolean(NaN)` is false regardless of float width — the
+		// float64 arm below was the only one checking IsNaN, which
+		// diverged from JS for `float32` NaN inputs (Copilot review on
+		// #1445). Widening to float64 for the IsNaN check keeps the
+		// two branches in lock-step.
+		return x != 0 && !math.IsNaN(float64(x))
 	case float64:
 		return x != 0 && !math.IsNaN(x)
 	}

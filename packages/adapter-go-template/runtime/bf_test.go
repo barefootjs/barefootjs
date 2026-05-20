@@ -273,6 +273,27 @@ func TestFilterTruthy_NaNIsFalsy(t *testing.T) {
 	}
 }
 
+func TestFilterTruthy_Float32NaNIsFalsy(t *testing.T) {
+	// JS `Boolean(NaN)` is false regardless of float width. Pre-fix
+	// the float32 arm didn't check IsNaN and treated NaN as truthy
+	// (Copilot review on #1445).
+	var nan32 float32 = float32(math.NaN())
+	got := FilterTruthy([]any{float32(1.0), nan32, float32(2.0)})
+	if len(got) != 2 {
+		t.Errorf("FilterTruthy([f32 1, f32 NaN, f32 2]) = %v, want [1, 2]", got)
+	}
+}
+
+func TestJoin_AcceptsFixedArray(t *testing.T) {
+	// JS `Array.prototype.join` doesn't distinguish slice / array;
+	// `bf_join` should accept fixed-size Go arrays too (Copilot
+	// review on #1445). Pre-fix this returned "" for any non-slice.
+	arr := [3]string{"a", "b", "c"}
+	if got := Join(arr, ","); got != "a,b,c" {
+		t.Errorf("Join(fixed array, ',') = %q, want 'a,b,c'", got)
+	}
+}
+
 func TestFilterTruthy_NilSliceReturnsNil(t *testing.T) {
 	if got := FilterTruthy(nil); got != nil {
 		t.Errorf("FilterTruthy(nil) = %v, want nil", got)
