@@ -399,12 +399,22 @@ function checkSupport(expr: ParsedExpr): SupportResult {
           reason: `Higher-order method '${expr.method}()' with complex predicate. ${predSupport.reason || 'Simplify the predicate.'}`,
         }
       }
-      // Nested higher-order (e.g., arr.filter(...).filter(...)) is not supported
+      // Nested higher-order INSIDE the predicate body (e.g.
+      // `x => x.tags.filter(t => t.active).length > 0`) was refused
+      // here historically because adapter emitters would produce
+      // broken output for `[grep ...]->{length}` style chains. Note
+      // this check is intentionally NOT extended to `expr.object`:
+      // chained-receiver forms like `arr.filter(p).filter(q)` lower
+      // correctly via the emitter's recursive `emit(object)` (which
+      // wraps the inner result in another `grep`). The Copilot
+      // review on #1444 asked us to either update this comment or
+      // also reject chained receivers — preserving the chained
+      // case is the right move because it already works.
       if (containsHigherOrder(expr.predicate)) {
         return {
           supported: false,
           level: 'L5_UNSUPPORTED',
-          reason: `Nested higher-order methods are not supported. Use @client directive.`,
+          reason: `Nested higher-order methods inside a predicate body are not supported. Use @client directive.`,
         }
       }
       // The source array also has to be lowerable. Skipping this check

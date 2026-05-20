@@ -2635,7 +2635,26 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       const templateBlock = this.renderEverySomeTemplateBlock(reconstructed, emit)
       if (templateBlock) return templateBlock
     }
-    return `[UNSUPPORTED: ${method}]`
+    // No Go template form for this higher-order shape. Pre-#1443 the
+    // upstream `UNSUPPORTED_METHODS` parser gate refused most of these
+    // before they reached the emitter, so this sentinel was unreachable
+    // in practice; #1443 widened the parser surface (synthetic
+    // identity predicate for `.filter(Boolean)`) and exposed the gap.
+    // Record BF101 explicitly so the diagnostic surfaces at build time
+    // instead of leaking `[UNSUPPORTED: filter]` into the template
+    // (Copilot review on #1444). The stacked Go-side PR (#1445) adds
+    // the actual identity-predicate lowering so the user-visible
+    // case stops hitting this fallback altogether.
+    this.errors.push({
+      code: 'BF101',
+      severity: 'error',
+      message: `Higher-order method '.${method}' shape cannot be lowered to a Go template action`,
+      loc: this.makeLoc(),
+      suggestion: {
+        message: 'Options:\n1. Use @client directive for client-side evaluation\n2. Pre-compute the value in Go code',
+      },
+    })
+    return `""`
   }
 
   arrayMethod(
