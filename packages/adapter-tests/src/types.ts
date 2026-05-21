@@ -26,11 +26,21 @@ export interface ExpectedDiagnostic {
  *   and trimmed)
  * - `expectContains` — assert the first match contains `text` as a
  *   substring (Playwright `toContainText`, same normalization rules)
+ * - `expectAttribute` — assert the first match's `attribute` equals
+ *   `value` exactly. Use for reactive attribute bindings (e.g.
+ *   `data-active`, `aria-pressed`) that the runtime updates separately
+ *   from textContent.
  */
 export type InteractionStep =
   | { type: 'click'; selector: string }
   | { type: 'expectText'; selector: string; text: string }
   | { type: 'expectContains'; selector: string; text: string }
+  | {
+      type: 'expectAttribute'
+      selector: string
+      attribute: string
+      value: string
+    }
 
 /**
  * A JSX fixture defines a component source and optional props for rendering.
