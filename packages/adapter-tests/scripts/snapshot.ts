@@ -27,8 +27,15 @@ import {
 } from '../fixtures/_helpers'
 import { spec as counterSharedSpec } from '../fixtures/counter-shared'
 import { spec as toggleSharedSpec } from '../fixtures/toggle-shared'
+import { spec as conditionalReturnButtonSpec } from '../fixtures/conditional-return-button'
+import { spec as conditionalReturnLinkSpec } from '../fixtures/conditional-return-link'
 
-const ALL_SPECS: SharedFixtureSpec[] = [counterSharedSpec, toggleSharedSpec]
+const ALL_SPECS: SharedFixtureSpec[] = [
+  counterSharedSpec,
+  toggleSharedSpec,
+  conditionalReturnButtonSpec,
+  conditionalReturnLinkSpec,
+]
 
 const requested = process.argv.slice(2)
 const selected =
