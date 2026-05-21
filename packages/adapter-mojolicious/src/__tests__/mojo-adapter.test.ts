@@ -122,7 +122,10 @@ runAdapterConformanceTests({
     // `array-concat` no longer pinned — `bf->concat` (Mojo) /
     // `bf_concat` (Go) merge two arrays into a new array
     // (#1448 Tier A fourth PR).
-    'array-slice':         [{ code: 'BF101', severity: 'error' }],
+    // `array-slice` no longer pinned — `bf->slice` (Mojo) /
+    // `bf_slice` (Go) carve out a sub-range with JS-compat
+    // negative-index / out-of-bounds clamping (#1448 Tier A
+    // fifth PR).
     'array-reverse':       [{ code: 'BF101', severity: 'error' }],
     'array-toReversed':    [{ code: 'BF101', severity: 'error' }],
     'string-toLowerCase':  [{ code: 'BF101', severity: 'error' }],
@@ -529,6 +532,32 @@ export { A }`, 'A.tsx', { adapter })
     const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
     expect(template).toContain('bf->at($items, -1)')
     expect(template).not.toContain('$bf->at(')
+  })
+
+  test('lowers .slice(start, end).join(\' \') via bf->slice + join (#1448 Tier A)', () => {
+    // 2-arg form. Canonical Tier A fixture pins the start+end shape.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ items }: { items: string[] }) {
+  return <div>{items.slice(1, 3).join(' ')}</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain("join(' ', @{bf->slice($items, 1, 3)})")
+    expect(template).not.toContain('$bf->slice')
+  })
+
+  test('lowers .slice(start) (1-arg) via bf->slice with end=undef', () => {
+    // 1-arg form. The Perl helper treats undef `end` as
+    // "to length", matching the Go variadic-arg-absent case.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ items }: { items: string[] }) {
+  return <div>{items.slice(2).join(' ')}</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain("join(' ', @{bf->slice($items, 2, undef)})")
   })
 
   test('lowers .concat(other).join(\' \') via bf->concat + join (#1448 Tier A)', () => {

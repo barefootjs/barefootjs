@@ -47,7 +47,7 @@ export type HigherOrderMethod = 'filter' | 'every' | 'some' | 'find' | 'findInde
  * adapter. The IR-level discriminator keeps the lowering surface
  * type-driven and the dispatch in one place.
  */
-export type ArrayMethod = 'join' | 'includes' | 'indexOf' | 'lastIndexOf' | 'at' | 'concat'
+export type ArrayMethod = 'join' | 'includes' | 'indexOf' | 'lastIndexOf' | 'at' | 'concat' | 'slice'
 
 export type LiteralType = 'string' | 'number' | 'boolean' | 'null'
 

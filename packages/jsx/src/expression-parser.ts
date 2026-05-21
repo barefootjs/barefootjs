@@ -33,7 +33,7 @@ export type ParsedExpr =
   // defence used for `ParsedExpr.kind`).
   | {
       kind: 'array-method'
-      method: 'join' | 'includes' | 'indexOf' | 'lastIndexOf' | 'at' | 'concat'
+      method: 'join' | 'includes' | 'indexOf' | 'lastIndexOf' | 'at' | 'concat' | 'slice'
       object: ParsedExpr
       args: ParsedExpr[]
     }
@@ -115,7 +115,9 @@ const UNSUPPORTED_METHODS = new Set([
   // indices (`.at(-1)` returns the last element).
   // `concat` lowers via the `array-method` IR + `bf_concat` (Go) /
   // `bf->concat` (Mojo).
-  'slice',
+  // `slice` lowers via the `array-method` IR + `bf_slice` (Go) /
+  // `bf->slice` (Mojo); accepts 1- or 2-arg form (`start` only or
+  // `start + end`).
   'reverse', 'toReversed',
   // #1448 Tier A — String methods.
   'toLowerCase', 'toUpperCase', 'trim',
@@ -268,6 +270,12 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
       // are out of scope for this PR — gated to single-arg here.
       if (callee.property === 'concat' && args.length === 1) {
         return { kind: 'array-method', method: 'concat', object: callee.object, args }
+      }
+      // `.slice(start)` / `.slice(start, end)` — both forms route
+      // through `bf_slice` (Go) / `bf->slice` (Mojo); the helpers
+      // treat a missing / undef `end` as "to length".
+      if (callee.property === 'slice' && (args.length === 1 || args.length === 2)) {
+        return { kind: 'array-method', method: 'slice', object: callee.object, args }
       }
     }
 

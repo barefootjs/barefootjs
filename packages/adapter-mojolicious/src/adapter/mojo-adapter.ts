@@ -1480,6 +1480,18 @@ function renderArrayMethod(
       const b = emit(args[0])
       return `bf->concat(${a}, ${b})`
     }
+    case 'slice': {
+      // `.slice(start)` / `.slice(start, end)`. The Mojo helper
+      // mirrors the Go arithmetic (negative-index normalisation,
+      // out-of-bounds clamping, empty result on start >= end).
+      // Absent `end` lowers as `undef`, which the helper treats as
+      // "to length". Returns a new ARRAY ref so the result composes
+      // with `.join(...)` downstream.
+      const recv = emit(object)
+      const start = emit(args[0])
+      const end = args.length === 2 ? emit(args[1]) : 'undef'
+      return `bf->slice(${recv}, ${start}, ${end})`
+    }
     default: {
       // TS-level exhaustiveness guard. If this throws at runtime, the
       // IR was constructed against a newer `ArrayMethod` variant that

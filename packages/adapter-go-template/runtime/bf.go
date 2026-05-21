@@ -52,6 +52,7 @@ func FuncMap() template.FuncMap {
 		"bf_index_of":       IndexOf,
 		"bf_last_index_of":  LastIndexOf,
 		"bf_concat":         Concat,
+		"bf_slice":          Slice,
 		"bf_first":          First,
 		"bf_last":           Last,
 		"bf_arr":            Arr,
@@ -747,6 +748,63 @@ func Concat(a, b any) []any {
 	left := flatten(reflect.ValueOf(a))
 	right := flatten(reflect.ValueOf(b))
 	return append(left, right...)
+}
+
+// Slice carves out a sub-range from `items`. Lowers
+// `Array.prototype.slice(start, end?)` (#1448 Tier A). The variadic
+// `end` arg lets Go template's call dispatcher pass either 2 or 3
+// arguments; an absent end means "to length".
+//
+// JS-compat clamping:
+//   - start < 0          → length + start  (e.g. -1 = last index)
+//   - end < 0            → length + end
+//   - start < 0 after clamp → 0
+//   - end > length       → length
+//   - start >= end       → empty slice (no panic)
+//
+// Non-array receivers return an empty `[]any`.
+func Slice(items any, start int, end ...int) []any {
+	v := reflect.ValueOf(items)
+	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
+		return []any{}
+	}
+	length := v.Len()
+
+	// Normalise start (negative = from end).
+	if start < 0 {
+		start = length + start
+	}
+	if start < 0 {
+		start = 0
+	}
+	if start > length {
+		start = length
+	}
+
+	// Normalise end (optional; absent = length).
+	stop := length
+	if len(end) > 0 {
+		stop = end[0]
+		if stop < 0 {
+			stop = length + stop
+		}
+		if stop < 0 {
+			stop = 0
+		}
+		if stop > length {
+			stop = length
+		}
+	}
+
+	if start >= stop {
+		return []any{}
+	}
+
+	out := make([]any, 0, stop-start)
+	for i := start; i < stop; i++ {
+		out = append(out, v.Index(i).Interface())
+	}
+	return out
 }
 
 // First returns the first element of a slice, or nil if empty.

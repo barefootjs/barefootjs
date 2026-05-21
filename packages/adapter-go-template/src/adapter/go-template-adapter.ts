@@ -2738,6 +2738,21 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         const b = emit(args[0])
         return `bf_concat ${wrapIfMultiToken(a)} ${wrapIfMultiToken(b)}`
       }
+      case 'slice': {
+        // `.slice(start)` / `.slice(start, end)` — both forms route
+        // through `bf_slice`. The runtime helper treats a `nil`
+        // `end` (the variadic-arg absence) as "to length", matching
+        // the JS semantic. Out-of-bounds indices clamp instead of
+        // panicking (also JS-compat); same with `start > end`
+        // returning an empty slice.
+        const recv = emit(object)
+        const start = emit(args[0])
+        if (args.length === 1) {
+          return `bf_slice ${wrapIfMultiToken(recv)} ${wrapIfMultiToken(start)}`
+        }
+        const end = emit(args[1])
+        return `bf_slice ${wrapIfMultiToken(recv)} ${wrapIfMultiToken(start)} ${wrapIfMultiToken(end)}`
+      }
       default: {
         const _exhaustive: never = method
         throw new Error(`Go arrayMethod: unhandled ArrayMethod '${(_exhaustive as string)}'`)
