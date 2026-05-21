@@ -56,7 +56,7 @@ export type ParsedExpr =
   // (and the same shape feeds both standalone position and the
   // `.sort().map()` chained-loop hoist in `jsx-to-ir.ts`). If the
   // comparator doesn't match the supported catalogue
-  // (`extractSortComparatorFromParsedExpr` below), parsing falls
+  // (`extractSortComparatorFromTS` below), parsing falls
   // through to `unsupported` so adapters surface BF101 with an
   // @client suggestion.
   | {
@@ -73,7 +73,7 @@ export type ParsedExpr =
  * at parse time and consumed by both adapters' arrayMethod emit and
  * (when chained directly before `.map()`) the loop-hoist path in
  * `jsx-to-ir.ts`. The shape is intentionally finite — see
- * `extractSortComparatorFromParsedExpr` for the accepted catalogue.
+ * `extractSortComparatorFromTS` for the accepted catalogue.
  */
 export type SortComparator = {
   // What value to compare on each item:
