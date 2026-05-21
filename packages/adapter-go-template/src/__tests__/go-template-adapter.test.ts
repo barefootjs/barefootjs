@@ -151,8 +151,9 @@ runAdapterConformanceTests({
     // via `convertExpressionToGo`. Distinct codes for the two paths is
     // pre-existing adapter behaviour, not something this catalog
     // should paper over — pinned literally here.
-    'array-indexOf':       [{ code: 'BF101', severity: 'error' }],
-    'array-lastIndexOf':   [{ code: 'BF101', severity: 'error' }],
+    // `array-indexOf` / `array-lastIndexOf` no longer pinned —
+    // value-equality `bf_index_of` / `bf_last_index_of` Go runtime
+    // helpers handle the shape (#1448 Tier A second PR).
     'array-at':            [{ code: 'BF101', severity: 'error' }],
     'array-concat':        [{ code: 'BF101', severity: 'error' }],
     'array-slice':         [{ code: 'BF101', severity: 'error' }],
@@ -1475,6 +1476,40 @@ export function C() {
       expect(result.template).toContain('{{if bf_includes .Value .Needle}}')
     })
   })
+
+  describe('.indexOf / .lastIndexOf lowering (#1448 Tier A)', () => {
+    test('items.indexOf(target) emits `bf_index_of .Items .Target`', () => {
+      // Pre-#1448: parser refused `.indexOf` via `UNSUPPORTED_METHODS`
+      // and surfaced BF101. The new `array-method` arm + the
+      // `bf_index_of` runtime helper give it value-equality semantics
+      // (DeepEqual against scalars / structs), disjoint from the
+      // struct-field `bf_find_index` used by `.find`.
+      const result = compileAndGenerate(`'use client'
+import { createSignal } from '@barefootjs/client'
+export function C() {
+  const [items] = createSignal<string[]>([])
+  const [target] = createSignal('x')
+  return <div>idx: {items().indexOf(target())}</div>
+}`)
+      expect(result.template).toContain('bf_index_of .Items .Target')
+      // Defensive: must not route through the struct-field helper.
+      expect(result.template).not.toContain('bf_find_index')
+    })
+
+    test('items.lastIndexOf(target) emits `bf_last_index_of .Items .Target`', () => {
+      // Backward-walk variant of indexOf — disambiguating the
+      // duplicated-value case is the canonical reason an author
+      // reaches for `.lastIndexOf` over `.indexOf`.
+      const result = compileAndGenerate(`'use client'
+import { createSignal } from '@barefootjs/client'
+export function C() {
+  const [items] = createSignal<string[]>([])
+  const [target] = createSignal('x')
+  return <div>last: {items().lastIndexOf(target())}</div>
+}`)
+      expect(result.template).toContain('bf_last_index_of .Items .Target')
+    })
+  })
 })
 
 // =============================================================================
@@ -1496,6 +1531,8 @@ export function C() {
 
 import { fixture as arrayIncludesFixture } from '../../../adapter-tests/fixtures/methods/array-includes'
 import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixtures/methods/string-includes'
+import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-indexOf'
+import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
 
 describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -1503,6 +1540,8 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     // (`{cond ? 'yes' : 'no'}`), so the emit lands inside `{{if ...}}`.
     { fixture: arrayIncludesFixture,    expect: '{{if bf_includes .Items .Target}}' },
     { fixture: stringIncludesFixture,   expect: '{{if bf_includes .Value .Needle}}' },
+    { fixture: arrayIndexOfFixture,     expect: 'bf_index_of .Items .Target' },
+    { fixture: arrayLastIndexOfFixture, expect: 'bf_last_index_of .Items .Target' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {
