@@ -679,8 +679,21 @@ export async function build(
       if (!currentEmitSet.has(output)) orphanedOutputs.add(output)
     }
   }
+  // Containment guard: `.bfemit.json` / `.buildcache.json` are on-disk
+  // inputs that the build re-reads next run, so a corrupted or tampered
+  // file could contain absolute paths or `..` segments that resolve
+  // outside `outDir`. Refuse to unlink anything that escapes — the
+  // ledger only ever owns files the build itself emitted, and those are
+  // always under `outDir`.
+  const outDirAbs = resolve(config.outDir)
   for (const output of orphanedOutputs) {
     const abs = resolve(config.outDir, output)
+    if (abs !== outDirAbs && !abs.startsWith(outDirAbs + '/')) {
+      console.warn(
+        `Warning: refusing to delete out-of-tree path from emit ledger: ${output}`,
+      )
+      continue
+    }
     try {
       await unlink(abs)
       anyOutputChanged = true

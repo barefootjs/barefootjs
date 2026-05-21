@@ -84,6 +84,43 @@ describe('loadEmitLedger / saveEmitLedger', () => {
       rmSync(dir, { recursive: true, force: true })
     }
   })
+
+  // Per-entry shape gate. The cleanup pass does `for (const output of
+  // previousOutputs)` and passes each `output` to `unlink`, so a
+  // non-iterable / non-string slipped past validation would either crash
+  // mid-cleanup or call `unlink` on garbage. Reject the whole file
+  // instead — the next build rewrites a clean ledger.
+  test('returns null when an entry value is not a string array', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bf-ledger-'))
+    try {
+      await Bun.write(
+        join(dir, EMIT_LEDGER_FILENAME),
+        JSON.stringify({
+          version: EMIT_LEDGER_VERSION,
+          entries: { '/abs/X.tsx': 'not-an-array' },
+        }),
+      )
+      expect(await loadEmitLedger(dir)).toBeNull()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('returns null when an entry value is an array containing non-strings', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bf-ledger-'))
+    try {
+      await Bun.write(
+        join(dir, EMIT_LEDGER_FILENAME),
+        JSON.stringify({
+          version: EMIT_LEDGER_VERSION,
+          entries: { '/abs/X.tsx': ['components/X.tsx', 123, null] },
+        }),
+      )
+      expect(await loadEmitLedger(dir)).toBeNull()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })
 
 // Bootstrap path used on the first build after upgrade: the user has a
@@ -126,5 +163,39 @@ describe('extractLedgerFromCache', () => {
 
   test('returns empty object for null cache', () => {
     expect(extractLedgerFromCache(null)).toEqual({})
+  })
+
+  // The cache file goes through `loadCache` which only validates the
+  // top-level shape (`globalHash`, `entries`). A hand-edited or partially-
+  // upgraded `.buildcache.json` could carry a string / number / nested
+  // object in `outputs` and slip through; bootstrap must reject those
+  // values rather than feed them to the cleanup pass. Skipping (not
+  // throwing) keeps bootstrap best-effort by design.
+  test('skips entries whose outputs are not a string array', () => {
+    const cache = emptyCache('gh')
+    // Hand-craft malformed shapes that would type-error in fresh code
+    // but can land here from old or tampered on-disk cache files.
+    cache.entries['/abs/Good.tsx'] = {
+      hash: 'h',
+      deps: {},
+      outputs: ['components/Good.client.js'],
+      manifestKey: null,
+    }
+    cache.entries['/abs/BadString.tsx'] = {
+      hash: 'h',
+      deps: {},
+      outputs: 'components/Bad.client.js' as unknown as string[],
+      manifestKey: null,
+    }
+    cache.entries['/abs/BadMixed.tsx'] = {
+      hash: 'h',
+      deps: {},
+      outputs: ['components/X.tsx', 42 as unknown as string],
+      manifestKey: null,
+    }
+    const projected = extractLedgerFromCache(cache)
+    expect(projected['/abs/Good.tsx']).toEqual(['components/Good.client.js'])
+    expect(projected['/abs/BadString.tsx']).toBeUndefined()
+    expect(projected['/abs/BadMixed.tsx']).toBeUndefined()
   })
 })

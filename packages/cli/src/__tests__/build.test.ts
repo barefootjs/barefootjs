@@ -1271,4 +1271,57 @@ describe('build() orphan output cleanup', () => {
       rmSync(outDir, { recursive: true, force: true })
     }
   })
+
+  // Defence-in-depth: `.bfemit.json` is an on-disk input that the build
+  // re-reads every run. If a corrupted or tampered file claimed
+  // ownership of a path that escapes `outDir` (absolute path, `../`
+  // traversal), the cleanup pass must refuse to unlink it. The ledger
+  // only ever owns files the build itself emitted, and those are
+  // always under `outDir`.
+  test('refuses to unlink paths that escape outDir', async () => {
+    const projectDir = makeTmpDir('containment-src')
+    const outDir = makeTmpDir('containment-out')
+    // The "victim" lives in a separate tmp dir so a buggy cleanup pass
+    // would actually delete a real file. Stays out of both projectDir
+    // and outDir.
+    const victimDir = makeTmpDir('containment-victim')
+    const victimPath = resolve(victimDir, 'precious.txt')
+    writeFileSync(victimPath, 'must survive\n')
+    try {
+      mkdirSync(resolve(projectDir, 'components'), { recursive: true })
+      const config = makeBuildConfig(projectDir, outDir)
+      // Initial build seeds the ledger so save logic is exercised.
+      await build(config)
+
+      // Hand-craft a ledger pointing at a traversal target and an
+      // absolute path. Both should be rejected.
+      const traversal = require('path').relative(outDir, victimPath)
+      writeFileSync(
+        resolve(outDir, '.bfemit.json'),
+        JSON.stringify({
+          version: 1,
+          entries: {
+            '/abs/Tampered.tsx': [traversal, victimPath],
+          },
+        }),
+      )
+
+      const warnings: string[] = []
+      const originalWarn = console.warn
+      console.warn = (...args: unknown[]) => { warnings.push(args.join(' ')) }
+      try {
+        await build(config)
+      } finally {
+        console.warn = originalWarn
+      }
+
+      expect(existsSync(victimPath)).toBe(true)
+      const refused = warnings.filter(w => w.includes('out-of-tree'))
+      expect(refused.length).toBeGreaterThanOrEqual(1)
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true })
+      rmSync(outDir, { recursive: true, force: true })
+      rmSync(victimDir, { recursive: true, force: true })
+    }
+  })
 })

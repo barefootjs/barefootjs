@@ -44,6 +44,21 @@ export function emptyLedger(): EmitLedger {
   return { version: EMIT_LEDGER_VERSION, entries: {} }
 }
 
+/**
+ * Validate that a value is `string[]`. Used at the JSON boundary in
+ * `loadEmitLedger` and `extractLedgerFromCache` so a corrupted or
+ * hand-edited file can't smuggle non-iterable / non-string values into
+ * the cleanup pass, which would either throw on `for (const output of
+ * previousOutputs)` or pass a wrong-typed path to `unlink`.
+ */
+function isStringArray(v: unknown): v is string[] {
+  if (!Array.isArray(v)) return false
+  for (const item of v) {
+    if (typeof item !== 'string') return false
+  }
+  return true
+}
+
 export async function loadEmitLedger(outDir: string): Promise<EmitLedger | null> {
   const path = resolve(outDir, EMIT_LEDGER_FILENAME)
   if (!(await fileExists(path))) return null
@@ -57,6 +72,12 @@ export async function loadEmitLedger(outDir: string): Promise<EmitLedger | null>
       parsed.entries === null
     ) {
       return null
+    }
+    // Per-entry shape check: every value must be `string[]`. A single bad
+    // value invalidates the whole ledger — safer than silently dropping
+    // entries because the next build will rewrite the file from scratch.
+    for (const value of Object.values(parsed.entries)) {
+      if (!isStringArray(value)) return null
     }
     return parsed
   } catch {
@@ -76,12 +97,16 @@ export async function saveEmitLedger(outDir: string, ledger: EmitLedger): Promis
  * whose previous build wrote `.buildcache.json` but no `.bfemit.json` still
  * gets their pre-existing orphans pruned, instead of having to wait until
  * the cycle after this build to seed the ledger.
+ *
+ * `loadCache` doesn't validate the per-entry schema, so we re-check
+ * `entry.outputs` here. A malformed value is skipped rather than throwing
+ * — bootstrap is best-effort by design.
  */
 export function extractLedgerFromCache(cache: BuildCache | null): Record<string, string[]> {
   if (!cache) return {}
   const out: Record<string, string[]> = {}
   for (const [key, entry] of Object.entries(cache.entries)) {
-    if (entry.outputs && entry.outputs.length > 0) {
+    if (isStringArray(entry?.outputs) && entry.outputs.length > 0) {
       out[key] = entry.outputs.slice()
     }
   }
