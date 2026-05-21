@@ -1340,7 +1340,12 @@ export function exprToString(expr: ParsedExpr): string {
       return `[${expr.elements.map(exprToString).join(', ')}]`
     case 'array-method':
       if (expr.method === 'sort' || expr.method === 'toSorted') {
-        return `${exprToString(expr.object)}.${expr.method}((a,b) => ${expr.comparator.raw})`
+        // Reconstruct against the user's actual param names — the
+        // comparator body in `raw` references them directly, so
+        // hardcoding `(a,b)` would produce un-re-parseable output
+        // for any user who wrote e.g. `(lhs, rhs) => lhs - rhs`.
+        const { paramA, paramB, raw } = expr.comparator
+        return `${exprToString(expr.object)}.${expr.method}((${paramA},${paramB}) => ${raw})`
       }
       return `${exprToString(expr.object)}.${expr.method}(${expr.args.map(exprToString).join(', ')})`
     case 'unsupported':
@@ -1398,7 +1403,11 @@ export function stringifyParsedExpr(expr: ParsedExpr): string {
       return `[${expr.elements.map(stringifyParsedExpr).join(', ')}]`
     case 'array-method':
       if (expr.method === 'sort' || expr.method === 'toSorted') {
-        return `${stringifyParsedExpr(expr.object)}.${expr.method}((a,b) => ${expr.comparator.raw})`
+        // Round-trip the original param names so downstream
+        // re-parsers (templatePrimitive substitution etc.) see
+        // valid JS — `raw` references the user's names verbatim.
+        const { paramA, paramB, raw } = expr.comparator
+        return `${stringifyParsedExpr(expr.object)}.${expr.method}((${paramA},${paramB}) => ${raw})`
       }
       return `${stringifyParsedExpr(expr.object)}.${expr.method}(${expr.args.map(stringifyParsedExpr).join(', ')})`
     case 'unsupported':

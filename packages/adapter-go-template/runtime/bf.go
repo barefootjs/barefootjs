@@ -1118,8 +1118,13 @@ func Sort(items any, keyKind string, keyName string, compareType string, directi
 		ki := projectSortKey(result[i], keyKind, keyName)
 		kj := projectSortKey(result[j], keyKind, keyName)
 		if compareType == "string" {
-			si := fmt.Sprint(ki)
-			sj := fmt.Sprint(kj)
+			// `toString` maps nil / unknown types to "" — matches
+			// the documented `bf->string(undef) === ""` divergence
+			// from JS and the Perl `bf->sort` helper's `// ''`
+			// undef-coalesce. Using `fmt.Sprint` here would sort
+			// missing fields against the literal string "<nil>".
+			si := toString(ki)
+			sj := toString(kj)
 			if desc {
 				return si > sj
 			}

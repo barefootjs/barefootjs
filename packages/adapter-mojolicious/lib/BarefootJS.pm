@@ -509,8 +509,12 @@ sub trim ($self, $recv) {
 # Opts hash-ref (compiler emits exactly these four keys):
 #
 #   key_kind     => 'self' | 'field'
-#   key          => '' when key_kind eq 'self'; lower-case field name
-#                   (e.g. 'price') otherwise
+#   key          => '' when key_kind eq 'self'; field name verbatim
+#                   from the comparator AST (e.g. 'price', 'createdAt')
+#                   when key_kind eq 'field' — no case normalisation
+#                   applied. Perl hash lookups are case-sensitive so
+#                   the key here must match the actual hash key the
+#                   user populated.
 #   compare_type => 'numeric' | 'string'
 #   direction    => 'asc' | 'desc'
 #
