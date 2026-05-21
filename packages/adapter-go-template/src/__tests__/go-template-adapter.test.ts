@@ -1678,6 +1678,7 @@ import { fixture as arrayReverseFixture } from '../../../adapter-tests/fixtures/
 import { fixture as arrayToReversedFixture } from '../../../adapter-tests/fixtures/methods/array-toReversed'
 import { fixture as stringToLowerCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toLowerCase'
 import { fixture as stringToUpperCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toUpperCase'
+import { fixture as stringTrimFixture } from '../../../adapter-tests/fixtures/methods/string-trim'
 
 describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -1699,6 +1700,7 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     { fixture: arrayToReversedFixture,  expect: 'bf_reverse .Items' },
     { fixture: stringToLowerCaseFixture,expect: 'bf_lower .Value' },
     { fixture: stringToUpperCaseFixture,expect: 'bf_upper .Value' },
+    { fixture: stringTrimFixture,       expect: 'bf_trim .Value' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

@@ -867,6 +867,7 @@ import { fixture as arrayReverseFixture } from '../../../adapter-tests/fixtures/
 import { fixture as arrayToReversedFixture } from '../../../adapter-tests/fixtures/methods/array-toReversed'
 import { fixture as stringToLowerCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toLowerCase'
 import { fixture as stringToUpperCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toUpperCase'
+import { fixture as stringTrimFixture } from '../../../adapter-tests/fixtures/methods/string-trim'
 
 describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -883,6 +884,7 @@ describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
     { fixture: arrayToReversedFixture,  expect: 'bf->reverse($items)' },
     { fixture: stringToLowerCaseFixture,expect: 'lc($value)' },
     { fixture: stringToUpperCaseFixture,expect: 'uc($value)' },
+    { fixture: stringTrimFixture,       expect: 'bf->trim($value)' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {
