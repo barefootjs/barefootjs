@@ -411,6 +411,22 @@ sub last_index_of ($self, $recv, $elem) {
     return _array_index_of($recv, $elem, 1);
 }
 
+# `Array.prototype.at(i)` — supports negative indices (`.at(-1)` is
+# the last element); out-of-bounds returns undef (which Mojo's
+# auto-escape renders as the empty string, matching JS's `undefined`).
+# Non-array receivers return undef. Matches the Go `bf_at` arithmetic
+# (`length + i` for i < 0) so adapter output stays symmetric.
+
+sub at ($self, $recv, $i) {
+    return undef unless ref($recv) eq 'ARRAY';
+    return undef if !defined $i;
+    my $len = scalar @$recv;
+    return undef if $len == 0;
+    my $idx = $i < 0 ? $len + $i : $i;
+    return undef if $idx < 0 || $idx >= $len;
+    return $recv->[$idx];
+}
+
 # ---------------------------------------------------------------------------
 # JSX intrinsic-element spread (#1407)
 # ---------------------------------------------------------------------------
