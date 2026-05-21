@@ -2777,6 +2777,12 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         const recv = emit(object)
         return `bf_upper ${wrapIfMultiToken(recv)}`
       }
+      case 'trim': {
+        // Pre-existing `bf_trim` runtime helper (wraps
+        // `strings.TrimSpace`). Adapter wiring only.
+        const recv = emit(object)
+        return `bf_trim ${wrapIfMultiToken(recv)}`
+      }
       default: {
         const _exhaustive: never = method
         throw new Error(`Go arrayMethod: unhandled ArrayMethod '${(_exhaustive as string)}'`)

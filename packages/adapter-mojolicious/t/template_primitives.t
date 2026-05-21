@@ -220,4 +220,27 @@ subtest 'reverse — new array ref in reverse order' => sub {
     is $bf->reverse({a => 1}),      [], 'hash ref receiver → empty';
 };
 
+# `String.prototype.trim()` — strip leading + trailing whitespace
+# (#1448 Tier A). Padding both sides of the test input so a
+# trim-front-only or trim-back-only regression fails here.
+subtest 'trim — strip leading + trailing whitespace' => sub {
+    is $bf->trim('   padded   '),      'padded',         'leading + trailing spaces';
+    is $bf->trim("\t\nleading"),       'leading',        'leading tab + newline';
+    is $bf->trim('trailing  '),        'trailing',       'trailing spaces only';
+    is $bf->trim('no-pad'),            'no-pad',         'no whitespace passthrough';
+    is $bf->trim('   '),               '',               'all whitespace → empty';
+    is $bf->trim(''),                  '',               'empty input → empty';
+
+    # Inner whitespace is preserved — only the boundaries are stripped.
+    is $bf->trim('  hello  world  '),  'hello  world',   'inner spaces preserved';
+
+    # Non-string receivers.
+    is $bf->trim(undef),               '',               'undef receiver → empty';
+    is $bf->trim({a => 1}),            '',               'hash ref receiver → empty';
+    is $bf->trim(['arr']),             '',               'array ref receiver → empty';
+
+    # Numeric coercion: JS would stringify `42.trim()` first.
+    is $bf->trim(42),                  '42',             'numeric receiver stringifies';
+};
+
 done_testing;

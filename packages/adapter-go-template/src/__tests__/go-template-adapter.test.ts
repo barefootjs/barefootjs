@@ -170,7 +170,9 @@ runAdapterConformanceTests({
     // pre-existing `bf_lower` / `bf_upper` runtime helpers wire to
     // the JS method names at the adapter layer (#1448 Tier A
     // seventh + eighth PRs).
-    'string-trim':         [{ code: 'BF101', severity: 'error' }],
+    // `string-trim` no longer pinned — pre-existing `bf_trim`
+    // (wraps `strings.TrimSpace`) handles the strip (#1448 Tier A
+    // ninth PR, closing out Tier A).
   },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `GoTemplateAdapter.templatePrimitives` (#1188). The two
@@ -1595,6 +1597,16 @@ export { A }`)
 }
 export { A }`)
       expect(result.template).toContain('bf_upper .Value')
+    })
+
+    test('value.trim() emits `bf_trim .Value`', () => {
+      // Pre-existing `bf_trim` (wraps `strings.TrimSpace`); only
+      // adapter wiring is new.
+      const result = compileAndGenerate(`function A({ value }: { value: string }) {
+  return <div>[{value.trim()}]</div>
+}
+export { A }`)
+      expect(result.template).toContain('bf_trim .Value')
     })
   })
 

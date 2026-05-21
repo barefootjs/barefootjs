@@ -45,6 +45,7 @@ export type ParsedExpr =
         | 'toReversed'
         | 'toLowerCase'
         | 'toUpperCase'
+        | 'trim'
       object: ParsedExpr
       args: ParsedExpr[]
     }
@@ -138,7 +139,8 @@ const UNSUPPORTED_METHODS = new Set([
   // #1448 Tier A — String methods.
   // `toLowerCase` / `toUpperCase` lower via the `array-method` IR +
   // `bf_lower` / `bf_upper` (Go) and Perl's native `lc` / `uc` (Mojo).
-  'trim',
+  // `trim` lowers via the `array-method` IR + `bf_trim` (Go) and a
+  // Perl regex strip (Mojo).
 ])
 
 // =============================================================================
@@ -315,6 +317,12 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
       // Mojo uses Perl's native `uc`.
       if (callee.property === 'toUpperCase' && args.length === 0) {
         return { kind: 'array-method', method: 'toUpperCase', object: callee.object, args }
+      }
+      // `.trim()` — Go uses the existing `bf_trim` helper; Mojo uses
+      // a new `bf->trim` method that mirrors JS's "strip leading +
+      // trailing whitespace" semantic via a Perl regex.
+      if (callee.property === 'trim' && args.length === 0) {
+        return { kind: 'array-method', method: 'trim', object: callee.object, args }
       }
     }
 

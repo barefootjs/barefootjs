@@ -135,7 +135,9 @@ runAdapterConformanceTests({
     // Perl's native `lc` / `uc` (Mojo) and pre-existing
     // `bf_lower` / `bf_upper` (Go) handle the JS method names
     // (#1448 Tier A seventh + eighth PRs).
-    'string-trim':         [{ code: 'BF101', severity: 'error' }],
+    // `string-trim` no longer pinned — pre-existing `bf_trim`
+    // (Go) and new `bf->trim` helper (Mojo) handle the strip
+    // (#1448 Tier A ninth PR, closing out Tier A).
     // #1448 catalog — `.find` / `.findIndex` have no Mojo lowering
     // yet (no `array-method` IR variant, no emitter), so the
     // Mojo-specific gate in `convertExpressionToPerl` refuses them
@@ -567,6 +569,21 @@ export { A }`, 'A.tsx', { adapter })
     const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
     expect(template).toContain('uc($value)')
     expect(template).not.toContain('$uc(')
+  })
+
+  test('lowers .trim() via bf->trim helper (#1448 Tier A)', () => {
+    // No native Perl `trim`; the helper wraps a single regex so an
+    // undef receiver (common for missing-prop case) doesn't trigger
+    // a substitution-on-undef warning.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ value }: { value: string }) {
+  return <div>[{value.trim()}]</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain('bf->trim($value)')
+    expect(template).not.toContain('$bf->trim')
   })
 
   test('lowers .reverse().join(\' \') via bf->reverse + join (#1448 Tier A)', () => {
