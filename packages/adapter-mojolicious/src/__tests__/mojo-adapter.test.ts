@@ -734,6 +734,7 @@ import { fixture as arrayIncludesFixture } from '../../../adapter-tests/fixtures
 import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixtures/methods/string-includes'
 import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-indexOf'
 import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
+import { fixture as arrayAtFixture } from '../../../adapter-tests/fixtures/methods/array-at'
 
 describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -741,6 +742,7 @@ describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
     { fixture: stringIncludesFixture,   expect: 'bf->includes($value, $needle)' },
     { fixture: arrayIndexOfFixture,     expect: 'bf->index_of($items, $target)' },
     { fixture: arrayLastIndexOfFixture, expect: 'bf->last_index_of($items, $target)' },
+    { fixture: arrayAtFixture,          expect: 'bf->at($items, -1)' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

@@ -1563,6 +1563,7 @@ import { fixture as arrayIncludesFixture } from '../../../adapter-tests/fixtures
 import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixtures/methods/string-includes'
 import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-indexOf'
 import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
+import { fixture as arrayAtFixture } from '../../../adapter-tests/fixtures/methods/array-at'
 
 describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -1572,6 +1573,10 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     { fixture: stringIncludesFixture,   expect: '{{if bf_includes .Value .Needle}}' },
     { fixture: arrayIndexOfFixture,     expect: 'bf_index_of .Items .Target' },
     { fixture: arrayLastIndexOfFixture, expect: 'bf_last_index_of .Items .Target' },
+    // The literal `-1` lowers through `bf_neg 1` — Go template
+    // doesn't accept literal negative numbers in prefix-call
+    // positions. Pre-existing unary-emit pattern.
+    { fixture: arrayAtFixture,          expect: 'bf_at .Items (bf_neg 1)' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {
