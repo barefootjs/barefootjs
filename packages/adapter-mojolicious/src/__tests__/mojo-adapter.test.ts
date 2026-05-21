@@ -429,13 +429,17 @@ export { Slot }
     expect(template).toContain(`join(' ', @{[grep { $_ } @{[$className]}]})`)
   })
 
-  test('lowers .includes(x) on an array prop via $bf->includes(...) (#1448 Tier A)', () => {
+  test('lowers .includes(x) on an array prop via bf->includes(...) (#1448 Tier A)', () => {
     // Pre-#1448: `items.includes(target)` rejected at the parser
     // (`UNSUPPORTED_METHODS`) and surfaced as BF101. The lowering
     // now routes through the shared `array-method` IR + the
-    // `$bf->includes` helper, which inspects `ref()` to dispatch
+    // `bf->includes` helper, which inspects `ref()` to dispatch
     // between ARRAY-ref element search and scalar substring search.
-    // Pinning the canonical condition-position shape here.
+    //
+    // The bare `bf->` form (no `$` prefix) matches every other
+    // helper emit in this adapter; the standalone Mojo::Template
+    // test render in `test-render.ts` rewrites it to `$bf->` so
+    // both render paths stay consistent.
     const adapter = new MojoAdapter()
     const result = compileJSX(`'use client'
 import { createSignal } from '@barefootjs/client'
@@ -446,10 +450,13 @@ export function C() {
 }`, 'C.tsx', { adapter })
     expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
     const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
-    expect(template).toContain('$bf->includes($items, $target)')
+    expect(template).toContain('bf->includes($items, $target)')
+    // Defensive pin: no leaked `$bf->` (would survive the test-render
+    // patch as `$$bf->` and crash perl with "Not a SCALAR reference").
+    expect(template).not.toContain('$bf->includes')
   })
 
-  test('lowers .includes(sub) on a string prop via $bf->includes(...) (#1448 Tier A)', () => {
+  test('lowers .includes(sub) on a string prop via bf->includes(...) (#1448 Tier A)', () => {
     // String receiver shares the IR node with the array form; the
     // helper's `ref() ne 'ARRAY'` branch falls through to
     // `index(...) != -1`. Pinning the emit shape — same emitter
@@ -464,7 +471,8 @@ export function C() {
 }`, 'C.tsx', { adapter })
     expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
     const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
-    expect(template).toContain('$bf->includes($value, $needle)')
+    expect(template).toContain('bf->includes($value, $needle)')
+    expect(template).not.toContain('$bf->includes')
   })
 
   test('does not leak module-level export statements into the .html.ep template', () => {
