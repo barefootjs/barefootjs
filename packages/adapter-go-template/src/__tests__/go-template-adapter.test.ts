@@ -76,6 +76,18 @@ runAdapterConformanceTests({
     // hits the identical `template.HTML` interpolation gap as
     // `children-jsx-expression` above.
     'fragment-wrapped-children-jsx-expression',
+    // #1475: same `key → data-key` adapter-emit gap as the Mojo
+    // sibling — the Go template adapter doesn't rewrite the JSX
+    // `key` attribute name, so it lands in the rendered HTML as
+    // `<li key="">` (template-action evaluation drops the value
+    // before the attribute slot). #1448 Tier B's field-based sort
+    // fixtures are the first to seed non-empty loop items at SSR
+    // time, surfacing the gap; the standalone Tier B fixtures
+    // (`array-sort-primitive`, `array-sort-locale`,
+    // `array-toSorted`) keep the sort lowering coverage. Drops
+    // when #1475 lands.
+    'array-sort-field-asc',
+    'array-sort-field-desc',
   ],
   // Per-fixture build-time contracts for shapes the Go template
   // adapter intentionally refuses to lower. Lives here (not on the
@@ -1679,8 +1691,14 @@ import { fixture as arrayToReversedFixture } from '../../../adapter-tests/fixtur
 import { fixture as stringToLowerCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toLowerCase'
 import { fixture as stringToUpperCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toUpperCase'
 import { fixture as stringTrimFixture } from '../../../adapter-tests/fixtures/methods/string-trim'
+// #1448 Tier B — .sort / .toSorted fixtures.
+import { fixture as arraySortFieldAscFixture } from '../../../adapter-tests/fixtures/methods/array-sort-field-asc'
+import { fixture as arraySortFieldDescFixture } from '../../../adapter-tests/fixtures/methods/array-sort-field-desc'
+import { fixture as arraySortPrimitiveFixture } from '../../../adapter-tests/fixtures/methods/array-sort-primitive'
+import { fixture as arraySortLocaleFixture } from '../../../adapter-tests/fixtures/methods/array-sort-locale'
+import { fixture as arrayToSortedFixture } from '../../../adapter-tests/fixtures/methods/array-toSorted'
 
-describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
+describe('GoTemplateAdapter - #1448 Tier A/B fixture-driven lowering pins', () => {
   const cases = [
     // The `.includes` fixtures sit at condition position
     // (`{cond ? 'yes' : 'no'}`), so the emit lands inside `{{if ...}}`.
@@ -1701,6 +1719,14 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     { fixture: stringToLowerCaseFixture,expect: 'bf_lower .Value' },
     { fixture: stringToUpperCaseFixture,expect: 'bf_upper .Value' },
     { fixture: stringTrimFixture,       expect: 'bf_trim .Value' },
+    // #1448 Tier B — sort / toSorted. Loop-chained shapes wrap the
+    // iterable in `bf_sort .Items <kind> <key> <type> <dir>`;
+    // standalone shapes inline the helper at the call site.
+    { fixture: arraySortFieldAscFixture,  expect: 'bf_sort .Items "field" "Price" "numeric" "asc"' },
+    { fixture: arraySortFieldDescFixture, expect: 'bf_sort .Items "field" "Price" "numeric" "desc"' },
+    { fixture: arraySortPrimitiveFixture, expect: 'bf_sort .Nums "self" "" "numeric" "asc"' },
+    { fixture: arraySortLocaleFixture,    expect: 'bf_sort .Names "self" "" "string" "asc"' },
+    { fixture: arrayToSortedFixture,      expect: 'bf_sort .Nums "self" "" "numeric" "asc"' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

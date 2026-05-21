@@ -502,6 +502,69 @@ sub trim ($self, $recv) {
     return $s;
 }
 
+# `Array.prototype.sort(cmp)` / `Array.prototype.toSorted(cmp)`
+# lowering (#1448 Tier B). Non-mutating — JS's mutate-vs-new
+# distinction is moot in SSR template context.
+#
+# Opts hash-ref (compiler emits exactly these four keys):
+#
+#   key_kind     => 'self' | 'field'
+#   key          => '' when key_kind eq 'self'; field name verbatim
+#                   from the comparator AST (e.g. 'price', 'createdAt')
+#                   when key_kind eq 'field' — no case normalisation
+#                   applied. Perl hash lookups are case-sensitive so
+#                   the key here must match the actual hash key the
+#                   user populated.
+#   compare_type => 'numeric' | 'string'
+#   direction    => 'asc' | 'desc'
+#
+# Accepted comparator catalogue (gated upstream at parse time —
+# anything outside refuses with BF101 before reaching this helper):
+#
+#   (a,b) => a.f - b.f                       → field, numeric
+#   (a,b) => a - b                           → self,  numeric
+#   (a,b) => a[.f].localeCompare(b[.f])      → field|self, string
+#   (and reversed-operand variants for `desc`).
+#
+# A future `nulls => 'first' | 'last'` knob can land alongside
+# without churn — the opts hash is the right place to grow.
+
+sub sort ($self, $recv, $opts = {}) {
+    return [] unless ref($recv) eq 'ARRAY';
+    my $key_kind     = $opts->{key_kind}     // 'self';
+    my $key          = $opts->{key}          // '';
+    my $compare_type = $opts->{compare_type} // 'numeric';
+    my $direction    = $opts->{direction}    // 'asc';
+
+    # Schwartzian transform: project each item to its sort key once,
+    # then sort by key, then drop the keys. Cheaper than re-resolving
+    # the field accessor inside every comparison for non-trivial arrays.
+    my @keyed = map {
+        my $item = $_;
+        my $k = $key_kind eq 'field' && ref($item) eq 'HASH' ? $item->{$key} : $item;
+        [$k, $item]
+    } @$recv;
+
+    my $cmp;
+    if ($compare_type eq 'string') {
+        $cmp = $direction eq 'desc'
+            ? sub { ($b->[0] // '') cmp ($a->[0] // '') }
+            : sub { ($a->[0] // '') cmp ($b->[0] // '') };
+    } else {
+        # Numeric: undef projects to 0 so the sort is total without
+        # warnings on missing fields. Documented divergence from JS
+        # (which would coerce undef → NaN and produce indeterminate
+        # ordering); matching Go's `toFloat64(nil) == 0` keeps the
+        # adapter outputs symmetric.
+        $cmp = $direction eq 'desc'
+            ? sub { ($b->[0] // 0) <=> ($a->[0] // 0) }
+            : sub { ($a->[0] // 0) <=> ($b->[0] // 0) };
+    }
+
+    my @sorted = sort $cmp @keyed;
+    return [ map { $_->[1] } @sorted ];
+}
+
 # ---------------------------------------------------------------------------
 # JSX intrinsic-element spread (#1407)
 # ---------------------------------------------------------------------------

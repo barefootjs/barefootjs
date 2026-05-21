@@ -60,6 +60,22 @@ runAdapterConformanceTests({
     // never receives a `theme` key. Provider SSR coverage on Mojo
     // waits on that adapter feature; see #1297 follow-up.
     'context-provider',
+    // #1475: the Mojo adapter doesn't rewrite JSX `key={…}` →
+    // `data-key="…"` on element attribute emit (the Hono reference
+    // adapter does, via the `a.name === 'key'` branch in
+    // `irToHtmlTemplate`). The #1448 Tier B field-based sort
+    // fixtures are the first to seed non-empty loop items at SSR
+    // time, surfacing the gap — existing keyed-loop fixtures use
+    // `'use client'` + `createSignal<T[]>([])` so the SSR side
+    // renders an empty `<ul>` and the key never lands in HTML.
+    //
+    // Sort lowering itself is exercised by the standalone fixtures
+    // (`array-sort-primitive`, `array-sort-locale`, `array-toSorted`)
+    // and pinned via the fixture-driven block at the bottom of this
+    // file — the JSX-render skip here is the key-attr gap, not a
+    // sort regression. Drops when #1475 lands.
+    'array-sort-field-asc',
+    'array-sort-field-desc',
   ],
   // Per-fixture build-time contracts for shapes the Mojo adapter
   // intentionally refuses to lower. Owned by this adapter test file
@@ -868,8 +884,14 @@ import { fixture as arrayToReversedFixture } from '../../../adapter-tests/fixtur
 import { fixture as stringToLowerCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toLowerCase'
 import { fixture as stringToUpperCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toUpperCase'
 import { fixture as stringTrimFixture } from '../../../adapter-tests/fixtures/methods/string-trim'
+// #1448 Tier B — .sort / .toSorted fixtures (loop-chained + standalone).
+import { fixture as arraySortFieldAscFixture } from '../../../adapter-tests/fixtures/methods/array-sort-field-asc'
+import { fixture as arraySortFieldDescFixture } from '../../../adapter-tests/fixtures/methods/array-sort-field-desc'
+import { fixture as arraySortPrimitiveFixture } from '../../../adapter-tests/fixtures/methods/array-sort-primitive'
+import { fixture as arraySortLocaleFixture } from '../../../adapter-tests/fixtures/methods/array-sort-locale'
+import { fixture as arrayToSortedFixture } from '../../../adapter-tests/fixtures/methods/array-toSorted'
 
-describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
+describe('MojoAdapter - #1448 Tier A/B fixture-driven lowering pins', () => {
   const cases = [
     { fixture: arrayIncludesFixture,    expect: 'bf->includes($items, $target)' },
     { fixture: stringIncludesFixture,   expect: 'bf->includes($value, $needle)' },
@@ -885,6 +907,14 @@ describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
     { fixture: stringToLowerCaseFixture,expect: 'lc($value)' },
     { fixture: stringToUpperCaseFixture,expect: 'uc($value)' },
     { fixture: stringTrimFixture,       expect: 'bf->trim($value)' },
+    // #1448 Tier B — sort / toSorted. The loop-chained field cases
+    // hoist into a `my $bf_iter_lN = bf->sort(...)` local; the
+    // standalone primitive cases inline the call.
+    { fixture: arraySortFieldAscFixture,  expect: `bf->sort($items, { key_kind => 'field', key => 'price', compare_type => 'numeric', direction => 'asc' })` },
+    { fixture: arraySortFieldDescFixture, expect: `bf->sort($items, { key_kind => 'field', key => 'price', compare_type => 'numeric', direction => 'desc' })` },
+    { fixture: arraySortPrimitiveFixture, expect: `bf->sort($nums, { key_kind => 'self', compare_type => 'numeric', direction => 'asc' })` },
+    { fixture: arraySortLocaleFixture,    expect: `bf->sort($names, { key_kind => 'self', compare_type => 'string', direction => 'asc' })` },
+    { fixture: arrayToSortedFixture,      expect: `bf->sort($nums, { key_kind => 'self', compare_type => 'numeric', direction => 'asc' })` },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

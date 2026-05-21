@@ -33,7 +33,7 @@
  *     be added in one place.
  */
 
-import type { ParsedExpr, TemplatePart } from '../expression-parser'
+import type { ParsedExpr, SortComparator, TemplatePart } from '../expression-parser'
 
 export type HigherOrderMethod = 'filter' | 'every' | 'some' | 'find' | 'findIndex'
 
@@ -46,6 +46,12 @@ export type HigherOrderMethod = 'filter' | 'every' | 'some' | 'find' | 'findInde
  * doesn't scale: every new method would need a new branch in every
  * adapter. The IR-level discriminator keeps the lowering surface
  * type-driven and the dispatch in one place.
+ *
+ * `sort` and `toSorted` are NOT in this union — they get their own
+ * `sortMethod()` dispatcher arm because they carry a structured
+ * `SortComparator` (not a `ParsedExpr[]` args list), and conflating
+ * the two would make `arrayMethod()` need a comparator-or-args
+ * runtime check at every call site.
  */
 export type ArrayMethod =
   | 'join'
@@ -60,6 +66,14 @@ export type ArrayMethod =
   | 'toLowerCase'
   | 'toUpperCase'
   | 'trim'
+
+/**
+ * Method names handled by the dedicated `sortMethod()` dispatcher
+ * (#1448 Tier B). Both shapes share the lowering — template SSR
+ * context renders a snapshot, so the JS mutate-vs-new distinction
+ * has no template-level meaning.
+ */
+export type SortMethod = 'sort' | 'toSorted'
 
 export type LiteralType = 'string' | 'number' | 'boolean' | 'null'
 
@@ -113,6 +127,12 @@ export interface ParsedExprEmitter {
     args: ParsedExpr[],
     emit: (e: ParsedExpr) => string,
   ): string
+  sortMethod(
+    method: SortMethod,
+    object: ParsedExpr,
+    comparator: SortComparator,
+    emit: (e: ParsedExpr) => string,
+  ): string
   unsupported(raw: string, reason: string): string
 }
 
@@ -153,6 +173,9 @@ export function emitParsedExpr(expr: ParsedExpr, emitter: ParsedExprEmitter): st
     case 'array-literal':
       return emitter.arrayLiteral(expr.elements, emit)
     case 'array-method':
+      if (expr.method === 'sort' || expr.method === 'toSorted') {
+        return emitter.sortMethod(expr.method, expr.object, expr.comparator, emit)
+      }
       return emitter.arrayMethod(expr.method, expr.object, expr.args, emit)
     case 'unsupported':
       return emitter.unsupported(expr.raw, expr.reason)

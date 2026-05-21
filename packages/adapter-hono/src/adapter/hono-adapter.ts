@@ -33,6 +33,7 @@ import {
   rewriteImportsForTemplate,
   emitIRNode,
   emitAttrValue,
+  buildLoopChainExpr,
 } from '@barefootjs/jsx'
 
 /**
@@ -75,6 +76,27 @@ export interface HonoAdapterOptions {
    * fact that CSR currently reuses HonoAdapter under the hood.
    */
   name?: string
+}
+
+/**
+ * Mirror `IRLoop.sortComparator` / `IRLoop.filterPredicate` chaining
+ * into the JSX expression that backs the Hono `.map()` call.
+ * Delegates to the shared `buildLoopChainExpr` so the chain shape
+ * stays byte-equal with the client-template emit
+ * (`html-template.ts:applyLoopChain`) and the control-flow plans
+ * (`utils.ts:buildChainedArrayExpr`) — drift between the three
+ * would silently produce different sorted orders depending on
+ * which path consumed the IR. Always uses `.toSorted`
+ * (non-mutating) so shared prop arrays aren't reordered in place
+ * across renders.
+ */
+function applyHonoLoopChain(loop: IRLoop): string {
+  return buildLoopChainExpr({
+    base: loop.array,
+    sortComparator: loop.sortComparator,
+    filterPredicate: loop.filterPredicate,
+    chainOrder: loop.chainOrder,
+  })
 }
 
 export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderCtx> {
@@ -792,10 +814,19 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
       // emitting comment-marker strings directly.
       safeChildren = `<>{bfComment('bf-loop-i')}${children}</>`
     }
+    // Apply chained `.sort()` / `.filter()` extracted to
+    // `loop.sortComparator` / `loop.filterPredicate` (#1448 Tier B).
+    // Pre-Tier-B this used `loop.array` directly — fine when an
+    // SSR-side adapter (Go's `bf_sort`) applied the sort separately,
+    // broken on Hono where the emitted JSX is the source of truth
+    // for both SSR (runtime-eval) and CSR (template fallback).
+    // `.toSorted` (non-mutating) preserves shared prop arrays across
+    // renders — `.sort()` here would reorder `_p.items` in place.
+    const chainedArray = applyHonoLoopChain(loop)
     if (preamble) {
-      mapExpr = `{${loop.array}.map((${loop.param}${paramAnnotation}${indexParam}) => { ${preamble} return ${safeChildren} })}`
+      mapExpr = `{${chainedArray}.map((${loop.param}${paramAnnotation}${indexParam}) => { ${preamble} return ${safeChildren} })}`
     } else {
-      mapExpr = `{${loop.array}.map((${loop.param}${paramAnnotation}${indexParam}) => ${safeChildren})}`
+      mapExpr = `{${chainedArray}.map((${loop.param}${paramAnnotation}${indexParam}) => ${safeChildren})}`
     }
     // Wrap with loop boundary markers so reconciliation doesn't affect siblings.
     // bfComment('loop:<id>') → <!--bf-loop:<id>-->. The marker id is unique

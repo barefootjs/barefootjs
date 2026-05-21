@@ -56,7 +56,7 @@ import {
  * the `IRNodeEmitter` interface.
  */
 type MojoRenderCtx = Record<string, never>
-import type { ParsedExpr, ParsedStatement, TemplatePart } from '@barefootjs/jsx'
+import type { ParsedExpr, ParsedStatement, SortComparator, TemplatePart } from '@barefootjs/jsx'
 import { BF_SLOT, BF_COND } from '@barefootjs/shared'
 
 interface PrimitiveSpec {
@@ -567,7 +567,24 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
       })
     }
 
-    const array = this.convertExpressionToPerl(loop.array)
+    const rawArray = this.convertExpressionToPerl(loop.array)
+    // Apply sort if present (#1448 Tier B): wrap the loop array in
+    // the shared `bf->sort` helper. The same `renderSortMethod`
+    // feeds both this loop-chain hoist and the standalone
+    // `sortMethod()` arm on the emitter, so a regression in either
+    // path surfaces with the identical emit shape.
+    //
+    // Sort hoist: the loop bound (`0..$#{…}`) and the per-item
+    // lookup (`…->[$_i]`) both reference the same array — if the
+    // expression is a method call like `bf->sort(...)`, naive
+    // splicing would call the helper twice per render. Bind the
+    // sorted result to a `my` local so the helper runs once.
+    let sortedHoist: string | null = null
+    let array = rawArray
+    if (loop.sortComparator) {
+      sortedHoist = `bf_iter_${perlIdentifierFromMarkerId(loop.markerId)}`
+      array = `$${sortedHoist}`
+    }
     const param = loop.param
     const indexVar = loop.index ? `$${loop.index}` : '$_i'
     const prevInLoop = this.inLoop
@@ -579,6 +596,9 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     // Scoped per-call-site marker so sibling `.map()`s under the same parent
     // each get their own reconciliation range (#1087).
     lines.push(`<%== bf->comment("loop:${loop.markerId}") %>`)
+    if (sortedHoist && loop.sortComparator) {
+      lines.push(`% my $${sortedHoist} = ${renderSortMethod(rawArray, loop.sortComparator)};`)
+    }
     lines.push(`% for my ${indexVar} (0..$#{${array}}) {`)
     lines.push(`% my $${param} = ${array}->[${indexVar}];`)
 
@@ -1535,6 +1555,42 @@ function renderArrayMethod(
 }
 
 /**
+ * Shared Mojo emit for `.sort(cmp)` / `.toSorted(cmp)` (#1448 Tier B).
+ * Used by both the filter-context emitter and the top-level emitter,
+ * plus the loop-hoist path in `renderLoop` — same emit shape across
+ * all three so a regression in any one path surfaces consistently.
+ *
+ * The Perl helper accepts a hash-ref opts bag (room for a future
+ * `nulls` knob without arity churn), and returns a fresh ARRAY ref
+ * so downstream composition (`@{bf->sort(...)}` in `join(...)`, etc.)
+ * stays straightforward.
+ */
+/**
+ * Encode an `IRLoop.markerId` into a Perl-identifier-safe suffix
+ * for the `bf_iter_…` hoist var. Collision-free for marker ids
+ * that differ in any character — `-` and `_` map to distinct
+ * encodings (`_x2d` vs `__`) so `l-0` and `l_0` stay distinct.
+ *
+ * Today the IR only emits `l<digits>` so the encoding is mostly
+ * an identity, but pinning collision-freeness up front avoids a
+ * silent variable-shadow bug if a future marker generator widens
+ * the alphabet.
+ */
+function perlIdentifierFromMarkerId(markerId: string): string {
+  return markerId.replace(/[^a-zA-Z0-9]/g, (ch) =>
+    ch === '_' ? '__' : `_x${ch.charCodeAt(0).toString(16)}`
+  )
+}
+
+function renderSortMethod(recv: string, c: SortComparator): string {
+  const keyEntry =
+    c.key.kind === 'self'
+      ? `key_kind => 'self'`
+      : `key_kind => 'field', key => '${c.key.field}'`
+  return `bf->sort(${recv}, { ${keyEntry}, compare_type => '${c.type}', direction => '${c.direction}' })`
+}
+
+/**
  * Lowering for the predicate body of a filter / every / some / find,
  * plus the same shape used by `renderBlockBodyCondition` for complex
  * block-body filters. Identifiers resolve against:
@@ -1666,6 +1722,15 @@ class MojoFilterEmitter implements ParsedExprEmitter {
     return renderArrayMethod(method, object, args, emit)
   }
 
+  sortMethod(
+    _method: 'sort' | 'toSorted',
+    object: ParsedExpr,
+    comparator: SortComparator,
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    return renderSortMethod(emit(object), comparator)
+  }
+
   conditional(_test: ParsedExpr, _consequent: ParsedExpr, _alternate: ParsedExpr): string {
     return '1'
   }
@@ -1791,6 +1856,15 @@ class MojoTopLevelEmitter implements ParsedExprEmitter {
     emit: (e: ParsedExpr) => string,
   ): string {
     return renderArrayMethod(method, object, args, emit)
+  }
+
+  sortMethod(
+    _method: 'sort' | 'toSorted',
+    object: ParsedExpr,
+    comparator: SortComparator,
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    return renderSortMethod(emit(object), comparator)
   }
 
   conditional(

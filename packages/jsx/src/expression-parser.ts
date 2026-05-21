@@ -49,7 +49,60 @@ export type ParsedExpr =
       object: ParsedExpr
       args: ParsedExpr[]
     }
+  // `.sort(cmp)` / `.toSorted(cmp)` (#1448 Tier B). The comparator is
+  // extracted into a structured `SortComparator` at parse time — the
+  // arrow function never reaches `args`, so adapters don't have to
+  // re-walk the arrow-fn ParsedExpr to recover the key / direction
+  // (and the same shape feeds both standalone position and the
+  // `.sort().map()` chained-loop hoist in `jsx-to-ir.ts`). If the
+  // comparator doesn't match the supported catalogue
+  // (`extractSortComparatorFromTS` below), parsing falls
+  // through to `unsupported` so adapters surface BF101 with an
+  // @client suggestion.
+  | {
+      kind: 'array-method'
+      method: 'sort' | 'toSorted'
+      object: ParsedExpr
+      args: []
+      comparator: SortComparator
+    }
   | { kind: 'unsupported'; raw: string; reason: string }
+
+/**
+ * Structured form of a JS `(a, b) => …` sort comparator. Built once
+ * at parse time and consumed by both adapters' arrayMethod emit and
+ * (when chained directly before `.map()`) the loop-hoist path in
+ * `jsx-to-ir.ts`. The shape is intentionally finite — see
+ * `extractSortComparatorFromTS` for the accepted catalogue.
+ */
+export type SortComparator = {
+  // What value to compare on each item:
+  //   { kind: 'self' }         → primitive array, compare items directly
+  //   { kind: 'field', field } → struct-field accessor
+  key: { kind: 'self' } | { kind: 'field'; field: string }
+  // How to compare:
+  //   'numeric' → `a - b` subtraction semantics
+  //   'string'  → `localeCompare` semantics
+  type: 'numeric' | 'string'
+  direction: 'asc' | 'desc'
+  // Original JS source of the comparator body; preserved so `@client`
+  // fallback can re-emit the user's exact expression if the call site
+  // ever gets relocated to the runtime.
+  raw: string
+  // The two parameter names the user wrote (e.g. `a`/`b`, or
+  // `lhs`/`rhs`). Only consumed by the client-side `@client`
+  // fallback path that ships the raw comparator body to JS — it
+  // needs to bind these names in a closure so `raw` evaluates
+  // against the right operands. Server-side lowering doesn't read
+  // them.
+  paramA: string
+  paramB: string
+  // Which JS method name the user wrote — both shapes share the same
+  // lowering (templates render a snapshot, so the JS mutate vs new
+  // distinction is moot) but we preserve the original for source maps
+  // and error messages.
+  method: 'sort' | 'toSorted'
+}
 
 export type TemplatePart =
   | { type: 'string'; value: string }
@@ -324,6 +377,40 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
       if (callee.property === 'trim' && args.length === 0) {
         return { kind: 'array-method', method: 'trim', object: callee.object, args }
       }
+      // `.sort(cmp)` / `.toSorted(cmp)` (#1448 Tier B). The comparator
+      // is extracted into a structured `SortComparator` at parse time;
+      // unrecognised shapes fall through to `unsupported` so adapters
+      // surface BF101 (with `@client` as the escape hatch). Block
+      // bodies, multi-key comparators, and function-reference
+      // comparators are out of scope for this PR — see #1448 Tier B
+      // follow-up.
+      if ((callee.property === 'sort' || callee.property === 'toSorted') && node.arguments.length === 1) {
+        // Extract from the raw TS AST (not args[0] ParsedExpr) — the
+        // standard arrow-fn convertNode path refuses two-param arrows,
+        // so the comparator would otherwise reach us as `unsupported`.
+        const comparator = extractSortComparatorFromTS(node.arguments[0], callee.property)
+        if (comparator) {
+          return {
+            kind: 'array-method',
+            method: callee.property,
+            object: callee.object,
+            args: [],
+            comparator,
+          }
+        }
+        return {
+          kind: 'unsupported',
+          raw,
+          reason:
+            `Sort comparator shape not supported. Accepted:\n` +
+            `  (a, b) => a - b\n` +
+            `  (a, b) => a.field - b.field\n` +
+            `  (a, b) => a.localeCompare(b)\n` +
+            `  (a, b) => a.field.localeCompare(b.field)\n` +
+            `(reverse the operands for descending order). ` +
+            `Wrap the call in /* @client */ to evaluate at hydration.`,
+        }
+      }
     }
 
     return { kind: 'call', callee, args }
@@ -508,6 +595,163 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
 }
 
 /**
+ * Recover a `SortComparator` from the comparator arg of `.sort(cmp)` /
+ * `.toSorted(cmp)` (#1448 Tier B). Operates on the raw TS AST rather
+ * than the converted ParsedExpr because the standard `convertNode`
+ * arrow-fn path rejects two-param arrows (it was built for the
+ * single-param higher-order shape `.filter(x => …)`); for sort we
+ * need both param names to decide direction (`a-b` asc vs `b-a` desc).
+ *
+ * The accepted catalogue is finite so the walker stays shallow — no
+ * constant folding, no symbol resolution, no inference of "this looks
+ * like it might sort numerically". Returns null if the shape doesn't
+ * match exactly, in which case the caller emits an `unsupported` IR
+ * node and adapters surface BF101.
+ *
+ * Accepted shapes (paired ascending / descending):
+ *
+ *   (a, b) => a.field - b.field            → field, numeric, asc
+ *   (a, b) => b.field - a.field            → field, numeric, desc
+ *   (a, b) => a - b                        → self,  numeric, asc
+ *   (a, b) => b - a                        → self,  numeric, desc
+ *   (a, b) => a.field.localeCompare(b.field) → field, string, asc
+ *   (a, b) => b.field.localeCompare(a.field) → field, string, desc
+ *   (a, b) => a.localeCompare(b)           → self,  string, asc
+ *   (a, b) => b.localeCompare(a)           → self,  string, desc
+ *
+ * Anything outside (block bodies, multi-key `a.x-b.x || a.y-b.y`,
+ * function-reference comparators, ternary comparators) returns null.
+ * Block-body support is deferred to a follow-up.
+ */
+export function extractSortComparatorFromTS(
+  node: ts.Node,
+  method: 'sort' | 'toSorted',
+): SortComparator | null {
+  if (!ts.isArrowFunction(node) && !ts.isFunctionExpression(node)) return null
+  if (node.parameters.length !== 2) return null
+
+  const pA = node.parameters[0]
+  const pB = node.parameters[1]
+  if (!ts.isIdentifier(pA.name) || !ts.isIdentifier(pB.name)) return null
+  const paramA = pA.name.text
+  const paramB = pB.name.text
+
+  // Body must be an expression. Arrow-fn carries `.body` directly;
+  // function-expression wraps a single `return <expr>;`. Block bodies
+  // deferred to a follow-up PR.
+  let body: ts.Expression
+  if (ts.isArrowFunction(node)) {
+    if (ts.isBlock(node.body)) return null
+    body = node.body
+  } else {
+    const stmts = node.body.statements
+    if (stmts.length !== 1 || !ts.isReturnStatement(stmts[0]) || !stmts[0].expression) return null
+    body = stmts[0].expression
+  }
+
+  // Normalise the comparator body source so consumers of
+  // `SortComparator.raw` get the same string regardless of whether
+  // the user wrote an arrow expression (`(a, b) => a.x - b.x`) or
+  // a function expression (`function (a, b) { return a.x - b.x }`).
+  // Pre-normalisation the function-expression form leaked the whole
+  // function declaration into `raw`, breaking `@client` fallback
+  // emit that wraps `raw` in a synthetic arrow.
+  //
+  // `body.getText()` resolves against the node's source file via the
+  // parent chain — `ts.createSourceFile`-parsed nodes (the only
+  // shape this helper accepts) carry that wiring.
+  const raw = body.getText()
+
+  // Subtraction: `a.field - b.field` / `a - b` etc.
+  if (ts.isBinaryExpression(body) && body.operatorToken.kind === ts.SyntaxKind.MinusToken) {
+    return classifyComparatorOperands(body.left, body.right, paramA, paramB, 'numeric', method, raw)
+  }
+
+  // localeCompare call: `<lhs>.localeCompare(<rhs>)`.
+  if (
+    ts.isCallExpression(body) &&
+    ts.isPropertyAccessExpression(body.expression) &&
+    body.expression.name.text === 'localeCompare' &&
+    body.arguments.length === 1
+  ) {
+    return classifyComparatorOperands(
+      body.expression.expression, // receiver of .localeCompare
+      body.arguments[0],
+      paramA,
+      paramB,
+      'string',
+      method,
+      raw,
+    )
+  }
+
+  return null
+}
+
+/**
+ * Classify two operands against the comparator's two param names.
+ * Both operands must resolve to either:
+ *   - the param identifier itself              → `key.kind === 'self'`
+ *   - a single-level field access on the param → `key.kind === 'field'`
+ * The two operands must reference different params (one paramA, one
+ * paramB) and match on key shape + field name. Order of the params
+ * determines `direction`: `paramA` first is ascending, reversed is
+ * descending.
+ *
+ * Anything deeper (chained `.x.y`, computed `.[i]`, calls, literals)
+ * or mismatched keys returns null.
+ */
+function classifyComparatorOperands(
+  left: ts.Expression,
+  right: ts.Expression,
+  paramA: string,
+  paramB: string,
+  type: 'numeric' | 'string',
+  method: 'sort' | 'toSorted',
+  raw: string,
+): SortComparator | null {
+  const leftRef = classifySortOperand(left, paramA, paramB)
+  const rightRef = classifySortOperand(right, paramA, paramB)
+  if (!leftRef || !rightRef) return null
+  if (leftRef.param === rightRef.param) return null
+  if (leftRef.key.kind !== rightRef.key.kind) return null
+  if (leftRef.key.kind === 'field' && rightRef.key.kind === 'field' && leftRef.key.field !== rightRef.key.field) {
+    return null
+  }
+  const direction = leftRef.param === 'A' ? 'asc' : 'desc'
+  return {
+    key: leftRef.key,
+    type,
+    direction,
+    raw,
+    paramA,
+    paramB,
+    method,
+  }
+}
+
+function classifySortOperand(
+  expr: ts.Expression,
+  paramA: string,
+  paramB: string,
+): { key: { kind: 'self' } | { kind: 'field'; field: string }; param: 'A' | 'B' } | null {
+  if (ts.isIdentifier(expr)) {
+    if (expr.text === paramA) return { key: { kind: 'self' }, param: 'A' }
+    if (expr.text === paramB) return { key: { kind: 'self' }, param: 'B' }
+    return null
+  }
+  if (ts.isPropertyAccessExpression(expr) && ts.isIdentifier(expr.expression)) {
+    if (expr.expression.text === paramA) {
+      return { key: { kind: 'field', field: expr.name.text }, param: 'A' }
+    }
+    if (expr.expression.text === paramB) {
+      return { key: { kind: 'field', field: expr.name.text }, param: 'B' }
+    }
+  }
+  return null
+}
+
+/**
  * Pick a synthetic param name for a rewritten destructured filter
  * (`({done}) => done` → `(_t) => _t.done`). The name must NOT collide
  * with anything the body might reference — a `_t` already on the body
@@ -637,6 +881,13 @@ function substituteDestructuredFields(
       case 'array-literal':
         return { kind: 'array-literal', elements: e.elements.map(walk) }
       case 'array-method':
+        if (e.method === 'sort' || e.method === 'toSorted') {
+          // Sort comparator is a structured value, not a ParsedExpr —
+          // destructured-field substitution doesn't apply (the
+          // comparator references its own paramA / paramB, never the
+          // enclosing destructure). Preserve verbatim.
+          return { kind: 'array-method', method: e.method, object: walk(e.object), args: [], comparator: e.comparator }
+        }
         return { kind: 'array-method', method: e.method, object: walk(e.object), args: e.args.map(walk) }
       case 'literal':
       case 'unsupported':
@@ -1095,6 +1346,14 @@ export function exprToString(expr: ParsedExpr): string {
     case 'array-literal':
       return `[${expr.elements.map(exprToString).join(', ')}]`
     case 'array-method':
+      if (expr.method === 'sort' || expr.method === 'toSorted') {
+        // Reconstruct against the user's actual param names — the
+        // comparator body in `raw` references them directly, so
+        // hardcoding `(a,b)` would produce un-re-parseable output
+        // for any user who wrote e.g. `(lhs, rhs) => lhs - rhs`.
+        const { paramA, paramB, raw } = expr.comparator
+        return `${exprToString(expr.object)}.${expr.method}((${paramA},${paramB}) => ${raw})`
+      }
       return `${exprToString(expr.object)}.${expr.method}(${expr.args.map(exprToString).join(', ')})`
     case 'unsupported':
       return `[UNSUPPORTED: ${expr.raw}]`
@@ -1150,6 +1409,13 @@ export function stringifyParsedExpr(expr: ParsedExpr): string {
     case 'array-literal':
       return `[${expr.elements.map(stringifyParsedExpr).join(', ')}]`
     case 'array-method':
+      if (expr.method === 'sort' || expr.method === 'toSorted') {
+        // Round-trip the original param names so downstream
+        // re-parsers (templatePrimitive substitution etc.) see
+        // valid JS — `raw` references the user's names verbatim.
+        const { paramA, paramB, raw } = expr.comparator
+        return `${stringifyParsedExpr(expr.object)}.${expr.method}((${paramA},${paramB}) => ${raw})`
+      }
       return `${stringifyParsedExpr(expr.object)}.${expr.method}(${expr.args.map(stringifyParsedExpr).join(', ')})`
     case 'unsupported':
       return expr.raw

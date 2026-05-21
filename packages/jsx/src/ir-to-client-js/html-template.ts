@@ -11,6 +11,7 @@ import { assertNever } from './walker'
 import { buildSignalMemoEnv, csrSubstitute, applyPropsRewrite, type CsrEnv } from './csr-substitute'
 import type { ClientJsContext } from './types'
 import { BF_PARENT_SCOPE_PLACEHOLDER, BF_SCOPE } from '@barefootjs/shared'
+import { buildLoopChainExpr } from '../loop-chain'
 
 /**
  * Protect string literals from regex-based replacements.
@@ -39,6 +40,32 @@ const VOID_ELEMENTS = new Set([
   'area', 'base', 'br', 'col', 'embed', 'hr', 'img',
   'input', 'link', 'meta', 'param', 'source', 'track', 'wbr',
 ])
+
+/**
+ * Mirror `IRLoop.sortComparator` / `IRLoop.filterPredicate` chaining
+ * into the JS expression that backs the SSR-mirror template literal.
+ * Pre-#1448-Tier-B this was a silent `node.array` reference — fine
+ * when the SSR-side adapter applied the sort separately and
+ * hydration only needed to match, broken on Hono / CSR where the
+ * template literal is the only source of truth.
+ *
+ * Delegates to the shared `buildLoopChainExpr` so the
+ * `.toSorted` / `.filter` order matches what `utils.ts:buildChainedArrayExpr`
+ * (control-flow plans) and `hono-adapter.ts:applyHonoLoopChain` (SSR
+ * runtime JSX) emit — drift between the three would silently produce
+ * different sorted orders depending on which path consumed the IR.
+ *
+ * The `base` override lets the CSR-template path pre-substitute
+ * props (`_p.items.toSorted(...)`) before the chain rides on top.
+ */
+function applyLoopChain(loop: import('../types').IRLoop, base: string = loop.array): string {
+  return buildLoopChainExpr({
+    base,
+    sortComparator: loop.sortComparator,
+    filterPredicate: loop.filterPredicate,
+    chainOrder: loop.chainOrder,
+  })
+}
 
 function childrenPropEntry(
   children: IRNode[],
@@ -452,7 +479,16 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
       const innerRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth + 1, loopParams, branchSlotsVar, insideLoop)
       const childTemplate = node.children.map(innerRecurse).join('')
       const indexParam = node.index ? `, ${node.index}` : ''
-      const wrappedArray = wrapExpr(node.array)
+      // Apply chained sort / filter for the SSR-mirror template (#1448
+      // Tier B). Pre-Tier-B this just used `node.array` directly,
+      // which silently dropped any chained `.sort()` extracted to
+      // `loop.sortComparator` — fine when the SSR-side adapter
+      // (Go's `bf_sort`, etc.) applied the sort separately and
+      // hydration only needed to match, but broken on Hono / CSR
+      // where the template is the only source of truth. The chain
+      // mirrors `buildChainedArrayExpr` so reconcileList sees the
+      // same array shape this template emits.
+      const wrappedArray = wrapExpr(applyLoopChain(node))
       let mapExpr: string
       if (node.mapPreamble) {
         mapExpr = `\${${wrappedArray}.map((${node.param}${indexParam}) => { ${node.mapPreamble} return \`${childTemplate}\` }).join('')}`
@@ -552,7 +588,9 @@ export function irToPlaceholderTemplate(node: IRNode, restSpreadNames?: Set<stri
       const innerRecurse = (n: IRNode): string => irToPlaceholderTemplate(n, restSpreadNames, loopDepth + 1, loopParams)
       const childTemplate = node.children.map(innerRecurse).join('')
       const indexParam = node.index ? `, ${node.index}` : ''
-      const wrappedArray = wrapExpr(node.array)
+      // Apply sort / filter chain (#1448 Tier B) — same shape as the
+      // `irToHtmlTemplate` loop case above.
+      const wrappedArray = wrapExpr(applyLoopChain(node))
       let mapExpr: string
       if (node.mapPreamble) {
         mapExpr = `\${${wrappedArray}.map((${node.param}${indexParam}) => { ${node.mapPreamble} return \`${childTemplate}\` }).join('')}`
@@ -1346,7 +1384,22 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
       // An init-scope-only array would `undefined.map(...)` ⇒ TypeError.
       // Substitute an empty array; init's reconcile pass populates the loop
       // once the real binding exists (#1128).
-      const arrayExpr = transformExpr(node.array, node.templateArray)
+      //
+      // Sort / filter chain (#1448 Tier B): when the loop carries a
+      // `sortComparator` or `filterPredicate`, fold them into the
+      // un-substituted form (`applyLoopChain(node)`) and let
+      // `transformExpr` rewrite bare prop refs through csrSubstitute.
+      // Pre-Tier-B this used `node.templateArray` directly, which
+      // never carried the chain — fine for adapters that applied
+      // sort separately, broken on Hono / CSR where the template
+      // literal is the only source.
+      // Build the chained template form on top of `node.templateArray`
+      // (already prop-substituted) so the chain inherits the same
+      // `_p.X` rewrites the pre-Tier-B path used.
+      const chainedTemplateArray = node.sortComparator || node.filterPredicate
+        ? applyLoopChain(node, node.templateArray)
+        : node.templateArray
+      const arrayExpr = transformExpr(node.array, chainedTemplateArray)
       const safeArrayExpr = arrayExpr === UNSAFE_TEMPLATE_EXPR ? '[]' : arrayExpr
       let mapExpr: string
       if (node.mapPreamble) {
