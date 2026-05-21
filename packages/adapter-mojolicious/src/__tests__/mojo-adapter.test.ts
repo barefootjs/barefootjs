@@ -754,6 +754,7 @@ import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixture
 import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-indexOf'
 import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
 import { fixture as arrayAtFixture } from '../../../adapter-tests/fixtures/methods/array-at'
+import { fixture as arrayConcatFixture } from '../../../adapter-tests/fixtures/methods/array-concat'
 
 describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -762,6 +763,7 @@ describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
     { fixture: arrayIndexOfFixture,     expect: 'bf->index_of($items, $target)' },
     { fixture: arrayLastIndexOfFixture, expect: 'bf->last_index_of($items, $target)' },
     { fixture: arrayAtFixture,          expect: 'bf->at($items, -1)' },
+    { fixture: arrayConcatFixture,      expect: 'bf->concat($left, $right)' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

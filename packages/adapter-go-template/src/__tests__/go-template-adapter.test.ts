@@ -1581,6 +1581,7 @@ import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixture
 import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-indexOf'
 import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
 import { fixture as arrayAtFixture } from '../../../adapter-tests/fixtures/methods/array-at'
+import { fixture as arrayConcatFixture } from '../../../adapter-tests/fixtures/methods/array-concat'
 
 describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -1594,6 +1595,7 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     // doesn't accept literal negative numbers in prefix-call
     // positions. Pre-existing unary-emit pattern.
     { fixture: arrayAtFixture,          expect: 'bf_at .Items (bf_neg 1)' },
+    { fixture: arrayConcatFixture,      expect: 'bf_concat .Left .Right' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {
