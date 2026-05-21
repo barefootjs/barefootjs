@@ -2729,6 +2729,15 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         const idx = emit(args[0])
         return `bf_at ${wrapIfMultiToken(obj)} ${wrapIfMultiToken(idx)}`
       }
+      case 'concat': {
+        // `.concat(other)` merges two arrays. The runtime helper
+        // `bf_concat` reflects over both operands so callers can
+        // mix `[]string` + `[]string` or `[]any` + `[]string` etc.
+        // without per-call-site type-juggling.
+        const a = emit(object)
+        const b = emit(args[0])
+        return `bf_concat ${wrapIfMultiToken(a)} ${wrapIfMultiToken(b)}`
+      }
       default: {
         const _exhaustive: never = method
         throw new Error(`Go arrayMethod: unhandled ArrayMethod '${(_exhaustive as string)}'`)

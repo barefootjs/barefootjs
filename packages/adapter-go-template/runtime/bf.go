@@ -51,6 +51,7 @@ func FuncMap() template.FuncMap {
 		"bf_includes":       Includes,
 		"bf_index_of":       IndexOf,
 		"bf_last_index_of":  LastIndexOf,
+		"bf_concat":         Concat,
 		"bf_first":          First,
 		"bf_last":           Last,
 		"bf_arr":            Arr,
@@ -716,6 +717,36 @@ func LastIndexOf(items any, elem any) int {
 		}
 	}
 	return -1
+}
+
+// Concat merges two arrays (or slices) into a single `[]any`,
+// preserving order: receiver elements first, then `other`'s.
+// Lowers `Array.prototype.concat(other)` (#1448 Tier A). Non-array
+// operands collapse to an empty source — matches the JS semantic
+// where `.concat` on a non-Array reads it as a single element only
+// if its `Symbol.isConcatSpreadable` is true; the template-language
+// path doesn't have user objects with that flag, so treating
+// non-arrays as empty is the conservative lowering. Variadic
+// `.concat(a, b, c)` is out of scope here (parser gates to a single
+// arg); the helper itself stays binary so a future variadic IR can
+// fold via repeated calls without changing this signature.
+func Concat(a, b any) []any {
+	flatten := func(v reflect.Value) []any {
+		if !v.IsValid() {
+			return nil
+		}
+		if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
+			return nil
+		}
+		out := make([]any, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			out[i] = v.Index(i).Interface()
+		}
+		return out
+	}
+	left := flatten(reflect.ValueOf(a))
+	right := flatten(reflect.ValueOf(b))
+	return append(left, right...)
 }
 
 // First returns the first element of a slice, or nil if empty.

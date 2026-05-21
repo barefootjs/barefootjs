@@ -156,7 +156,9 @@ runAdapterConformanceTests({
     // helpers handle the shape (#1448 Tier A second PR).
     // `array-at` no longer pinned — the pre-existing `bf_at` runtime
     // helper now lowers `.at(i)` (#1448 Tier A third PR).
-    'array-concat':        [{ code: 'BF101', severity: 'error' }],
+    // `array-concat` no longer pinned — the new `bf_concat` runtime
+    // helper merges two arrays into a single `[]any` (#1448 Tier A
+    // fourth PR).
     'array-slice':         [{ code: 'BF101', severity: 'error' }],
     'array-reverse':       [{ code: 'BF101', severity: 'error' }],
     'array-toReversed':    [{ code: 'BF101', severity: 'error' }],
@@ -1538,6 +1540,21 @@ export function C() {
   return <div>el: {items().at(i())}</div>
 }`)
       expect(result.template).toContain('bf_at .Items .I')
+    })
+  })
+
+  describe('.concat lowering (#1448 Tier A)', () => {
+    test('left.concat(right).join(\' \') chains through bf_concat → bf_join', () => {
+      // Composition pin: the canonical Tier A fixture
+      // (`packages/adapter-tests/fixtures/methods/array-concat.ts`)
+      // composes `.concat(...).join(' ')` so the concatenation
+      // result must be a real iterable (`[]any` from `bf_concat`),
+      // not a stringified `[object Object]` from a wrong lowering.
+      const result = compileAndGenerate(`function A({ left, right }: { left: string[]; right: string[] }) {
+  return <div>{left.concat(right).join(' ')}</div>
+}
+export { A }`)
+      expect(result.template).toContain('bf_join (bf_concat .Left .Right) " "')
     })
   })
 })

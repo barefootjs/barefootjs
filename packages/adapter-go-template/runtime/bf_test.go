@@ -239,6 +239,31 @@ func TestLastIndexOf(t *testing.T) {
 	}
 }
 
+// `Array.prototype.concat(other)` lowering (#1448 Tier A). Order is
+// preserved (receiver first, then `other`'s elements); non-array
+// operands collapse to empty.
+func TestConcat(t *testing.T) {
+	got := Concat([]string{"a", "b"}, []string{"c", "d"})
+	if len(got) != 4 || got[0] != "a" || got[3] != "d" {
+		t.Errorf("Concat([a,b], [c,d]) = %v, want [a b c d]", got)
+	}
+
+	mixed := Concat([]any{1, "two"}, []int{3, 4})
+	if len(mixed) != 4 {
+		t.Errorf("Concat mixed types: got length %d, want 4", len(mixed))
+	}
+
+	if got := Concat(nil, []string{"a"}); len(got) != 1 || got[0] != "a" {
+		t.Errorf("Concat(nil, [a]) = %v, want [a]", got)
+	}
+	if got := Concat([]string{"a"}, "not an array"); len(got) != 1 || got[0] != "a" {
+		t.Errorf("Concat([a], scalar) = %v, want [a]", got)
+	}
+	if got := Concat([]string{}, []string{}); len(got) != 0 {
+		t.Errorf("Concat([], []) = %v, want []", got)
+	}
+}
+
 // String receiver covers `String.prototype.includes(sub)` (#1448 Tier A).
 // Both array and string `.includes` lower to the same `bf_includes` call;
 // this helper dispatches on `reflect.Kind()` at evaluation time.

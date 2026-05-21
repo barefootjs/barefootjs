@@ -33,7 +33,7 @@ export type ParsedExpr =
   // defence used for `ParsedExpr.kind`).
   | {
       kind: 'array-method'
-      method: 'join' | 'includes' | 'indexOf' | 'lastIndexOf' | 'at'
+      method: 'join' | 'includes' | 'indexOf' | 'lastIndexOf' | 'at' | 'concat'
       object: ParsedExpr
       args: ParsedExpr[]
     }
@@ -113,7 +113,8 @@ const UNSUPPORTED_METHODS = new Set([
   // `at` lowers via the `array-method` IR + the pre-existing
   // `bf_at` (Go) and a new `bf->at` (Mojo); both support negative
   // indices (`.at(-1)` returns the last element).
-  'concat',
+  // `concat` lowers via the `array-method` IR + `bf_concat` (Go) /
+  // `bf->concat` (Mojo).
   'slice',
   'reverse', 'toReversed',
   // #1448 Tier A — String methods.
@@ -260,6 +261,13 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
       // See #1448 Tier A.
       if (callee.property === 'at' && args.length === 1) {
         return { kind: 'array-method', method: 'at', object: callee.object, args }
+      }
+      // `.concat(other)` — merges two arrays in order. Go uses
+      // `bf_concat` (reflect-based append into `[]any`); Mojo uses
+      // `bf->concat` (Perl list builder). Variadic shapes (`.concat(a, b)`)
+      // are out of scope for this PR — gated to single-arg here.
+      if (callee.property === 'concat' && args.length === 1) {
+        return { kind: 'array-method', method: 'concat', object: callee.object, args }
       }
     }
 

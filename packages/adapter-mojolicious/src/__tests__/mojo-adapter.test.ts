@@ -119,7 +119,9 @@ runAdapterConformanceTests({
     // handle the shape (#1448 Tier A second PR).
     // `array-at` no longer pinned — `bf->at` (Mojo) / `bf_at` (Go)
     // handle the negative-index lookup (#1448 Tier A third PR).
-    'array-concat':        [{ code: 'BF101', severity: 'error' }],
+    // `array-concat` no longer pinned — `bf->concat` (Mojo) /
+    // `bf_concat` (Go) merge two arrays into a new array
+    // (#1448 Tier A fourth PR).
     'array-slice':         [{ code: 'BF101', severity: 'error' }],
     'array-reverse':       [{ code: 'BF101', severity: 'error' }],
     'array-toReversed':    [{ code: 'BF101', severity: 'error' }],
@@ -527,6 +529,23 @@ export { A }`, 'A.tsx', { adapter })
     const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
     expect(template).toContain('bf->at($items, -1)')
     expect(template).not.toContain('$bf->at(')
+  })
+
+  test('lowers .concat(other).join(\' \') via bf->concat + join (#1448 Tier A)', () => {
+    // Composition pin: the canonical Tier A fixture
+    // (`packages/adapter-tests/fixtures/methods/array-concat.ts`)
+    // chains `.concat(...).join(' ')`. The Mojo helper returns an
+    // ARRAY ref so the downstream `@{...}` dereference in `join(...)`
+    // works without an extra coercion.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ left, right }: { left: string[]; right: string[] }) {
+  return <div>{left.concat(right).join(' ')}</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain("join(' ', @{bf->concat($left, $right)})")
+    expect(template).not.toContain('$bf->concat')
   })
 
   test('does not leak module-level export statements into the .html.ep template', () => {

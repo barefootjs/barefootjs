@@ -1471,6 +1471,15 @@ function renderArrayMethod(
       const idx = emit(args[0])
       return `bf->at(${obj}, ${idx})`
     }
+    case 'concat': {
+      // `.concat(other)` merges two arrays. Returns a new ARRAY
+      // ref so the result composes with `.join(...)` / other
+      // array-shape methods downstream (the canonical Tier A
+      // conformance fixture chains `.concat(...).join(' ')`).
+      const a = emit(object)
+      const b = emit(args[0])
+      return `bf->concat(${a}, ${b})`
+    }
     default: {
       // TS-level exhaustiveness guard. If this throws at runtime, the
       // IR was constructed against a newer `ArrayMethod` variant that

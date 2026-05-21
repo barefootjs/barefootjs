@@ -427,6 +427,20 @@ sub at ($self, $recv, $i) {
     return $recv->[$idx];
 }
 
+# `Array.prototype.concat(other)` — merges two arrays in order
+# into a new ARRAY ref. Non-array operands collapse to empty
+# (matches the Go `bf_concat` semantic so cross-adapter output
+# stays symmetric; differs from JS where a non-Array argument
+# with `Symbol.isConcatSpreadable` would be spread, a behaviour
+# the template-language path never observes).
+
+sub concat ($self, $a, $b) {
+    my @out;
+    push @out, @$a if ref($a) eq 'ARRAY';
+    push @out, @$b if ref($b) eq 'ARRAY';
+    return \@out;
+}
+
 # ---------------------------------------------------------------------------
 # JSX intrinsic-element spread (#1407)
 # ---------------------------------------------------------------------------
