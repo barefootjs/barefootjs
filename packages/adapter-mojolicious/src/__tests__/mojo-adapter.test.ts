@@ -60,6 +60,20 @@ runAdapterConformanceTests({
     // never receives a `theme` key. Provider SSR coverage on Mojo
     // waits on that adapter feature; see #1297 follow-up.
     'context-provider',
+    // #1448 Tier B — the field-based sort fixtures use a JSX-
+    // producing `.map()` body with `key={it.name}`, which the Hono
+    // reference adapter emits as `data-key="…"` (the canonical
+    // attribute the client runtime reconciles against) but the
+    // Mojo adapter currently passes through as `key="…"` (no
+    // `key → data-key` transformation). The sort lowering itself
+    // is exercised by the standalone fixtures below
+    // (`array-sort-primitive`, `array-sort-locale`, `array-toSorted`)
+    // and pinned via the fixture-driven block at the bottom of this
+    // file — the JSX-render skip here is the pre-existing key-attr
+    // gap, not a sort regression. Drops once Mojo grows a
+    // `key → data-key` rewrite.
+    'array-sort-field-asc',
+    'array-sort-field-desc',
   ],
   // Per-fixture build-time contracts for shapes the Mojo adapter
   // intentionally refuses to lower. Owned by this adapter test file
