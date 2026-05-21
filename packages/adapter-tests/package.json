@@ -6,13 +6,18 @@
   "exports": {
     ".": { "bun": "./src/index.ts" }
   },
+  "scripts": {
+    "test:fixture-hydrate": "bunx playwright test --config=playwright.config.ts"
+  },
   "dependencies": {
     "@barefootjs/jsx": "workspace:*"
   },
   "devDependencies": {
+    "@barefootjs/client": "workspace:*",
     "@barefootjs/go-template": "workspace:*",
     "@barefootjs/hono": "workspace:*",
     "@barefootjs/mojolicious": "workspace:*",
+    "@playwright/test": "^1.57.0",
     "typescript": "^5.0.0"
   }
 }
