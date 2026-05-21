@@ -17,6 +17,20 @@ export interface ExpectedDiagnostic {
 }
 
 /**
+ * A single scripted interaction step the fixture-hydrate runner executes
+ * against the live page after hydration.
+ *
+ * - `click` — dispatch a click on the first match of `selector`
+ * - `expectText` — assert the first match of `selector` has exactly
+ *   `text` as its text content
+ * - `expectContains` — assert the first match contains `text` as a substring
+ */
+export type InteractionStep =
+  | { type: 'click'; selector: string }
+  | { type: 'expectText'; selector: string; text: string }
+  | { type: 'expectContains'; selector: string; text: string }
+
+/**
  * A JSX fixture defines a component source and optional props for rendering.
  * Used by the JSX conformance runner to compile and render across adapters.
  *
@@ -38,6 +52,22 @@ export interface JSXFixture {
   props?: Record<string, unknown>
   /** Expected normalized HTML output (generated from reference Hono adapter) */
   expectedHtml?: string
+  /**
+   * Frozen client JS bundle output (from `generateClientJs`).
+   *
+   * Set only on fixtures that participate in the fixture-hydrate layer
+   * (#1467). Pairing this with `expectedHtml` lets the real-browser runner
+   * hydrate a known-good template + client JS pair so failures point at
+   * `packages/client/src/runtime/` rather than the compiler.
+   */
+  expectedClientJs?: string
+  /**
+   * Scripted interactions for the fixture-hydrate layer (#1467).
+   *
+   * The runner serves `expectedHtml`, loads `expectedClientJs`, waits for
+   * hydration, then steps through each entry asserting DOM state.
+   */
+  interactions?: ReadonlyArray<InteractionStep>
 }
 
 /**
@@ -62,6 +92,8 @@ export function createFixture(input: {
   components?: Record<string, string>
   props?: Record<string, unknown>
   expectedHtml?: string
+  expectedClientJs?: string
+  interactions?: ReadonlyArray<InteractionStep>
 }): JSXFixture {
   const trimmedComponents = input.components
     ? Object.fromEntries(
