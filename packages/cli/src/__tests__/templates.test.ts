@@ -254,6 +254,31 @@ describe('adapter registry', () => {
     expect(csr.files['barefoot.config.ts']).toMatch(/@barefootjs\/client\/build/)
   })
 
+  test('hono scaffold ships a .gitignore for the actual generated paths', () => {
+    // `docs/core/quick-start.md` promises `public/` is "build output
+    // (committed: no, gitignored)" — but only `public/components/`
+    // and `public/uno.css` are generated; `public/styles.css` and
+    // `public/tokens.css` are hand-written starter assets the user
+    // SHOULD commit. Pin the per-line shape so a future refactor of
+    // either the build output dir or the starter CSS layout can't
+    // silently break the gitignore contract. See onboarding round 5
+    // / PR #1450.
+    const hono = ADAPTERS.hono
+    const gitignore = hono.files['.gitignore']
+    expect(gitignore).toBeDefined()
+    expect(gitignore).toContain('node_modules/')
+    expect(gitignore).toContain('.wrangler/')
+    expect(gitignore).toContain('public/components/')
+    expect(gitignore).toContain('public/.buildcache.json')
+    expect(gitignore).toContain('public/uno.css')
+    // Negative guard: hand-written starter assets must NOT be ignored.
+    expect(gitignore).not.toMatch(/^public\/styles\.css/m)
+    expect(gitignore).not.toMatch(/^public\/tokens\.css/m)
+    // Negative guard: don't ignore `public/` wholesale — that would
+    // hide the committed CSS too.
+    expect(gitignore).not.toMatch(/^public\/?\s*$/m)
+  })
+
   test('hono scaffold ships bun-types so `bf gen test` files type-check', () => {
     // `init.ts` hard-codes the scaffold's `test` script to `bun test`
     // for every adapter, and `bf gen test` writes `*.test.tsx` files
