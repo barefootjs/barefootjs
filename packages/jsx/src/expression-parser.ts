@@ -33,7 +33,7 @@ export type ParsedExpr =
   // defence used for `ParsedExpr.kind`).
   | {
       kind: 'array-method'
-      method: 'join' | 'includes' | 'indexOf' | 'lastIndexOf'
+      method: 'join' | 'includes' | 'indexOf' | 'lastIndexOf' | 'at'
       object: ParsedExpr
       args: ParsedExpr[]
     }
@@ -109,8 +109,10 @@ const UNSUPPORTED_METHODS = new Set([
   // `$bf->includes(...)` on Mojo).
   // `indexOf` / `lastIndexOf` likewise lower via the `array-method`
   // IR + `bf_index_of` / `bf_last_index_of` (Go) and
-  // `$bf->index_of` / `$bf->last_index_of` (Mojo).
-  'at',
+  // `bf->index_of` / `bf->last_index_of` (Mojo).
+  // `at` lowers via the `array-method` IR + the pre-existing
+  // `bf_at` (Go) and a new `bf->at` (Mojo); both support negative
+  // indices (`.at(-1)` returns the last element).
   'concat',
   'slice',
   'reverse', 'toReversed',
@@ -251,6 +253,13 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
       // higher-order `.find` lowering. See #1448 Tier A.
       if ((callee.property === 'indexOf' || callee.property === 'lastIndexOf') && args.length === 1) {
         return { kind: 'array-method', method: callee.property, object: callee.object, args }
+      }
+      // `.at(i)` — negative-index support (`.at(-1)` is the last
+      // element). Go has `bf_at` registered already (see runtime
+      // FuncMap); Mojo's `bf->at` wraps the same arithmetic.
+      // See #1448 Tier A.
+      if (callee.property === 'at' && args.length === 1) {
+        return { kind: 'array-method', method: 'at', object: callee.object, args }
       }
     }
 

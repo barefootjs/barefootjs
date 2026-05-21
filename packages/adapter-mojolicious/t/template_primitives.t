@@ -118,4 +118,23 @@ subtest 'index_of / last_index_of — array value-equality search' => sub {
     is $bf->last_index_of([undef, 'x', undef], undef), 2, 'undef matches undef (backward)';
 };
 
+# `Array.prototype.at(i)` — supports negative indices; out-of-bounds
+# returns undef. Non-array receivers return undef. Mirrors the Go
+# `bf_at` arithmetic so adapter output stays symmetric.
+subtest 'at — array indexed access with negative-index support' => sub {
+    my $arr = ['a', 'b', 'c'];
+
+    is $bf->at($arr,  0),  'a',  'first element';
+    is $bf->at($arr,  2),  'c',  'last element via positive index';
+    is $bf->at($arr, -1),  'c',  'last element via -1';
+    is $bf->at($arr, -3),  'a',  'first element via -3 (length - 3)';
+
+    is $bf->at($arr,  3),  undef, 'out of bounds (positive) → undef';
+    is $bf->at($arr, -4),  undef, 'out of bounds (negative) → undef';
+    is $bf->at([],    0),  undef, 'empty array → undef';
+    is $bf->at(undef, 0),  undef, 'undef receiver → undef';
+    is $bf->at('not array', 0), undef, 'scalar receiver → undef';
+    is $bf->at({a => 1},   0),  undef, 'hash ref receiver → undef';
+};
+
 done_testing;

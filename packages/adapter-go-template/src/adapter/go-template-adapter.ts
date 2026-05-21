@@ -2720,6 +2720,15 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         const needle = emit(args[0])
         return `${fn} ${wrapIfMultiToken(obj)} ${wrapIfMultiToken(needle)}`
       }
+      case 'at': {
+        // `.at(i)` supports negative indices (`.at(-1)` → last
+        // element). The Go `bf_at` helper was already registered in
+        // the FuncMap for the runtime — this PR wires it to the JS
+        // method name at the adapter layer.
+        const obj = emit(object)
+        const idx = emit(args[0])
+        return `bf_at ${wrapIfMultiToken(obj)} ${wrapIfMultiToken(idx)}`
+      }
       default: {
         const _exhaustive: never = method
         throw new Error(`Go arrayMethod: unhandled ArrayMethod '${(_exhaustive as string)}'`)

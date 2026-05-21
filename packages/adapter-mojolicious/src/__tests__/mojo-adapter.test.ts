@@ -117,7 +117,8 @@ runAdapterConformanceTests({
     // `array-indexOf` / `array-lastIndexOf` no longer pinned —
     // value-equality `bf->index_of` / `bf->last_index_of` helpers
     // handle the shape (#1448 Tier A second PR).
-    'array-at':            [{ code: 'BF101', severity: 'error' }],
+    // `array-at` no longer pinned — `bf->at` (Mojo) / `bf_at` (Go)
+    // handle the negative-index lookup (#1448 Tier A third PR).
     'array-concat':        [{ code: 'BF101', severity: 'error' }],
     'array-slice':         [{ code: 'BF101', severity: 'error' }],
     'array-reverse':       [{ code: 'BF101', severity: 'error' }],
@@ -512,6 +513,22 @@ export function C() {
     expect(template).toContain('bf->last_index_of($items, $target)')
   })
 
+  test('lowers .at(-1) on an array prop via bf->at(...) (#1448 Tier A)', () => {
+    // Negative indices are the canonical reason an author reaches
+    // for `.at` over `[i]`; pinning `.at(-1)` (last element) — a
+    // positive-only lowering would still pass `.at(0)` but fail
+    // here.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ items }: { items: string[] }) {
+  return <div>last: {items.at(-1)}</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain('bf->at($items, -1)')
+    expect(template).not.toContain('$bf->at(')
+  })
+
   test('does not leak module-level export statements into the .html.ep template', () => {
     // Regression: trailing `export { Name }` / `export type { ... }` lines
     // were concatenated into the single-component template content, so
@@ -717,6 +734,7 @@ import { fixture as arrayIncludesFixture } from '../../../adapter-tests/fixtures
 import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixtures/methods/string-includes'
 import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-indexOf'
 import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
+import { fixture as arrayAtFixture } from '../../../adapter-tests/fixtures/methods/array-at'
 
 describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -724,6 +742,7 @@ describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
     { fixture: stringIncludesFixture,   expect: 'bf->includes($value, $needle)' },
     { fixture: arrayIndexOfFixture,     expect: 'bf->index_of($items, $target)' },
     { fixture: arrayLastIndexOfFixture, expect: 'bf->last_index_of($items, $target)' },
+    { fixture: arrayAtFixture,          expect: 'bf->at($items, -1)' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

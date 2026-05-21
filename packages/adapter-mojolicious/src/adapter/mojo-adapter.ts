@@ -1462,6 +1462,15 @@ function renderArrayMethod(
       const needle = emit(args[0])
       return `bf->${fn}(${obj}, ${needle})`
     }
+    case 'at': {
+      // `.at(i)` with negative-index support — `.at(-1)` is the
+      // last element. The Mojo helper wraps the same `length + i`
+      // arithmetic the Go `bf_at` does so the lowering stays
+      // symmetric across adapters.
+      const obj = emit(object)
+      const idx = emit(args[0])
+      return `bf->at(${obj}, ${idx})`
+    }
     default: {
       // TS-level exhaustiveness guard. If this throws at runtime, the
       // IR was constructed against a newer `ArrayMethod` variant that

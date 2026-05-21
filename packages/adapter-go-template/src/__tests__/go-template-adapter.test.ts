@@ -154,7 +154,8 @@ runAdapterConformanceTests({
     // `array-indexOf` / `array-lastIndexOf` no longer pinned —
     // value-equality `bf_index_of` / `bf_last_index_of` Go runtime
     // helpers handle the shape (#1448 Tier A second PR).
-    'array-at':            [{ code: 'BF101', severity: 'error' }],
+    // `array-at` no longer pinned — the pre-existing `bf_at` runtime
+    // helper now lowers `.at(i)` (#1448 Tier A third PR).
     'array-concat':        [{ code: 'BF101', severity: 'error' }],
     'array-slice':         [{ code: 'BF101', severity: 'error' }],
     'array-reverse':       [{ code: 'BF101', severity: 'error' }],
@@ -1510,6 +1511,35 @@ export function C() {
       expect(result.template).toContain('bf_last_index_of .Items .Target')
     })
   })
+
+  describe('.at lowering (#1448 Tier A)', () => {
+    test('items.at(-1) emits `bf_at .Items (bf_neg 1)` (negative-index pass-through)', () => {
+      // The Go runtime's `At` already handles negative indices —
+      // `bf_at .Items -1` returns the last element. Go template
+      // syntax doesn't accept literal negative numbers in prefix-
+      // call positions, so the adapter routes the unary minus
+      // through `bf_neg`; the runtime is unchanged.
+      const result = compileAndGenerate(`function A({ items }: { items: string[] }) {
+  return <div>last: {items.at(-1)}</div>
+}
+export { A }`)
+      expect(result.template).toContain('bf_at .Items (bf_neg 1)')
+    })
+
+    test('items.at(i) with a signal index emits `bf_at .Items .I`', () => {
+      // Non-literal index — the inner expression goes through the
+      // standard `emit(arg)` path, so any supported expression form
+      // composes (signal call, prop access, arithmetic, etc.).
+      const result = compileAndGenerate(`'use client'
+import { createSignal } from '@barefootjs/client'
+export function C() {
+  const [items] = createSignal<string[]>([])
+  const [i] = createSignal(0)
+  return <div>el: {items().at(i())}</div>
+}`)
+      expect(result.template).toContain('bf_at .Items .I')
+    })
+  })
 })
 
 // =============================================================================
@@ -1533,6 +1563,7 @@ import { fixture as arrayIncludesFixture } from '../../../adapter-tests/fixtures
 import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixtures/methods/string-includes'
 import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-indexOf'
 import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
+import { fixture as arrayAtFixture } from '../../../adapter-tests/fixtures/methods/array-at'
 
 describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -1542,6 +1573,10 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     { fixture: stringIncludesFixture,   expect: '{{if bf_includes .Value .Needle}}' },
     { fixture: arrayIndexOfFixture,     expect: 'bf_index_of .Items .Target' },
     { fixture: arrayLastIndexOfFixture, expect: 'bf_last_index_of .Items .Target' },
+    // The literal `-1` lowers through `bf_neg 1` — Go template
+    // doesn't accept literal negative numbers in prefix-call
+    // positions. Pre-existing unary-emit pattern.
+    { fixture: arrayAtFixture,          expect: 'bf_at .Items (bf_neg 1)' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {
