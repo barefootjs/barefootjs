@@ -69,7 +69,7 @@ my-app/
 │       ├── button/        # added by `bf add button` at scaffold time
 │       └── slot/
 ├── meta/index.json        # local component registry index
-├── public/                # build output (committed: no, gitignored)
+├── public/                # static assets — hand-written styles.css/tokens.css plus `bf build` + `unocss` output
 ├── uno.config.ts          # UnoCSS preset + scan globs
 ├── wrangler.jsonc         # Cloudflare Workers config
 └── tsconfig.json

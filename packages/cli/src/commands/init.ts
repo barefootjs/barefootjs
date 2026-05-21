@@ -233,12 +233,27 @@ async function scaffoldApp(
   const rawName = flags.name || path.basename(projectDir)
   const pkgName = path.basename(rawName).replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'barefoot-app'
 
+  // Resolve PM up-front so file substitution and devDep selection both
+  // see the same answer. (Scripts use it too further down.) The
+  // adapter tsconfig templates carry a `{{__PM_TYPES_ENTRY__}}` slot
+  // for PM-specific type packages that need to land in the `types`
+  // array — today only bun contributes (`, "bun-types"` so
+  // `bf gen test`-emitted `import 'bun:test'` lines type-check),
+  // and every other PM resolves the slot to an empty string. If a
+  // future PM / test runner needs its own module declarations, add
+  // a branch to `pmTypesEntry` here rather than threading another
+  // placeholder through the adapter templates.
+  const pm = detectPackageManager(projectDir)
+  const pmTypesEntry = pm === 'bun' ? ', "bun-types"' : ''
+
   // Adapter-contributed files (server, components/Counter, barefoot.config.ts, etc.)
   for (const [relPath, contents] of Object.entries(adapter.files)) {
     const target = path.join(projectDir, relPath)
     if (existsSync(target)) continue
     mkdirSync(path.dirname(target), { recursive: true })
-    const resolved = contents.replace(/\{\{__PROJECT_NAME__\}\}/g, pkgName)
+    const resolved = contents
+      .replace(/\{\{__PROJECT_NAME__\}\}/g, pkgName)
+      .replace(/\{\{__PM_TYPES_ENTRY__\}\}/g, pmTypesEntry)
     writeFileSync(target, resolved)
     created++
   }
@@ -258,11 +273,22 @@ async function scaffoldApp(
   // Resolve adapter scripts. Function values render against the
   // detected PM so `dev` / `deploy` quote the right dlx form
   // (`bunx wrangler` vs. `npx wrangler` vs. `pnpm dlx wrangler` etc.).
-  const pm = detectPackageManager(projectDir)
+  // (`pm` was resolved earlier so the file-substitution loop and
+  // tsconfig's bun-types entry both see the same value.)
   const resolvedAdapterScripts: Record<string, string> = {}
   for (const [k, v] of Object.entries(adapter.scripts)) {
     resolvedAdapterScripts[k] = typeof v === 'function' ? v(pm) : v
   }
+
+  // PM-specific devDependencies. The adapter map keeps these out by
+  // default so a fresh `npm create` project doesn't carry deps that
+  // only make sense under a different runtime. Today only bun pulls
+  // anything in (`@types/bun` to match the `"bun-types"` types
+  // entry pmTypesEntry above contributes); other PMs end up with the
+  // adapter's base devDeps and nothing extra. Pair any new branch
+  // here with the corresponding `pmTypesEntry` arm above.
+  const pmDevDeps: Record<string, string> =
+    pm === 'bun' ? { '@types/bun': '^1.1.0' } : {}
 
   const pkgJson = {
     name: pkgName,
@@ -286,7 +312,7 @@ async function scaffoldApp(
       test: 'bun test',
     },
     dependencies: { ...adapter.dependencies },
-    devDependencies: { ...adapter.devDependencies },
+    devDependencies: { ...adapter.devDependencies, ...pmDevDeps },
   }
   if (!existsSync(pkgJsonPath)) {
     writeFileSync(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + '\n')

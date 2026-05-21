@@ -253,6 +253,96 @@ describe('adapter registry', () => {
     expect(csr.files['pages/index.html']).toMatch(/@barefootjs\/client\/runtime/)
     expect(csr.files['barefoot.config.ts']).toMatch(/@barefootjs\/client\/build/)
   })
+
+  // Every adapter must ship a `.gitignore` so the user's first
+  // `git init && git add .` doesn't stage every generated file
+  // (compiled SSR templates, regenerated uno.css, build cache,
+  // dev-server scratch). `docs/core/quick-start.md` promises this
+  // for the Hono target; the contract extends to every adapter
+  // since each one carries its own outDir + dev-state directories.
+  // See onboarding round 5 / PR #1450.
+  test.each(['hono', 'hono-node', 'csr', 'mojo', 'echo'])(
+    '%s adapter ships a .gitignore that covers the shared base',
+    (id) => {
+      const gitignore = ADAPTERS[id].files['.gitignore']
+      expect(gitignore).toBeDefined()
+      // Shared base (every adapter, via buildGitignore).
+      expect(gitignore).toContain('node_modules/')
+      expect(gitignore).toContain('public/uno.css')
+      expect(gitignore).toContain('.DS_Store')
+    },
+  )
+
+  test('hono adapter .gitignore covers public-as-outDir specifics, not whole-public', () => {
+    // Hono's outDir IS `public/`, so we have to thread the needle:
+    // ignore `public/components/` + `public/.buildcache.json` but
+    // commit `public/styles.css` / `public/tokens.css`. Other
+    // adapters use `dist/` so a single line covers their build
+    // output; only Hono needs the per-file split.
+    const gitignore = ADAPTERS.hono.files['.gitignore']!
+    expect(gitignore).toContain('.wrangler/')
+    expect(gitignore).toContain('public/components/')
+    expect(gitignore).toContain('public/.buildcache.json')
+    // Negative guard: hand-written starter assets must NOT be ignored.
+    expect(gitignore).not.toMatch(/^public\/styles\.css/m)
+    expect(gitignore).not.toMatch(/^public\/tokens\.css/m)
+    // Negative guard: don't ignore `public/` wholesale — that would
+    // hide the committed CSS too.
+    expect(gitignore).not.toMatch(/^public\/?\s*$/m)
+  })
+
+  test.each(['hono-node', 'csr', 'mojo', 'echo'])(
+    '%s adapter .gitignore ignores `dist/` as the build output root',
+    (id) => {
+      expect(ADAPTERS[id].files['.gitignore']!).toMatch(/^dist\/?\s*$/m)
+    },
+  )
+
+  test('echo adapter .gitignore covers the `go build` artifacts', () => {
+    // `go build` drops a binary named after the project dir in the
+    // working directory by default. The pattern `/main` covers the
+    // common case the scaffold ships (main.go entrypoint), and
+    // `*.exe` / `*.test` / `*.out` cover the platform / test
+    // variants without enumerating every project-rename case.
+    const gitignore = ADAPTERS.echo.files['.gitignore']!
+    expect(gitignore).toContain('/main')
+    expect(gitignore).toContain('*.exe')
+    expect(gitignore).toContain('*.test')
+  })
+
+  test('mojo adapter .gitignore covers Perl-side scratch (`local/`, `log/`)', () => {
+    const gitignore = ADAPTERS.mojo.files['.gitignore']!
+    expect(gitignore).toContain('local/')
+    expect(gitignore).toContain('log/')
+  })
+
+  test('hono scaffold tsconfig + devDeps stay PM-agnostic; init.ts resolves per detected PM', () => {
+    // The adapter map carries a `{{__PM_TYPES_ENTRY__}}` placeholder
+    // in `tsconfig.json`'s `types` array and ships zero PM-specific
+    // devDependencies. init.ts resolves both at scaffold time
+    // against the user's detected PM — today only bun contributes
+    // (`bun-types` + `@types/bun`); npm / pnpm / yarn collapse the
+    // placeholder to an empty string and ship the adapter's base
+    // devDeps unchanged. The contract pinned here is "the adapter
+    // surface is PM-agnostic", so a future PM / test runner that
+    // needs its own types can plug into the same slot in init.ts
+    // without reshaping the adapter map. See onboarding round 5 /
+    // PR #1450.
+    const hono = ADAPTERS.hono
+    // Adapter ships the PM-extension placeholder, not a baked-in
+    // bun-types literal — and the slot prefix carries its own
+    // separator so the empty case stays a valid JSON array. Match
+    // against the rendered `types` array specifically so the
+    // assertion isn't fooled by the comment block that mentions
+    // the literal name for documentation purposes.
+    expect(hono.files['tsconfig.json']).toContain('{{__PM_TYPES_ENTRY__}}')
+    expect(hono.files['tsconfig.json']).toMatch(
+      /"types":\s*\[\s*"@cloudflare\/workers-types"\{\{__PM_TYPES_ENTRY__\}\}\s*\]/,
+    )
+    // Static devDeps don't presume any PM. init.ts merges the
+    // PM-specific entries (today: `@types/bun` when bun) onto this.
+    expect(hono.devDependencies['@types/bun']).toBeUndefined()
+  })
 })
 
 describe('CSS library registry', () => {
