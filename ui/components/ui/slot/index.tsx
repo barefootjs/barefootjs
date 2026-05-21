@@ -70,7 +70,15 @@ function isValidElement(element: unknown): element is { tag: unknown; props: Rec
 function Slot({ children, className, ...props }: SlotProps) {
   if (children && isValidElement(children)) {
     const Tag = children.tag as any
-    const childProps = children.props || {}
+    // The `isValidElement` type guard narrows `children.props` to a
+    // `Record<string, unknown>`, so the historical `|| {}` fallback
+    // was dead code at runtime. Dropping it also keeps branch-local
+    // inlining clean of object-literal nodes — the compiler's
+    // `ParsedExpr` IR has no `array-literal` carve-out for `{}`, so
+    // inlining `childClass` into the className-merge chain would
+    // otherwise drag an unsupported shape into BF101 territory on
+    // the Mojo / Go template adapters (#1443 follow-up).
+    const childProps = children.props
     const childClass = (childProps.className as string) || ''
     const childChildren = childProps.children
 
