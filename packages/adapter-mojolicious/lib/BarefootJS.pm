@@ -427,6 +427,50 @@ sub at ($self, $recv, $i) {
     return $recv->[$idx];
 }
 
+# `Array.prototype.concat(other)` — merges two arrays in order
+# into a new ARRAY ref. Non-array operands collapse to empty
+# (matches the Go `bf_concat` semantic so cross-adapter output
+# stays symmetric; differs from JS where a non-Array argument
+# with `Symbol.isConcatSpreadable` would be spread, a behaviour
+# the template-language path never observes).
+
+sub concat ($self, $a, $b) {
+    my @out;
+    push @out, @$a if ref($a) eq 'ARRAY';
+    push @out, @$b if ref($b) eq 'ARRAY';
+    return \@out;
+}
+
+# `Array.prototype.slice(start, end?)` — carves out a sub-range
+# into a new ARRAY ref. Mirrors the Go `bf_slice` arithmetic so
+# adapter output stays symmetric:
+#   - start < 0          → length + start  (e.g. -1 = last index)
+#   - end < 0            → length + end
+#   - start < 0 after clamp → 0
+#   - end > length       → length
+#   - start >= end       → empty
+#   - end undef          → "to length"
+# Non-array receivers return an empty ARRAY ref.
+
+sub slice ($self, $recv, $start, $end) {
+    return [] unless ref($recv) eq 'ARRAY';
+    my $len = scalar @$recv;
+    return [] if $len == 0;
+
+    my $s = $start // 0;
+    $s = $len + $s if $s < 0;
+    $s = 0    if $s < 0;
+    $s = $len if $s > $len;
+
+    my $e = defined $end ? $end : $len;
+    $e = $len + $e if $e < 0;
+    $e = 0    if $e < 0;
+    $e = $len if $e > $len;
+
+    return [] if $s >= $e;
+    return [ @{$recv}[$s .. $e - 1] ];
+}
+
 # ---------------------------------------------------------------------------
 # JSX intrinsic-element spread (#1407)
 # ---------------------------------------------------------------------------

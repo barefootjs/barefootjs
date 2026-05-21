@@ -239,6 +239,75 @@ func TestLastIndexOf(t *testing.T) {
 	}
 }
 
+// `Array.prototype.concat(other)` lowering (#1448 Tier A). Order is
+// preserved (receiver first, then `other`'s elements); non-array
+// operands collapse to empty.
+func TestConcat(t *testing.T) {
+	got := Concat([]string{"a", "b"}, []string{"c", "d"})
+	if len(got) != 4 || got[0] != "a" || got[3] != "d" {
+		t.Errorf("Concat([a,b], [c,d]) = %v, want [a b c d]", got)
+	}
+
+	mixed := Concat([]any{1, "two"}, []int{3, 4})
+	if len(mixed) != 4 {
+		t.Errorf("Concat mixed types: got length %d, want 4", len(mixed))
+	}
+
+	if got := Concat(nil, []string{"a"}); len(got) != 1 || got[0] != "a" {
+		t.Errorf("Concat(nil, [a]) = %v, want [a]", got)
+	}
+	if got := Concat([]string{"a"}, "not an array"); len(got) != 1 || got[0] != "a" {
+		t.Errorf("Concat([a], scalar) = %v, want [a]", got)
+	}
+	if got := Concat([]string{}, []string{}); len(got) != 0 {
+		t.Errorf("Concat([], []) = %v, want []", got)
+	}
+}
+
+// `Array.prototype.slice(start, end?)` lowering (#1448 Tier A). The
+// helper accepts the variadic `end` arg from Go template's call
+// dispatcher; an absent `end` means "to length".
+func TestSlice(t *testing.T) {
+	items := []string{"a", "b", "c", "d", "e"}
+
+	// 2-arg form.
+	got := Slice(items, 1, 3)
+	if len(got) != 2 || got[0] != "b" || got[1] != "c" {
+		t.Errorf("Slice(items, 1, 3) = %v, want [b c]", got)
+	}
+
+	// 1-arg form (`end` absent = length).
+	got = Slice(items, 2)
+	if len(got) != 3 || got[0] != "c" || got[2] != "e" {
+		t.Errorf("Slice(items, 2) = %v, want [c d e]", got)
+	}
+
+	// Negative-index normalisation.
+	got = Slice(items, -2)
+	if len(got) != 2 || got[0] != "d" || got[1] != "e" {
+		t.Errorf("Slice(items, -2) = %v, want [d e]", got)
+	}
+	got = Slice(items, 0, -1)
+	if len(got) != 4 || got[3] != "d" {
+		t.Errorf("Slice(items, 0, -1) = %v, want [a b c d]", got)
+	}
+
+	// Clamping (out-of-bounds + start >= end).
+	got = Slice(items, 100)
+	if len(got) != 0 {
+		t.Errorf("Slice(items, 100) = %v, want []", got)
+	}
+	got = Slice(items, 3, 1)
+	if len(got) != 0 {
+		t.Errorf("Slice(items, 3, 1) = %v, want []", got)
+	}
+
+	// Non-array receiver.
+	if got := Slice("not an array", 0, 2); len(got) != 0 {
+		t.Errorf("Slice(scalar, 0, 2) = %v, want []", got)
+	}
+}
+
 // String receiver covers `String.prototype.includes(sub)` (#1448 Tier A).
 // Both array and string `.includes` lower to the same `bf_includes` call;
 // this helper dispatches on `reflect.Kind()` at evaluation time.

@@ -119,8 +119,13 @@ runAdapterConformanceTests({
     // handle the shape (#1448 Tier A second PR).
     // `array-at` no longer pinned — `bf->at` (Mojo) / `bf_at` (Go)
     // handle the negative-index lookup (#1448 Tier A third PR).
-    'array-concat':        [{ code: 'BF101', severity: 'error' }],
-    'array-slice':         [{ code: 'BF101', severity: 'error' }],
+    // `array-concat` no longer pinned — `bf->concat` (Mojo) /
+    // `bf_concat` (Go) merge two arrays into a new array
+    // (#1448 Tier A fourth PR).
+    // `array-slice` no longer pinned — `bf->slice` (Mojo) /
+    // `bf_slice` (Go) carve out a sub-range with JS-compat
+    // negative-index / out-of-bounds clamping (#1448 Tier A
+    // fifth PR).
     'array-reverse':       [{ code: 'BF101', severity: 'error' }],
     'array-toReversed':    [{ code: 'BF101', severity: 'error' }],
     'string-toLowerCase':  [{ code: 'BF101', severity: 'error' }],
@@ -529,6 +534,49 @@ export { A }`, 'A.tsx', { adapter })
     expect(template).not.toContain('$bf->at(')
   })
 
+  test('lowers .slice(start, end).join(\' \') via bf->slice + join (#1448 Tier A)', () => {
+    // 2-arg form. Canonical Tier A fixture pins the start+end shape.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ items }: { items: string[] }) {
+  return <div>{items.slice(1, 3).join(' ')}</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain("join(' ', @{bf->slice($items, 1, 3)})")
+    expect(template).not.toContain('$bf->slice')
+  })
+
+  test('lowers .slice(start) (1-arg) via bf->slice with end=undef', () => {
+    // 1-arg form. The Perl helper treats undef `end` as
+    // "to length", matching the Go variadic-arg-absent case.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ items }: { items: string[] }) {
+  return <div>{items.slice(2).join(' ')}</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain("join(' ', @{bf->slice($items, 2, undef)})")
+  })
+
+  test('lowers .concat(other).join(\' \') via bf->concat + join (#1448 Tier A)', () => {
+    // Composition pin: the canonical Tier A fixture
+    // (`packages/adapter-tests/fixtures/methods/array-concat.ts`)
+    // chains `.concat(...).join(' ')`. The Mojo helper returns an
+    // ARRAY ref so the downstream `@{...}` dereference in `join(...)`
+    // works without an extra coercion.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ left, right }: { left: string[]; right: string[] }) {
+  return <div>{left.concat(right).join(' ')}</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain("join(' ', @{bf->concat($left, $right)})")
+    expect(template).not.toContain('$bf->concat')
+  })
+
   test('does not leak module-level export statements into the .html.ep template', () => {
     // Regression: trailing `export { Name }` / `export type { ... }` lines
     // were concatenated into the single-component template content, so
@@ -735,6 +783,8 @@ import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixture
 import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-indexOf'
 import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
 import { fixture as arrayAtFixture } from '../../../adapter-tests/fixtures/methods/array-at'
+import { fixture as arrayConcatFixture } from '../../../adapter-tests/fixtures/methods/array-concat'
+import { fixture as arraySliceFixture } from '../../../adapter-tests/fixtures/methods/array-slice'
 
 describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -743,6 +793,8 @@ describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
     { fixture: arrayIndexOfFixture,     expect: 'bf->index_of($items, $target)' },
     { fixture: arrayLastIndexOfFixture, expect: 'bf->last_index_of($items, $target)' },
     { fixture: arrayAtFixture,          expect: 'bf->at($items, -1)' },
+    { fixture: arrayConcatFixture,      expect: 'bf->concat($left, $right)' },
+    { fixture: arraySliceFixture,       expect: 'bf->slice($items, 1, 3)' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {
