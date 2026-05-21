@@ -23,6 +23,7 @@ import { compileJSX } from '@barefootjs/jsx'
 import {
   SHARED_COMPONENTS_DIR,
   SNAPSHOT_DIR,
+  sourceFileBasename,
   type SharedFixtureSpec,
 } from '../fixtures/_helpers'
 import { spec as counterSharedSpec } from '../fixtures/counter-shared'
@@ -30,6 +31,7 @@ import { spec as toggleSharedSpec } from '../fixtures/toggle-shared'
 import { spec as conditionalReturnButtonSpec } from '../fixtures/conditional-return-button'
 import { spec as conditionalReturnLinkSpec } from '../fixtures/conditional-return-link'
 import { spec as reactivePropsSpec } from '../fixtures/reactive-props'
+import { spec as propsReactivityComparisonSpec } from '../fixtures/props-reactivity-comparison'
 
 const ALL_SPECS: SharedFixtureSpec[] = [
   counterSharedSpec,
@@ -37,6 +39,7 @@ const ALL_SPECS: SharedFixtureSpec[] = [
   conditionalReturnButtonSpec,
   conditionalReturnLinkSpec,
   reactivePropsSpec,
+  propsReactivityComparisonSpec,
 ]
 
 const requested = process.argv.slice(2)
@@ -58,7 +61,8 @@ for (const spec of selected) {
 }
 
 async function generateSnapshot(spec: SharedFixtureSpec): Promise<void> {
-  const sourcePath = resolve(SHARED_COMPONENTS_DIR, `${spec.componentName}.tsx`)
+  const sourceBasename = sourceFileBasename(spec)
+  const sourcePath = resolve(SHARED_COMPONENTS_DIR, `${sourceBasename}.tsx`)
   const source = await Bun.file(sourcePath).text()
 
   // Pin the root scope's `bf-s` via `__instanceId` so the hydration walker's
@@ -78,7 +82,7 @@ async function generateSnapshot(spec: SharedFixtureSpec): Promise<void> {
 
   const compiled = compileJSX(
     source,
-    `${spec.componentName}.tsx`,
+    `${sourceBasename}.tsx`,
     { adapter: new HonoAdapter() },
   )
   const clientJsFile = compiled.files.find(f => f.type === 'clientJs')
