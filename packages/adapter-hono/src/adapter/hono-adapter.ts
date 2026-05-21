@@ -21,6 +21,7 @@ import {
   type AttrValue,
   type IRTemplatePart,
   type ParamInfo,
+  type AdapterGenerateOptions,
   type AdapterOutput,
   type TemplateSections,
   type JsxAdapterConfig,
@@ -97,6 +98,15 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
   private isClientComponent: boolean = false
   private hasClientInteractivity: boolean = false
   private currentComponentHasProps: boolean = false
+  /**
+   * Per-call relative-import rewriter supplied by the build pipeline so
+   * source-authored relative paths resolve correctly from the emitted
+   * file's on-disk position (#1453). Stashed for the duration of one
+   * `generate()` call so `generateImports` can apply it; cleared on exit
+   * so a singleton adapter instance does not leak state between
+   * components.
+   */
+  private rewriteRelativeImport?: (importPath: string) => string
   /** Stack of loop keys for generating data-key / data-key-1 attributes on loop items */
   private loopKeyStack: Array<{ key: string | null; param: string }> = []
 
@@ -109,9 +119,10 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     }
   }
 
-  generate(ir: ComponentIR): AdapterOutput {
+  generate(ir: ComponentIR, options?: AdapterGenerateOptions): AdapterOutput {
     this.componentName = ir.metadata.componentName
     this.isClientComponent = ir.metadata.isClientComponent
+    this.rewriteRelativeImport = options?.rewriteRelativeImport
 
     // Generate component body FIRST so we can scan it for used imports
     const component = this.generateComponent(ir)
@@ -141,12 +152,14 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     // Assemble template for backward compat (external consumers using output.template)
     const template = [imports, moduleConstants, types, component].filter(Boolean).join('\n\n') + defaultExport
 
-    return {
+    const result: AdapterOutput = {
       template,
       sections,
       types: types || undefined,
       extension: this.extension,
     }
+    this.rewriteRelativeImport = undefined
+    return result
   }
 
   private generateModuleLevelContextBindings(ir: ComponentIR): string {
@@ -187,11 +200,14 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     }
 
     // Re-emit template imports, rewriting `@barefootjs/client` to this
-    // adapter's SSR shim. Adapters own the rewrite; the compiler hands us
-    // the raw import list.
+    // adapter's SSR shim AND re-anchoring relative paths from the emit
+    // location when the caller supplied a `rewriteRelativeImport` hook
+    // (#1453). Adapters own both rewrites; the compiler hands us the
+    // raw import list.
     const templateImports = rewriteImportsForTemplate(
       ir.metadata.templateImports,
       this.clientShimSource,
+      this.rewriteRelativeImport,
     )
     for (const imp of templateImports) {
       if (imp.specifiers.length === 0) {
@@ -227,10 +243,34 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     // Include original type definitions — only those referenced in the component body
     // or transitively referenced by other included type definitions
     if (componentBody && ir.metadata.typeDefinitions.length > 0) {
+      const propsTypeName = this.getPropsTypeName(ir)
+      // Seed the reachability scan with everything that ends up referencing
+      // a type name in the FINAL emitted file, not just the component body.
+      //
+      // - `propsTypeName` is referenced by the synthesized
+      //   `${Name}PropsWithHydration = ${propsTypeName} & {...}` alias the
+      //   destructured-props branch emits below — but that alias is built
+      //   AFTER this scan, so the body never literally mentions e.g.
+      //   `ButtonProps`. Without seeding it here the alias references an
+      //   undeclared name (TS2304) and TS widens `variant`/`size` to `any`
+      //   at every `Record[variant]` lookup site (TS7053) downstream.
+      //
+      // - Named re-export blocks (`export type { ButtonVariant, ButtonSize,
+      //   ButtonProps }`) are emitted by the compiler's `generateModuleExports`
+      //   AFTER `s.types`. Each re-exported local name needs its declaration
+      //   carried forward too. Issue #1453 covers the full reproduction.
+      const seedText = [
+        componentBody,
+        propsTypeName && !ir.metadata.propsObjectName ? propsTypeName : '',
+        ...ir.metadata.namedExports
+          .filter((block) => block.source === null)
+          .flatMap((block) => block.specifiers.map((s) => s.name)),
+      ].filter(Boolean).join('\n')
+
       const included = new Set<string>()
-      // First pass: include types directly referenced in the component body
+      // First pass: include types directly referenced in the seed text
       for (const typeDef of ir.metadata.typeDefinitions) {
-        if (new RegExp(`\\b${typeDef.name}\\b`).test(componentBody)) {
+        if (new RegExp(`\\b${typeDef.name}\\b`).test(seedText)) {
           included.add(typeDef.name)
         }
       }
@@ -765,9 +805,15 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
   renderIfStatement(ifStmt: IRIfStatement, ctx?: { isRootOfClientComponent?: boolean }): string {
     const lines: string[] = []
 
-    // Generate scope variables declared in this if block
+    // Generate scope variables declared in this if block. The Hono SSR
+    // template is a `.tsx` file checked by tsc, so prefer the typed
+    // initializer when present to keep `as <T>` casts intact — without
+    // them, an emitted `const Tag = children.tag` (cast lost) raises
+    // TS2604 at `<Tag/>` because `unknown` has no call signature. See
+    // IRIfStatement.scopeVariables.typedInitializer docstring (#1453).
     for (const v of ifStmt.scopeVariables) {
-      lines.push(`    const ${v.name} = ${v.initializer}`)
+      const init = (this.jsxConfig.preserveTypes && v.typedInitializer) || v.initializer
+      lines.push(`    const ${v.name} = ${init}`)
     }
 
     // Render the consequent (then branch) JSX

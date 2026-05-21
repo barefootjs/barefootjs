@@ -10,6 +10,7 @@ import {
   processExternals,
   processBundleEntries,
   computeGlobalHash,
+  buildRelativeImportRewriter,
 } from '../lib/build'
 import { emptyCache, type BuildCache, type CacheEntry } from '../lib/build-cache'
 import { mkdirSync, writeFileSync, rmSync, existsSync, statSync, readFileSync, realpathSync } from 'fs'
@@ -1008,5 +1009,78 @@ describe('processBundleEntries', () => {
       rmSync(projectDir, { recursive: true, force: true })
       rmSync(outDir, { recursive: true, force: true })
     }
+  })
+})
+
+// ── buildRelativeImportRewriter ──────────────────────────────────────────
+//
+// Re-anchoring guarantees a Hono scaffold's `public/components/ui/<comp>/
+// index.tsx` emit type-checks against the same files the user-authored
+// `components/ui/<comp>/index.tsx` resolved (#1453). The Hono layout uses
+// `outDir = public/` and `componentDirs = ['components']`, so the depth
+// shift is +1 across the project root — but the component-to-component
+// case must stay at the same relative depth because both ends are
+// mirrored.
+//
+// Note: the rewriter operates on the IMPORT SPECIFIER STRING directly —
+// the compiler hands it each `ImportInfo.source` (and matching
+// `export … from '…'` block source) one at a time. There's no
+// emit-text regex involved, so JSDoc `@example` blocks containing
+// import-shaped code, template literals, and other source-level
+// incidentals stay untouched.
+
+describe('buildRelativeImportRewriter', () => {
+  // Standard Hono scaffold layout. `<root>/components/ui/button/index.tsx`
+  // is emitted to `<root>/public/components/ui/button/index.tsx`; the
+  // project root contains `<root>/types/index.tsx` (not mirrored).
+  const ROOT = '/proj'
+  const sourcePath = `${ROOT}/components/ui/button/index.tsx`
+  const outputPath = `${ROOT}/public/components/ui/button/index.tsx`
+  const componentDirs = [`${ROOT}/components`]
+  const templatesOutDir = `${ROOT}/public/components`
+  const rewrite = buildRelativeImportRewriter(sourcePath, outputPath, componentDirs, templatesOutDir)
+
+  test('rewrites non-component relative imports to include the extra depth', () => {
+    // `../../../types` is correct from the SOURCE position but resolves
+    // to the non-existent `public/types/` from the EMIT position — needs
+    // one more `..` so it points back at `<root>/types`.
+    expect(rewrite('../../../types')).toBe('../../../../types')
+  })
+
+  test('preserves sibling-component imports unchanged', () => {
+    // Both ends of `../slot` are mirrored under `public/components/ui/`,
+    // so the relative form stays valid by construction. Rewriting it
+    // would resolve to a wrong location.
+    expect(rewrite('../slot')).toBe('../slot')
+  })
+
+  test('handles same-dir imports (`./helpers`)', () => {
+    expect(rewrite('./helpers')).toBe('./helpers')
+  })
+
+  test('component imports nested deeper under `componentDirs`', () => {
+    // `../forms/input` resolves to `<root>/components/ui/forms/input`,
+    // mirrored at `<root>/public/components/ui/forms/input`. From the
+    // emit dir, the relative path is identical to the source's.
+    expect(rewrite('../forms/input')).toBe('../forms/input')
+  })
+
+  test('non-component path above the project root', () => {
+    // `../../../../shared` resolves to `<root>/../shared`. Re-relativised
+    // from `<root>/public/components/ui/button/` it becomes
+    // `../../../../../shared`.
+    expect(rewrite('../../../../shared')).toBe('../../../../../shared')
+  })
+
+  test('caller is responsible for guarding bare specifiers', () => {
+    // The compiler / `rewriteImportsForTemplate` skip non-`.` paths
+    // before calling in — but for direct unit-test use the helper
+    // still returns a relative path computed from whatever you pass.
+    // This documents the contract.
+    const out = rewrite('@barefootjs/jsx')
+    // `@barefootjs/jsx` is not under any componentDir and resolves
+    // against sourceDir → `<root>/components/ui/button/@barefootjs/jsx`,
+    // a clearly-bogus path. Production code never hits this branch.
+    expect(out.startsWith('.')).toBe(true)
   })
 })
