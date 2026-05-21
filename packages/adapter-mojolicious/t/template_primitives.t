@@ -65,4 +65,32 @@ subtest 'floor / ceil / round — Math.* mirrors; propagate NaN' => sub {
     ok is_nan($bf->round('not')), 'round: NaN propagates';
 };
 
+# `Array.prototype.includes(x)` + `String.prototype.includes(sub)` lower
+# to the same `$bf->includes($recv, $elem)` shape — see #1448 Tier A.
+# The Perl helper dispatches on `ref()`: ARRAY ref scans elements with
+# `eq`; scalar falls back to `index(..., ...) != -1`. Anything else
+# (HASH ref, code ref) returns false to match the JS semantic that
+# `.includes` is only defined on Array / TypedArray / String.
+subtest 'includes — array + string + non-array/string dispatch' => sub {
+    # Array receiver: element-wise `eq` (handles defined/undef parity).
+    ok  $bf->includes(['a', 'b', 'c'], 'b'), 'array contains element → 1';
+    ok !$bf->includes(['a', 'b', 'c'], 'z'), 'array does not contain → 0';
+    ok  $bf->includes([1, 2, 3], 2),         'numeric element';
+    ok !$bf->includes([], 'a'),              'empty array → 0';
+    ok  $bf->includes([undef, 'a'], undef),  'undef element matches undef needle';
+    ok !$bf->includes(['a', 'b'], undef),    'undef needle, no undef element → 0';
+
+    # String receiver: substring search.
+    ok  $bf->includes('hello world', 'world'), 'substring present → 1';
+    ok !$bf->includes('hello world', 'earth'), 'substring absent → 0';
+    ok  $bf->includes('hello', ''),            'empty needle → 1 (JS-compat)';
+    ok !$bf->includes('', 'x'),                'empty receiver, non-empty needle → 0';
+    ok !$bf->includes(undef, 'x'),             'undef receiver → 0';
+
+    # Anything else (HASH ref, code ref) → 0; pin so a future
+    # refactor doesn't accidentally match HASH keys.
+    ok !$bf->includes({a => 1}, 'a'),    'hash ref → 0 (.includes undefined on Object)';
+    ok !$bf->includes(sub {}, 'x'),      'code ref → 0';
+};
+
 done_testing;

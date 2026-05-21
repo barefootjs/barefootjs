@@ -349,6 +349,39 @@ sub round ($self, $value) {
 }
 
 # ---------------------------------------------------------------------------
+# Array / String method helpers (#1448 Tier A)
+# ---------------------------------------------------------------------------
+#
+# `Array.prototype.includes(x)` and `String.prototype.includes(sub)`
+# share a method name in JS; the JSX parser can't tell the two
+# receiver shapes apart without TS type inference, so both lower to
+# the same IR node (`array-method` / method `includes`). This helper
+# dispatches at the Perl level via `ref()`:
+#   - ARRAY ref:  scan elements with `eq`; one defined-vs-undef
+#                 hop matches JS's `===` for null/undefined.
+#   - scalar:     `index($recv, $sub) != -1`, with both args
+#                 coerced through `// ''` so an undef receiver /
+#                 needle doesn't trip Perl's substr warning.
+# Anything else (HASH ref, code ref) returns false — matches the
+# JS semantic where `.includes` is only defined on Array /
+# TypedArray / String.
+
+sub includes ($self, $recv, $elem) {
+    if (ref($recv) eq 'ARRAY') {
+        for my $item (@$recv) {
+            if (!defined $item) {
+                return 1 if !defined $elem;
+                next;
+            }
+            return 1 if defined $elem && $item eq $elem;
+        }
+        return 0;
+    }
+    return 0 if ref($recv);
+    return index($recv // '', $elem // '') != -1 ? 1 : 0;
+}
+
+# ---------------------------------------------------------------------------
 # JSX intrinsic-element spread (#1407)
 # ---------------------------------------------------------------------------
 #

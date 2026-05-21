@@ -2697,6 +2697,17 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         // readable. Copilot review on #1445 surfaced the gap.
         return `bf_join (${obj}) ${wrapIfMultiToken(sep)}`
       }
+      case 'includes': {
+        // Both `arr.includes(x)` and `str.includes(sub)` route here —
+        // the parser can't disambiguate the receiver type. The Go
+        // runtime's `Includes` helper inspects `reflect.Kind()` and
+        // dispatches: slices/arrays use DeepEqual element search,
+        // strings use `strings.Contains`. See packages/adapter-go-
+        // template/runtime/bf.go.
+        const obj = emit(object)
+        const needle = emit(args[0])
+        return `bf_includes ${wrapIfMultiToken(obj)} ${wrapIfMultiToken(needle)}`
+      }
       default: {
         const _exhaustive: never = method
         throw new Error(`Go arrayMethod: unhandled ArrayMethod '${(_exhaustive as string)}'`)

@@ -110,7 +110,10 @@ runAdapterConformanceTests({
     // hasn't lowered yet. Each row drops once the corresponding
     // method PR lands. Hono / CSR pass these out of the box (they
     // evaluate JS at runtime) so the pin only applies here.
-    'array-includes':      [{ code: 'BF101', severity: 'error' }],
+    //
+    // `array-includes` / `string-includes` no longer pinned — both
+    // shapes lower via the shared `array-method` IR + `$bf->includes`
+    // runtime dispatch (#1448 Tier A first PR).
     'array-indexOf':       [{ code: 'BF101', severity: 'error' }],
     'array-lastIndexOf':   [{ code: 'BF101', severity: 'error' }],
     'array-at':            [{ code: 'BF101', severity: 'error' }],
@@ -121,7 +124,6 @@ runAdapterConformanceTests({
     'string-toLowerCase':  [{ code: 'BF101', severity: 'error' }],
     'string-toUpperCase':  [{ code: 'BF101', severity: 'error' }],
     'string-trim':         [{ code: 'BF101', severity: 'error' }],
-    'string-includes':     [{ code: 'BF101', severity: 'error' }],
     // #1448 catalog — `.find` / `.findIndex` have no Mojo lowering
     // yet (no `array-method` IR variant, no emitter), so the
     // Mojo-specific gate in `convertExpressionToPerl` refuses them
@@ -425,6 +427,44 @@ export { Slot }
     expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
     const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
     expect(template).toContain(`join(' ', @{[grep { $_ } @{[$className]}]})`)
+  })
+
+  test('lowers .includes(x) on an array prop via $bf->includes(...) (#1448 Tier A)', () => {
+    // Pre-#1448: `items.includes(target)` rejected at the parser
+    // (`UNSUPPORTED_METHODS`) and surfaced as BF101. The lowering
+    // now routes through the shared `array-method` IR + the
+    // `$bf->includes` helper, which inspects `ref()` to dispatch
+    // between ARRAY-ref element search and scalar substring search.
+    // Pinning the canonical condition-position shape here.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`'use client'
+import { createSignal } from '@barefootjs/client'
+export function C() {
+  const [items] = createSignal<string[]>([])
+  const [target] = createSignal('x')
+  return <div>{items().includes(target()) ? 'yes' : 'no'}</div>
+}`, 'C.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain('$bf->includes($items, $target)')
+  })
+
+  test('lowers .includes(sub) on a string prop via $bf->includes(...) (#1448 Tier A)', () => {
+    // String receiver shares the IR node with the array form; the
+    // helper's `ref() ne 'ARRAY'` branch falls through to
+    // `index(...) != -1`. Pinning the emit shape — same emitter
+    // surface, different runtime behaviour.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`'use client'
+import { createSignal } from '@barefootjs/client'
+export function C() {
+  const [value] = createSignal('hello world')
+  const [needle] = createSignal('world')
+  return <div>{value().includes(needle()) ? 'yes' : 'no'}</div>
+}`, 'C.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain('$bf->includes($value, $needle)')
   })
 
   test('does not leak module-level export statements into the .html.ep template', () => {

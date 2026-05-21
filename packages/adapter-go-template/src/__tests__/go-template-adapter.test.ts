@@ -139,15 +139,18 @@ runAdapterConformanceTests({
     // the box (they evaluate JS at runtime) so the pin only applies
     // here.
     //
-    // The `.includes()` fixtures land at JSX conditional position
-    // (`{cond ? 'yes' : 'no'}`), which routes through
-    // `convertConditionToGo` and surfaces the existing BF102
-    // ("Condition not supported"); the remaining fixtures land at
-    // expression position and surface BF101 via
-    // `convertExpressionToGo`. Distinct codes for the two paths is
+    // `array-includes` / `string-includes` no longer pinned — both
+    // shapes lower via the shared `array-method` IR + the polymorphic
+    // `bf_includes` runtime helper that dispatches on
+    // `reflect.Kind()` (slice/array → element search, string →
+    // substring search). The condition-position lowering picks up
+    // the same emit through the `array-method` arm of
+    // `renderConditionExpr` (#1448 Tier A first PR).
+    //
+    // Remaining fixtures land at expression position and surface BF101
+    // via `convertExpressionToGo`. Distinct codes for the two paths is
     // pre-existing adapter behaviour, not something this catalog
     // should paper over — pinned literally here.
-    'array-includes':      [{ code: 'BF102', severity: 'error' }],
     'array-indexOf':       [{ code: 'BF101', severity: 'error' }],
     'array-lastIndexOf':   [{ code: 'BF101', severity: 'error' }],
     'array-at':            [{ code: 'BF101', severity: 'error' }],
@@ -158,7 +161,6 @@ runAdapterConformanceTests({
     'string-toLowerCase':  [{ code: 'BF101', severity: 'error' }],
     'string-toUpperCase':  [{ code: 'BF101', severity: 'error' }],
     'string-trim':         [{ code: 'BF101', severity: 'error' }],
-    'string-includes':     [{ code: 'BF102', severity: 'error' }],
   },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `GoTemplateAdapter.templatePrimitives` (#1188). The two
@@ -1437,6 +1439,40 @@ export { Slot }
 `.trimStart())
       expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
       expect(result.template).toContain('bf_join (bf_filter_truthy (bf_arr .ClassName)) " "')
+    })
+  })
+
+  describe('.includes lowering (#1448 Tier A)', () => {
+    test('items.includes(target) emits `bf_includes .Items .Target` in condition position', () => {
+      // Pre-#1448: BF102 ("Condition not supported") because the
+      // `array-method` IR variant didn't include `includes`, so
+      // `isSupported` refused. Now the parser produces an
+      // `array-method` node and the condition-position dispatcher
+      // (`renderConditionExpr`'s `array-method` arm) delegates to
+      // the same `arrayMethod` emit as expression position, so the
+      // `{{if bf_includes ...}}` shape works.
+      const result = compileAndGenerate(`'use client'
+import { createSignal } from '@barefootjs/client'
+export function C() {
+  const [items] = createSignal<string[]>([])
+  const [target] = createSignal('x')
+  return <div>{items().includes(target()) ? 'yes' : 'no'}</div>
+}`)
+      expect(result.template).toContain('{{if bf_includes .Items .Target}}')
+    })
+
+    test('value.includes(needle) emits the same bf_includes form (runtime dispatches on receiver)', () => {
+      // String and array `.includes` share the parser surface; the
+      // adapter emits the same `bf_includes` call and the Go
+      // runtime helper inspects `reflect.Kind()` at evaluation time.
+      const result = compileAndGenerate(`'use client'
+import { createSignal } from '@barefootjs/client'
+export function C() {
+  const [value] = createSignal('hello world')
+  const [needle] = createSignal('world')
+  return <div>{value().includes(needle()) ? 'yes' : 'no'}</div>
+}`)
+      expect(result.template).toContain('{{if bf_includes .Value .Needle}}')
     })
   })
 })

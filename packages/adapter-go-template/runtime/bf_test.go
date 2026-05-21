@@ -204,6 +204,32 @@ func TestIncludes(t *testing.T) {
 	}
 }
 
+// String receiver covers `String.prototype.includes(sub)` (#1448 Tier A).
+// Both array and string `.includes` lower to the same `bf_includes` call;
+// this helper dispatches on `reflect.Kind()` at evaluation time.
+func TestIncludes_StringReceiver(t *testing.T) {
+	cases := []struct {
+		name   string
+		recv   any
+		needle any
+		want   bool
+	}{
+		{"present", "hello world", "world", true},
+		{"absent", "hello world", "earth", false},
+		{"empty needle matches", "hello", "", true},
+		{"empty receiver", "", "x", false},
+		{"non-string needle stringified", "value=42", 42, true},
+		{"unsupported receiver (map) returns false", map[string]int{"a": 1}, "a", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := Includes(c.recv, c.needle); got != c.want {
+				t.Errorf("Includes(%v, %v) = %v, want %v", c.recv, c.needle, got, c.want)
+			}
+		})
+	}
+}
+
 func TestFirst(t *testing.T) {
 	items := []string{"a", "b", "c"}
 	if got := First(items); got != "a" {
