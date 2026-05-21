@@ -26,6 +26,10 @@ export { ArraySortFieldAsc }
     ],
   },
   expectedHtml: `
-    <ul bf-s="test" bf="s1"><li data-key="a"><!--bf:s0-->a<!--/--></li><li data-key="b"><!--bf:s0-->b<!--/--></li><li data-key="c"><!--bf:s0-->c<!--/--></li></ul>
+    <ul bf-s="test" bf="s1">
+      <li data-key="a"><!--bf:s0-->a<!--/--></li>
+      <li data-key="b"><!--bf:s0-->b<!--/--></li>
+      <li data-key="c"><!--bf:s0-->c<!--/--></li>
+    </ul>
   `,
 })

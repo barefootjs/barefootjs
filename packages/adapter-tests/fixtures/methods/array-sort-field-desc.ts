@@ -24,6 +24,10 @@ export { ArraySortFieldDesc }
     ],
   },
   expectedHtml: `
-    <ul bf-s="test" bf="s1"><li data-key="c"><!--bf:s0-->c<!--/--></li><li data-key="b"><!--bf:s0-->b<!--/--></li><li data-key="a"><!--bf:s0-->a<!--/--></li></ul>
+    <ul bf-s="test" bf="s1">
+      <li data-key="c"><!--bf:s0-->c<!--/--></li>
+      <li data-key="b"><!--bf:s0-->b<!--/--></li>
+      <li data-key="a"><!--bf:s0-->a<!--/--></li>
+    </ul>
   `,
 })
