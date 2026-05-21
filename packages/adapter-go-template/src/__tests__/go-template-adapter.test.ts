@@ -1679,8 +1679,14 @@ import { fixture as arrayToReversedFixture } from '../../../adapter-tests/fixtur
 import { fixture as stringToLowerCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toLowerCase'
 import { fixture as stringToUpperCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toUpperCase'
 import { fixture as stringTrimFixture } from '../../../adapter-tests/fixtures/methods/string-trim'
+// #1448 Tier B — .sort / .toSorted fixtures.
+import { fixture as arraySortFieldAscFixture } from '../../../adapter-tests/fixtures/methods/array-sort-field-asc'
+import { fixture as arraySortFieldDescFixture } from '../../../adapter-tests/fixtures/methods/array-sort-field-desc'
+import { fixture as arraySortPrimitiveFixture } from '../../../adapter-tests/fixtures/methods/array-sort-primitive'
+import { fixture as arraySortLocaleFixture } from '../../../adapter-tests/fixtures/methods/array-sort-locale'
+import { fixture as arrayToSortedFixture } from '../../../adapter-tests/fixtures/methods/array-toSorted'
 
-describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
+describe('GoTemplateAdapter - #1448 Tier A/B fixture-driven lowering pins', () => {
   const cases = [
     // The `.includes` fixtures sit at condition position
     // (`{cond ? 'yes' : 'no'}`), so the emit lands inside `{{if ...}}`.
@@ -1701,6 +1707,14 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     { fixture: stringToLowerCaseFixture,expect: 'bf_lower .Value' },
     { fixture: stringToUpperCaseFixture,expect: 'bf_upper .Value' },
     { fixture: stringTrimFixture,       expect: 'bf_trim .Value' },
+    // #1448 Tier B — sort / toSorted. Loop-chained shapes wrap the
+    // iterable in `bf_sort .Items <kind> <key> <type> <dir>`;
+    // standalone shapes inline the helper at the call site.
+    { fixture: arraySortFieldAscFixture,  expect: 'bf_sort .Items "field" "Price" "numeric" "asc"' },
+    { fixture: arraySortFieldDescFixture, expect: 'bf_sort .Items "field" "Price" "numeric" "desc"' },
+    { fixture: arraySortPrimitiveFixture, expect: 'bf_sort .Nums "self" "" "numeric" "asc"' },
+    { fixture: arraySortLocaleFixture,    expect: 'bf_sort .Names "self" "" "string" "asc"' },
+    { fixture: arrayToSortedFixture,      expect: 'bf_sort .Nums "self" "" "numeric" "asc"' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

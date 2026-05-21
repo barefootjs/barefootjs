@@ -68,6 +68,32 @@ export interface HonoAdapterOptions {
   clientJsFilename?: string
 }
 
+/**
+ * Mirror `IRLoop.sortComparator` / `IRLoop.filterPredicate` chaining
+ * into the JSX expression that backs the Hono `.map()` call. The same
+ * chain shape is emitted by `applyLoopChain` in
+ * `packages/jsx/src/ir-to-client-js/html-template.ts` for the
+ * client-side template literal — keeping both in sync prevents the
+ * pre-#1448-Tier-B silent drop where sort/filter only existed on
+ * adapters that consumed the structured IR directly (Go's `bf_sort`)
+ * and Hono's runtime-eval'd JSX never saw them. Always uses
+ * `.toSorted` (non-mutating) so shared prop arrays aren't reordered
+ * in place across renders.
+ */
+function applyHonoLoopChain(loop: IRLoop): string {
+  const sortExpr = loop.sortComparator
+    ? `.toSorted((${loop.sortComparator.paramA}, ${loop.sortComparator.paramB}) => ${loop.sortComparator.raw})`
+    : ''
+  const filterExpr = loop.filterPredicate
+    ? `.filter(${loop.filterPredicate.param} => ${loop.filterPredicate.raw})`
+    : ''
+  if (!sortExpr && !filterExpr) return loop.array
+  if (loop.chainOrder === 'filter-sort') {
+    return `${loop.array}${filterExpr}${sortExpr}`
+  }
+  return `${loop.array}${sortExpr}${filterExpr}`
+}
+
 export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderCtx> {
   name = 'hono'
   extension = '.tsx'
@@ -782,10 +808,19 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
       // emitting comment-marker strings directly.
       safeChildren = `<>{bfComment('bf-loop-i')}${children}</>`
     }
+    // Apply chained `.sort()` / `.filter()` extracted to
+    // `loop.sortComparator` / `loop.filterPredicate` (#1448 Tier B).
+    // Pre-Tier-B this used `loop.array` directly — fine when an
+    // SSR-side adapter (Go's `bf_sort`) applied the sort separately,
+    // broken on Hono where the emitted JSX is the source of truth
+    // for both SSR (runtime-eval) and CSR (template fallback).
+    // `.toSorted` (non-mutating) preserves shared prop arrays across
+    // renders — `.sort()` here would reorder `_p.items` in place.
+    const chainedArray = applyHonoLoopChain(loop)
     if (preamble) {
-      mapExpr = `{${loop.array}.map((${loop.param}${paramAnnotation}${indexParam}) => { ${preamble} return ${safeChildren} })}`
+      mapExpr = `{${chainedArray}.map((${loop.param}${paramAnnotation}${indexParam}) => { ${preamble} return ${safeChildren} })}`
     } else {
-      mapExpr = `{${loop.array}.map((${loop.param}${paramAnnotation}${indexParam}) => ${safeChildren})}`
+      mapExpr = `{${chainedArray}.map((${loop.param}${paramAnnotation}${indexParam}) => ${safeChildren})}`
     }
     // Wrap with loop boundary markers so reconciliation doesn't affect siblings.
     // bfComment('loop:<id>') → <!--bf-loop:<id>-->. The marker id is unique

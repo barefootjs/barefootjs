@@ -777,7 +777,7 @@ func TestSort_AscendingByInt(t *testing.T) {
 		{Name: "B", Priority: 2},
 	}
 
-	result := Sort(items, "priority", "asc")
+	result := Sort(items, "field", "Priority", "numeric", "asc")
 
 	if len(result) != 3 {
 		t.Fatalf("Sort returned %d items, want 3", len(result))
@@ -800,7 +800,7 @@ func TestSort_DescendingByInt(t *testing.T) {
 		{Name: "B", Priority: 2},
 	}
 
-	result := Sort(items, "priority", "desc")
+	result := Sort(items, "field", "Priority", "numeric", "desc")
 
 	if len(result) != 3 {
 		t.Fatalf("Sort returned %d items, want 3", len(result))
@@ -820,7 +820,7 @@ func TestSort_ByFloat(t *testing.T) {
 		{Name: "Mid", Price: 49.99},
 	}
 
-	result := Sort(items, "price", "asc")
+	result := Sort(items, "field", "Price", "numeric", "asc")
 
 	if len(result) != 3 {
 		t.Fatalf("Sort returned %d items, want 3", len(result))
@@ -835,7 +835,7 @@ func TestSort_ByFloat(t *testing.T) {
 
 func TestSort_EmptySlice(t *testing.T) {
 	var items []sortItem
-	result := Sort(items, "priority", "asc")
+	result := Sort(items, "field", "Priority", "numeric", "asc")
 
 	if result == nil {
 		t.Error("Sort of empty slice should return empty slice, not nil")
@@ -846,7 +846,7 @@ func TestSort_EmptySlice(t *testing.T) {
 }
 
 func TestSort_NilSlice(t *testing.T) {
-	result := Sort(nil, "priority", "asc")
+	result := Sort(nil, "field", "Priority", "numeric", "asc")
 
 	if result != nil {
 		t.Errorf("Sort of nil should return nil, got %v", result)
@@ -860,11 +860,56 @@ func TestSort_NonMutating(t *testing.T) {
 		{Name: "B", Priority: 2},
 	}
 
-	Sort(items, "priority", "asc")
+	Sort(items, "field", "Priority", "numeric", "asc")
 
 	// Original slice should be unchanged
 	if items[0].Name != "C" {
 		t.Errorf("Sort mutated original: first = %v, want C", items[0].Name)
+	}
+}
+
+// `(a, b) => a - b` on a primitive number array — the `keyKind=self`
+// case introduced by #1448 Tier B. Pre-Tier-B `bf_sort` only handled
+// struct-field comparisons.
+func TestSort_PrimitiveNumeric(t *testing.T) {
+	got := Sort([]int{3, 1, 2}, "self", "", "numeric", "asc")
+	if len(got) != 3 || got[0] != 3-2 || got[1] != 2 || got[2] != 3 {
+		// `got[0] != 3-2` is the literal 1; spelled as expression to
+		// make the desc test below easy to read by symmetry.
+		t.Errorf("Sort primitive numeric asc = %v, want [1 2 3]", got)
+	}
+
+	got = Sort([]int{1, 3, 2}, "self", "", "numeric", "desc")
+	if len(got) != 3 || got[0] != 3 || got[1] != 2 || got[2] != 1 {
+		t.Errorf("Sort primitive numeric desc = %v, want [3 2 1]", got)
+	}
+}
+
+// `(a, b) => a.localeCompare(b)` (`compareType=string`).
+func TestSort_PrimitiveString(t *testing.T) {
+	got := Sort([]string{"charlie", "alice", "bob"}, "self", "", "string", "asc")
+	if len(got) != 3 || got[0] != "alice" || got[1] != "bob" || got[2] != "charlie" {
+		t.Errorf("Sort primitive string asc = %v, want [alice bob charlie]", got)
+	}
+
+	got = Sort([]string{"alice", "charlie", "bob"}, "self", "", "string", "desc")
+	if len(got) != 3 || got[0] != "charlie" || got[1] != "bob" || got[2] != "alice" {
+		t.Errorf("Sort primitive string desc = %v, want [charlie bob alice]", got)
+	}
+}
+
+// `a.field.localeCompare(b.field)` — string compare on a struct field.
+func TestSort_FieldString(t *testing.T) {
+	items := []struct{ Name string }{{Name: "c"}, {Name: "a"}, {Name: "b"}}
+	got := Sort(items, "field", "Name", "string", "asc")
+	if len(got) != 3 {
+		t.Fatalf("Sort returned %d items, want 3", len(got))
+	}
+	// `getFieldValue` extracts the `Name` field; cmp orders them.
+	first := got[0].(struct{ Name string }).Name
+	last := got[2].(struct{ Name string }).Name
+	if first != "a" || last != "c" {
+		t.Errorf("Sort field string asc = %v, want first=a last=c", got)
 	}
 }
 

@@ -31,7 +31,7 @@ import {
   AttrValueOf,
 } from './types'
 import { type AnalyzerContext, getSourceLocation } from './analyzer-context'
-import { parseExpression, isSupported, parseBlockBody, type ParsedExpr, type ParsedStatement } from './expression-parser'
+import { parseExpression, isSupported, parseBlockBody, extractSortComparatorFromTS, type ParsedExpr, type ParsedStatement, type SortComparator } from './expression-parser'
 import { createError, ErrorCodes, internalInvariant } from './errors'
 import { containsReactiveExpression } from './reactivity-checker'
 import {
@@ -1860,93 +1860,37 @@ function isSortCall(node: ts.Expression): { array: ts.Expression; callback: ts.E
   }
 }
 
-/**
- * Sort comparator extraction result.
- */
-type SortComparatorResult = {
-  paramA: string
-  paramB: string
-  field: string
-  direction: 'asc' | 'desc'
-  raw: string
-  method: 'sort' | 'toSorted'
-}
-
 type SortExtractionResult = {
-  result: SortComparatorResult | null
+  result: SortComparator | null
   unsupportedReason?: string
 }
 
 /**
- * Extract sort comparator info from an arrow function.
- * Supports simple subtraction patterns:
- *   (a, b) => a.field - b.field  → asc
- *   (a, b) => b.field - a.field  → desc
+ * Extract sort comparator info from a `.sort(cmp)` / `.toSorted(cmp)`
+ * callback at the chained `.sort().map()` detection site. Delegates
+ * to `extractSortComparatorFromTS` (#1448 Tier B) — the shared shape
+ * also feeds the standalone `array-method` IR variant emitted by
+ * `expression-parser.ts`. Accepted comparator catalogue: simple
+ * subtraction (`a.f - b.f`, `a - b`, reverse for desc) and
+ * `.localeCompare` (`a.localeCompare(b)`, `a.f.localeCompare(b.f)`,
+ * reverse for desc).
  */
 function extractSortComparator(
   callback: ts.Expression,
   method: 'sort' | 'toSorted',
   ctx: TransformContext
 ): SortExtractionResult {
-  if (!ts.isArrowFunction(callback)) {
+  if (!ts.isArrowFunction(callback) && !ts.isFunctionExpression(callback)) {
     return { result: null, unsupportedReason: 'Sort comparator must be an arrow function' }
   }
-  if (callback.parameters.length !== 2) {
-    return { result: null, unsupportedReason: 'Sort comparator must have exactly 2 parameters' }
-  }
-
-  const paramA = callback.parameters[0].name.getText(ctx.sourceFile)
-  const paramB = callback.parameters[1].name.getText(ctx.sourceFile)
-
-  // Must be expression body (not block body)
-  if (ts.isBlock(callback.body)) {
-    return { result: null, unsupportedReason: 'Block body sort comparators are not supported for server-side rendering' }
-  }
-
-  const raw = ctx.getJS(callback.body)
-
-  // Must be a subtraction: a.field - b.field or b.field - a.field
-  if (!ts.isBinaryExpression(callback.body) || callback.body.operatorToken.kind !== ts.SyntaxKind.MinusToken) {
-    return { result: null, unsupportedReason: `Sort comparator '${raw}' is not a simple subtraction pattern (a.field - b.field)` }
-  }
-
-  const left = callback.body.left
-  const right = callback.body.right
-
-  // Both sides must be property accesses
-  if (!ts.isPropertyAccessExpression(left) || !ts.isPropertyAccessExpression(right)) {
-    return { result: null, unsupportedReason: `Sort comparator '${raw}' is not a simple field access pattern` }
-  }
-
-  const leftObj = ctx.getJS(left.expression)
-  const rightObj = ctx.getJS(right.expression)
-  const leftField = left.name.text
-  const rightField = right.name.text
-
-  // Fields must match
-  if (leftField !== rightField) {
-    return { result: null, unsupportedReason: `Sort comparator compares different fields: '${leftField}' vs '${rightField}'` }
-  }
-
-  // Determine direction
-  let direction: 'asc' | 'desc'
-  if (leftObj === paramA && rightObj === paramB) {
-    direction = 'asc'
-  } else if (leftObj === paramB && rightObj === paramA) {
-    direction = 'desc'
-  } else {
-    return { result: null, unsupportedReason: `Sort comparator '${raw}' does not use the expected parameter pattern` }
-  }
-
+  const raw = ts.isArrowFunction(callback) && !ts.isBlock(callback.body)
+    ? ctx.getJS(callback.body)
+    : ctx.getJS(callback)
+  const result = extractSortComparatorFromTS(callback, method, raw)
+  if (result) return { result }
   return {
-    result: {
-      paramA,
-      paramB,
-      field: leftField,
-      direction,
-      raw,
-      method,
-    },
+    result: null,
+    unsupportedReason: `Sort comparator '${raw}' is not a supported shape (accepted: a.f-b.f, a-b, a[.f].localeCompare(b[.f]) and reversed for desc)`,
   }
 }
 
@@ -2468,7 +2412,7 @@ function transformMapCall(
   // matches the fallback path at the bottom of this if/else chain.
   let arrayExpr: ts.Expression = mapSource
   let filterPredicate: FilterPredicateResult | undefined
-  let sortComparator: SortComparatorResult | undefined
+  let sortComparator: SortComparator | undefined
   let chainOrder: 'filter-sort' | 'sort-filter' | undefined
   let mapPreamble: string | undefined
   let templateMapPreamble: string | undefined

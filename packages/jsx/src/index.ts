@@ -70,7 +70,7 @@ export { JsxAdapter } from './adapters/jsx-adapter'
 export type { JsxAdapterConfig } from './adapters/jsx-adapter'
 export { rewriteImportsForTemplate } from './adapters/template-imports'
 export { emitParsedExpr } from './adapters/parsed-expr-emitter'
-export type { ParsedExprEmitter, HigherOrderMethod, ArrayMethod, LiteralType } from './adapters/parsed-expr-emitter'
+export type { ParsedExprEmitter, HigherOrderMethod, ArrayMethod, SortMethod, LiteralType } from './adapters/parsed-expr-emitter'
 export { emitIRNode } from './adapters/ir-node-emitter'
 export type { IRNodeEmitter, EmitIRNode } from './adapters/ir-node-emitter'
 export { emitAttrValue } from './adapters/attr-value-emitter'
@@ -239,7 +239,7 @@ export { ErrorCodes, createError, formatError, generateCodeFrame } from './error
 
 // Expression Parser
 export { parseExpression, isSupported, exprToString, stringifyParsedExpr, identifierPath, parseBlockBody, containsHigherOrder } from './expression-parser'
-export type { ParsedExpr, ParsedStatement, SupportLevel, SupportResult, TemplatePart } from './expression-parser'
+export type { ParsedExpr, ParsedStatement, SortComparator, SupportLevel, SupportResult, TemplatePart } from './expression-parser'
 
 // Debug analysis
 export {

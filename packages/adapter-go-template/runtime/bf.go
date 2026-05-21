@@ -1069,11 +1069,33 @@ func FindIndex(items any, field string, value any) int {
 	return -1
 }
 
-// Sort returns a new slice sorted by the specified field in the given direction.
-// Direction must be "asc" or "desc". Uses stable sort to preserve relative order
-// of equal elements.
-// Mirrors JavaScript's Array.prototype.toSorted((a, b) => a.field - b.field).
-func Sort(items any, field string, direction string) []any {
+// Sort returns a new stable-sorted slice. Lowers
+// `Array.prototype.sort` / `Array.prototype.toSorted` (#1448 Tier B).
+// Non-mutating — JS's mutate-vs-new distinction is moot in SSR
+// template context (templates render a snapshot).
+//
+// Call shape (the compiler emits exactly 5 args):
+//
+//	bf_sort <items> <keyKind> <keyName> <compareType> <direction>
+//
+//	keyKind:      "self" | "field"
+//	keyName:      "" when keyKind == "self"; capitalised struct field
+//	              name (e.g. "Price") otherwise
+//	compareType:  "numeric" | "string"
+//	direction:    "asc" | "desc"
+//
+// The 4 string operands cover the accepted comparator catalogue:
+// `(a,b) => a.f - b.f`, `(a,b) => a - b`, and
+// `(a,b) => a[.f].localeCompare(b[.f])`, each with a reversed
+// counterpart for `desc`. Anything outside the catalogue refuses at
+// compile time (BF101 from the JSX compiler) and never reaches this
+// helper.
+//
+// A future `nulls => "first" | "last"` knob can land as a 6th arg
+// without rewriting the existing call sites — the keyKind / keyName
+// split already gives the helper everything it needs to project
+// each item's sort key before comparing.
+func Sort(items any, keyKind string, keyName string, compareType string, direction string) []any {
 	v := reflect.ValueOf(items)
 	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
 		return nil
@@ -1084,25 +1106,46 @@ func Sort(items any, field string, direction string) []any {
 		return []any{}
 	}
 
-	// Copy items into a new slice (non-mutating, like toSorted)
+	// Copy into a fresh []any so the sort is non-mutating regardless
+	// of whether the receiver is `[]T` or `[]any`.
 	result := make([]any, length)
 	for i := 0; i < length; i++ {
 		result[i] = v.Index(i).Interface()
 	}
 
-	capitalizedField := capitalize(field)
-
+	desc := direction == "desc"
 	sort.SliceStable(result, func(i, j int) bool {
-		vi := getFieldValue(result[i], capitalizedField)
-		vj := getFieldValue(result[j], capitalizedField)
-
-		if direction == "desc" {
-			return toFloat64(vi) > toFloat64(vj)
+		ki := projectSortKey(result[i], keyKind, keyName)
+		kj := projectSortKey(result[j], keyKind, keyName)
+		if compareType == "string" {
+			si := fmt.Sprint(ki)
+			sj := fmt.Sprint(kj)
+			if desc {
+				return si > sj
+			}
+			return si < sj
 		}
-		return toFloat64(vi) < toFloat64(vj)
+		// numeric
+		ni := toFloat64(ki)
+		nj := toFloat64(kj)
+		if desc {
+			return ni > nj
+		}
+		return ni < nj
 	})
 
 	return result
+}
+
+// projectSortKey reduces an item to the value the comparator
+// actually compares. For `keyKind == "field"` it reads the named
+// struct field; for `keyKind == "self"` (primitive arrays) it
+// returns the item unchanged.
+func projectSortKey(item any, keyKind, keyName string) any {
+	if keyKind == "field" {
+		return getFieldValue(item, keyName)
+	}
+	return item
 }
 
 // getFieldValue extracts a struct field value using reflection.

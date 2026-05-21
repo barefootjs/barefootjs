@@ -25,6 +25,7 @@ import type {
   SourceLocation,
   ParsedExpr,
   ParsedStatement,
+  SortComparator,
   TemplatePart,
   IRIfStatement,
   IRProvider,
@@ -169,6 +170,33 @@ function wrapIfMultiToken(rendered: string): string {
   if (rendered.startsWith('"') && rendered.endsWith('"')) return rendered
   if (/\s/.test(rendered)) return `(${rendered})`
   return rendered
+}
+
+/**
+ * Emit the `bf_sort` call shared by the standalone `sortMethod()`
+ * arm and the chained `.sort().map()` loop hoist. The runtime helper
+ * takes 4 string operands so a future `nulls` knob can grow on the
+ * end without rewriting either call site (#1448 Tier B):
+ *
+ *   bf_sort <recv> <keyKind> <keyName> <compareType> <direction>
+ *
+ *   keyKind:      "self" | "field"
+ *   keyName:      "" when keyKind=self; capitalised field name otherwise
+ *   compareType:  "numeric" | "string"
+ *   direction:    "asc" | "desc"
+ *
+ * The capitalisation mirrors the Go-side struct-field convention
+ * (`bf_sort .Items "field" "Price" "numeric" "asc"`) so the runtime
+ * helper's reflect lookup matches without a recapitalise step.
+ */
+function emitBfSort(recv: string, c: SortComparator): string {
+  const keyKind = c.key.kind
+  const keyName = c.key.kind === 'field' ? capitalize(c.key.field) : ''
+  return `bf_sort ${wrapIfMultiToken(recv)} "${keyKind}" "${keyName}" "${c.type}" "${c.direction}"`
+}
+
+function capitalize(s: string): string {
+  return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1)
 }
 
 /**
@@ -2790,6 +2818,26 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     }
   }
 
+  sortMethod(
+    method: 'sort' | 'toSorted',
+    object: ParsedExpr,
+    comparator: SortComparator,
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    // `.sort(cmp)` / `.toSorted(cmp)` lowering (#1448 Tier B). Both
+    // shapes share the helper — template SSR context renders a
+    // snapshot, so the JS mutate vs return-new distinction has no
+    // template-level meaning. The same emit serves the standalone
+    // call site here and the chained `.sort().map()` loop hoist in
+    // `renderLoop` below (both feed `bf_sort` the same 4 string
+    // operands).
+    //
+    // `method` is preserved for future divergence (e.g. should one
+    // flavour warn?) but is unused today.
+    void method
+    return emitBfSort(emit(object), comparator)
+  }
+
   unsupported(raw: string, _reason: string): string {
     // Should not happen if `isSupported` was checked at parse time.
     return `[UNSUPPORTED: ${raw}]`
@@ -3882,9 +3930,12 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     this.loopParamStack.pop()
     this.inLoop = false
 
-    // Apply sort if present: wrap array with bf_sort pipeline
+    // Apply sort if present: wrap array with bf_sort pipeline. The
+    // same `emitBfSort` helper feeds both this loop-chained call
+    // site and the standalone `sortMethod()` arm above so a
+    // regression in either path surfaces with the same emit shape.
     if (loop.sortComparator) {
-      goArray = `(bf_sort ${goArray} "${loop.sortComparator.field}" "${loop.sortComparator.direction}")`
+      goArray = `(${emitBfSort(goArray, loop.sortComparator)})`
     }
 
     // Handle filter().map() pattern by adding if-condition

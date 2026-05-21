@@ -31,7 +31,8 @@ describe('sort().map() / toSorted().map()', () => {
       expect(loop).toBeDefined()
       if (loop?.type === 'loop') {
         expect(loop.sortComparator).toBeDefined()
-        expect(loop.sortComparator!.field).toBe('price')
+        expect(loop.sortComparator!.key).toEqual({ kind: 'field', field: 'price' })
+        expect(loop.sortComparator!.type).toBe('numeric')
         expect(loop.sortComparator!.direction).toBe('asc')
         expect(loop.sortComparator!.method).toBe('sort')
         expect(loop.sortComparator!.paramA).toBe('a')
@@ -68,7 +69,8 @@ describe('sort().map() / toSorted().map()', () => {
       expect(loop).toBeDefined()
       if (loop?.type === 'loop') {
         expect(loop.sortComparator).toBeDefined()
-        expect(loop.sortComparator!.field).toBe('price')
+        expect(loop.sortComparator!.key).toEqual({ kind: 'field', field: 'price' })
+        expect(loop.sortComparator!.type).toBe('numeric')
         expect(loop.sortComparator!.direction).toBe('desc')
         expect(loop.sortComparator!.method).toBe('toSorted')
       }
@@ -103,7 +105,8 @@ describe('sort().map() / toSorted().map()', () => {
         expect(loop.filterPredicate).toBeDefined()
         expect(loop.filterPredicate!.param).toBe('t')
         expect(loop.sortComparator).toBeDefined()
-        expect(loop.sortComparator!.field).toBe('priority')
+        expect(loop.sortComparator!.key).toEqual({ kind: 'field', field: 'priority' })
+        expect(loop.sortComparator!.type).toBe('numeric')
         expect(loop.sortComparator!.direction).toBe('asc')
         expect(loop.chainOrder).toBe('filter-sort')
         expect(loop.array).toBe('todos()')

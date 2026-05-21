@@ -4,7 +4,7 @@
  * JSX-independent intermediate representation for multi-backend support.
  */
 
-import type { ParsedExpr, ParsedStatement } from './expression-parser'
+import type { ParsedExpr, ParsedStatement, SortComparator } from './expression-parser'
 
 // =============================================================================
 // Source Location (for Error Reporting)
@@ -460,15 +460,15 @@ export interface IRLoop {
    * Sort comparator for sort().map() / toSorted().map() pattern.
    * When present, the loop array is sorted before iteration.
    * Example: todos.sort((a, b) => a.priority - b.priority).map(...)
+   *
+   * The structured shape carries enough info for both adapters to
+   * emit the same `bf_sort` / `bf->sort` call (`SortComparator` is
+   * defined in `expression-parser.ts` because the standalone
+   * `array-method` IR variant uses the same type). The loop-hoist
+   * path lifts a comparator off a sibling `array-method` node
+   * during `jsx-to-ir.ts` chain detection — see `extractSortComparator`.
    */
-  sortComparator?: {
-    paramA: string          // e.g., 'a'
-    paramB: string          // e.g., 'b'
-    field: string           // e.g., 'priority'
-    direction: 'asc' | 'desc'
-    raw: string             // Full comparator body for client JS
-    method: 'sort' | 'toSorted'
-  }
+  sortComparator?: SortComparator
 
   /**
    * When both filter and sort are chained, indicates the order of operations.

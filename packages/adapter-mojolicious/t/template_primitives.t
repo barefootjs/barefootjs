@@ -243,4 +243,70 @@ subtest 'trim — strip leading + trailing whitespace' => sub {
     is $bf->trim(42),                  '42',             'numeric receiver stringifies';
 };
 
+# `Array.prototype.sort(cmp)` / `Array.prototype.toSorted(cmp)`
+# lowering (#1448 Tier B). The opts hash-ref carries the structured
+# comparator the compiler extracted at parse time — adapter-side
+# emit is a single call shape, runtime branches on `key_kind` /
+# `compare_type` / `direction`.
+subtest 'sort — structured comparator dispatch' => sub {
+    my $items = [
+        { name => 'c', price => 30 },
+        { name => 'a', price => 10 },
+        { name => 'b', price => 20 },
+    ];
+
+    # Numeric field, ascending — the canonical struct-field case.
+    is $bf->sort($items, { key_kind => 'field', key => 'price', compare_type => 'numeric', direction => 'asc' }),
+        [ { name => 'a', price => 10 }, { name => 'b', price => 20 }, { name => 'c', price => 30 } ],
+        'numeric field asc';
+
+    # Numeric field, descending — reverse direction.
+    is $bf->sort($items, { key_kind => 'field', key => 'price', compare_type => 'numeric', direction => 'desc' }),
+        [ { name => 'c', price => 30 }, { name => 'b', price => 20 }, { name => 'a', price => 10 } ],
+        'numeric field desc';
+
+    # Primitive numeric — `(a, b) => a - b` shape (key_kind=self).
+    is $bf->sort([3, 1, 2], { key_kind => 'self', compare_type => 'numeric', direction => 'asc' }),
+        [1, 2, 3],
+        'numeric self asc';
+
+    # Primitive string — `(a, b) => a.localeCompare(b)`. The Perl
+    # helper falls back to plain `cmp` (byte-ordering); within the
+    # same case it matches lexicographic order.
+    is $bf->sort(['charlie', 'alice', 'bob'], { key_kind => 'self', compare_type => 'string', direction => 'asc' }),
+        ['alice', 'bob', 'charlie'],
+        'string self asc';
+
+    is $bf->sort(['charlie', 'alice', 'bob'], { key_kind => 'self', compare_type => 'string', direction => 'desc' }),
+        ['charlie', 'bob', 'alice'],
+        'string self desc';
+
+    # Stable sort: equal keys preserve relative order. Perl `sort`
+    # has been stable since 5.8; pinning the guarantee so a future
+    # `use sort` pragma swap surfaces here.
+    my $stable_input = [
+        { name => 'first',  price => 10 },
+        { name => 'second', price => 10 },
+        { name => 'third',  price => 10 },
+    ];
+    is $bf->sort($stable_input, { key_kind => 'field', key => 'price', compare_type => 'numeric', direction => 'asc' }),
+        $stable_input,
+        'stable sort preserves equal-key order';
+
+    # Mutation isolation: caller's source array must survive.
+    my $src = [{ price => 3 }, { price => 1 }, { price => 2 }];
+    my $out = $bf->sort($src, { key_kind => 'field', key => 'price', compare_type => 'numeric', direction => 'asc' });
+    push @$out, { price => 99 };
+    is $src, [{ price => 3 }, { price => 1 }, { price => 2 }],
+        'source unchanged after mutating sort result';
+
+    # Non-array receivers fall back to empty.
+    is $bf->sort(undef, { key_kind => 'self', compare_type => 'numeric', direction => 'asc' }), [], 'undef receiver → []';
+    is $bf->sort('not an array', { key_kind => 'self', compare_type => 'numeric', direction => 'asc' }), [], 'scalar receiver → []';
+    is $bf->sort({a => 1}, { key_kind => 'self', compare_type => 'numeric', direction => 'asc' }), [], 'hash ref receiver → []';
+
+    # Empty array short-circuits.
+    is $bf->sort([], { key_kind => 'field', key => 'price', compare_type => 'numeric', direction => 'asc' }), [], 'empty array → []';
+};
+
 done_testing;
