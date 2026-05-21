@@ -836,6 +836,7 @@ import { fixture as arrayConcatFixture } from '../../../adapter-tests/fixtures/m
 import { fixture as arraySliceFixture } from '../../../adapter-tests/fixtures/methods/array-slice'
 import { fixture as arrayReverseFixture } from '../../../adapter-tests/fixtures/methods/array-reverse'
 import { fixture as arrayToReversedFixture } from '../../../adapter-tests/fixtures/methods/array-toReversed'
+import { fixture as stringToLowerCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toLowerCase'
 
 describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -850,6 +851,7 @@ describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
     // .toReversed shares the helper with .reverse — pinning both
     // routings catches a future divergence between them.
     { fixture: arrayToReversedFixture,  expect: 'bf->reverse($items)' },
+    { fixture: stringToLowerCaseFixture,expect: 'lc($value)' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {
