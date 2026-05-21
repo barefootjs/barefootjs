@@ -142,23 +142,23 @@ subtest 'at — array indexed access with negative-index support' => sub {
 # to empty (matches the Go `bf_concat` semantic); the result must
 # compose with `.join(...)` etc., hence the ARRAY ref return type.
 subtest 'concat — merges two arrays into a new array ref' => sub {
-    is_deeply $bf->concat(['a','b'], ['c','d']),    ['a','b','c','d'],     'two non-empty arrays';
-    is_deeply $bf->concat([],         ['a']),       ['a'],                 'empty + non-empty';
-    is_deeply $bf->concat(['a'],      []),          ['a'],                 'non-empty + empty';
-    is_deeply $bf->concat([],         []),          [],                    'empty + empty';
+    is $bf->concat(['a','b'], ['c','d']),    ['a','b','c','d'],     'two non-empty arrays';
+    is $bf->concat([],         ['a']),       ['a'],                 'empty + non-empty';
+    is $bf->concat(['a'],      []),          ['a'],                 'non-empty + empty';
+    is $bf->concat([],         []),          [],                    'empty + empty';
 
-    is_deeply $bf->concat(undef,      ['a']),       ['a'],                 'undef left → treats as empty';
-    is_deeply $bf->concat(['a'],      undef),       ['a'],                 'undef right → treats as empty';
-    is_deeply $bf->concat('not an array', ['a']),   ['a'],                 'scalar left → treats as empty';
-    is_deeply $bf->concat({a=>1},     ['a']),       ['a'],                 'hash ref left → treats as empty';
+    is $bf->concat(undef,      ['a']),       ['a'],                 'undef left → treats as empty';
+    is $bf->concat(['a'],      undef),       ['a'],                 'undef right → treats as empty';
+    is $bf->concat('not an array', ['a']),   ['a'],                 'scalar left → treats as empty';
+    is $bf->concat({a=>1},     ['a']),       ['a'],                 'hash ref left → treats as empty';
 
     # Mutation isolation: caller's source arrays must not be modified.
     my $left  = ['a', 'b'];
     my $right = ['c', 'd'];
     my $out   = $bf->concat($left, $right);
     push @$out, 'mutated';
-    is_deeply $left,  ['a', 'b'], 'left source unchanged after mutating result';
-    is_deeply $right, ['c', 'd'], 'right source unchanged after mutating result';
+    is $left,  ['a', 'b'], 'left source unchanged after mutating result';
+    is $right, ['c', 'd'], 'right source unchanged after mutating result';
 };
 
 done_testing;
