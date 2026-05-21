@@ -2771,6 +2771,12 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         const recv = emit(object)
         return `bf_lower ${wrapIfMultiToken(recv)}`
       }
+      case 'toUpperCase': {
+        // Mirrors `toLowerCase` — pre-existing `bf_upper` runtime
+        // helper, just adapter wiring.
+        const recv = emit(object)
+        return `bf_upper ${wrapIfMultiToken(recv)}`
+      }
       default: {
         const _exhaustive: never = method
         throw new Error(`Go arrayMethod: unhandled ArrayMethod '${(_exhaustive as string)}'`)

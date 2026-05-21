@@ -166,10 +166,10 @@ runAdapterConformanceTests({
     // both share the `bf_reverse` helper since SSR templates
     // render a snapshot and the JS mutate-vs-new distinction has
     // no template-level meaning (#1448 Tier A sixth PR).
-    // `string-toLowerCase` no longer pinned — the pre-existing
-    // `bf_lower` runtime helper now wires to the JS method name
-    // at the adapter layer (#1448 Tier A seventh PR).
-    'string-toUpperCase':  [{ code: 'BF101', severity: 'error' }],
+    // `string-toLowerCase` / `string-toUpperCase` no longer pinned —
+    // pre-existing `bf_lower` / `bf_upper` runtime helpers wire to
+    // the JS method names at the adapter layer (#1448 Tier A
+    // seventh + eighth PRs).
     'string-trim':         [{ code: 'BF101', severity: 'error' }],
   },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
@@ -1574,7 +1574,7 @@ export { A }`)
     })
   })
 
-  describe('.toLowerCase lowering (#1448 Tier A)', () => {
+  describe('.toLowerCase / .toUpperCase lowering (#1448 Tier A)', () => {
     test('value.toLowerCase() emits `bf_lower .Value`', () => {
       // Pre-#1448: parser refused `.toLowerCase` via
       // `UNSUPPORTED_METHODS` and surfaced BF101. The runtime's
@@ -1585,6 +1585,16 @@ export { A }`)
 }
 export { A }`)
       expect(result.template).toContain('bf_lower .Value')
+    })
+
+    test('value.toUpperCase() emits `bf_upper .Value`', () => {
+      // Mirrors toLowerCase — pre-existing `bf_upper` runtime
+      // helper, JS method name wired at the adapter layer.
+      const result = compileAndGenerate(`function A({ value }: { value: string }) {
+  return <div>{value.toUpperCase()}</div>
+}
+export { A }`)
+      expect(result.template).toContain('bf_upper .Value')
     })
   })
 

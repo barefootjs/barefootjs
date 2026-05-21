@@ -44,6 +44,7 @@ export type ParsedExpr =
         | 'reverse'
         | 'toReversed'
         | 'toLowerCase'
+        | 'toUpperCase'
       object: ParsedExpr
       args: ParsedExpr[]
     }
@@ -135,9 +136,9 @@ const UNSUPPORTED_METHODS = new Set([
   // no template-level meaning. Both lowerings always return a new
   // array — safest interpretation.
   // #1448 Tier A — String methods.
-  // `toLowerCase` lowers via the `array-method` IR + `bf_lower`
-  // (Go) and Perl's native `lc` (Mojo).
-  'toUpperCase', 'trim',
+  // `toLowerCase` / `toUpperCase` lower via the `array-method` IR +
+  // `bf_lower` / `bf_upper` (Go) and Perl's native `lc` / `uc` (Mojo).
+  'trim',
 ])
 
 // =============================================================================
@@ -309,6 +310,11 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
       // Mojo uses Perl's native `lc`. See #1448 Tier A.
       if (callee.property === 'toLowerCase' && args.length === 0) {
         return { kind: 'array-method', method: 'toLowerCase', object: callee.object, args }
+      }
+      // `.toUpperCase()` — Go uses the existing `bf_upper` helper;
+      // Mojo uses Perl's native `uc`.
+      if (callee.property === 'toUpperCase' && args.length === 0) {
+        return { kind: 'array-method', method: 'toUpperCase', object: callee.object, args }
       }
     }
 

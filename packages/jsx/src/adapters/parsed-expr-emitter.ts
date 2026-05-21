@@ -58,6 +58,7 @@ export type ArrayMethod =
   | 'reverse'
   | 'toReversed'
   | 'toLowerCase'
+  | 'toUpperCase'
 
 export type LiteralType = 'string' | 'number' | 'boolean' | 'null'
 

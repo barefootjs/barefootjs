@@ -1508,6 +1508,11 @@ function renderArrayMethod(
       const recv = emit(object)
       return `lc(${recv})`
     }
+    case 'toUpperCase': {
+      // Perl's native `uc` — mirrors `toLowerCase` exactly.
+      const recv = emit(object)
+      return `uc(${recv})`
+    }
     default: {
       // TS-level exhaustiveness guard. If this throws at runtime, the
       // IR was constructed against a newer `ArrayMethod` variant that
