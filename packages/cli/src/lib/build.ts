@@ -4,7 +4,7 @@ import { compileJSX, combineParentChildClientJs, createProgramForCorpus, formatE
 import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec, BundleEntry } from '@barefootjs/jsx'
 import type ts from 'typescript'
 import { mkdir, readdir, stat, unlink } from 'node:fs/promises'
-import { resolve, basename, relative, dirname } from 'node:path'
+import { resolve, basename, relative, dirname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { resolveRelativeImports } from './resolve-imports'
 import {
@@ -482,6 +482,14 @@ export async function build(
   let cachedCount = 0
   let errorCount = 0
 
+  // Sources whose compile errored this run. We preserve their previous
+  // outputs at the cleanup pass below so a single broken component
+  // doesn't take down the last-known-good outputs of other (clean)
+  // components, AND a `--force` build that hits a transient error
+  // doesn't delete cached client JS that the dev's browser is still
+  // loading. See PR #1469 review.
+  const failedSources = new Set<string>()
+
   // Collected types from all components (for postBuild hook)
   const collectedTypes = new Map<string, string>()
 
@@ -570,6 +578,7 @@ export async function build(
           `  BF001: 'use client' directive required — imports reactive primitive(s) from @barefootjs/client: ${missing.join(', ')}`,
         )
         errorCount++
+        failedSources.add(entryPath)
         continue
       }
       skippedCount++
@@ -608,6 +617,7 @@ export async function build(
 
     if (result.kind === 'error') {
       errorCount++
+      failedSources.add(entryPath)
       // Preserve old cache entry so we do not lose prior outputs on a failed
       // compile (they stay on disk and we reuse the prior manifest row).
       if (cached) {
@@ -673,6 +683,22 @@ export async function build(
   for (const entry of Object.values(nextEntries)) {
     for (const output of entry.outputs) currentEmitSet.add(output)
   }
+  // Failure preservation. A source that errored this run still owns its
+  // previous outputs on disk — deleting them would turn a transient
+  // compile error into a broken-build cascade (the dev's browser
+  // suddenly 404s on the file it was reloading, the manifest still
+  // references the cached entry's previous emit). The cached-entry
+  // carry-forward above handles the case where the cache had a row for
+  // the entry, but `--force` and globalHash flips reset the cache to
+  // empty even when the previous build's outputs are still on disk.
+  // Re-add those outputs to `currentEmitSet` so the orphan diff treats
+  // them as still owned for this run.
+  for (const sourceKey of failedSources) {
+    const prior = previousEmitEntries[sourceKey]
+    if (prior) {
+      for (const output of prior) currentEmitSet.add(output)
+    }
+  }
   const orphanedOutputs = new Set<string>()
   for (const previousOutputs of Object.values(previousEmitEntries)) {
     for (const output of previousOutputs) {
@@ -685,10 +711,17 @@ export async function build(
   // outside `outDir`. Refuse to unlink anything that escapes — the
   // ledger only ever owns files the build itself emitted, and those are
   // always under `outDir`.
+  //
+  // Use `relative()` + `isAbsolute()` rather than a `startsWith(outDir +
+  // '/')` substring check so this stays correct on Windows, where
+  // `resolve()` returns paths separated by `\\` and the hardcoded `/`
+  // would never match.
   const outDirAbs = resolve(config.outDir)
   for (const output of orphanedOutputs) {
     const abs = resolve(config.outDir, output)
-    if (abs !== outDirAbs && !abs.startsWith(outDirAbs + '/')) {
+    const rel = relative(outDirAbs, abs)
+    const escapes = rel === '' ? false : rel.startsWith('..') || isAbsolute(rel)
+    if (escapes) {
       console.warn(
         `Warning: refusing to delete out-of-tree path from emit ledger: ${output}`,
       )
@@ -904,6 +937,20 @@ export async function build(
   for (const [key, entry] of Object.entries(nextEntries)) {
     if (entry.outputs.length > 0) {
       nextLedger.entries[key] = entry.outputs.slice()
+    }
+  }
+  // Carry the previous ledger row forward for any source that errored
+  // this run AND has no current nextEntries row (i.e. `--force` reset
+  // the cache so `cached` was undefined when the failure handler ran).
+  // Without this, the next build would lose the ownership claim and
+  // those outputs would persist on disk forever, untracked. With it,
+  // they stay tracked — so if the user later actually deletes the
+  // source, the next clean build prunes them correctly.
+  for (const sourceKey of failedSources) {
+    if (nextLedger.entries[sourceKey]) continue
+    const prior = previousEmitEntries[sourceKey]
+    if (prior && prior.length > 0) {
+      nextLedger.entries[sourceKey] = prior.slice()
     }
   }
   await Promise.all([

@@ -1272,6 +1272,74 @@ describe('build() orphan output cleanup', () => {
     }
   })
 
+  // A `--force` build that hits a compile error on a previously-good
+  // component must NOT delete that component's previously-emitted
+  // outputs. Before the fix, `--force` reset `cache.entries` to empty,
+  // so the failure-handler's cached-entry preservation didn't fire,
+  // and the ledger-driven cleanup pass then orphaned the prior outputs
+  // — turning a single transient compile error into a broken-build
+  // cascade. See PR #1469 review.
+  test('preserves prior outputs when --force rebuild hits a compile error', async () => {
+    const projectDir = makeTmpDir('failure-preserve-src')
+    const outDir = makeTmpDir('failure-preserve-out')
+    try {
+      const componentsDir = resolve(projectDir, 'components')
+      mkdirSync(componentsDir, { recursive: true })
+      const counterPath = resolve(componentsDir, 'Counter.tsx')
+      // Compiles cleanly on the first build.
+      const goodSrc =
+        `'use client'\n` +
+        `import { createSignal } from '@barefootjs/client'\n` +
+        `export function Counter() {\n` +
+        `  const [v, setV] = createSignal(0)\n` +
+        `  return <button onClick={() => setV(v() + 1)}>{v()}</button>\n` +
+        `}\n`
+      writeFileSync(counterPath, goodSrc)
+
+      const config = makeBuildConfig(projectDir, outDir)
+      const firstBuild = await build(config)
+      expect(firstBuild.errorCount).toBe(0)
+
+      const ledger = await loadEmitLedger(outDir)
+      const counterOutputs = ledger!.entries[counterPath]
+      expect(counterOutputs).toBeDefined()
+      expect(counterOutputs.length).toBeGreaterThan(0)
+      for (const rel of counterOutputs) {
+        expect(existsSync(resolve(outDir, rel))).toBe(true)
+      }
+
+      // Break the source. An inline JSX callback capturing a loop
+      // variable from the surrounding scope trips BF023 — a real
+      // analyzer-emitted error that flows through `result.errors` and
+      // returns `kind: 'error'` from compileEntry. The prior outputs
+      // on disk are the build's last-known-good emit and must survive
+      // — the dev's browser may still be requesting them.
+      writeFileSync(
+        counterPath,
+        `'use client'\n` +
+          `import { createSignal } from '@barefootjs/client'\n` +
+          `export function Counter() {\n` +
+          `  const arr = [1, 2, 3]\n` +
+          `  return <div>{arr.map(item => <button onClick={() => console.log(item)}>{item}</button>)}</div>\n` +
+          `}\n`,
+      )
+      const failingBuild = await build(config, { force: true })
+      expect(failingBuild.errorCount).toBeGreaterThan(0)
+
+      for (const rel of counterOutputs) {
+        expect(existsSync(resolve(outDir, rel))).toBe(true)
+      }
+      // Ownership claim survives in the ledger too, so the next build
+      // (whether it succeeds, fails again, or the user actually
+      // deletes the source) keeps the prune pass authoritative.
+      const ledgerAfter = await loadEmitLedger(outDir)
+      expect(ledgerAfter!.entries[counterPath]).toEqual(counterOutputs)
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true })
+      rmSync(outDir, { recursive: true, force: true })
+    }
+  })
+
   // Defence-in-depth: `.bfemit.json` is an on-disk input that the build
   // re-reads every run. If a corrupted or tampered file claimed
   // ownership of a path that escapes `outDir` (absolute path, `../`
