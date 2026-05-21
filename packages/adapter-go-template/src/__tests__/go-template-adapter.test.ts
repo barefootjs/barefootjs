@@ -1531,6 +1531,8 @@ export function C() {
 
 import { fixture as arrayIncludesFixture } from '../../../adapter-tests/fixtures/methods/array-includes'
 import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixtures/methods/string-includes'
+import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-indexOf'
+import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
 
 describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -1538,6 +1540,8 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     // (`{cond ? 'yes' : 'no'}`), so the emit lands inside `{{if ...}}`.
     { fixture: arrayIncludesFixture,    expect: '{{if bf_includes .Items .Target}}' },
     { fixture: stringIncludesFixture,   expect: '{{if bf_includes .Value .Needle}}' },
+    { fixture: arrayIndexOfFixture,     expect: 'bf_index_of .Items .Target' },
+    { fixture: arrayLastIndexOfFixture, expect: 'bf_last_index_of .Items .Target' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

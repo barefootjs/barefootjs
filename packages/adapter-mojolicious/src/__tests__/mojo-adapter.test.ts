@@ -715,11 +715,15 @@ export function V({ variant }: { variant: 'a' | 'b' }) {
 
 import { fixture as arrayIncludesFixture } from '../../../adapter-tests/fixtures/methods/array-includes'
 import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixtures/methods/string-includes'
+import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-indexOf'
+import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
 
 describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
     { fixture: arrayIncludesFixture,    expect: 'bf->includes($items, $target)' },
     { fixture: stringIncludesFixture,   expect: 'bf->includes($value, $needle)' },
+    { fixture: arrayIndexOfFixture,     expect: 'bf->index_of($items, $target)' },
+    { fixture: arrayLastIndexOfFixture, expect: 'bf->last_index_of($items, $target)' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {
