@@ -401,7 +401,14 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
         return {
           kind: 'unsupported',
           raw,
-          reason: `Sort comparator shape not supported. Accepted: (a,b) => a.f - b.f | (a,b) => a - b | (a,b) => a[.f].localeCompare(b[.f]) (and reversed for desc). Wrap the call in /* @client */ to evaluate at hydration.`,
+          reason:
+            `Sort comparator shape not supported. Accepted:\n` +
+            `  (a, b) => a - b\n` +
+            `  (a, b) => a.field - b.field\n` +
+            `  (a, b) => a.localeCompare(b)\n` +
+            `  (a, b) => a.field.localeCompare(b.field)\n` +
+            `(reverse the operands for descending order). ` +
+            `Wrap the call in /* @client */ to evaluate at hydration.`,
         }
       }
     }

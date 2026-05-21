@@ -1881,7 +1881,10 @@ function extractSortComparator(
   ctx: TransformContext
 ): SortExtractionResult {
   if (!ts.isArrowFunction(callback) && !ts.isFunctionExpression(callback)) {
-    return { result: null, unsupportedReason: 'Sort comparator must be an arrow function' }
+    return {
+      result: null,
+      unsupportedReason: 'Sort comparator must be an arrow function or function expression',
+    }
   }
   const result = extractSortComparatorFromTS(callback, method)
   if (result) return { result }
@@ -1892,7 +1895,13 @@ function extractSortComparator(
   const raw = ctx.getJS(callback)
   return {
     result: null,
-    unsupportedReason: `Sort comparator '${raw}' is not a supported shape (accepted: a.f-b.f, a-b, a[.f].localeCompare(b[.f]) and reversed for desc)`,
+    unsupportedReason:
+      `Sort comparator '${raw}' is not a supported shape. Accepted:\n` +
+      `  (a, b) => a - b\n` +
+      `  (a, b) => a.field - b.field\n` +
+      `  (a, b) => a.localeCompare(b)\n` +
+      `  (a, b) => a.field.localeCompare(b.field)\n` +
+      `(reverse the operands for descending order).`,
   }
 }
 
