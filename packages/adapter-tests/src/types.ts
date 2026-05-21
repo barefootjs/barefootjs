@@ -21,9 +21,11 @@ export interface ExpectedDiagnostic {
  * against the live page after hydration.
  *
  * - `click` — dispatch a click on the first match of `selector`
- * - `expectText` — assert the first match of `selector` has exactly
- *   `text` as its text content
- * - `expectContains` — assert the first match contains `text` as a substring
+ * - `expectText` — assert the first match of `selector` matches `text`
+ *   under Playwright's `toHaveText` semantics (whitespace is normalized
+ *   and trimmed)
+ * - `expectContains` — assert the first match contains `text` as a
+ *   substring (Playwright `toContainText`, same normalization rules)
  */
 export type InteractionStep =
   | { type: 'click'; selector: string }

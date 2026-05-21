@@ -16,7 +16,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: 'list',
-  use: { trace: 'on-first-retry' },
+  // `on-first-retry` is a no-op when `retries: 0` — keep traces on every
+  // failure so the first red run already carries the artifact you need.
+  use: { trace: 'retain-on-failure' },
   projects: [
     {
       name: 'chromium',

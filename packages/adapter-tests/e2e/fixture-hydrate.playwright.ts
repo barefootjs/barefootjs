@@ -3,9 +3,9 @@
  *
  * For each fixture that ships an `expectedHtml` + `expectedClientJs` +
  * `interactions` triple, this spec:
- *   1. Spins up a minimal Bun.serve that serves a host page whose body
- *      contains `expectedHtml` and whose `<script type="module">` imports
- *      `expectedClientJs`.
+ *   1. Spins up a minimal `node:http` server that serves a host page
+ *      whose body contains `expectedHtml` and whose
+ *      `<script type="module">` imports `expectedClientJs`.
  *   2. Resolves `@barefootjs/client/runtime` via an import-map pointing at
  *      the prebuilt `packages/client/dist/runtime/standalone.js` so the
  *      compiler output runs unmodified — the same module graph used by
@@ -16,12 +16,18 @@
  * by `scripts/snapshot-*.ts`). That narrows blame to the runtime in
  * `packages/client/src/runtime/` or a real-browser semantic happy-dom
  * doesn't model, exactly the responsibility split #1467 describes.
+ *
+ * Prerequisite: `@barefootjs/client` must be built (`bun run --filter
+ * '@barefootjs/client' build`) before this suite runs — the standalone
+ * runtime bundle is the import target the host page resolves at runtime.
+ * CI's `Build packages` step already covers this; locally, `bun run
+ * build` from the repo root is enough.
  */
 
 import { test, expect, type Page } from '@playwright/test'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { fixture as counterShared } from '../fixtures/counter-shared'
@@ -32,10 +38,10 @@ const RUNTIME_PATH = resolve(
   HERE,
   '../../client/dist/runtime/standalone.js',
 )
-const RUNTIME_SOURCE = readFileSync(RUNTIME_PATH, 'utf8')
 
 let server: Server
 let baseUrl: string
+let runtimeSource: string
 
 const fixtures: JSXFixture[] = [counterShared]
 const byId = new Map(fixtures.map(f => [f.id, f]))
@@ -60,7 +66,19 @@ ${fixture.expectedHtml ?? ''}
 </html>`
 }
 
+function assertNever(value: never): never {
+  throw new Error(`Unhandled InteractionStep variant: ${JSON.stringify(value)}`)
+}
+
 test.beforeAll(async () => {
+  if (!existsSync(RUNTIME_PATH)) {
+    throw new Error(
+      `Runtime bundle not found at ${RUNTIME_PATH}.\n` +
+        `Run \`bun run --filter '@barefootjs/client' build\` (or \`bun run build\` at the repo root) before this suite.`,
+    )
+  }
+  runtimeSource = readFileSync(RUNTIME_PATH, 'utf8')
+
   server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost')
     // Route layout: `/__runtime.js` (shared), `/<fixtureId>/__client.js`
@@ -69,7 +87,7 @@ test.beforeAll(async () => {
     // absolute URL without baking the fixture id into the bare specifier
     // resolution table.
     if (url.pathname === '/__runtime.js') {
-      res.writeHead(200, { 'content-type': 'application/javascript' }).end(RUNTIME_SOURCE)
+      res.writeHead(200, { 'content-type': 'application/javascript' }).end(runtimeSource)
       return
     }
     const segments = url.pathname.split('/').filter(Boolean)
@@ -90,7 +108,10 @@ test.beforeAll(async () => {
   })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const port = (server.address() as AddressInfo).port
-  baseUrl = `http://localhost:${port}`
+  // Use the bound IPv4 literal in baseUrl — on hosts where `localhost`
+  // resolves to `::1` first the IPv6 listener doesn't exist and the
+  // browser falls through to a connection error.
+  baseUrl = `http://127.0.0.1:${port}`
 })
 
 test.afterAll(async () => {
@@ -108,6 +129,8 @@ async function runStep(page: Page, step: InteractionStep): Promise<void> {
     case 'expectContains':
       await expect(page.locator(step.selector).first()).toContainText(step.text)
       return
+    default:
+      return assertNever(step)
   }
 }
 
