@@ -321,20 +321,33 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     let typeAnnotation: string
     let propsExtraction: string | null = null
 
+    // Synthetic hydration-only props the generated wrapper destructures
+    // out of `props` before reaching the user's body. Kept as a shared
+    // constant so the `propsObjectName` (SolidJS-style) and destructured
+    // branches both list every hydration field — the destructured
+    // branch's fallback used to declare only `__instanceId / __bfScope
+    // / __bfChild`, but the generated body destructures `__bfParent /
+    // __bfMount / __bfParentProps / data-key` too, so tsc raised
+    // TS2339 ("Property '__bfParent' does not exist...") on every
+    // emitted SSR template for a component without an explicit Props
+    // type. See onboarding round 5 / PR #1450.
+    const HYDRATION_PROPS_TYPE =
+      '{ __instanceId?: string; __bfScope?: string; __bfChild?: boolean; __bfParentProps?: string; __bfParent?: string; __bfMount?: string; "data-key"?: string | number }'
+
     if (propsObjectName) {
       // SolidJS-style: function Component(props: Props)
       // Accept all props as a single object, then destructure hydration props out
       fullPropsDestructure = `__allProps`
       typeAnnotation = propsTypeName
-        ? `: ${propsTypeName} & { __instanceId?: string; __bfScope?: string; __bfChild?: boolean; __bfParentProps?: string; __bfParent?: string; __bfMount?: string; "data-key"?: string | number }`
-        : `: Record<string, unknown> & { __instanceId?: string; __bfScope?: string; __bfChild?: boolean; __bfParentProps?: string; __bfParent?: string; __bfMount?: string; "data-key"?: string | number }`
+        ? `: ${propsTypeName} & ${HYDRATION_PROPS_TYPE}`
+        : `: Record<string, unknown> & ${HYDRATION_PROPS_TYPE}`
       // propsExtraction is rebuilt after jsxBody generation with unused-aware aliases
     } else {
       // Destructured props pattern — fullPropsDestructure rebuilt after jsxBody with unused-aware aliases
       fullPropsDestructure = '' // placeholder, rebuilt below
       typeAnnotation = propsTypeName
         ? `: ${name}PropsWithHydration`
-        : ': { __instanceId?: string; __bfScope?: string; __bfChild?: boolean }'
+        : `: ${HYDRATION_PROPS_TYPE}`
     }
 
     // Generate props serialization for hydration (for components with props)

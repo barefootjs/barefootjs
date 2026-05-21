@@ -253,6 +253,19 @@ describe('adapter registry', () => {
     expect(csr.files['pages/index.html']).toMatch(/@barefootjs\/client\/runtime/)
     expect(csr.files['barefoot.config.ts']).toMatch(/@barefootjs\/client\/build/)
   })
+
+  test('hono scaffold ships bun-types so `bf gen test` files type-check', () => {
+    // `init.ts` hard-codes the scaffold's `test` script to `bun test`
+    // for every adapter, and `bf gen test` writes `*.test.tsx` files
+    // that `import { describe, test, expect } from 'bun:test'`. Without
+    // bun-types in the tsconfig + @types/bun in devDeps, tsc / the IDE
+    // raises TS2307 ("Cannot find module 'bun:test'") on every
+    // generated test the moment the user opens the project. See
+    // onboarding round 5 / PR #1450.
+    const hono = ADAPTERS.hono
+    expect(hono.files['tsconfig.json']).toContain('"bun-types"')
+    expect(hono.devDependencies['@types/bun']).toBeTruthy()
+  })
 })
 
 describe('CSS library registry', () => {

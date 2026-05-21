@@ -111,7 +111,13 @@ const HONO_TSCONFIG = `{
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "jsxImportSource": "@barefootjs/hono/jsx",
-    "types": ["@cloudflare/workers-types"],
+    // \`@cloudflare/workers-types\` covers the deployed Worker. Bun
+    // types are mixed in because the scaffold's \`test\` script is
+    // \`bun test\` and \`bf gen test\` writes \`*.test.tsx\` files
+    // that import \`bun:test\` — without bun-types tsc / the IDE
+    // raise TS2307 ("Cannot find module 'bun:test'") on every
+    // generated test the moment the user opens the project.
+    "types": ["@cloudflare/workers-types", "bun-types"],
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -206,6 +212,11 @@ export const HONO_ADAPTER: AdapterTemplate = {
     // at. Without it the scaffold's `bun test` is a no-op and any
     // generated `index.test.tsx` fails with a module-not-found error.
     '@barefootjs/test': 'latest',
+    // Paired with `"types": ["bun-types"]` in tsconfig.json. The scaffold's
+    // `test` script is `bun test` and every generated test file imports
+    // `bun:test`, so tsc needs the bun module declarations to type-check
+    // the project cleanly. Without it the IDE flags every test red.
+    '@types/bun': '^1.1.0',
     concurrently: '^9.0.0',
     typescript: '^5.6.0',
   },
