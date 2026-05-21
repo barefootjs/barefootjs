@@ -26,6 +26,17 @@ export interface ScaffoldResult {
   testPath: string
 }
 
+export interface ScaffoldOptions {
+  /**
+   * Import specifier the emitted `*.test.tsx` uses for `describe` /
+   * `test` / `expect`. Defaults to `bun:test` so existing callers
+   * behave unchanged; `bf gen component` overrides it via
+   * `testRunnerFor(pm)` so non-bun scaffolds emit a `from 'vitest'`
+   * line that resolves under `npm install`.
+   */
+  testImportSource?: string
+}
+
 /**
  * Generate a component skeleton and basic IR test.
  * @param componentName - Name for the new component (kebab-case, e.g. "settings-form")
@@ -36,12 +47,14 @@ export interface ScaffoldResult {
  *   relative to the project root. Monorepo: `ui/components/ui` (default).
  *   Scaffolded app: pass `barefoot.config.ts`'s `paths.components`
  *   (typically `components/ui`) so files don't land in `node_modules/ui/...`.
+ * @param options - Per-runner overrides for the emitted test file.
  */
 export function scaffold(
   componentName: string,
   useComponents: string[],
   metaDir: string,
   componentsBasePath: string = 'ui/components/ui',
+  options: ScaffoldOptions = {},
 ): ScaffoldResult {
   const metas = useComponents.map(name => ({ name, meta: loadMeta(metaDir, name) }))
   const found = metas.filter(m => m.meta !== null) as { name: string; meta: ComponentMeta }[]
@@ -57,7 +70,7 @@ export function scaffold(
   const componentCode = generateComponentCode(componentName, imports, needsClient, notFound)
 
   // Generate test code
-  const testCode = generateTestCode(componentName, needsClient)
+  const testCode = generateTestCode(componentName, needsClient, options.testImportSource ?? 'bun:test')
 
   const basePath = `${componentsBasePath}/${componentName}`
 
@@ -166,12 +179,12 @@ function generateComponentCode(
   return lines.join('\n')
 }
 
-function generateTestCode(componentName: string, needsClient: boolean): string {
+function generateTestCode(componentName: string, needsClient: boolean, importSource: string): string {
   const pascalName = toPascalCase(componentName)
   const varName = toCamelCase(componentName) + 'Source'
   const lines: string[] = []
 
-  lines.push(`import { describe, test, expect } from 'bun:test'`)
+  lines.push(`import { describe, test, expect } from '${importSource}'`)
   lines.push(`import { readFileSync } from 'fs'`)
   lines.push(`import { resolve } from 'path'`)
   lines.push(`import { renderToTest } from '@barefootjs/test'`)

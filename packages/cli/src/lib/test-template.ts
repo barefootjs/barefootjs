@@ -5,12 +5,28 @@ import { readFileSync } from 'fs'
 import path from 'path'
 import { parseComponent } from './parse-component'
 
+export interface GenerateTestTemplateOptions {
+  /**
+   * Import specifier the emitted file uses for `describe` / `test` /
+   * `expect`. Defaults to `bun:test` so existing callers behave
+   * unchanged; `bf gen test` overrides it with `testRunnerFor(pm)` so
+   * non-bun scaffolds get a `from 'vitest'` line that resolves under
+   * `npm install`. See `testRunnerFor` in `./pm.ts`.
+   */
+  importSource?: string
+}
+
 /**
  * Generate an IR test file for a component.
  * @param componentPath - Absolute path to the .tsx file
+ * @param options - Per-runner overrides (e.g. `importSource: 'vitest'`).
  * @returns The generated test file content as a string
  */
-export function generateTestTemplate(componentPath: string): string {
+export function generateTestTemplate(
+  componentPath: string,
+  options: GenerateTestTemplateOptions = {},
+): string {
+  const importSource = options.importSource ?? 'bun:test'
   const source = readFileSync(componentPath, 'utf-8')
   const parsed = parseComponent(source)
   const fileName = path.basename(componentPath)
@@ -31,7 +47,7 @@ export function generateTestTemplate(componentPath: string): string {
   const lines: string[] = []
 
   // Header
-  lines.push(`import { describe, test, expect } from 'bun:test'`)
+  lines.push(`import { describe, test, expect } from '${importSource}'`)
   lines.push(`import { readFileSync } from 'fs'`)
   lines.push(`import { resolve } from 'path'`)
   lines.push(`import { renderToTest } from '@barefootjs/test'`)

@@ -5,7 +5,7 @@ import path from 'path'
 import type { CliContext } from '../context'
 import { scaffold } from '../lib/scaffold'
 import { resolveScaffoldLayout } from '../lib/scaffold-layout'
-import { commandsFor, detectPackageManager } from '../lib/pm'
+import { commandsFor, detectPackageManager, testRunnerFor } from '../lib/pm'
 
 export function run(args: string[], ctx: CliContext): void {
   if (args.length < 2) {
@@ -16,7 +16,15 @@ export function run(args: string[], ctx: CliContext): void {
 
   const [componentName, ...useComponents] = args
   const { writeRoot, componentsBasePath } = resolveScaffoldLayout(ctx)
-  const result = scaffold(componentName, useComponents, ctx.metaDir, componentsBasePath)
+  // PM detection drives both the emitted test file's import source
+  // (`bun:test` vs. `vitest`) and the "Next steps" hint below, so the
+  // generated test matches the runner the project's `test` script is
+  // wired up to. See `testRunnerFor` in `../lib/pm.ts`.
+  const pm = detectPackageManager(ctx.projectDir ?? ctx.root)
+  const runner = testRunnerFor(pm)
+  const result = scaffold(componentName, useComponents, ctx.metaDir, componentsBasePath, {
+    testImportSource: runner.importSource,
+  })
 
   // Write component file
   const componentAbsPath = path.join(writeRoot, result.componentPath)
@@ -38,7 +46,6 @@ export function run(args: string[], ctx: CliContext): void {
   // Detected PM controls the test-run hint so the suggestion lines up
   // with whatever the user has committed to (lockfile-first), instead of
   // prescribing `bun test` regardless.
-  const pm = detectPackageManager(ctx.projectDir ?? ctx.root)
   const testCmd = commandsFor(pm).test(result.testPath)
 
   console.log(`Created:`)

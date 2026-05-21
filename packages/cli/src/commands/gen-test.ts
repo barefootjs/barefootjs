@@ -5,7 +5,7 @@ import path from 'path'
 import type { CliContext } from '../context'
 import { resolveComponentSource } from '../lib/resolve-source'
 import { generateTestTemplate } from '../lib/test-template'
-import { commandsFor, detectPackageManager } from '../lib/pm'
+import { commandsFor, detectPackageManager, testRunnerFor } from '../lib/pm'
 
 export function run(args: string[], ctx: CliContext): void {
   // Two surfacing modes for the generated IR test:
@@ -38,7 +38,13 @@ export function run(args: string[], ctx: CliContext): void {
     process.exit(1)
   }
 
-  const content = generateTestTemplate(resolved.filePath)
+  // PM detection drives both the emitted test file's import source
+  // (`bun:test` vs. `vitest`) and the "Next steps" hint below, so the
+  // generated file matches the runner the user's package.json `test`
+  // script is wired up to. See `testRunnerFor` in `../lib/pm.ts`.
+  const pm = detectPackageManager(ctx.projectDir ?? ctx.root)
+  const runner = testRunnerFor(pm)
+  const content = generateTestTemplate(resolved.filePath, { importSource: runner.importSource })
 
   if (writeToStdout) {
     console.log(content)
@@ -67,6 +73,5 @@ export function run(args: string[], ctx: CliContext): void {
   // to (lockfile-first, falling back to the PM that spawned this CLI).
   // Hard-coding `bun test` was prescriptive in a project that explicitly
   // supports npm / pnpm / yarn / bun.
-  const pm = detectPackageManager(ctx.projectDir ?? ctx.root)
   console.log(`Next: ${commandsFor(pm).test(rel)}`)
 }

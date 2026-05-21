@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { mkdirSync, writeFileSync, rmSync } from 'fs'
 import path from 'path'
 import os from 'os'
-import { detectPackageManager, detectInvokingPackageManager, commandsFor } from '../lib/pm'
+import { detectPackageManager, detectInvokingPackageManager, commandsFor, testRunnerFor } from '../lib/pm'
 
 // Empty env keeps lockfile-detection tests independent of how the test
 // runner itself was launched (e.g. `bun test` sets npm_config_user_agent).
@@ -168,4 +168,42 @@ describe('commandsFor', () => {
     expect(commandsFor('yarn').test('components/Foo.test.tsx'))
       .toBe('yarn test components/Foo.test.tsx')
   })
+})
+
+// `testRunnerFor` centralises the bun-vs-vitest decision used by
+// `bf init` (`package.json#scripts.test`, devDeps, tsconfig types
+// entry) and the `bf gen test` / `bf gen component` code generators
+// (the `import { describe, ... } from '<runner>'` line they emit).
+// Keeping it as a pure data function lets every caller stay in
+// lock-step without re-deriving the branch.
+describe('testRunnerFor', () => {
+  test('bun: ships `bun:test` import + `bun test` script + `@types/bun` + `, "bun-types"` types entry', () => {
+    const r = testRunnerFor('bun')
+    expect(r.importSource).toBe('bun:test')
+    expect(r.scriptValue).toBe('bun test')
+    expect(r.devDeps).toEqual({ '@types/bun': '^1.1.0' })
+    // The slot prefix carries its own separator so the empty case
+    // still resolves to a valid JSON array.
+    expect(r.typesEntry).toBe(', "bun-types"')
+  })
+
+  // npm / pnpm / yarn share the vitest path — none of them ships an
+  // in-runtime test runner, and vitest's surface is API-compatible
+  // with `bun:test` so the same generated file runs unchanged.
+  test.each(['npm', 'pnpm', 'yarn'] as const)(
+    '%s: ships `vitest` import + `vitest run` script + vitest devDep + empty types entry',
+    (pm) => {
+      const r = testRunnerFor(pm)
+      expect(r.importSource).toBe('vitest')
+      // `vitest run` (not bare `vitest`) so CI doesn't hang in watch.
+      expect(r.scriptValue).toBe('vitest run')
+      expect(r.devDeps).toHaveProperty('vitest')
+      // Vitest types come from the `vitest` import; no ambient entry
+      // needed.
+      expect(r.typesEntry).toBe('')
+      // Negative guard: don't accidentally ship bun's type package
+      // to non-bun users.
+      expect(r.devDeps).not.toHaveProperty('@types/bun')
+    },
+  )
 })

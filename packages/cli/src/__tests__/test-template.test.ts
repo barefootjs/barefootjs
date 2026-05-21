@@ -14,10 +14,12 @@ let workdir: string
 beforeEach(() => { workdir = mkdtempSync(path.join(tmpdir(), 'bf-test-template-')) })
 afterEach(() => { rmSync(workdir, { recursive: true, force: true }) })
 
-function tplFor(source: string, fileName = 'Component.tsx'): string {
+function tplFor(source: string, fileName = 'Component.tsx', importSource?: string): string {
   const filePath = path.join(workdir, fileName)
   writeFileSync(filePath, source)
-  return generateTestTemplate(filePath)
+  return importSource
+    ? generateTestTemplate(filePath, { importSource })
+    : generateTestTemplate(filePath)
 }
 
 describe('generateTestTemplate', () => {
@@ -64,5 +66,25 @@ describe('generateTestTemplate', () => {
     `, 'index.tsx')
     expect(tpl).toContain(`describe('Slot'`)
     expect(tpl).toContain(`expect(result.root.tag).toBe('div')`)
+  })
+
+  // The import source is parameterised so `bf gen test` can emit a
+  // `from 'vitest'` line for non-bun PMs (issue #1454). Defaults to
+  // `bun:test` so existing callers and the snapshot-style tests above
+  // behave unchanged.
+  test('defaults to a `from \'bun:test\'` header', () => {
+    const tpl = tplFor(`export function Foo() { return <div /> }`, 'Foo.tsx')
+    expect(tpl).toContain(`from 'bun:test'`)
+    expect(tpl).not.toContain(`from 'vitest'`)
+  })
+
+  test('importSource: \'vitest\' swaps the header for non-bun scaffolds', () => {
+    const tpl = tplFor(
+      `export function Foo() { return <div /> }`,
+      'Foo.tsx',
+      'vitest',
+    )
+    expect(tpl).toContain(`import { describe, test, expect } from 'vitest'`)
+    expect(tpl).not.toContain(`from 'bun:test'`)
   })
 })

@@ -14,6 +14,8 @@ BarefootJS is designed so both humans and AI agents can build components without
 
 `renderToTest()` verifies component structure, signals, events, and accessibility against the compiler's IR — in milliseconds, without a browser. Real interactions and visual behavior still need E2E tests, but structural issues are caught before you get there:
 
+> **Test runner**: the snippet below uses `bun:test`. `bf init` picks the runner that matches your package manager — bun users get `bun:test`, everyone else gets [Vitest](https://vitest.dev) (`from 'vitest'`). The surfaces are API-compatible, so swap the import line if you're following along under npm / pnpm / yarn. `bf gen test` and `bf gen component` emit the right line for you.
+
 ```tsx
 import { describe, test, expect } from 'bun:test'
 import { readFileSync } from 'fs'
@@ -49,14 +51,14 @@ Install via `npm create barefootjs@latest`. Run `bf --help` for the full command
 A typical component task is one straight line:
 
 ```
-search → docs → add → bun test → debug
+search → docs → add → <pm> test → debug
 ```
 
 ```bash
 bf search dialog          # find a component in the registry + docs
 bf docs dialog            # read its API (props, examples, a11y)
 bf add dialog             # copy it into your project
-bun test                  # verify the IR
+<pm> test                 # verify the IR (bun test / npm test / pnpm test / yarn test)
 bf debug graph dialog     # inspect reactivity
 ```
 
@@ -74,7 +76,7 @@ bf docs field --json
 bf docs switch --json
 bf gen component settings-form field switch label
 # edit components/ui/settings-form/index.tsx
-bun test components/ui/settings-form/index.test.tsx
+bun test components/ui/settings-form/index.test.tsx   # or `npm test -- <path>`, `pnpm test <path>`, etc.
 bf debug graph settings-form
 ```
 
