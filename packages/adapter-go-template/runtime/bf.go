@@ -639,14 +639,33 @@ func At(items any, index int) any {
 	return v.Index(index).Interface()
 }
 
-// Includes returns true if items contains elem.
-// Uses reflect.DeepEqual for comparison.
-func Includes(items any, elem any) bool {
-	v := reflect.ValueOf(items)
+// Includes returns true if items contains elem. Lowers both
+// `Array.prototype.includes` and `String.prototype.includes` —
+// the adapter can't disambiguate the receiver at compile time,
+// so this helper dispatches at runtime on `reflect.Kind()`:
+//
+//   - slice/array receiver:  DeepEqual element search
+//   - string receiver:       strings.Contains substring search
+//
+// Anything else returns false (matches the JS semantic where
+// `.includes` is only defined on Array / TypedArray / String).
+func Includes(recv any, elem any) bool {
+	v := reflect.ValueOf(recv)
+	if v.Kind() == reflect.String {
+		// JS `String.prototype.includes` accepts only string args;
+		// non-string `elem` would TypeError in real JS but our
+		// callers have lowered through `convertExpressionToGo`
+		// where the arg type is whatever the template binds. Stringify
+		// via fmt to keep the helper total.
+		needle, ok := elem.(string)
+		if !ok {
+			needle = fmt.Sprintf("%v", elem)
+		}
+		return strings.Contains(v.String(), needle)
+	}
 	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
 		return false
 	}
-
 	for i := 0; i < v.Len(); i++ {
 		if reflect.DeepEqual(v.Index(i).Interface(), elem) {
 			return true

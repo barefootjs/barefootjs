@@ -1433,6 +1433,22 @@ function renderArrayMethod(
       const sep = emit(args[0])
       return `join(${sep}, @{${obj}})`
     }
+    case 'includes': {
+      // Both `arr.includes(x)` and `str.includes(sub)` route here —
+      // the parser can't disambiguate the receiver type. The Mojo
+      // runtime's `bf->includes($recv, $elem)` inspects `ref($recv)`
+      // and dispatches: ARRAY ref scans the list with `eq`, scalar
+      // falls back to `index(..., ...) != -1`. Helper lives in
+      // packages/adapter-mojolicious/lib/BarefootJS.pm.
+      //
+      // The `bf->` (no `$`) form matches every other helper emit —
+      // in real Mojolicious `bf` is a controller helper; the
+      // standalone test-render in test-render.ts rewrites the bare
+      // `bf->` to `$bf->` so both render paths stay consistent.
+      const obj = emit(object)
+      const needle = emit(args[0])
+      return `bf->includes(${obj}, ${needle})`
+    }
     default: {
       // TS-level exhaustiveness guard. If this throws at runtime, the
       // IR was constructed against a newer `ArrayMethod` variant that

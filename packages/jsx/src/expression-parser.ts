@@ -31,7 +31,7 @@ export type ParsedExpr =
   // The set is intentionally narrow; extending it adds a TS compile
   // error in every adapter that hasn't been updated (the same drift
   // defence used for `ParsedExpr.kind`).
-  | { kind: 'array-method'; method: 'join'; object: ParsedExpr; args: ParsedExpr[] }
+  | { kind: 'array-method'; method: 'join' | 'includes'; object: ParsedExpr; args: ParsedExpr[] }
   | { kind: 'unsupported'; raw: string; reason: string }
 
 export type TemplatePart =
@@ -98,17 +98,16 @@ const UNSUPPORTED_METHODS = new Set([
   // #1448 Tier A — Array methods. Each method PR adds the lowering
   // (typically a new `array-method` variant or runtime helper) and
   // removes its row here. See packages/adapter-tests/fixtures/methods/.
-  'includes',
+  // `includes` is no longer here — both the array-receiver and
+  // string-receiver shapes lower via the `array-method` IR + a
+  // receiver-type-dispatching runtime helper (`bf_includes` on Go,
+  // `$bf->includes(...)` on Mojo).
   'indexOf', 'lastIndexOf',
   'at',
   'concat',
   'slice',
   'reverse', 'toReversed',
-  // #1448 Tier A — String methods. `includes` is already listed
-  // above (the method name is shared with the array variant; the
-  // parser refuses both shapes uniformly via this gate, and each
-  // adapter's lowering will branch on the receiver type when the
-  // method is opted in).
+  // #1448 Tier A — String methods.
   'toLowerCase', 'toUpperCase', 'trim',
 ])
 
@@ -227,6 +226,15 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
     if (callee.kind === 'member' && !callee.computed) {
       if (callee.property === 'join' && args.length === 1) {
         return { kind: 'array-method', method: 'join', object: callee.object, args }
+      }
+      // `.includes(x)` — shared between `Array.prototype.includes` and
+      // `String.prototype.includes`. The parser can't tell the receiver
+      // type without TS inference, so both shapes lower through the
+      // same IR node and each adapter dispatches at the runtime level
+      // (`bf_includes` on Go uses `reflect.Kind()`; `$bf->includes`
+      // on Mojo uses `ref()`). See #1448 Tier A.
+      if (callee.property === 'includes' && args.length === 1) {
+        return { kind: 'array-method', method: 'includes', object: callee.object, args }
       }
     }
 

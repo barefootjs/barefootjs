@@ -110,7 +110,10 @@ runAdapterConformanceTests({
     // hasn't lowered yet. Each row drops once the corresponding
     // method PR lands. Hono / CSR pass these out of the box (they
     // evaluate JS at runtime) so the pin only applies here.
-    'array-includes':      [{ code: 'BF101', severity: 'error' }],
+    //
+    // `array-includes` / `string-includes` no longer pinned — both
+    // shapes lower via the shared `array-method` IR + `$bf->includes`
+    // runtime dispatch (#1448 Tier A first PR).
     'array-indexOf':       [{ code: 'BF101', severity: 'error' }],
     'array-lastIndexOf':   [{ code: 'BF101', severity: 'error' }],
     'array-at':            [{ code: 'BF101', severity: 'error' }],
@@ -121,7 +124,6 @@ runAdapterConformanceTests({
     'string-toLowerCase':  [{ code: 'BF101', severity: 'error' }],
     'string-toUpperCase':  [{ code: 'BF101', severity: 'error' }],
     'string-trim':         [{ code: 'BF101', severity: 'error' }],
-    'string-includes':     [{ code: 'BF101', severity: 'error' }],
     // #1448 catalog — `.find` / `.findIndex` have no Mojo lowering
     // yet (no `array-method` IR variant, no emitter), so the
     // Mojo-specific gate in `convertExpressionToPerl` refuses them
@@ -427,6 +429,52 @@ export { Slot }
     expect(template).toContain(`join(' ', @{[grep { $_ } @{[$className]}]})`)
   })
 
+  test('lowers .includes(x) on an array prop via bf->includes(...) (#1448 Tier A)', () => {
+    // Pre-#1448: `items.includes(target)` rejected at the parser
+    // (`UNSUPPORTED_METHODS`) and surfaced as BF101. The lowering
+    // now routes through the shared `array-method` IR + the
+    // `bf->includes` helper, which inspects `ref()` to dispatch
+    // between ARRAY-ref element search and scalar substring search.
+    //
+    // The bare `bf->` form (no `$` prefix) matches every other
+    // helper emit in this adapter; the standalone Mojo::Template
+    // test render in `test-render.ts` rewrites it to `$bf->` so
+    // both render paths stay consistent.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`'use client'
+import { createSignal } from '@barefootjs/client'
+export function C() {
+  const [items] = createSignal<string[]>([])
+  const [target] = createSignal('x')
+  return <div>{items().includes(target()) ? 'yes' : 'no'}</div>
+}`, 'C.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain('bf->includes($items, $target)')
+    // Defensive pin: no leaked `$bf->` (would survive the test-render
+    // patch as `$$bf->` and crash perl with "Not a SCALAR reference").
+    expect(template).not.toContain('$bf->includes')
+  })
+
+  test('lowers .includes(sub) on a string prop via bf->includes(...) (#1448 Tier A)', () => {
+    // String receiver shares the IR node with the array form; the
+    // helper's `ref() ne 'ARRAY'` branch falls through to
+    // `index(...) != -1`. Pinning the emit shape — same emitter
+    // surface, different runtime behaviour.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`'use client'
+import { createSignal } from '@barefootjs/client'
+export function C() {
+  const [value] = createSignal('hello world')
+  const [needle] = createSignal('world')
+  return <div>{value().includes(needle()) ? 'yes' : 'no'}</div>
+}`, 'C.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain('bf->includes($value, $needle)')
+    expect(template).not.toContain('$bf->includes')
+  })
+
   test('does not leak module-level export statements into the .html.ep template', () => {
     // Regression: trailing `export { Name }` / `export type { ... }` lines
     // were concatenated into the single-component template content, so
@@ -599,4 +647,59 @@ export function V({ variant }: { variant: 'a' | 'b' }) {
     expect(result.template).toContain("'a' => 'class-a'")
     expect(result.template).toContain("->{$variant}")
   })
+})
+
+// =============================================================================
+// #1448 Tier A — fixture-driven lowering pins
+// =============================================================================
+//
+// The conformance test suite (runAdapterConformanceTests above) renders
+// every fixture end-to-end through perl + Mojolicious and compares HTML —
+// the strongest possible signal — but it short-circuits with
+// `PerlNotAvailableError` on hosts without Mojolicious installed (CI ARM
+// runners, contributor laptops without `cpanm Mojolicious`, the sandbox
+// each Tier A PR was developed in). Those skips mean a lowering can
+// silently regress to BF101 / wrong helper-call shape and the conformance
+// run still passes "green" on those hosts.
+//
+// This block compiles each Tier A fixture's `source` through the
+// adapter and pins the emitted helper-call substring directly on the
+// template string. No perl needed; runs on every host. The expected
+// substring uses the same `$prop` form the fixture's prop bindings
+// produce — same lowering path the conformance runner exercises when
+// Mojolicious IS present, just with the assertion staged one step
+// earlier (template-string rather than rendered HTML).
+//
+// One row per Tier A method fixture from
+// packages/adapter-tests/fixtures/methods/. Each PR in the Tier A
+// stack appends its rows as the corresponding lowering lands —
+// keeping the block in sync with the `expectedDiagnostics` drops
+// above.
+
+import { fixture as arrayIncludesFixture } from '../../../adapter-tests/fixtures/methods/array-includes'
+import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixtures/methods/string-includes'
+
+describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
+  const cases = [
+    { fixture: arrayIncludesFixture,    expect: 'bf->includes($items, $target)' },
+    { fixture: stringIncludesFixture,   expect: 'bf->includes($value, $needle)' },
+  ]
+
+  for (const { fixture, expect: expectedHelper } of cases) {
+    test(`[${fixture.id}] lowers to \`${expectedHelper}\``, () => {
+      const adapter = new MojoAdapter()
+      const result = compileJSX(fixture.source, `${fixture.id}.tsx`, { adapter })
+      // No BF101 — the parser arm + adapter case took the call.
+      expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+      const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+      expect(template).toContain(expectedHelper)
+      // Defensive pin against the `$bf->...` form that the
+      // test-render `bf->` → `$bf->` patch would mangle to
+      // `$$bf->...` (crashes perl with "Not a SCALAR reference"
+      // — see the first-PR fix commit in this stack).
+      if (expectedHelper.startsWith('bf->')) {
+        expect(template).not.toContain(`$${expectedHelper}`)
+      }
+    })
+  }
 })
