@@ -308,6 +308,39 @@ func TestSlice(t *testing.T) {
 	}
 }
 
+// `Array.prototype.reverse()` / `toReversed()` lowering (#1448 Tier A).
+// Both shapes share the runtime helper — SSR template context makes
+// the JS mutate-vs-new distinction immaterial.
+func TestReverse(t *testing.T) {
+	got := Reverse([]string{"a", "b", "c"})
+	if len(got) != 3 || got[0] != "c" || got[1] != "b" || got[2] != "a" {
+		t.Errorf("Reverse([a,b,c]) = %v, want [c b a]", got)
+	}
+
+	if got := Reverse([]int{}); len(got) != 0 {
+		t.Errorf("Reverse([]) = %v, want []", got)
+	}
+
+	// Single-element edge case — same input, distinct slice.
+	one := []string{"only"}
+	got2 := Reverse(one)
+	if len(got2) != 1 || got2[0] != "only" {
+		t.Errorf("Reverse([only]) = %v, want [only]", got2)
+	}
+
+	// Mutation isolation: input must survive.
+	src := []string{"a", "b"}
+	_ = Reverse(src)
+	if src[0] != "a" || src[1] != "b" {
+		t.Errorf("Reverse mutated input slice: %v", src)
+	}
+
+	// Non-array receiver.
+	if got := Reverse("not an array"); len(got) != 0 {
+		t.Errorf("Reverse(scalar) = %v, want []", got)
+	}
+}
+
 // String receiver covers `String.prototype.includes(sub)` (#1448 Tier A).
 // Both array and string `.includes` lower to the same `bf_includes` call;
 // this helper dispatches on `reflect.Kind()` at evaluation time.

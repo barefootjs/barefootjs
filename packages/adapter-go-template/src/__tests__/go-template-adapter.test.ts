@@ -162,8 +162,10 @@ runAdapterConformanceTests({
     // `array-slice` no longer pinned — the new `bf_slice` runtime
     // helper carves out a sub-range with JS-compat clamping
     // (#1448 Tier A fifth PR).
-    'array-reverse':       [{ code: 'BF101', severity: 'error' }],
-    'array-toReversed':    [{ code: 'BF101', severity: 'error' }],
+    // `array-reverse` / `array-toReversed` no longer pinned —
+    // both share the `bf_reverse` helper since SSR templates
+    // render a snapshot and the JS mutate-vs-new distinction has
+    // no template-level meaning (#1448 Tier A sixth PR).
     'string-toLowerCase':  [{ code: 'BF101', severity: 'error' }],
     'string-toUpperCase':  [{ code: 'BF101', severity: 'error' }],
     'string-trim':         [{ code: 'BF101', severity: 'error' }],
@@ -1570,6 +1572,30 @@ export { A }`)
     })
   })
 
+  describe('.reverse / .toReversed lowering (#1448 Tier A)', () => {
+    test('items.reverse().join(\' \') chains through bf_reverse → bf_join', () => {
+      // `Array.prototype.reverse()` mutates the receiver in JS, but
+      // in SSR template context the receiver is never observed,
+      // so the helper returns a new slice. Composes with .join(' ')
+      // to make the reversed order visible in the rendered output.
+      const result = compileAndGenerate(`function A({ items }: { items: string[] }) {
+  return <div>{items.reverse().join(' ')}</div>
+}
+export { A }`)
+      expect(result.template).toContain('bf_join (bf_reverse .Items) " "')
+    })
+
+    test('items.toReversed().join(\' \') routes through the same helper', () => {
+      // `.toReversed()` is the non-mutating sibling. Sharing a
+      // lowering with `.reverse()` is fine in template context.
+      const result = compileAndGenerate(`function A({ items }: { items: string[] }) {
+  return <div>{items.toReversed().join(' ')}</div>
+}
+export { A }`)
+      expect(result.template).toContain('bf_join (bf_reverse .Items) " "')
+    })
+  })
+
   describe('.concat lowering (#1448 Tier A)', () => {
     test('left.concat(right).join(\' \') chains through bf_concat → bf_join', () => {
       // Composition pin: the canonical Tier A fixture
@@ -1610,6 +1636,8 @@ import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtu
 import { fixture as arrayAtFixture } from '../../../adapter-tests/fixtures/methods/array-at'
 import { fixture as arrayConcatFixture } from '../../../adapter-tests/fixtures/methods/array-concat'
 import { fixture as arraySliceFixture } from '../../../adapter-tests/fixtures/methods/array-slice'
+import { fixture as arrayReverseFixture } from '../../../adapter-tests/fixtures/methods/array-reverse'
+import { fixture as arrayToReversedFixture } from '../../../adapter-tests/fixtures/methods/array-toReversed'
 
 describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -1625,6 +1653,10 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     { fixture: arrayAtFixture,          expect: 'bf_at .Items (bf_neg 1)' },
     { fixture: arrayConcatFixture,      expect: 'bf_concat .Left .Right' },
     { fixture: arraySliceFixture,       expect: 'bf_slice .Items 1 3' },
+    { fixture: arrayReverseFixture,     expect: 'bf_reverse .Items' },
+    // .toReversed shares the helper with .reverse — pinning both
+    // routings catches a future divergence between them.
+    { fixture: arrayToReversedFixture,  expect: 'bf_reverse .Items' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

@@ -471,6 +471,19 @@ sub slice ($self, $recv, $start, $end) {
     return [ @{$recv}[$s .. $e - 1] ];
 }
 
+# `Array.prototype.reverse()` / `Array.prototype.toReversed()` —
+# both shapes share this lowering. SSR templates render a snapshot
+# of state, so JS's mutate-receiver (`reverse`) vs
+# return-new-array (`toReversed`) distinction has no template-
+# level meaning. Always returns a new ARRAY ref to keep callers
+# safe from accidental aliasing. Non-array receivers return an
+# empty ARRAY ref.
+
+sub reverse ($self, $recv) {
+    return [] unless ref($recv) eq 'ARRAY';
+    return [ reverse @$recv ];
+}
+
 # ---------------------------------------------------------------------------
 # JSX intrinsic-element spread (#1407)
 # ---------------------------------------------------------------------------

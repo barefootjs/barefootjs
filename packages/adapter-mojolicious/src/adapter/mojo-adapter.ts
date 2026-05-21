@@ -1492,6 +1492,14 @@ function renderArrayMethod(
       const end = args.length === 2 ? emit(args[1]) : 'undef'
       return `bf->slice(${recv}, ${start}, ${end})`
     }
+    case 'reverse':
+    case 'toReversed': {
+      // Both shapes share a lowering — see the parser arm + Go
+      // emit for the SSR-mutation-rationale. Returns a new ARRAY
+      // ref so the result composes with `.join(...)` downstream.
+      const recv = emit(object)
+      return `bf->reverse(${recv})`
+    }
     default: {
       // TS-level exhaustiveness guard. If this throws at runtime, the
       // IR was constructed against a newer `ArrayMethod` variant that

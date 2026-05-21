@@ -126,8 +126,11 @@ runAdapterConformanceTests({
     // `bf_slice` (Go) carve out a sub-range with JS-compat
     // negative-index / out-of-bounds clamping (#1448 Tier A
     // fifth PR).
-    'array-reverse':       [{ code: 'BF101', severity: 'error' }],
-    'array-toReversed':    [{ code: 'BF101', severity: 'error' }],
+    // `array-reverse` / `array-toReversed` no longer pinned —
+    // both share the `bf->reverse` / `bf_reverse` helper since
+    // SSR templates render a snapshot and the JS mutate-vs-new
+    // distinction has no template-level meaning (#1448 Tier A
+    // sixth PR).
     'string-toLowerCase':  [{ code: 'BF101', severity: 'error' }],
     'string-toUpperCase':  [{ code: 'BF101', severity: 'error' }],
     'string-trim':         [{ code: 'BF101', severity: 'error' }],
@@ -534,6 +537,32 @@ export { A }`, 'A.tsx', { adapter })
     expect(template).not.toContain('$bf->at(')
   })
 
+  test('lowers .reverse().join(\' \') via bf->reverse + join (#1448 Tier A)', () => {
+    // SSR templates render a snapshot, so `.reverse` and
+    // `.toReversed` share a Mojo lowering — both return a new
+    // ARRAY ref so downstream `.join(...)` composes naturally.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ items }: { items: string[] }) {
+  return <div>{items.reverse().join(' ')}</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain("join(' ', @{bf->reverse($items)})")
+    expect(template).not.toContain('$bf->reverse')
+  })
+
+  test('lowers .toReversed().join(\' \') via the same bf->reverse helper', () => {
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ items }: { items: string[] }) {
+  return <div>{items.toReversed().join(' ')}</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain("join(' ', @{bf->reverse($items)})")
+  })
+
   test('lowers .slice(start, end).join(\' \') via bf->slice + join (#1448 Tier A)', () => {
     // 2-arg form. Canonical Tier A fixture pins the start+end shape.
     const adapter = new MojoAdapter()
@@ -785,6 +814,8 @@ import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtu
 import { fixture as arrayAtFixture } from '../../../adapter-tests/fixtures/methods/array-at'
 import { fixture as arrayConcatFixture } from '../../../adapter-tests/fixtures/methods/array-concat'
 import { fixture as arraySliceFixture } from '../../../adapter-tests/fixtures/methods/array-slice'
+import { fixture as arrayReverseFixture } from '../../../adapter-tests/fixtures/methods/array-reverse'
+import { fixture as arrayToReversedFixture } from '../../../adapter-tests/fixtures/methods/array-toReversed'
 
 describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -795,6 +826,10 @@ describe('MojoAdapter - #1448 Tier A fixture-driven lowering pins', () => {
     { fixture: arrayAtFixture,          expect: 'bf->at($items, -1)' },
     { fixture: arrayConcatFixture,      expect: 'bf->concat($left, $right)' },
     { fixture: arraySliceFixture,       expect: 'bf->slice($items, 1, 3)' },
+    { fixture: arrayReverseFixture,     expect: 'bf->reverse($items)' },
+    // .toReversed shares the helper with .reverse — pinning both
+    // routings catches a future divergence between them.
+    { fixture: arrayToReversedFixture,  expect: 'bf->reverse($items)' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

@@ -53,6 +53,7 @@ func FuncMap() template.FuncMap {
 		"bf_last_index_of":  LastIndexOf,
 		"bf_concat":         Concat,
 		"bf_slice":          Slice,
+		"bf_reverse":        Reverse,
 		"bf_first":          First,
 		"bf_last":           Last,
 		"bf_arr":            Arr,
@@ -803,6 +804,27 @@ func Slice(items any, start int, end ...int) []any {
 	out := make([]any, 0, stop-start)
 	for i := start; i < stop; i++ {
 		out = append(out, v.Index(i).Interface())
+	}
+	return out
+}
+
+// Reverse returns a new slice with `items`'s elements in reverse
+// order. Lowers both `Array.prototype.reverse()` and
+// `Array.prototype.toReversed()` (#1448 Tier A) — SSR templates
+// render a snapshot, so JS's mutate-receiver vs return-new-array
+// distinction has no template-level meaning, and the safer
+// non-mutating shape is used uniformly.
+//
+// Non-array receivers return an empty `[]any`.
+func Reverse(items any) []any {
+	v := reflect.ValueOf(items)
+	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
+		return []any{}
+	}
+	length := v.Len()
+	out := make([]any, length)
+	for i := 0; i < length; i++ {
+		out[length-1-i] = v.Index(i).Interface()
 	}
 	return out
 }
