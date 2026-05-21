@@ -17,7 +17,8 @@
 // change, the ledger only changes when outputs change.
 
 import { isAbsolute, relative, resolve } from 'node:path'
-import { fileExists, readText, writeText } from './runtime'
+import { fileExists, readText } from './runtime'
+import { writeIfChanged } from './fs-utils'
 import type { BuildCache } from './build-cache'
 
 export const EMIT_LEDGER_FILENAME = '.bfemit.json'
@@ -59,7 +60,15 @@ function isStringArray(v: unknown): v is string[] {
   return true
 }
 
-const BUNDLE_KEY_PREFIX = 'bundle:'
+/**
+ * Synthetic key prefix used in both `BuildCache.entries` and
+ * `EmitLedger.entries` for entries that come from `config.bundleEntries`
+ * (esbuild-bundled JS) rather than from a discovered `.tsx` source. The
+ * suffix is the bundle's absolute entry path. Exported so the build
+ * pipeline keeps a single source of truth instead of re-spelling the
+ * prefix at every call site.
+ */
+export const BUNDLE_KEY_PREFIX = 'bundle:'
 
 /**
  * Convert an in-memory ledger key (absolute source path, or
@@ -110,12 +119,17 @@ export async function loadEmitLedger(
   if (!(await fileExists(path))) return null
   try {
     const parsed = JSON.parse(await readText(path)) as EmitLedger
+    // `typeof [] === 'object'` and `typeof null === 'object'` would both
+    // slip past a naive object check; reject explicitly so the cleanup
+    // pass only ever sees the intended `Record<string, string[]>` shape.
     if (
       typeof parsed !== 'object' ||
       parsed === null ||
+      Array.isArray(parsed) ||
       parsed.version !== EMIT_LEDGER_VERSION ||
       typeof parsed.entries !== 'object' ||
-      parsed.entries === null
+      parsed.entries === null ||
+      Array.isArray(parsed.entries)
     ) {
       return null
     }
@@ -148,7 +162,11 @@ export async function saveEmitLedger(
     serialized[normalizeKey(absKey, projectDir)] = outputs
   }
   const onDisk: EmitLedger = { version: ledger.version, entries: serialized }
-  await writeText(path, JSON.stringify(onDisk, null, 2))
+  // `writeIfChanged` skips the write when bytes match — keeps idle
+  // `bf build --watch` cycles from re-tripping file watchers (the dev
+  // sentinel at `<outDir>/.dev/build-id` and any host-side watchers on
+  // `outDir/`) when the emit set didn't actually shift.
+  await writeIfChanged(path, JSON.stringify(onDisk, null, 2))
 }
 
 /**
@@ -165,9 +183,17 @@ export async function saveEmitLedger(
  */
 export function extractLedgerFromCache(cache: BuildCache | null): Record<string, string[]> {
   if (!cache) return {}
+  // `loadCache` only validates the cache's top-level shape, so
+  // `cache.entries` could still arrive as `null` or an array from a
+  // tampered / mid-upgrade file. Guard before iterating so bootstrap
+  // stays best-effort instead of throwing on `Object.entries(null)`.
+  const entries = cache.entries
+  if (typeof entries !== 'object' || entries === null || Array.isArray(entries)) {
+    return {}
+  }
   const out: Record<string, string[]> = {}
-  for (const [key, entry] of Object.entries(cache.entries)) {
-    if (isStringArray(entry?.outputs) && entry.outputs.length > 0) {
+  for (const [key, entry] of Object.entries(entries)) {
+    if (entry && isStringArray(entry.outputs) && entry.outputs.length > 0) {
       out[key] = entry.outputs.slice()
     }
   }

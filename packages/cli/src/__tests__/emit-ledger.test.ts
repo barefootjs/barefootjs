@@ -140,6 +140,32 @@ describe('loadEmitLedger / saveEmitLedger', () => {
     }
   })
 
+  // `typeof [] === 'object'` would slip past a naive object check.
+  // Reject array shapes for both the top-level value and `entries` so
+  // the cleanup pass never treats numeric indices as source keys.
+  test('returns null when the parsed ledger is an array', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bf-ledger-'))
+    try {
+      await Bun.write(join(dir, EMIT_LEDGER_FILENAME), JSON.stringify([]))
+      expect(await loadEmitLedger(dir, dir)).toBeNull()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('returns null when entries is an array', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bf-ledger-'))
+    try {
+      await Bun.write(
+        join(dir, EMIT_LEDGER_FILENAME),
+        JSON.stringify({ version: EMIT_LEDGER_VERSION, entries: [] }),
+      )
+      expect(await loadEmitLedger(dir, dir)).toBeNull()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   // Edge case: source files outside `projectDir` (rare, but possible in
   // monorepo cross-package compilation) keep their absolute key as-is.
   // Re-keying them under `../../../...` would still leak structure AND
@@ -201,6 +227,20 @@ describe('extractLedgerFromCache', () => {
 
   test('returns empty object for null cache', () => {
     expect(extractLedgerFromCache(null)).toEqual({})
+  })
+
+  // `loadCache` only validates the top-level shape; a partially-
+  // corrupted or hand-edited file can land here with `entries` as
+  // `null` or an array. Bootstrap is best-effort, so degrade to an
+  // empty projection instead of throwing on `Object.entries(null)`.
+  test('returns empty object when cache.entries is null', () => {
+    const cache = { globalHash: 'gh', entries: null as unknown as Record<string, never> }
+    expect(extractLedgerFromCache(cache as never)).toEqual({})
+  })
+
+  test('returns empty object when cache.entries is an array', () => {
+    const cache = { globalHash: 'gh', entries: [] as unknown as Record<string, never> }
+    expect(extractLedgerFromCache(cache as never)).toEqual({})
   })
 
   // The cache file goes through `loadCache` which only validates the

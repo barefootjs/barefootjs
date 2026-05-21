@@ -17,6 +17,7 @@ import {
   type CacheEntry,
 } from './build-cache'
 import {
+  BUNDLE_KEY_PREFIX,
   emptyLedger,
   extractLedgerFromCache,
   loadEmitLedger,
@@ -789,7 +790,7 @@ export async function build(
   //     find nothing, and silently strip the import line. See bf#1133.
   const sourceDirsByManifestKey: Record<string, string[]> = {}
   for (const [sourcePath, entry] of Object.entries(nextEntries)) {
-    if (entry.manifestKey && !sourcePath.startsWith('bundle:')) {
+    if (entry.manifestKey && !sourcePath.startsWith(BUNDLE_KEY_PREFIX)) {
       sourceDirsByManifestKey[entry.manifestKey] = [dirname(sourcePath)]
     }
   }
@@ -823,7 +824,7 @@ export async function build(
       // entry can never be a stub destination — keep it out of the
       // path lookup so we don't accidentally map an unrelated
       // `bundle:foo` key onto a real source path.
-      if (!sourcePath.startsWith('bundle:')) {
+      if (!sourcePath.startsWith(BUNDLE_KEY_PREFIX)) {
         manifestKeyByEntryPath.set(sourcePath, cacheEntry.manifestKey)
       }
     }
@@ -1348,7 +1349,7 @@ export async function processBundleEntries(
     const entryExternals = [...allExternals, ...(entry.externals ?? [])]
     const outfilePath = resolve(clientJsOutDir, entry.outfile)
     const absEntry = resolve(entry.entry)
-    const cacheKey = `bundle:${absEntry}`
+    const cacheKey = `${BUNDLE_KEY_PREFIX}${absEntry}`
 
     const sourceContent = await readText(absEntry)
     const sourceHash = hashContent(sourceContent)
