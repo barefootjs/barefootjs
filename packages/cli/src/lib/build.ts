@@ -409,7 +409,7 @@ export async function build(
   // First run after upgrade has no `.bfemit.json` yet; fall back to projecting
   // the cache file's `entries[*].outputs` into ledger shape so pre-existing
   // orphans get pruned on the first new-style build. See piconic-ai/barefootjs#1455.
-  const loadedLedger = await loadEmitLedger(config.outDir)
+  const loadedLedger = await loadEmitLedger(config.outDir, config.projectDir)
   const previousEmitEntries: Record<string, string[]> =
     loadedLedger?.entries ?? extractLedgerFromCache(onDiskCache)
 
@@ -720,7 +720,12 @@ export async function build(
   for (const output of orphanedOutputs) {
     const abs = resolve(config.outDir, output)
     const rel = relative(outDirAbs, abs)
-    const escapes = rel === '' ? false : rel.startsWith('..') || isAbsolute(rel)
+    // Reject the empty / `.` case explicitly: a tampered ledger entry
+    // of `""` or `"."` resolves to `outDir` itself, which would attempt
+    // `unlink(outDir)`. The catch below swallows the EISDIR/ENOENT,
+    // but the cleanup pass should never even consider those inputs.
+    const escapes =
+      rel === '' || rel === '.' || rel.startsWith('..') || isAbsolute(rel)
     if (escapes) {
       console.warn(
         `Warning: refusing to delete out-of-tree path from emit ledger: ${output}`,
@@ -955,7 +960,7 @@ export async function build(
   }
   await Promise.all([
     saveCache(config.outDir, nextCache),
-    saveEmitLedger(config.outDir, nextLedger),
+    saveEmitLedger(config.outDir, config.projectDir, nextLedger),
   ])
 
   return {

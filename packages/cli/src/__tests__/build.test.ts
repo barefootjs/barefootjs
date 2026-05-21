@@ -1147,7 +1147,7 @@ describe('build() orphan output cleanup', () => {
       // suffix under `clientJsSubdir`. The exact path is taken from the
       // ledger that the build just wrote, so this stays robust against
       // adapter-specific output layouts.
-      const ledger = await loadEmitLedger(outDir)
+      const ledger = await loadEmitLedger(outDir, projectDir)
       expect(ledger).not.toBeNull()
       const phantomOutputs = ledger!.entries[phantomPath]
       expect(phantomOutputs).toBeDefined()
@@ -1168,7 +1168,7 @@ describe('build() orphan output cleanup', () => {
       for (const rel of phantomOutputs) {
         expect(existsSync(resolve(outDir, rel))).toBe(false)
       }
-      const ledgerAfter = await loadEmitLedger(outDir)
+      const ledgerAfter = await loadEmitLedger(outDir, projectDir)
       expect(ledgerAfter!.entries[phantomPath]).toBeUndefined()
     } finally {
       rmSync(projectDir, { recursive: true, force: true })
@@ -1205,7 +1205,7 @@ describe('build() orphan output cleanup', () => {
 
       const config = makeBuildConfig(projectDir, outDir)
       await build(config)
-      const ledger = await loadEmitLedger(outDir)
+      const ledger = await loadEmitLedger(outDir, projectDir)
       const phantomOutputs = ledger!.entries[phantomPath]
       expect(phantomOutputs).toBeDefined()
 
@@ -1252,7 +1252,7 @@ describe('build() orphan output cleanup', () => {
 
       // Simulate the upgrade scenario: cache file exists from the old CLI
       // version, but ledger file does not.
-      const ledger = await loadEmitLedger(outDir)
+      const ledger = await loadEmitLedger(outDir, projectDir)
       const phantomOutputs = ledger!.entries[phantomPath]
       rmSync(resolve(outDir, '.bfemit.json'))
       expect(await loadCache(outDir)).not.toBeNull()
@@ -1300,7 +1300,7 @@ describe('build() orphan output cleanup', () => {
       const firstBuild = await build(config)
       expect(firstBuild.errorCount).toBe(0)
 
-      const ledger = await loadEmitLedger(outDir)
+      const ledger = await loadEmitLedger(outDir, projectDir)
       const counterOutputs = ledger!.entries[counterPath]
       expect(counterOutputs).toBeDefined()
       expect(counterOutputs.length).toBeGreaterThan(0)
@@ -1332,7 +1332,7 @@ describe('build() orphan output cleanup', () => {
       // Ownership claim survives in the ledger too, so the next build
       // (whether it succeeds, fails again, or the user actually
       // deletes the source) keeps the prune pass authoritative.
-      const ledgerAfter = await loadEmitLedger(outDir)
+      const ledgerAfter = await loadEmitLedger(outDir, projectDir)
       expect(ledgerAfter!.entries[counterPath]).toEqual(counterOutputs)
     } finally {
       rmSync(projectDir, { recursive: true, force: true })

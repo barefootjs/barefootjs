@@ -8,29 +8,47 @@ import {
   saveEmitLedger,
 } from '../lib/emit-ledger'
 import { emptyCache } from '../lib/build-cache'
-import { mkdtempSync, rmSync } from 'fs'
+import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { join, resolve } from 'path'
 
 describe('loadEmitLedger / saveEmitLedger', () => {
-  test('round-trips through disk', async () => {
+  test('round-trips through disk using project-relative on-disk keys', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'bf-ledger-'))
     try {
+      // Keys are absolute paths in-memory (they match the build's
+      // `entryPath` / `bundle:<abs>` shape elsewhere in the pipeline),
+      // but the on-disk form is project-relative — see comment in
+      // emit-ledger.ts for the absolute-paths-leak motivation.
+      const projectDir = dir
+      const counterAbs = resolve(projectDir, 'components/Counter.tsx')
+      const bundleAbs = resolve(projectDir, 'src/app.ts')
       const ledger = emptyLedger()
-      ledger.entries['/abs/Counter.tsx'] = [
+      ledger.entries[counterAbs] = [
         'components/Counter.client.js',
         'components/Counter.tsx',
       ]
-      ledger.entries['bundle:/abs/app.ts'] = ['components/app.js']
-      await saveEmitLedger(dir, ledger)
-      const loaded = await loadEmitLedger(dir)
+      ledger.entries[`bundle:${bundleAbs}`] = ['components/app.js']
+      await saveEmitLedger(dir, projectDir, ledger)
+
+      // On-disk shape must not contain the developer's absolute paths
+      // — keys are project-relative so the file is safe to deploy
+      // (e.g. as part of Hono's wrangler `public/` bundle).
+      const raw = readFileSync(join(dir, EMIT_LEDGER_FILENAME), 'utf8')
+      expect(raw).toContain('components/Counter.tsx')
+      expect(raw).not.toContain(counterAbs)
+      expect(raw).not.toContain(bundleAbs)
+
+      const loaded = await loadEmitLedger(dir, projectDir)
       expect(loaded).not.toBeNull()
       expect(loaded!.version).toBe(EMIT_LEDGER_VERSION)
-      expect(loaded!.entries['/abs/Counter.tsx']).toEqual([
+      // In-memory shape is restored to absolute keys so the cleanup
+      // pass can look up by entryPath without further re-keying.
+      expect(loaded!.entries[counterAbs]).toEqual([
         'components/Counter.client.js',
         'components/Counter.tsx',
       ])
-      expect(loaded!.entries['bundle:/abs/app.ts']).toEqual(['components/app.js'])
+      expect(loaded!.entries[`bundle:${bundleAbs}`]).toEqual(['components/app.js'])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -39,7 +57,7 @@ describe('loadEmitLedger / saveEmitLedger', () => {
   test('returns null when ledger file is absent', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'bf-ledger-'))
     try {
-      expect(await loadEmitLedger(dir)).toBeNull()
+      expect(await loadEmitLedger(dir, dir)).toBeNull()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -49,7 +67,7 @@ describe('loadEmitLedger / saveEmitLedger', () => {
     const dir = mkdtempSync(join(tmpdir(), 'bf-ledger-'))
     try {
       await Bun.write(join(dir, EMIT_LEDGER_FILENAME), '{ not valid json')
-      expect(await loadEmitLedger(dir)).toBeNull()
+      expect(await loadEmitLedger(dir, dir)).toBeNull()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -66,7 +84,7 @@ describe('loadEmitLedger / saveEmitLedger', () => {
         join(dir, EMIT_LEDGER_FILENAME),
         JSON.stringify({ version: 999, entries: {} }),
       )
-      expect(await loadEmitLedger(dir)).toBeNull()
+      expect(await loadEmitLedger(dir, dir)).toBeNull()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -79,7 +97,7 @@ describe('loadEmitLedger / saveEmitLedger', () => {
         join(dir, EMIT_LEDGER_FILENAME),
         JSON.stringify({ version: EMIT_LEDGER_VERSION }),
       )
-      expect(await loadEmitLedger(dir)).toBeNull()
+      expect(await loadEmitLedger(dir, dir)).toBeNull()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -97,10 +115,10 @@ describe('loadEmitLedger / saveEmitLedger', () => {
         join(dir, EMIT_LEDGER_FILENAME),
         JSON.stringify({
           version: EMIT_LEDGER_VERSION,
-          entries: { '/abs/X.tsx': 'not-an-array' },
+          entries: { 'components/X.tsx': 'not-an-array' },
         }),
       )
-      expect(await loadEmitLedger(dir)).toBeNull()
+      expect(await loadEmitLedger(dir, dir)).toBeNull()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -113,12 +131,32 @@ describe('loadEmitLedger / saveEmitLedger', () => {
         join(dir, EMIT_LEDGER_FILENAME),
         JSON.stringify({
           version: EMIT_LEDGER_VERSION,
-          entries: { '/abs/X.tsx': ['components/X.tsx', 123, null] },
+          entries: { 'components/X.tsx': ['components/X.tsx', 123, null] },
         }),
       )
-      expect(await loadEmitLedger(dir)).toBeNull()
+      expect(await loadEmitLedger(dir, dir)).toBeNull()
     } finally {
       rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  // Edge case: source files outside `projectDir` (rare, but possible in
+  // monorepo cross-package compilation) keep their absolute key as-is.
+  // Re-keying them under `../../../...` would still leak structure AND
+  // break the round-trip invariant when projectDir relocates.
+  test('preserves absolute keys for sources outside projectDir', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bf-ledger-'))
+    const otherDir = mkdtempSync(join(tmpdir(), 'bf-ledger-other-'))
+    try {
+      const outsideAbs = resolve(otherDir, 'External.tsx')
+      const ledger = emptyLedger()
+      ledger.entries[outsideAbs] = ['components/External.client.js']
+      await saveEmitLedger(dir, dir, ledger)
+      const loaded = await loadEmitLedger(dir, dir)
+      expect(loaded!.entries[outsideAbs]).toEqual(['components/External.client.js'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+      rmSync(otherDir, { recursive: true, force: true })
     }
   })
 })
