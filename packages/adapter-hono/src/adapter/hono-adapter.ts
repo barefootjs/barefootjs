@@ -66,6 +66,15 @@ export interface HonoAdapterOptions {
    * Useful for files with multiple components that share a single client JS file.
    */
   clientJsFilename?: string
+
+  /**
+   * Display name surfaced through `JsxAdapter.name` — read by `bf build`
+   * for its `Adapter: …` banner. Defaults to `'hono'`. CSR-mode callers
+   * (`@barefootjs/client/build`) pass `'csr'` so the banner reflects the
+   * mode the user picked at scaffold time instead of leaking the
+   * fact that CSR currently reuses HonoAdapter under the hood.
+   */
+  name?: string
 }
 
 export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderCtx> {
@@ -117,6 +126,7 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
       barefootJsPath: options.barefootJsPath ?? '/static/components/barefoot.js',
       clientJsFilename: options.clientJsFilename,
     }
+    if (options.name) this.name = options.name
   }
 
   generate(ir: ComponentIR, options?: AdapterGenerateOptions): AdapterOutput {

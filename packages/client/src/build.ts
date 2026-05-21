@@ -59,8 +59,15 @@ export interface CSRBuildOptions {
  * a circular dependency between `@barefootjs/client` and `@barefootjs/cli`.
  */
 export function createConfig(options: CSRBuildOptions = {}) {
+  // Tag the default-adapter instance as 'csr' so `bf build`'s
+  // `Adapter: …` banner reflects the mode the user picked at scaffold
+  // time. A caller-supplied `adapter` is left untouched — its own
+  // `name` is authoritative.
+  const adapter =
+    options.adapter ??
+    new HonoAdapter({ name: 'csr', ...options.adapterOptions })
   return {
-    adapter: options.adapter ?? new HonoAdapter(options.adapterOptions),
+    adapter,
     paths: options.paths,
     components: options.components,
     outDir: options.outDir,
