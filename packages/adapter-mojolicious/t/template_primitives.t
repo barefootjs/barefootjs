@@ -161,4 +161,41 @@ subtest 'concat — merges two arrays into a new array ref' => sub {
     is $right, ['c', 'd'], 'right source unchanged after mutating result';
 };
 
+# `Array.prototype.slice(start, end?)` — carves out a sub-range
+# into a new ARRAY ref (#1448 Tier A). Mirrors the Go `bf_slice`
+# JS-compat semantics: negative-index normalisation, out-of-bounds
+# clamping, `start >= end` returns empty, undef `end` means "to
+# length". Non-array receivers return an empty ARRAY ref.
+subtest 'slice — array sub-range with negative-index + clamping' => sub {
+    my $arr = ['a', 'b', 'c', 'd', 'e'];
+
+    # 2-arg form.
+    is $bf->slice($arr, 1, 3),     ['b', 'c'],             'start+end carves middle';
+
+    # 1-arg form (undef end = "to length").
+    is $bf->slice($arr, 2, undef), ['c', 'd', 'e'],        'undef end → to length';
+    is $bf->slice($arr, 0, undef), ['a', 'b', 'c', 'd', 'e'], 'start 0, undef end → full copy';
+
+    # Negative-index normalisation.
+    is $bf->slice($arr, -2, undef),['d', 'e'],             '-2 start → last two';
+    is $bf->slice($arr,  0, -1),   ['a', 'b', 'c', 'd'],   '-1 end → drop last';
+    is $bf->slice($arr, -3, -1),   ['c', 'd'],             'both negative';
+
+    # Clamping (out of bounds + start >= end).
+    is $bf->slice($arr, 100, undef), [],                   'start past end → empty';
+    is $bf->slice($arr,   3,   1),   [],                   'start > end → empty';
+    is $bf->slice($arr,   0,   0),   [],                   'start == end → empty';
+
+    # Edge cases.
+    is $bf->slice([],     0, undef), [],                   'empty array → empty';
+    is $bf->slice(undef,  0, undef), [],                   'undef receiver → empty';
+    is $bf->slice('scalar', 0, undef), [],                 'scalar receiver → empty';
+
+    # Mutation isolation.
+    my $src = ['a', 'b', 'c'];
+    my $out = $bf->slice($src, 0, 2);
+    push @$out, 'mutated';
+    is $src, ['a', 'b', 'c'], 'source unchanged after mutating slice result';
+};
+
 done_testing;
