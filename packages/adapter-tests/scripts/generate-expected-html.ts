@@ -12,10 +12,32 @@ import { renderHonoComponent } from '@barefootjs/hono/test-render'
 import { normalizeHTML } from '../src/jsx-runner'
 import { indentHTML } from '../src/indent-html'
 import { jsxFixtures } from '../fixtures'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const FIXTURES_DIR = resolve(import.meta.dir, '../fixtures')
+
+// Sub-directories under `FIXTURES_DIR` that group related fixtures
+// (e.g. `methods/` for #1448's JS array/string method catalog). Add
+// new groupings here so the auto-update script finds them without
+// having to bake the fixture's location into the fixture itself.
+const FIXTURE_SUBDIRS = ['', 'methods']
+
+/**
+ * Locate a fixture's source file under one of the supported
+ * `FIXTURE_SUBDIRS`. Returns null if no candidate exists — the
+ * caller treats that as a generator-side bug (fixture imported but
+ * file not where we look) rather than silently skipping.
+ */
+function resolveFixturePath(id: string): string | null {
+  for (const sub of FIXTURE_SUBDIRS) {
+    const candidate = sub
+      ? resolve(FIXTURES_DIR, sub, `${id}.ts`)
+      : resolve(FIXTURES_DIR, `${id}.ts`)
+    if (existsSync(candidate)) return candidate
+  }
+  return null
+}
 
 // Fixtures whose expectedHtml is hand-curated (typically because the
 // reference adapter renders the case incorrectly today, and the
@@ -48,8 +70,15 @@ async function main() {
       const indentedHtml = indentHTML(normalizedHtml)
       const expectedHtmlBlock = `  expectedHtml: \`${indentedHtml}\`,`
 
-      // Read the fixture file and update it
-      const filePath = resolve(FIXTURES_DIR, `${fixture.id}.ts`)
+      // Read the fixture file and update it. `resolveFixturePath`
+      // walks the known fixture sub-directories so groupings like
+      // `methods/` work without per-fixture path metadata.
+      const filePath = resolveFixturePath(fixture.id)
+      if (!filePath) {
+        throw new Error(
+          `cannot locate fixture file for id="${fixture.id}" under any of: ${FIXTURE_SUBDIRS.map(s => s || '.').join(', ')}`,
+        )
+      }
       let content = readFileSync(filePath, 'utf-8')
 
       if (content.includes('expectedHtml:')) {

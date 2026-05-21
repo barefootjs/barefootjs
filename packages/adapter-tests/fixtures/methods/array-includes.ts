@@ -21,6 +21,6 @@ export { ArrayIncludes }
 `,
   props: { items: ['a', 'b', 'c'], target: 'b' },
   expectedHtml: `
-    <div bf-s="test" bf="s1">yes</div>
+    <div bf-s="test" bf="s1"><!--bf-cond-start:s0-->yes<!--bf-cond-end:s0--></div>
   `,
 })
