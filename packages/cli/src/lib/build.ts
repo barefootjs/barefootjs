@@ -16,6 +16,13 @@ import {
   type BuildCache,
   type CacheEntry,
 } from './build-cache'
+import {
+  emptyLedger,
+  extractLedgerFromCache,
+  loadEmitLedger,
+  saveEmitLedger,
+  type EmitLedger,
+} from './emit-ledger'
 import { writeIfChanged } from './fs-utils'
 import { fileExists, hashBytes, readBytes, readText, transpile } from './runtime'
 import { build as esbuildBuild } from 'esbuild'
@@ -380,15 +387,31 @@ export async function build(
     ...(runtimeSubdir !== clientJsSubdir ? [mkdir(runtimeOutDir, { recursive: true })] : []),
   ])
 
-  // Load cache (discard if global invalidation flag is set)
+  // Load cache (discard if global invalidation flag is set). The on-disk file
+  // is read independently of `force` so we can still bootstrap the emit
+  // ledger below — `--force` should drop compile decisions, not the record
+  // of which output files this build owns.
   const globalHash = await computeGlobalHash(config)
-  const loadedCache = force ? null : await loadCache(config.outDir)
+  const onDiskCache = await loadCache(config.outDir)
+  const loadedCache = force ? null : onDiskCache
   const cache: BuildCache =
     loadedCache && loadedCache.globalHash === globalHash
       ? loadedCache
       : emptyCache(globalHash)
   const nextEntries: Record<string, CacheEntry> = {}
   let anyOutputChanged = false
+
+  // Load the durable emit ledger. The ledger persists across `--force` and
+  // any globalHash invalidation (`bun install`, `barefoot.config.ts` edits),
+  // so the cleanup pass at step 5 always knows what the previous build owned
+  // on disk — even when the per-entry cache was discarded.
+  //
+  // First run after upgrade has no `.bfemit.json` yet; fall back to projecting
+  // the cache file's `entries[*].outputs` into ledger shape so pre-existing
+  // orphans get pruned on the first new-style build. See piconic-ai/barefootjs#1455.
+  const loadedLedger = await loadEmitLedger(config.outDir)
+  const previousEmitEntries: Record<string, string[]> =
+    loadedLedger?.entries ?? extractLedgerFromCache(onDiskCache)
 
   // 1. Runtime file — copy the standalone runtime bundle (reactive inlined)
   //    to barefoot.js. The sibling `./runtime` entry keeps
@@ -448,7 +471,6 @@ export async function build(
   for (const dir of config.componentDirs) {
     allFiles.push(...await discoverComponentFiles(dir))
   }
-  const allFilesSet = new Set(allFiles)
 
   // 3. Manifest baseline (runtime sentinel always present)
   const manifest: Record<string, { clientJs?: string; markedTemplate: string; stubDeps?: string[] }> = {
@@ -637,25 +659,34 @@ export async function build(
     }
   }
 
-  // 5. Prune outputs for cache entries whose source was deleted since last build.
-  //    - Component entries: keyed by source path; delete if path is no longer in allFilesSet.
-  //    - Bundle entries ("bundle:" prefix): delete if no longer present in nextEntries
-  //      (i.e. removed from config.bundleEntries).
-  const toDelete = Object.keys(cache.entries).filter((key) => {
-    if (key.startsWith('bundle:')) return !(key in nextEntries)
-    return !allFilesSet.has(key)
-  })
-  for (const deletedPath of toDelete) {
-    const entry = cache.entries[deletedPath]
-    for (const output of entry.outputs) {
-      const abs = resolve(config.outDir, output)
-      try {
-        await unlink(abs)
-        anyOutputChanged = true
-        console.log(`Deleted: ${output}`)
-      } catch {
-        // already gone
-      }
+  // 5. Prune outputs whose source no longer contributes to the current build.
+  //    Source of truth is the durable emit ledger (`previousEmitEntries`),
+  //    not `cache.entries`: the cache is wiped by `--force` and by any
+  //    globalHash change (lockfile / config edits), and a cache-driven
+  //    cleanup pass would then leave orphans behind. See piconic-ai/barefootjs#1455.
+  //
+  //    Compute orphans as the set difference of previously-emitted paths
+  //    minus paths the current build is producing. Anything in that
+  //    difference is owned by us, lives in `outDir`, and no longer has a
+  //    current source — unlink it.
+  const currentEmitSet = new Set<string>()
+  for (const entry of Object.values(nextEntries)) {
+    for (const output of entry.outputs) currentEmitSet.add(output)
+  }
+  const orphanedOutputs = new Set<string>()
+  for (const previousOutputs of Object.values(previousEmitEntries)) {
+    for (const output of previousOutputs) {
+      if (!currentEmitSet.has(output)) orphanedOutputs.add(output)
+    }
+  }
+  for (const output of orphanedOutputs) {
+    const abs = resolve(config.outDir, output)
+    try {
+      await unlink(abs)
+      anyOutputChanged = true
+      console.log(`Deleted: ${output}`)
+    } catch {
+      // already gone
     }
   }
 
@@ -849,12 +880,23 @@ export async function build(
     }
   }
 
-  // 9. Persist cache
+  // 9. Persist cache and the emit ledger. The ledger is written every build,
+  //    regardless of `--force` or globalHash invalidation, so the next build
+  //    has an authoritative record of which output files belong to it.
   const nextCache: BuildCache = {
     globalHash,
     entries: nextEntries,
   }
-  await saveCache(config.outDir, nextCache)
+  const nextLedger: EmitLedger = emptyLedger()
+  for (const [key, entry] of Object.entries(nextEntries)) {
+    if (entry.outputs.length > 0) {
+      nextLedger.entries[key] = entry.outputs.slice()
+    }
+  }
+  await Promise.all([
+    saveCache(config.outDir, nextCache),
+    saveEmitLedger(config.outDir, nextLedger),
+  ])
 
   return {
     compiledCount,
