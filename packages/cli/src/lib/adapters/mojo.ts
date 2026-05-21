@@ -9,7 +9,7 @@ import { execSync } from 'node:child_process'
 import type { AdapterTemplate } from '../templates'
 import {
   COMPONENTS_MANIFEST_SEED,
-  NATIVE_BUTTON_COUNTER_TSX,
+  SHARED_COUNTER_TSX,
   STYLES_CSS,
   TOKENS_CSS,
   UNOCSS_DEV_DEPENDENCIES,
@@ -154,12 +154,14 @@ export const MOJO_ADAPTER: AdapterTemplate = {
       'components/**/*.tsx',
       'dist/components/**/*.tsx',
     ]),
-    // Registry <Button> is not auto-installed for mojo (see
-    // `bundledRegistryComponents` below), so the starter uses raw
-    // <button> elements with utility classes inline — keeps the
-    // scaffold runnable without referencing a component that isn't
-    // on disk yet.
-    'components/Counter.tsx': NATIVE_BUTTON_COUNTER_TSX,
+    // Registry <Button> is auto-installed for mojo via the
+    // adapter-default `bundledRegistryComponents` (`['button']`)
+    // now that #1443's chain of PRs taught the Mojo adapter to
+    // lower the registry Slot's `[a, b].filter(Boolean).join(' ')`
+    // className-merge expression to Embedded Perl. The starter uses
+    // the same Button-based Counter the Hono / CSR / Echo scaffolds
+    // use, so the onboarding story is consistent across adapters.
+    'components/Counter.tsx': SHARED_COUNTER_TSX,
     'public/styles.css': STYLES_CSS,
     'public/tokens.css': TOKENS_CSS,
     'public/uno.css': UNO_CSS_PLACEHOLDER,
@@ -168,14 +170,13 @@ export const MOJO_ADAPTER: AdapterTemplate = {
   scripts: {
     // Run the watchers + Mojolicious's morbo (which auto-reloads on
     // app.pl edits) side-by-side. The watchers each do their own
-    // initial build at startup, so a separate cold-build prefix isn't
-    // needed — and used to be a hard blocker: any BF101 from the
-    // bundled `slot` component (the asChild pattern uses
-    // `.filter().join()`, which the mojo adapter can't lower to
-    // Embedded Perl) made `bf build` exit 1, the `&&` chain
-    // short-circuited, morbo never started, and the user saw "server
-    // doesn't come up" with no obvious cause. Matches the hono
-    // adapter's dev script shape.
+    // initial build at startup, so a separate cold-build prefix
+    // isn't needed. Matches the hono adapter's dev script shape.
+    // (A pre-#1443 hard blocker — `bf build` failing BF101 on the
+    // registry slot's `.filter(Boolean).join(' ')` chain and tanking
+    // the whole `&&` sequence so morbo never started — is no longer
+    // a concern now that the adapter lowers that expression
+    // natively.)
     dev: 'concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "morbo app.pl -l http://*:3002"',
     build: 'bf build && unocss',
     start: 'perl app.pl daemon -l http://*:3002',
@@ -193,16 +194,14 @@ export const MOJO_ADAPTER: AdapterTemplate = {
     concurrently: '^9.0.0',
     typescript: '^5.6.0',
   },
-  // The registry <Button> depends on <Slot>, whose
-  // `[a, b].filter(Boolean).join(' ')` className-merge expression the
-  // mojolicious adapter cannot yet lower to Embedded Perl (BF101). A
-  // persistent compile error in slot/index.tsx would in turn keep the
-  // CLI from writing the dev-reload sentinel after every rebuild,
-  // silently breaking `/_bf/reload` for the entire scaffold. Skip the
-  // bundled add until the adapter learns to lower that chain — `bf add
-  // button` will surface the same error explicitly when the user opts
-  // in.
-  bundledRegistryComponents: [],
+  // Registry <Button> + its <Slot> dependency now lower to Embedded
+  // Perl cleanly via the #1443 PR stack (`array-method` IR for
+  // `.join`, `bf_filter_truthy` for `.filter(Boolean)`, array-literal
+  // emit, nested-filter `.length`). Auto-installing `button` here
+  // brings the Mojo scaffold in line with the Hono / CSR / Echo
+  // onboarding flow so `npm create barefootjs@latest --adapter mojo`
+  // produces the same Counter shape across adapters. Omit the
+  // explicit empty array so init.ts's default `['button']` applies.
   prereqWarnings: () => perlPrereqs(),
   // Mojolicious itself is a Perl dependency, not an npm one — point
   // the user at the bundled cpanfile so they don't trip over a

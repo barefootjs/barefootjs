@@ -72,12 +72,12 @@ export interface AdapterTemplate {
   extraSetupSteps?: { label?: string; command: string }[]
   /**
    * Registry components fetched into `components/ui/` at init. Defaults
-   * to `['button']`, matching what the starter Counter expects on
-   * adapters whose compiler can render the registry <Button>
-   * end-to-end. Adapters that can't yet (e.g. mojo's lowering doesn't
-   * cover Slot's higher-order className-merge chain) set this to `[]`
-   * and pair it with `NATIVE_BUTTON_COUNTER_TSX` so the scaffold
-   * doesn't ship with a known-failing source on the very first build.
+   * to `['button']`, matching what the starter Counter expects across
+   * every supported adapter (Hono, CSR, Echo, Mojo). Adapters that
+   * later grow an unsupported-lowering blocker for a registry
+   * component can set this to `[]` to skip the auto-install while
+   * the gap closes; today every adapter ships with the registry
+   * `<Button>` ready out of the box.
    */
   bundledRegistryComponents?: string[]
 }
