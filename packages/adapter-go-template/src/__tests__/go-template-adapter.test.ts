@@ -1476,3 +1476,47 @@ export function C() {
     })
   })
 })
+
+// =============================================================================
+// #1448 Tier A — fixture-driven lowering pins
+// =============================================================================
+//
+// Companion to the Mojo adapter's fixture-driven block (see
+// `packages/adapter-mojolicious/src/__tests__/mojo-adapter.test.ts`).
+// The conformance test suite above renders every fixture end-to-end
+// through `go run` and compares HTML — strongest possible signal —
+// but skips with `GoNotAvailableError` on hosts without Go installed.
+// This block compiles each Tier A fixture's `source` through the
+// adapter and pins the emitted helper-call substring directly on
+// the Go template string. No `go run` needed; runs on every host.
+//
+// One row per Tier A method fixture from
+// packages/adapter-tests/fixtures/methods/. Each PR in the Tier A
+// stack appends its rows as the corresponding lowering lands.
+
+import { fixture as arrayIncludesFixture } from '../../../adapter-tests/fixtures/methods/array-includes'
+import { fixture as stringIncludesFixture } from '../../../adapter-tests/fixtures/methods/string-includes'
+
+describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
+  const cases = [
+    // The `.includes` fixtures sit at condition position
+    // (`{cond ? 'yes' : 'no'}`), so the emit lands inside `{{if ...}}`.
+    { fixture: arrayIncludesFixture,    expect: '{{if bf_includes .Items .Target}}' },
+    { fixture: stringIncludesFixture,   expect: '{{if bf_includes .Value .Needle}}' },
+  ]
+
+  for (const { fixture, expect: expectedHelper } of cases) {
+    test(`[${fixture.id}] lowers to \`${expectedHelper}\``, () => {
+      const adapter = new GoTemplateAdapter()
+      const result = compileJSX(fixture.source, `${fixture.id}.tsx`, { adapter })
+      // No BF101 — the parser arm + adapter case took the call.
+      expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+      // ...and no BF102 — `.includes` lands at condition position so
+      // a regression to the "Condition not supported" path would
+      // surface here.
+      expect(result.errors?.filter(e => e.code === 'BF102') ?? []).toEqual([])
+      const template = result.files.find(f => f.path.endsWith('.tmpl'))?.content ?? ''
+      expect(template).toContain(expectedHelper)
+    })
+  }
+})
