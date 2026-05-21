@@ -31,6 +31,7 @@ import {
   type TemplateSections,
   type ParsedExprEmitter,
   type HigherOrderMethod,
+  type ArrayMethod,
   type LiteralType,
   type IRNodeEmitter,
   type EmitIRNode,
@@ -1369,6 +1370,45 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
 // ===========================================================================
 
 /**
+ * Lowering for `array-method` IR nodes (#1443) — shared between the
+ * filter and top-level emitters so the Embedded Perl form stays
+ * consistent regardless of which context the chain lands in.
+ *
+ * The exhaustive switch on `method` paired with `assertNever` makes
+ * adding a new variant to `ArrayMethod` a TS compile error here, not
+ * a silent runtime no-op — the drift defence we already apply to
+ * `ParsedExpr.kind` extended to its sub-discriminator.
+ */
+function renderArrayMethod(
+  method: ArrayMethod,
+  object: ParsedExpr,
+  args: ParsedExpr[],
+  emit: (e: ParsedExpr) => string,
+): string {
+  switch (method) {
+    case 'join': {
+      // arr.join(sep) → join(sep, @{arr}). The default `${obj}->{join}`
+      // hash-lookup fallback would emit invalid Perl, which is why the
+      // IR carves out a dedicated method node instead of routing
+      // through the generic call dispatcher.
+      const obj = emit(object)
+      const sep = emit(args[0])
+      return `join(${sep}, @{${obj}})`
+    }
+    default: {
+      // TS-level exhaustiveness guard. If this throws at runtime, the
+      // IR was constructed against a newer `ArrayMethod` variant that
+      // this adapter hasn't been updated for — loud failure is better
+      // than emitting a silent empty string downstream.
+      const _exhaustive: never = method
+      throw new Error(
+        `renderArrayMethod: unhandled ArrayMethod '${(_exhaustive as string)}'`,
+      )
+    }
+  }
+}
+
+/**
  * Lowering for the predicate body of a filter / every / some / find,
  * plus the same shape used by `renderBlockBodyCondition` for complex
  * block-body filters. Identifiers resolve against:
@@ -1467,6 +1507,29 @@ class MojoFilterEmitter implements ParsedExprEmitter {
     return arrayExpr
   }
 
+  arrayLiteral(elements: ParsedExpr[], emit: (e: ParsedExpr) => string): string {
+    // Perl array ref: `[$a, $b]`. Filter-context use is rare (the
+    // outer emitter routes most array-literal arrivals via
+    // MojoTopLevelEmitter), but #1443's chain
+    // `[a, b].filter(Boolean).join(' ')` can land here when the
+    // outer `.filter()` recurses into a nested filter whose own
+    // source is an array literal.
+    return `[${elements.map(emit).join(', ')}]`
+  }
+
+  arrayMethod(
+    method: ArrayMethod,
+    object: ParsedExpr,
+    args: ParsedExpr[],
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    // Filter-context array methods are vanishingly rare — predicates
+    // operate on scalars, not arrays. Defer to the top-level rendering
+    // (`join(sep, @{...})`) for any case that does land here so the
+    // emission stays consistent across contexts.
+    return renderArrayMethod(method, object, args, emit)
+  }
+
   conditional(_test: ParsedExpr, _consequent: ParsedExpr, _alternate: ParsedExpr): string {
     return '1'
   }
@@ -1520,6 +1583,12 @@ class MojoTopLevelEmitter implements ParsedExprEmitter {
     if (callee.kind === 'identifier' && args.length === 0) {
       return `$${callee.name}`
     }
+    // Array methods (`.join` and any others added to ArrayMethod, #1443)
+    // are lifted into the `array-method` IR kind at parse time, so they
+    // never reach this dispatcher. Per-method detection here would mix
+    // value-builtin lowering with signal-call lowering — keeping them
+    // separated forces every adapter to declare the full array-method
+    // surface in one place (the `arrayMethod` emitter below).
     return emit(callee)
   }
 
@@ -1568,6 +1637,24 @@ class MojoTopLevelEmitter implements ParsedExprEmitter {
     if (method === 'every') return `!(grep { !(${grepBody}) } @{${arrayExpr}})`
     if (method === 'some') return `!!(grep { ${grepBody} } @{${arrayExpr}})`
     return arrayExpr
+  }
+
+  arrayLiteral(elements: ParsedExpr[], emit: (e: ParsedExpr) => string): string {
+    // Perl array ref. Identifiers inside elements resolve through the
+    // top-level emitter so `[className, childClass]` becomes
+    // `[$className, $childClass]` (the registry Slot's chain in
+    // #1443). Empty `[]` stays as `[]` — a valid empty Perl array
+    // ref that grep/join handle naturally.
+    return `[${elements.map(emit).join(', ')}]`
+  }
+
+  arrayMethod(
+    method: ArrayMethod,
+    object: ParsedExpr,
+    args: ParsedExpr[],
+    emit: (e: ParsedExpr) => string,
+  ): string {
+    return renderArrayMethod(method, object, args, emit)
   }
 
   conditional(

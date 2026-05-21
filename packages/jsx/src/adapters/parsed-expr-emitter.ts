@@ -37,6 +37,18 @@ import type { ParsedExpr, TemplatePart } from '../expression-parser'
 
 export type HigherOrderMethod = 'filter' | 'every' | 'some' | 'find' | 'findIndex'
 
+/**
+ * Non-higher-order array methods (#1443). One discriminator for the
+ * full set of "value-builtin" method calls on arrays — extending it
+ * adds a TS compile error in every adapter, mirroring the drift
+ * defence used for `ParsedExpr.kind` itself. Per-call-site method
+ * detection (matching `.join` inside an adapter's `call()` emitter)
+ * doesn't scale: every new method would need a new branch in every
+ * adapter. The IR-level discriminator keeps the lowering surface
+ * type-driven and the dispatch in one place.
+ */
+export type ArrayMethod = 'join'
+
 export type LiteralType = 'string' | 'number' | 'boolean' | 'null'
 
 /**
@@ -82,6 +94,13 @@ export interface ParsedExprEmitter {
     predicate: ParsedExpr,
     emit: (e: ParsedExpr) => string,
   ): string
+  arrayLiteral(elements: ParsedExpr[], emit: (e: ParsedExpr) => string): string
+  arrayMethod(
+    method: ArrayMethod,
+    object: ParsedExpr,
+    args: ParsedExpr[],
+    emit: (e: ParsedExpr) => string,
+  ): string
   unsupported(raw: string, reason: string): string
 }
 
@@ -119,6 +138,10 @@ export function emitParsedExpr(expr: ParsedExpr, emitter: ParsedExprEmitter): st
       return emitter.arrowFn(expr.param, expr.body, emit)
     case 'higher-order':
       return emitter.higherOrder(expr.method, expr.object, expr.param, expr.predicate, emit)
+    case 'array-literal':
+      return emitter.arrayLiteral(expr.elements, emit)
+    case 'array-method':
+      return emitter.arrayMethod(expr.method, expr.object, expr.args, emit)
     case 'unsupported':
       return emitter.unsupported(expr.raw, expr.reason)
     default: {

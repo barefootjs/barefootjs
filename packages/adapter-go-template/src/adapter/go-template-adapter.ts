@@ -38,6 +38,7 @@ import {
   type TemplateSections,
   type ParsedExprEmitter,
   type HigherOrderMethod,
+  type ArrayMethod,
   type LiteralType,
   type IRNodeEmitter,
   type EmitIRNode,
@@ -2593,6 +2594,29 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     return `[ARROW-FN: ${param} => ...]`
   }
 
+  arrayLiteral(_elements: ParsedExpr[], _emit: (e: ParsedExpr) => string): string {
+    // Go templates have no array-literal syntax — `slice` builtins
+    // would be the closest analogue, but the registry shape that
+    // motivated array-literal IR (#1443 — Slot's
+    // `[a, b].filter(Boolean).join(' ')`) also needs `.join` lowering
+    // Go doesn't have yet, so this stays a refusal. Pre-#1443 the
+    // parser returned `unsupported` for `[a, b]` and
+    // `convertExpressionToGo`'s `isSupported` gate emitted BF101
+    // up-front; now that `isSupported` accepts array-literal IR, the
+    // gate has moved here so the diagnostic still fires on the same
+    // shapes the Go adapter rejects today.
+    this.errors.push({
+      code: 'BF101',
+      severity: 'error',
+      message: `Array literal expressions cannot be lowered to Go template syntax`,
+      loc: this.makeLoc(),
+      suggestion: {
+        message: 'Options:\n1. Use @client directive for client-side evaluation\n2. Pre-compute the value in Go code',
+      },
+    })
+    return `""`
+  }
+
   higherOrder(
     method: HigherOrderMethod,
     object: ParsedExpr,
@@ -2611,7 +2635,48 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       const templateBlock = this.renderEverySomeTemplateBlock(reconstructed, emit)
       if (templateBlock) return templateBlock
     }
-    return `[UNSUPPORTED: ${method}]`
+    // No Go template form for this higher-order shape. Pre-#1443 the
+    // upstream `UNSUPPORTED_METHODS` parser gate refused most of these
+    // before they reached the emitter, so this sentinel was unreachable
+    // in practice; #1443 widened the parser surface (synthetic
+    // identity predicate for `.filter(Boolean)`) and exposed the gap.
+    // Record BF101 explicitly so the diagnostic surfaces at build time
+    // instead of leaking `[UNSUPPORTED: filter]` into the template
+    // (Copilot review on #1444). The stacked Go-side PR (#1445) adds
+    // the actual identity-predicate lowering so the user-visible
+    // case stops hitting this fallback altogether.
+    this.errors.push({
+      code: 'BF101',
+      severity: 'error',
+      message: `Higher-order method '.${method}' shape cannot be lowered to a Go template action`,
+      loc: this.makeLoc(),
+      suggestion: {
+        message: 'Options:\n1. Use @client directive for client-side evaluation\n2. Pre-compute the value in Go code',
+      },
+    })
+    return `""`
+  }
+
+  arrayMethod(
+    _method: ArrayMethod,
+    _object: ParsedExpr,
+    _args: ParsedExpr[],
+    _emit: (e: ParsedExpr) => string,
+  ): string {
+    // Array methods (currently just `.join`) need runtime-helper
+    // lowering (`bf_join`) that the Go adapter doesn't ship in this
+    // PR. Refuse with BF101 so the cross-adapter contract pins the
+    // Go-side gap until the Go lowering lands in the stacked PR.
+    this.errors.push({
+      code: 'BF101',
+      severity: 'error',
+      message: `Array method '.${_method}' cannot be lowered to Go template syntax in this build`,
+      loc: this.makeLoc(),
+      suggestion: {
+        message: 'Options:\n1. Use @client directive for client-side evaluation\n2. Pre-compute the value in Go code',
+      },
+    })
+    return `""`
   }
 
   unsupported(raw: string, _reason: string): string {
@@ -3600,6 +3665,18 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
 
       case 'higher-order':
         // Higher-order methods in conditions need special handling
+        return this.renderParsedExpr(expr)
+
+      case 'array-literal':
+        // Array literals in conditions have no Go template form —
+        // delegate to renderParsedExpr so the `arrayLiteral` BF101
+        // gate fires consistently with non-condition positions.
+        return this.renderParsedExpr(expr)
+
+      case 'array-method':
+        // Same delegation pattern — `arrayMethod` records the
+        // refusal diagnostic at one site rather than duplicating it
+        // for condition-position emission.
         return this.renderParsedExpr(expr)
 
       case 'unsupported':

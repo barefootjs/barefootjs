@@ -365,8 +365,20 @@ function buildPerlProps(
       const perlValue = jsToPerlValue(param.defaultValue)
       if (perlValue !== null) {
         entries.push(`${param.name} => ${perlValue}`)
+        continue
       }
     }
+    // No default and no caller-supplied value: pass `undef` so the
+    // Mojo::Template `vars => 1` auto-declaration fires. Without
+    // this, references to an optional prop variable (`$label`,
+    // `$on`) trip Perl's strict-mode "Global symbol requires
+    // explicit package name" error before the template gets a
+    // chance to skip the falsy branch — the same failure mode the
+    // restPropsName carve-out below was added for (#1407 follow-up).
+    // Surfaces with #1443: lowering `[a, b].filter(Boolean).join(' ')`
+    // emits a literal `$label` reference where the BF101 path used
+    // to emit `''`, exposing this latent test-harness gap.
+    entries.push(`${param.name} => undef`)
   }
 
   // (#1407 follow-up) Default the rest-binding identifier to an
