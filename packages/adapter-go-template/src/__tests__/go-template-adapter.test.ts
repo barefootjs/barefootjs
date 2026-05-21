@@ -1609,6 +1609,7 @@ import { fixture as arrayIndexOfFixture } from '../../../adapter-tests/fixtures/
 import { fixture as arrayLastIndexOfFixture } from '../../../adapter-tests/fixtures/methods/array-lastIndexOf'
 import { fixture as arrayAtFixture } from '../../../adapter-tests/fixtures/methods/array-at'
 import { fixture as arrayConcatFixture } from '../../../adapter-tests/fixtures/methods/array-concat'
+import { fixture as arraySliceFixture } from '../../../adapter-tests/fixtures/methods/array-slice'
 
 describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -1623,6 +1624,7 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     // positions. Pre-existing unary-emit pattern.
     { fixture: arrayAtFixture,          expect: 'bf_at .Items (bf_neg 1)' },
     { fixture: arrayConcatFixture,      expect: 'bf_concat .Left .Right' },
+    { fixture: arraySliceFixture,       expect: 'bf_slice .Items 1 3' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {
