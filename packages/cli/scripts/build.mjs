@@ -9,7 +9,7 @@
 //   is bundled inline so the published CLI is self-contained.
 
 import { build } from 'esbuild'
-import { chmodSync, cpSync, existsSync, rmSync } from 'node:fs'
+import { chmodSync, copyFileSync, cpSync, existsSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
@@ -23,6 +23,13 @@ const outfile = resolve(pkgDir, 'dist/index.js')
 // checkout. Only `dist` is in `files`, so this path is what ships.
 const docsSrc = resolve(pkgDir, '../../docs/core')
 const docsDst = resolve(pkgDir, 'dist/docs/core')
+// `bf tokens` reads the default token palette from this JSON. The
+// monorepo source lives under `site/shared/tokens/`, but that
+// directory ships nowhere — copy it next to the bundle so
+// `tokens.ts` can fall back to the bundled copy when the user is
+// running inside a scaffolded app instead of the monorepo.
+const tokensSrc = resolve(pkgDir, '../../site/shared/tokens/tokens.json')
+const tokensDst = resolve(pkgDir, 'dist/tokens.json')
 
 await build({
   entryPoints: [entry],
@@ -54,6 +61,15 @@ if (existsSync(docsSrc)) {
   // somewhere unexpected; warn but don't fail — `bf guide` will surface
   // its own error if the dir is missing at runtime.
   console.warn(`Warning: ${docsSrc} not found; bf guide will fail in the built CLI.`)
+}
+
+// Same story for the default token palette — copy it next to the
+// bundle so `bf tokens` can read it in scaffolded apps.
+if (existsSync(tokensSrc)) {
+  copyFileSync(tokensSrc, tokensDst)
+  console.log(`Copied: ${tokensSrc} -> ${tokensDst}`)
+} else {
+  console.warn(`Warning: ${tokensSrc} not found; bf tokens will fail in the built CLI.`)
 }
 
 console.log(`Built: ${outfile}`)
