@@ -170,7 +170,9 @@ runAdapterConformanceTests({
     // pre-existing `bf_lower` / `bf_upper` runtime helpers wire to
     // the JS method names at the adapter layer (#1448 Tier A
     // seventh + eighth PRs).
-    'string-trim':         [{ code: 'BF101', severity: 'error' }],
+    // `string-trim` no longer pinned — pre-existing `bf_trim`
+    // (wraps `strings.TrimSpace`) handles the strip (#1448 Tier A
+    // ninth PR, closing out Tier A).
   },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `GoTemplateAdapter.templatePrimitives` (#1188). The two
@@ -1596,6 +1598,16 @@ export { A }`)
 export { A }`)
       expect(result.template).toContain('bf_upper .Value')
     })
+
+    test('value.trim() emits `bf_trim .Value`', () => {
+      // Pre-existing `bf_trim` (wraps `strings.TrimSpace`); only
+      // adapter wiring is new.
+      const result = compileAndGenerate(`function A({ value }: { value: string }) {
+  return <div>[{value.trim()}]</div>
+}
+export { A }`)
+      expect(result.template).toContain('bf_trim .Value')
+    })
   })
 
   describe('.reverse / .toReversed lowering (#1448 Tier A)', () => {
@@ -1666,6 +1678,7 @@ import { fixture as arrayReverseFixture } from '../../../adapter-tests/fixtures/
 import { fixture as arrayToReversedFixture } from '../../../adapter-tests/fixtures/methods/array-toReversed'
 import { fixture as stringToLowerCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toLowerCase'
 import { fixture as stringToUpperCaseFixture } from '../../../adapter-tests/fixtures/methods/string-toUpperCase'
+import { fixture as stringTrimFixture } from '../../../adapter-tests/fixtures/methods/string-trim'
 
 describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => {
   const cases = [
@@ -1687,6 +1700,7 @@ describe('GoTemplateAdapter - #1448 Tier A fixture-driven lowering pins', () => 
     { fixture: arrayToReversedFixture,  expect: 'bf_reverse .Items' },
     { fixture: stringToLowerCaseFixture,expect: 'bf_lower .Value' },
     { fixture: stringToUpperCaseFixture,expect: 'bf_upper .Value' },
+    { fixture: stringTrimFixture,       expect: 'bf_trim .Value' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

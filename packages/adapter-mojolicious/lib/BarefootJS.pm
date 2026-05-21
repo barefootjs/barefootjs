@@ -484,6 +484,24 @@ sub reverse ($self, $recv) {
     return [ reverse @$recv ];
 }
 
+# `String.prototype.trim()` — strip leading + trailing whitespace.
+# JS's `String.prototype.trim` matches `\s` in the Unicode sense
+# (any whitespace including non-breaking space U+00A0); Perl's `\s`
+# inside a regex with `/u` flag is the same. Undef receivers return
+# the empty string (matches JS's `String(undefined).trim()` which
+# would be "undefined" → "undefined", but in our template context
+# undef commonly means "missing prop"; rendering the empty string
+# is the safer choice and mirrors the JS-compat divergence we
+# already document for `bf->string(undef) === ""`).
+
+sub trim ($self, $recv) {
+    return '' unless defined $recv;
+    return '' if ref($recv);
+    my $s = "$recv";
+    $s =~ s/^\s+|\s+$//gu;
+    return $s;
+}
+
 # ---------------------------------------------------------------------------
 # JSX intrinsic-element spread (#1407)
 # ---------------------------------------------------------------------------

@@ -1513,6 +1513,14 @@ function renderArrayMethod(
       const recv = emit(object)
       return `uc(${recv})`
     }
+    case 'trim': {
+      // No Perl native `trim`; route through the `bf->trim`
+      // helper so the regex stays in one place (and so an undef
+      // receiver doesn't trigger a warning about applying `s///`
+      // to undef).
+      const recv = emit(object)
+      return `bf->trim(${recv})`
+    }
     default: {
       // TS-level exhaustiveness guard. If this throws at runtime, the
       // IR was constructed against a newer `ArrayMethod` variant that
