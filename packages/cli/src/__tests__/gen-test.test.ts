@@ -124,4 +124,51 @@ describe('bf gen test', () => {
       logSpy.mockRestore()
     }
   })
+
+  // PM-aware import selection (issue #1454): the emitted test's
+  // `import { describe, ... } from '<runner>'` line follows the
+  // detected PM. Bun ships an in-runtime runner (`bun:test`); every
+  // other PM gets `vitest` paired with the `vitest run` script that
+  // `bf init` wires up. The lockfile is the strongest detection
+  // signal, so each case below pins one to fix the runner choice.
+  describe('PM-aware test-runner import (issue #1454)', () => {
+    function setup(lockfile: string): void {
+      writeFileSync(path.join(projectDir, lockfile), '')
+      mkdirSync(path.join(projectDir, 'components'), { recursive: true })
+      writeFileSync(
+        path.join(projectDir, 'components/Counter.tsx'),
+        `export function Counter() { return <div /> }`,
+      )
+    }
+
+    test('bun.lock → emits `from \'bun:test\'`', () => {
+      setup('bun.lock')
+      const logSpy = spyOn(console, 'log').mockImplementation(() => {})
+      try {
+        run(['Counter'], ctxFor())
+        const content = readFileSync(path.join(projectDir, 'components/Counter.test.tsx'), 'utf-8')
+        expect(content).toContain(`from 'bun:test'`)
+        expect(content).not.toContain(`from 'vitest'`)
+      } finally {
+        logSpy.mockRestore()
+      }
+    })
+
+    test.each([
+      ['package-lock.json', 'npm'],
+      ['pnpm-lock.yaml', 'pnpm'],
+      ['yarn.lock', 'yarn'],
+    ])('%s (%s) → emits `from \'vitest\'`', (lockfile) => {
+      setup(lockfile)
+      const logSpy = spyOn(console, 'log').mockImplementation(() => {})
+      try {
+        run(['Counter'], ctxFor())
+        const content = readFileSync(path.join(projectDir, 'components/Counter.test.tsx'), 'utf-8')
+        expect(content).toContain(`from 'vitest'`)
+        expect(content).not.toContain(`from 'bun:test'`)
+      } finally {
+        logSpy.mockRestore()
+      }
+    })
+  })
 })

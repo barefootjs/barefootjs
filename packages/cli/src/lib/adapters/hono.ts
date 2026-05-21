@@ -117,11 +117,13 @@ const HONO_TSCONFIG = `{
     // \`{{__PM_TYPES_ENTRY__}}\` for any extra type packages the
     // user's detected package manager wants pulled in. Today only
     // bun contributes (\`, "bun-types"\` so \`bf gen test\`-emitted
-    // \`import 'bun:test'\` lines type-check); npm / pnpm / yarn
-    // collapse the slot to an empty string and ship a clean
-    // \`types\` array. If a future PM / test runner needs its own
-    // module declarations, plug them into the same slot in
-    // \`init.ts\` rather than baking another placeholder here.
+    // \`import 'bun:test'\` lines type-check); npm / pnpm / yarn get
+    // \`vitest\` as their test runner and import \`from 'vitest'\`,
+    // which exposes types via its own package — no \`types\` array
+    // entry needed, so the slot collapses to an empty string. The
+    // bun-vs-vitest decision lives in \`testRunnerFor\` in
+    // \`init.ts\`'s pm module; future runners plug into the same
+    // slot there rather than baking another placeholder in here.
     "types": ["@cloudflare/workers-types"{{__PM_TYPES_ENTRY__}}],
     "strict": true,
     "skipLibCheck": true,
@@ -232,14 +234,15 @@ export const HONO_ADAPTER: AdapterTemplate = {
     '@cloudflare/workers-types': '^4.20250101.0',
     // `@barefootjs/test` powers `renderToTest()` — the canonical
     // millisecond IR test the docs (and `bf gen test`) point new users
-    // at. Without it the scaffold's `bun test` is a no-op and any
+    // at. Without it the scaffold's `test` script is a no-op and any
     // generated `index.test.tsx` fails with a module-not-found error.
     '@barefootjs/test': 'latest',
-    // `@types/bun` is added by init.ts only when the detected PM is
-    // bun — paired with the conditional `"bun-types"` entry in
-    // tsconfig.json's `types` array. Keeping it out of the static
-    // adapter map avoids shipping a bun-only dep to npm / pnpm / yarn
-    // users who never invoke `bun test`.
+    // PM-specific test-runner deps (today: `@types/bun` for bun,
+    // `vitest` for npm / pnpm / yarn) are added by init.ts via
+    // `testRunnerFor(pm)`. Keeping them out of the static adapter map
+    // means the registered surface stays PM-agnostic — a bun project
+    // doesn't ship vitest, and an npm project doesn't ship a bun-only
+    // type package.
     concurrently: '^9.0.0',
     typescript: '^5.6.0',
   },

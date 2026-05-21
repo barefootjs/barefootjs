@@ -108,3 +108,60 @@ export function commandsFor(pm: PackageManager): PmCommands {
       }
   }
 }
+
+/**
+ * Per-PM test-runner configuration for the scaffold + `bf gen test` /
+ * `bf gen component` code generators.
+ *
+ * Bun ships an in-runtime test runner (`bun:test`), so a bun-first user
+ * scaffolds with `test: 'bun test'` + `import 'bun:test'` and no extra
+ * devDeps beyond `@types/bun` (for the module declaration). Every other
+ * PM lacks an in-runtime runner, so we default to Vitest — its
+ * `describe` / `test` / `expect` surface is API-compatible with the
+ * `bun:test` line `bf gen test` would otherwise emit, so the generated
+ * file just works after `npm install` without any per-runner config.
+ *
+ * Centralising the decision here keeps scaffold (`init.ts`), `bf gen
+ * test`, and `bf gen component` consistent: each one calls
+ * `testRunnerFor(pm)` and reads the field it needs, instead of duplicating
+ * the bun-vs-vitest branch at every call site (and drifting over time).
+ */
+export interface TestRunner {
+  /** Import specifier the generated `*.test.tsx` puts on its header line. */
+  importSource: string
+  /** `package.json#scripts.test` value `bf init` writes for this PM. */
+  scriptValue: string
+  /**
+   * devDependencies the scaffold adds for this PM. Bun: `@types/bun`
+   * (for the `bun:test` module declaration); others: `vitest`.
+   */
+  devDeps: Record<string, string>
+  /**
+   * Comma-prefixed entry appended into the tsconfig `types` array (the
+   * `{{__PM_TYPES_ENTRY__}}` slot in adapter tsconfigs). Bun needs
+   * `, "bun-types"` so `import 'bun:test'` lines type-check; vitest
+   * surfaces its types via the regular `from 'vitest'` import path, so
+   * the slot collapses to an empty string.
+   */
+  typesEntry: string
+}
+
+export function testRunnerFor(pm: PackageManager): TestRunner {
+  if (pm === 'bun') {
+    return {
+      importSource: 'bun:test',
+      scriptValue: 'bun test',
+      devDeps: { '@types/bun': '^1.1.0' },
+      typesEntry: ', "bun-types"',
+    }
+  }
+  // Vitest's default `vitest` command runs in watch mode; `vitest run`
+  // mirrors `bun test`'s "run once, exit" semantics so `<pm> test` in CI
+  // doesn't hang waiting for stdin.
+  return {
+    importSource: 'vitest',
+    scriptValue: 'vitest run',
+    devDeps: { vitest: '^2.0.0' },
+    typesEntry: '',
+  }
+}

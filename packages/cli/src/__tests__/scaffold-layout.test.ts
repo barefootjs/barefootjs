@@ -71,4 +71,22 @@ describe('scaffold (componentsBasePath wiring)', () => {
     expect(result.componentPath).toBe('components/ui/my-card/index.tsx')
     expect(result.testPath).toBe('components/ui/my-card/index.test.tsx')
   })
+
+  // PM-aware import selection (issue #1454): the emitted test's
+  // `import { describe, ... } from '<runner>'` line follows the
+  // runner `bf gen component` picks from `testRunnerFor(pm)`.
+  // Default stays `bun:test` so existing callers behave unchanged.
+  test('defaults the emitted test header to `from \'bun:test\'`', () => {
+    const result = scaffold('my-card', [], '', 'components/ui')
+    expect(result.testCode).toContain(`from 'bun:test'`)
+    expect(result.testCode).not.toContain(`from 'vitest'`)
+  })
+
+  test('testImportSource swaps the header for non-bun scaffolds', () => {
+    const result = scaffold('my-card', [], '', 'components/ui', {
+      testImportSource: 'vitest',
+    })
+    expect(result.testCode).toContain(`import { describe, test, expect } from 'vitest'`)
+    expect(result.testCode).not.toContain(`from 'bun:test'`)
+  })
 })

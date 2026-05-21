@@ -23,7 +23,7 @@ import {
   DEFAULT_CSS_LIBRARY,
   type AdapterTemplate,
 } from '../lib/templates'
-import { detectPackageManager, commandsFor, type PackageManager } from '../lib/pm'
+import { detectPackageManager, commandsFor, testRunnerFor, type PackageManager } from '../lib/pm'
 import { select, SelectCancelled } from '../lib/select'
 import { startSpinner } from '../lib/spinner'
 
@@ -233,18 +233,19 @@ async function scaffoldApp(
   const rawName = flags.name || path.basename(projectDir)
   const pkgName = path.basename(rawName).replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'barefoot-app'
 
-  // Resolve PM up-front so file substitution and devDep selection both
-  // see the same answer. (Scripts use it too further down.) The
-  // adapter tsconfig templates carry a `{{__PM_TYPES_ENTRY__}}` slot
-  // for PM-specific type packages that need to land in the `types`
-  // array — today only bun contributes (`, "bun-types"` so
-  // `bf gen test`-emitted `import 'bun:test'` lines type-check),
-  // and every other PM resolves the slot to an empty string. If a
-  // future PM / test runner needs its own module declarations, add
-  // a branch to `pmTypesEntry` here rather than threading another
-  // placeholder through the adapter templates.
+  // Resolve PM up-front so file substitution, the test runner choice,
+  // and devDep selection all see the same answer. (Scripts use it too
+  // further down.) `testRunnerFor(pm)` centralises the bun-vs-vitest
+  // branch — it owns the import specifier `bf gen test` writes
+  // (`bun:test` for bun, `vitest` everywhere else), the
+  // `package.json#scripts.test` value, the extra devDeps the scaffold
+  // adds, and the `{{__PM_TYPES_ENTRY__}}` slot the adapter tsconfigs
+  // carry. Keeping the decision in one place means scaffold + the
+  // generators below stay aligned over time without each one
+  // re-deriving the runner.
   const pm = detectPackageManager(projectDir)
-  const pmTypesEntry = pm === 'bun' ? ', "bun-types"' : ''
+  const runner = testRunnerFor(pm)
+  const pmTypesEntry = runner.typesEntry
 
   // Adapter-contributed files (server, components/Counter, barefoot.config.ts, etc.)
   for (const [relPath, contents] of Object.entries(adapter.files)) {
@@ -280,15 +281,14 @@ async function scaffoldApp(
     resolvedAdapterScripts[k] = typeof v === 'function' ? v(pm) : v
   }
 
-  // PM-specific devDependencies. The adapter map keeps these out by
-  // default so a fresh `npm create` project doesn't carry deps that
-  // only make sense under a different runtime. Today only bun pulls
-  // anything in (`@types/bun` to match the `"bun-types"` types
-  // entry pmTypesEntry above contributes); other PMs end up with the
-  // adapter's base devDeps and nothing extra. Pair any new branch
-  // here with the corresponding `pmTypesEntry` arm above.
-  const pmDevDeps: Record<string, string> =
-    pm === 'bun' ? { '@types/bun': '^1.1.0' } : {}
+  // PM-specific devDependencies sourced from the runner config. The
+  // adapter map keeps these out by default so the registered surface
+  // stays PM-agnostic. For bun: `@types/bun` (paired with the
+  // `"bun-types"` entry pmTypesEntry above contributes). For everyone
+  // else: `vitest` — its `describe` / `test` / `expect` surface is
+  // API-compatible with the `bun:test` line `bf gen test` would
+  // otherwise emit, so the same generated file runs under any PM.
+  const pmDevDeps: Record<string, string> = runner.devDeps
 
   const pkgJson = {
     name: pkgName,
@@ -303,13 +303,13 @@ async function scaffoldApp(
       // only needs the BarefootJS asset pipeline to keep pace.
       watch:
         'concurrently -k -n build,uno -c blue,magenta "bf build --watch" "unocss --watch"',
-      // `bf gen component` writes `*.test.tsx` using `bun:test`, and the
-      // AI-native workflow doc (`bf guide core-concepts/ai-native`)
-      // points users at `bun test` as step 4 of the loop. Default the
-      // scaffold's `test` script to the same so `npm test` / `bun run
-      // test` Just Works after the first generated component, instead
-      // of falling back to the "no tests yet" placeholder (#1403).
-      test: 'bun test',
+      // `test` is wired to the runner that matches the user's package
+      // manager — `bun test` for bun, `vitest run` for npm / pnpm /
+      // yarn. The matching `bf gen component` / `bf gen test` output
+      // imports from the same runner (`bun:test` vs. `vitest`), so the
+      // very first generated test file Just Works after `<pm> install`
+      // without manual migration. See `testRunnerFor` in `../lib/pm.ts`.
+      test: runner.scriptValue,
     },
     dependencies: { ...adapter.dependencies },
     devDependencies: { ...adapter.devDependencies, ...pmDevDeps },
