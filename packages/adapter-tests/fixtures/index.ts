@@ -102,11 +102,21 @@ import { fixture as stringToLowerCase } from './methods/string-toLowerCase'
 import { fixture as stringToUpperCase } from './methods/string-toUpperCase'
 import { fixture as stringTrim } from './methods/string-trim'
 import { fixture as stringIncludes } from './methods/string-includes'
-// #1448 catalog parity: methods that are already lowered today but
-// lacked a dedicated positive `methods/` entry. No `expectedDiagnostics`
-// pin — every adapter renders the canonical surface, so a regression
-// in any of them surfaces here instead of through whichever
-// downstream fixture happened to compose the same call.
+// #1448 catalog parity: array methods rendered positively by
+// Hono / CSR (runtime JS) and at least one SSR adapter — pinning
+// the canonical surface so a regression surfaces here instead of
+// through whichever downstream fixture happens to compose the
+// same call. Per-adapter pins live in each adapter's test file
+// (Mojo's `expectedDiagnostics` set, Go's `skipJsx` list):
+//   - `.every` / `.some`              — positive across all adapters
+//   - `.join`                         — positive across all adapters
+//                                       (Mojo `array-method` IR
+//                                       emits `join(sep, @{arr})`;
+//                                       Go's `bf_join` helper)
+//   - `.find` / `.findIndex`          — positive on Hono / CSR / Go;
+//                                       Mojo has no lowering yet
+//                                       (`array-method` extension /
+//                                       BF101 pin in mojo-adapter.test)
 import { fixture as arrayJoin } from './methods/array-join'
 import { fixture as arrayFind } from './methods/array-find'
 import { fixture as arrayEvery } from './methods/array-every'

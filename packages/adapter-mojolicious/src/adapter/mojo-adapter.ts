@@ -1151,16 +1151,23 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
       return this.convertHigherOrderExpr(expr)
     }
 
-    // #1448 catalog — Mojo-specific gap: methods where the Go
-    // adapter already has a lowering (`bf_join`, `bf_find`,
-    // `bf_find_index`) but Mojo's regex pipeline silently mangles
-    // them into `${obj}->{<method>}(...)` hash lookups. Emitting
-    // BF101 directly (rather than routing through the parser-level
-    // `UNSUPPORTED_METHODS` set as the row above does) keeps Go's
-    // working `.join` support intact while still surfacing the
-    // refusal at compile time on Mojo. Each name drops off the
-    // regex when the Mojo lowering lands.
-    const mojoOnlyMatch = /\.\s*(?<method>find|findIndex|join)\s*\(/.exec(expr)
+    // #1443/#1448: `.join(sep)` is lifted by the parser to the
+    // `array-method` IR kind, and `renderArrayMethod`'s `case 'join'`
+    // already emits the correct `join(sep, @{arr})`. Route the
+    // text-expression form through the same AST path so the
+    // regex pipeline below doesn't mangle it into a
+    // `${arr}->{join}(sep)` Perl hash-lookup that errors at render.
+    if (/\.\s*join\s*\(/.test(expr)) {
+      return this.convertHigherOrderExpr(expr)
+    }
+
+    // #1448 catalog — Mojo-specific gap: `.find` / `.findIndex`
+    // have no AST lowering yet (no `array-method` IR variant, no
+    // emitter), and the regex pipeline silently mangles them into
+    // `${obj}->{find}(...)` hash lookups. Emit BF101 here until
+    // either a parser-level `array-method` extension or a
+    // `convertHigherOrderExpr` carve-out lands.
+    const mojoOnlyMatch = /\.\s*(?<method>find|findIndex)\s*\(/.exec(expr)
     if (mojoOnlyMatch) {
       const methodName = mojoOnlyMatch.groups!.method!
       this.errors.push({

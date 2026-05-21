@@ -122,12 +122,13 @@ runAdapterConformanceTests({
     'string-toUpperCase':  [{ code: 'BF101', severity: 'error' }],
     'string-trim':         [{ code: 'BF101', severity: 'error' }],
     'string-includes':     [{ code: 'BF101', severity: 'error' }],
-    // #1448 catalog — methods where Go's lowering is in place
-    // (`bf_join`, `bf_find`, `bf_find_index`) but Mojo silently
-    // mangles the call. Refused by the Mojo-specific gate in
-    // `convertExpressionToPerl`; each row drops when the
-    // corresponding Mojo lowering lands.
-    'array-join':          [{ code: 'BF101', severity: 'error' }],
+    // #1448 catalog — `.find` / `.findIndex` have no Mojo lowering
+    // yet (no `array-method` IR variant, no emitter), so the
+    // Mojo-specific gate in `convertExpressionToPerl` refuses them
+    // up front. `.join` is NOT pinned here — it's lifted to the
+    // `array-method` IR by the parser and `renderArrayMethod`'s
+    // `case 'join'` emits `join(sep, @{arr})` correctly; the
+    // text-expression form is routed through the same AST path.
     'array-find':          [{ code: 'BF101', severity: 'error' }],
     'array-findIndex':     [{ code: 'BF101', severity: 'error' }],
   },
