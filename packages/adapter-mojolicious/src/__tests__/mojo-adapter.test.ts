@@ -131,7 +131,10 @@ runAdapterConformanceTests({
     // SSR templates render a snapshot and the JS mutate-vs-new
     // distinction has no template-level meaning (#1448 Tier A
     // sixth PR).
-    'string-toLowerCase':  [{ code: 'BF101', severity: 'error' }],
+    // `string-toLowerCase` no longer pinned — Perl's native `lc`
+    // is the obvious lowering (no helper method); Go uses the
+    // pre-existing `bf_lower` runtime helper (#1448 Tier A
+    // seventh PR).
     'string-toUpperCase':  [{ code: 'BF101', severity: 'error' }],
     'string-trim':         [{ code: 'BF101', severity: 'error' }],
     // #1448 catalog — `.find` / `.findIndex` have no Mojo lowering
@@ -535,6 +538,23 @@ export { A }`, 'A.tsx', { adapter })
     const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
     expect(template).toContain('bf->at($items, -1)')
     expect(template).not.toContain('$bf->at(')
+  })
+
+  test('lowers .toLowerCase() via Perl native lc (#1448 Tier A)', () => {
+    // Perl's `lc` is the native lowering — no helper needed.
+    // Defensive: must not emit a `$lc(...)` form (which the
+    // test-render patch would mangle); emit must be the bare
+    // `lc(...)` call so it stays well-formed in both the
+    // standalone test renderer and real Mojolicious.
+    const adapter = new MojoAdapter()
+    const result = compileJSX(`function A({ value }: { value: string }) {
+  return <div>{value.toLowerCase()}</div>
+}
+export { A }`, 'A.tsx', { adapter })
+    expect(result.errors?.filter(e => e.code === 'BF101') ?? []).toEqual([])
+    const template = result.files.find(f => f.path.endsWith('.html.ep'))?.content ?? ''
+    expect(template).toContain('lc($value)')
+    expect(template).not.toContain('$lc(')
   })
 
   test('lowers .reverse().join(\' \') via bf->reverse + join (#1448 Tier A)', () => {
