@@ -198,4 +198,26 @@ subtest 'slice — array sub-range with negative-index + clamping' => sub {
     is $src, ['a', 'b', 'c'], 'source unchanged after mutating slice result';
 };
 
+# `Array.prototype.reverse()` / `Array.prototype.toReversed()` —
+# both shapes share the lowering (#1448 Tier A). SSR templates
+# render a snapshot, so JS's mutate-vs-new distinction has no
+# template-level meaning. Always returns a new ARRAY ref.
+subtest 'reverse — new array ref in reverse order' => sub {
+    is $bf->reverse(['a', 'b', 'c']), ['c', 'b', 'a'], 'three elements';
+    is $bf->reverse([1, 2, 3, 4]),    [4, 3, 2, 1],    'integers';
+    is $bf->reverse([]),              [],              'empty array';
+    is $bf->reverse(['only']),        ['only'],        'single element';
+
+    # Mutation isolation: input must survive.
+    my $src = ['a', 'b', 'c'];
+    my $out = $bf->reverse($src);
+    push @$out, 'mutated';
+    is $src, ['a', 'b', 'c'], 'source unchanged after mutating reverse result';
+
+    # Non-array receivers.
+    is $bf->reverse(undef),         [], 'undef receiver → empty';
+    is $bf->reverse('not an array'),[], 'scalar receiver → empty';
+    is $bf->reverse({a => 1}),      [], 'hash ref receiver → empty';
+};
+
 done_testing;

@@ -2753,6 +2753,17 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         const end = emit(args[1])
         return `bf_slice ${wrapIfMultiToken(recv)} ${wrapIfMultiToken(start)} ${wrapIfMultiToken(end)}`
       }
+      case 'reverse':
+      case 'toReversed': {
+        // SSR templates render a snapshot of state, so JS's
+        // mutate-and-return-receiver (`reverse`) vs return-new-
+        // array (`toReversed`) distinction has no template-level
+        // meaning. Both shapes route through `bf_reverse`, which
+        // always returns a fresh `[]any` (safest interpretation —
+        // the input array is whatever the template binds).
+        const recv = emit(object)
+        return `bf_reverse ${wrapIfMultiToken(recv)}`
+      }
       default: {
         const _exhaustive: never = method
         throw new Error(`Go arrayMethod: unhandled ArrayMethod '${(_exhaustive as string)}'`)

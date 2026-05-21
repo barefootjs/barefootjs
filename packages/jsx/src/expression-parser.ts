@@ -33,7 +33,16 @@ export type ParsedExpr =
   // defence used for `ParsedExpr.kind`).
   | {
       kind: 'array-method'
-      method: 'join' | 'includes' | 'indexOf' | 'lastIndexOf' | 'at' | 'concat' | 'slice'
+      method:
+        | 'join'
+        | 'includes'
+        | 'indexOf'
+        | 'lastIndexOf'
+        | 'at'
+        | 'concat'
+        | 'slice'
+        | 'reverse'
+        | 'toReversed'
       object: ParsedExpr
       args: ParsedExpr[]
     }
@@ -118,7 +127,12 @@ const UNSUPPORTED_METHODS = new Set([
   // `slice` lowers via the `array-method` IR + `bf_slice` (Go) /
   // `bf->slice` (Mojo); accepts 1- or 2-arg form (`start` only or
   // `start + end`).
-  'reverse', 'toReversed',
+  // `reverse` / `toReversed` lower via the `array-method` IR +
+  // `bf_reverse` (Go) / `bf->reverse` (Mojo). The Mojo helper is
+  // shared by both shapes; in SSR template context the receiver is
+  // never observed so JS's mutation-vs-new-array distinction has
+  // no template-level meaning. Both lowerings always return a new
+  // array — safest interpretation.
   // #1448 Tier A — String methods.
   'toLowerCase', 'toUpperCase', 'trim',
 ])
@@ -276,6 +290,14 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
       // treat a missing / undef `end` as "to length".
       if (callee.property === 'slice' && (args.length === 1 || args.length === 2)) {
         return { kind: 'array-method', method: 'slice', object: callee.object, args }
+      }
+      // `.reverse()` and `.toReversed()` — both zero-arg shapes
+      // share the runtime lowering. SSR templates render a snapshot
+      // of state, so JS's mutate-and-return-receiver (`reverse`)
+      // vs return-new-array (`toReversed`) distinction has no
+      // template-level meaning; both produce a new reversed array.
+      if ((callee.property === 'reverse' || callee.property === 'toReversed') && args.length === 0) {
+        return { kind: 'array-method', method: callee.property, object: callee.object, args }
       }
     }
 
