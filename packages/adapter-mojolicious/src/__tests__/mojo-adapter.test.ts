@@ -122,6 +122,14 @@ runAdapterConformanceTests({
     'string-toUpperCase':  [{ code: 'BF101', severity: 'error' }],
     'string-trim':         [{ code: 'BF101', severity: 'error' }],
     'string-includes':     [{ code: 'BF101', severity: 'error' }],
+    // #1448 catalog — methods where Go's lowering is in place
+    // (`bf_join`, `bf_find`, `bf_find_index`) but Mojo silently
+    // mangles the call. Refused by the Mojo-specific gate in
+    // `convertExpressionToPerl`; each row drops when the
+    // corresponding Mojo lowering lands.
+    'array-join':          [{ code: 'BF101', severity: 'error' }],
+    'array-find':          [{ code: 'BF101', severity: 'error' }],
+    'array-findIndex':     [{ code: 'BF101', severity: 'error' }],
   },
   // `JSON_STRINGIFY_VIA_CONST` and `MATH_FLOOR_VIA_CONST` now pass
   // via `MojoAdapter.templatePrimitives` (#1189). The two remaining

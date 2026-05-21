@@ -1151,6 +1151,30 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
       return this.convertHigherOrderExpr(expr)
     }
 
+    // #1448 catalog — Mojo-specific gap: methods where the Go
+    // adapter already has a lowering (`bf_join`, `bf_find`,
+    // `bf_find_index`) but Mojo's regex pipeline silently mangles
+    // them into `${obj}->{<method>}(...)` hash lookups. Emitting
+    // BF101 directly (rather than routing through the parser-level
+    // `UNSUPPORTED_METHODS` set as the row above does) keeps Go's
+    // working `.join` support intact while still surfacing the
+    // refusal at compile time on Mojo. Each name drops off the
+    // regex when the Mojo lowering lands.
+    const mojoOnlyMatch = /\.\s*(?<method>find|findIndex|join)\s*\(/.exec(expr)
+    if (mojoOnlyMatch) {
+      const methodName = mojoOnlyMatch.groups!.method!
+      this.errors.push({
+        code: 'BF101',
+        severity: 'error',
+        message: `Mojo adapter has not lowered Array.prototype.${methodName} yet: ${expr.trim()}`,
+        loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+        suggestion: {
+          message: 'Options:\n1. Use /* @client */ for client-side evaluation\n2. Pre-compute the value in Perl',
+        },
+      })
+      return "''"
+    }
+
     // templatePrimitives substitution (#1189): rewrite identifier-path
     // calls like `JSON.stringify(props.config)` / `Math.floor(x)` to
     // their Mojo helper-call form (`bf->json($config)` etc.) BEFORE
