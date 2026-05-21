@@ -33,6 +33,7 @@ import {
   rewriteImportsForTemplate,
   emitIRNode,
   emitAttrValue,
+  buildLoopChainExpr,
 } from '@barefootjs/jsx'
 
 /**
@@ -70,28 +71,23 @@ export interface HonoAdapterOptions {
 
 /**
  * Mirror `IRLoop.sortComparator` / `IRLoop.filterPredicate` chaining
- * into the JSX expression that backs the Hono `.map()` call. The same
- * chain shape is emitted by `applyLoopChain` in
- * `packages/jsx/src/ir-to-client-js/html-template.ts` for the
- * client-side template literal — keeping both in sync prevents the
- * pre-#1448-Tier-B silent drop where sort/filter only existed on
- * adapters that consumed the structured IR directly (Go's `bf_sort`)
- * and Hono's runtime-eval'd JSX never saw them. Always uses
- * `.toSorted` (non-mutating) so shared prop arrays aren't reordered
- * in place across renders.
+ * into the JSX expression that backs the Hono `.map()` call.
+ * Delegates to the shared `buildLoopChainExpr` so the chain shape
+ * stays byte-equal with the client-template emit
+ * (`html-template.ts:applyLoopChain`) and the control-flow plans
+ * (`utils.ts:buildChainedArrayExpr`) — drift between the three
+ * would silently produce different sorted orders depending on
+ * which path consumed the IR. Always uses `.toSorted`
+ * (non-mutating) so shared prop arrays aren't reordered in place
+ * across renders.
  */
 function applyHonoLoopChain(loop: IRLoop): string {
-  const sortExpr = loop.sortComparator
-    ? `.toSorted((${loop.sortComparator.paramA}, ${loop.sortComparator.paramB}) => ${loop.sortComparator.raw})`
-    : ''
-  const filterExpr = loop.filterPredicate
-    ? `.filter(${loop.filterPredicate.param} => ${loop.filterPredicate.raw})`
-    : ''
-  if (!sortExpr && !filterExpr) return loop.array
-  if (loop.chainOrder === 'filter-sort') {
-    return `${loop.array}${filterExpr}${sortExpr}`
-  }
-  return `${loop.array}${sortExpr}${filterExpr}`
+  return buildLoopChainExpr({
+    base: loop.array,
+    sortComparator: loop.sortComparator,
+    filterPredicate: loop.filterPredicate,
+    chainOrder: loop.chainOrder,
+  })
 }
 
 export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderCtx> {

@@ -388,7 +388,7 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
         // Extract from the raw TS AST (not args[0] ParsedExpr) — the
         // standard arrow-fn convertNode path refuses two-param arrows,
         // so the comparator would otherwise reach us as `unsupported`.
-        const comparator = extractSortComparatorFromTS(node.arguments[0], callee.property, raw)
+        const comparator = extractSortComparatorFromTS(node.arguments[0], callee.property)
         if (comparator) {
           return {
             kind: 'array-method',
@@ -619,7 +619,6 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
 export function extractSortComparatorFromTS(
   node: ts.Node,
   method: 'sort' | 'toSorted',
-  raw: string,
 ): SortComparator | null {
   if (!ts.isArrowFunction(node) && !ts.isFunctionExpression(node)) return null
   if (node.parameters.length !== 2) return null
@@ -643,16 +642,28 @@ export function extractSortComparatorFromTS(
     body = stmts[0].expression
   }
 
+  // Normalise the comparator body source so consumers of
+  // `SortComparator.raw` get the same string regardless of whether
+  // the user wrote an arrow expression (`(a, b) => a.x - b.x`) or
+  // a function expression (`function (a, b) { return a.x - b.x }`).
+  // Pre-normalisation the function-expression form leaked the whole
+  // function declaration into `raw`, breaking `@client` fallback
+  // emit that wraps `raw` in a synthetic arrow.
+  //
+  // `body.getText()` resolves against the node's source file via the
+  // parent chain — `ts.createSourceFile`-parsed nodes (the only
+  // shape this helper accepts) carry that wiring.
+  const raw = body.getText()
+
   // Subtraction: `a.field - b.field` / `a - b` etc.
   if (ts.isBinaryExpression(body) && body.operatorToken.kind === ts.SyntaxKind.MinusToken) {
-    return classifyComparatorOperands(body.left, body.right, paramA, paramB, 'numeric', method, raw, paramA, paramB)
+    return classifyComparatorOperands(body.left, body.right, paramA, paramB, 'numeric', method, raw)
   }
 
   // localeCompare call: `<lhs>.localeCompare(<rhs>)`.
   if (
     ts.isCallExpression(body) &&
     ts.isPropertyAccessExpression(body.expression) &&
-    !ts.isIdentifier(body.expression) && // (always true, but for clarity)
     body.expression.name.text === 'localeCompare' &&
     body.arguments.length === 1
   ) {
@@ -664,8 +675,6 @@ export function extractSortComparatorFromTS(
       'string',
       method,
       raw,
-      paramA,
-      paramB,
     )
   }
 
@@ -693,8 +702,6 @@ function classifyComparatorOperands(
   type: 'numeric' | 'string',
   method: 'sort' | 'toSorted',
   raw: string,
-  rememberA: string,
-  rememberB: string,
 ): SortComparator | null {
   const leftRef = classifySortOperand(left, paramA, paramB)
   const rightRef = classifySortOperand(right, paramA, paramB)
@@ -710,8 +717,8 @@ function classifyComparatorOperands(
     type,
     direction,
     raw,
-    paramA: rememberA,
-    paramB: rememberB,
+    paramA,
+    paramB,
     method,
   }
 }

@@ -1883,11 +1883,13 @@ function extractSortComparator(
   if (!ts.isArrowFunction(callback) && !ts.isFunctionExpression(callback)) {
     return { result: null, unsupportedReason: 'Sort comparator must be an arrow function' }
   }
-  const raw = ts.isArrowFunction(callback) && !ts.isBlock(callback.body)
-    ? ctx.getJS(callback.body)
-    : ctx.getJS(callback)
-  const result = extractSortComparatorFromTS(callback, method, raw)
+  const result = extractSortComparatorFromTS(callback, method)
   if (result) return { result }
+  // For the unsupported-reason message, the OUTER callback source is
+  // more useful to surface than the body — users see the same string
+  // they wrote. The extractor's own `raw` (body-only) is for the
+  // server-side / @client lowering paths, which only run on success.
+  const raw = ctx.getJS(callback)
   return {
     result: null,
     unsupportedReason: `Sort comparator '${raw}' is not a supported shape (accepted: a.f-b.f, a-b, a[.f].localeCompare(b[.f]) and reversed for desc)`,

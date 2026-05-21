@@ -11,6 +11,7 @@ import { assertNever } from './walker'
 import { buildSignalMemoEnv, csrSubstitute, applyPropsRewrite, type CsrEnv } from './csr-substitute'
 import type { ClientJsContext } from './types'
 import { BF_PARENT_SCOPE_PLACEHOLDER, BF_SCOPE } from '@barefootjs/shared'
+import { buildLoopChainExpr } from '../loop-chain'
 
 /**
  * Protect string literals from regex-based replacements.
@@ -48,30 +49,22 @@ const VOID_ELEMENTS = new Set([
  * hydration only needed to match, broken on Hono / CSR where the
  * template literal is the only source of truth.
  *
- * Uses `.toSorted` regardless of the user's source method (`.sort`
- * or `.toSorted`) because the template literal must not mutate
- * shared props across renders — a `.sort()` here would reorder
- * `_p.items` in place and break subsequent renders that observe the
- * same array. The sortComparator structured shape is paired with
- * the same `raw` source string the user wrote, so the comparator
- * evaluates against the original (a, b) names.
+ * Delegates to the shared `buildLoopChainExpr` so the
+ * `.toSorted` / `.filter` order matches what `utils.ts:buildChainedArrayExpr`
+ * (control-flow plans) and `hono-adapter.ts:applyHonoLoopChain` (SSR
+ * runtime JSX) emit — drift between the three would silently produce
+ * different sorted orders depending on which path consumed the IR.
  *
- * Chain order mirrors `buildChainedArrayExpr` in `utils.ts` —
- * keeping both in sync prevents a per-call-site drift between the
- * collector emit (control-flow plans) and this html-template emit.
+ * The `base` override lets the CSR-template path pre-substitute
+ * props (`_p.items.toSorted(...)`) before the chain rides on top.
  */
 function applyLoopChain(loop: import('../types').IRLoop, base: string = loop.array): string {
-  const sortExpr = loop.sortComparator
-    ? `.toSorted((${loop.sortComparator.paramA}, ${loop.sortComparator.paramB}) => ${loop.sortComparator.raw})`
-    : ''
-  const filterExpr = loop.filterPredicate
-    ? `.filter(${loop.filterPredicate.param} => ${loop.filterPredicate.raw})`
-    : ''
-  if (!sortExpr && !filterExpr) return base
-  if (loop.chainOrder === 'filter-sort') {
-    return `${base}${filterExpr}${sortExpr}`
-  }
-  return `${base}${sortExpr}${filterExpr}`
+  return buildLoopChainExpr({
+    base,
+    sortComparator: loop.sortComparator,
+    filterPredicate: loop.filterPredicate,
+    chainOrder: loop.chainOrder,
+  })
 }
 
 function childrenPropEntry(

@@ -582,7 +582,7 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     let sortedHoist: string | null = null
     let array = rawArray
     if (loop.sortComparator) {
-      sortedHoist = `bf_iter_${loop.markerId.replace(/[^a-zA-Z0-9]/g, '_')}`
+      sortedHoist = `bf_iter_${perlIdentifierFromMarkerId(loop.markerId)}`
       array = `$${sortedHoist}`
     }
     const param = loop.param
@@ -1565,6 +1565,23 @@ function renderArrayMethod(
  * so downstream composition (`@{bf->sort(...)}` in `join(...)`, etc.)
  * stays straightforward.
  */
+/**
+ * Encode an `IRLoop.markerId` into a Perl-identifier-safe suffix
+ * for the `bf_iter_…` hoist var. Collision-free for marker ids
+ * that differ in any character — `-` and `_` map to distinct
+ * encodings (`_x2d` vs `__`) so `l-0` and `l_0` stay distinct.
+ *
+ * Today the IR only emits `l<digits>` so the encoding is mostly
+ * an identity, but pinning collision-freeness up front avoids a
+ * silent variable-shadow bug if a future marker generator widens
+ * the alphabet.
+ */
+function perlIdentifierFromMarkerId(markerId: string): string {
+  return markerId.replace(/[^a-zA-Z0-9]/g, (ch) =>
+    ch === '_' ? '__' : `_x${ch.charCodeAt(0).toString(16)}`
+  )
+}
+
 function renderSortMethod(recv: string, c: SortComparator): string {
   const keyEntry =
     c.key.kind === 'self'

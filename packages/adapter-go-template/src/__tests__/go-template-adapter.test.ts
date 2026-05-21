@@ -76,15 +76,16 @@ runAdapterConformanceTests({
     // hits the identical `template.HTML` interpolation gap as
     // `children-jsx-expression` above.
     'fragment-wrapped-children-jsx-expression',
-    // #1448 Tier B — same gap as the Mojo adapter: field-based sort
-    // fixtures use `key={it.name}` in their `.map()` body, and the
-    // Hono reference adapter emits `data-key="…"` while the Go
-    // template adapter currently produces `key=""` (no
-    // `key → data-key` rewrite). Sort lowering itself is exercised
-    // by the standalone fixtures (`array-sort-primitive`,
-    // `array-sort-locale`, `array-toSorted`) and pinned via the
-    // fixture-driven block at the bottom of this file — the JSX
-    // skip here is the key-attr gap, not a sort regression.
+    // #1475: same `key → data-key` adapter-emit gap as the Mojo
+    // sibling — the Go template adapter doesn't rewrite the JSX
+    // `key` attribute name, so it lands in the rendered HTML as
+    // `<li key="">` (template-action evaluation drops the value
+    // before the attribute slot). #1448 Tier B's field-based sort
+    // fixtures are the first to seed non-empty loop items at SSR
+    // time, surfacing the gap; the standalone Tier B fixtures
+    // (`array-sort-primitive`, `array-sort-locale`,
+    // `array-toSorted`) keep the sort lowering coverage. Drops
+    // when #1475 lands.
     'array-sort-field-asc',
     'array-sort-field-desc',
   ],
