@@ -21,6 +21,49 @@ import {
   type SharedFixtureSpec,
 } from '../fixtures/_helpers'
 
+/**
+ * Derive a stable 32-bit seed from a fixture id so each fixture's PRNG
+ * state is a pure function of its own id — adding or reordering fixtures
+ * never churns another fixture's frozen output (#1494). FNV-1a 32-bit.
+ */
+function seedFromId(id: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return h >>> 0
+}
+
+/**
+ * Temporarily swap `Math.random` for a seeded PRNG (mulberry32) while
+ * `fn` runs, then restore. Scoped tightly around the SSR render so the
+ * compiled-template `__scopeId = name + Math.random()...` fallback in
+ * `HonoAdapter` produces byte-stable `bf-s` suffixes across regens —
+ * otherwise every fixture regeneration that hits the random fallback
+ * (loop children of `"use client"` roots) reshuffles those suffixes
+ * and the snapshot file diffs even when nothing semantic changed (#1494).
+ *
+ * Restoration runs in `finally` so a throwing render does not leak the
+ * stub into unrelated callers in the same process.
+ */
+async function withSeededMathRandom<T>(seed: number, fn: () => Promise<T>): Promise<T> {
+  const originalRandom = Math.random
+  let state = (seed >>> 0) || 1
+  Math.random = () => {
+    state = (state + 0x6d2b79f5) >>> 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+  try {
+    return await fn()
+  } finally {
+    Math.random = originalRandom
+  }
+}
+
 async function compileClientJs(basename: string): Promise<string> {
   const sourcePath = resolve(SHARED_COMPONENTS_DIR, `${basename}.tsx`)
   const source = await Bun.file(sourcePath).text()
@@ -62,16 +105,18 @@ export async function generateSharedComponentSnapshot(
     components[`./${extra}.tsx`] = extraSource
   }
 
-  const ssrHtml = await renderHonoComponent({
-    source,
-    adapter: new HonoAdapter(),
-    props: ssrProps,
-    // Pin the target export — `Object.keys(mod)` iterates alphabetically
-    // for dynamically imported modules in Bun, so multi-component files
-    // can otherwise render the wrong component.
-    componentName: spec.componentName,
-    components: Object.keys(components).length > 0 ? components : undefined,
-  })
+  const ssrHtml = await withSeededMathRandom(seedFromId(spec.id), () =>
+    renderHonoComponent({
+      source,
+      adapter: new HonoAdapter(),
+      props: ssrProps,
+      // Pin the target export — `Object.keys(mod)` iterates alphabetically
+      // for dynamically imported modules in Bun, so multi-component files
+      // can otherwise render the wrong component.
+      componentName: spec.componentName,
+      components: Object.keys(components).length > 0 ? components : undefined,
+    }),
+  )
 
   let clientJs: string
   const extras = spec.additionalComponents ?? []
