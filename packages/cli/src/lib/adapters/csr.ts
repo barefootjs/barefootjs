@@ -40,10 +40,6 @@ export default createConfig({
   },
   components: ['components'],
   outDir: 'dist',
-  adapterOptions: {
-    clientJsBasePath: '/static/components/',
-    barefootJsPath: '/static/components/barefoot.js',
-  },
 })
 `
 
@@ -195,7 +191,6 @@ export const CSR_ADAPTER: AdapterTemplate = {
   dependencies: {
     '@barefootjs/cli': 'latest',
     '@barefootjs/client': 'latest',
-    '@barefootjs/hono': 'latest',
     '@barefootjs/jsx': 'latest',
     '@barefootjs/shared': 'latest',
   },
