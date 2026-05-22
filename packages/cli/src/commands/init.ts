@@ -26,7 +26,6 @@ import {
 import { detectPackageManager, commandsFor, testRunnerFor, type PackageManager } from '../lib/pm'
 import { select, SelectCancelled } from '../lib/select'
 import { startSpinner } from '../lib/spinner'
-import { generateTestTemplate } from '../lib/test-template'
 
 interface InitFlags {
   name?: string
@@ -248,7 +247,16 @@ async function scaffoldApp(
   const runner = testRunnerFor(pm)
   const pmTypesEntry = runner.typesEntry
 
-  // Adapter-contributed files (server, components/Counter, barefoot.config.ts, etc.)
+  // Adapter-contributed files (server, components/Counter, the
+  // companion Counter.test.tsx, barefoot.config.ts, etc.). Adapter
+  // templates declare every file they want on disk in `adapter.files`,
+  // including the IR test paired with the starter Counter — that's
+  // why the scaffold ships a green `<pm> test` from minute zero
+  // without a post-write codegen step. `{{__TEST_RUNNER_IMPORT__}}`
+  // is the PM slot for the test file (`bun:test` on bun scaffolds,
+  // `vitest` everywhere else); same substitution mechanism as
+  // `{{__PROJECT_NAME__}}` (wrangler worker name) and
+  // `{{__PM_TYPES_ENTRY__}}` (tsconfig `types` array entry).
   for (const [relPath, contents] of Object.entries(adapter.files)) {
     const target = path.join(projectDir, relPath)
     if (existsSync(target)) continue
@@ -256,28 +264,8 @@ async function scaffoldApp(
     const resolved = contents
       .replace(/\{\{__PROJECT_NAME__\}\}/g, pkgName)
       .replace(/\{\{__PM_TYPES_ENTRY__\}\}/g, pmTypesEntry)
+      .replace(/\{\{__TEST_RUNNER_IMPORT__\}\}/g, runner.importSource)
     writeFileSync(target, resolved)
-    created++
-  }
-
-  // Companion IR test for the starter `components/Counter.tsx`. The
-  // scaffold's `package.json#scripts.test` is wired to the user's
-  // package manager (bun test / vitest run), so without at least one
-  // test file on disk the very first `<pm> test` a fresh user runs
-  // exits with `No test files found, exiting with code 1` — even
-  // though nothing is actually wrong with the project. Generating
-  // the same file `bf gen test Counter` would produce gives the
-  // starter a green test out of the box and doubles as an example
-  // of the IR-test pattern the docs steer users toward. Same code
-  // path as `bf gen test`, so the test file and the package.json
-  // `test` runner stay in lock-step across PMs.
-  const counterPath = path.join(projectDir, 'components/Counter.tsx')
-  const counterTestPath = path.join(projectDir, 'components/Counter.test.tsx')
-  if (existsSync(counterPath) && !existsSync(counterTestPath)) {
-    writeFileSync(
-      counterTestPath,
-      generateTestTemplate(counterPath, { importSource: runner.importSource }),
-    )
     created++
   }
 
