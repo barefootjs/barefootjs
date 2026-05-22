@@ -97,7 +97,7 @@ Some JavaScript expressions cannot be translated into marked template syntax. Wh
 | `.filter()` with `function` keyword callback | works | **BF101** |
 | `.reduce()`, `.forEach()`, `.flatMap()` | works | **BF101** |
 | Nested higher-order in filter predicate (`x => x.tags.filter(...).length > 0`) | works | **BF101** |
-| Sort comparator using `localeCompare` or a block body | **BF021** (all adapters) | **BF021** |
+| Sort comparator with a block body, ternary return, or other unsupported shape | **BF021** (all adapters) | **BF021** |
 | `typeof` in a filter predicate | **BF021** (all adapters) | **BF021** |
 
 `BF021` is raised at the IR layer and applies to every adapter. `BF101` is raised by adapters that can't lower the expression to their template language. Either way, add [`/* @client */`](./client-directive.md) to opt into client-only evaluation and suppress the error.
@@ -150,10 +150,14 @@ Some JavaScript expressions cannot be translated into marked template syntax. Wh
 
 ```tsx
 // ❌ BF021 (all adapters)
-{items().sort((a, b) => a.name > b.name ? 1 : -1).map(...)}
+{items().sort((a, b) => a.name > b.name ? 1 : -1).map(item => (
+  <Item key={item.id} item={item} />
+))}
 
 // ✅ Use /* @client */
-{/* @client */ items().sort((a, b) => a.name > b.name ? 1 : -1).map(...)}
+{/* @client */ items().sort((a, b) => a.name > b.name ? 1 : -1).map(item => (
+  <Item key={item.id} item={item} />
+))}
 ```
 
 See the [TodoApp example](https://github.com/piconic-ai/barefootjs/blob/main/integrations/shared/components/TodoApp.tsx) for a real-world component using `/* @client */`.

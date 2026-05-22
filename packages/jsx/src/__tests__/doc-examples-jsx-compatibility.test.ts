@@ -204,6 +204,15 @@ describe('docs/core/rendering/jsx-compatibility.md doc-examples', () => {
               `expected error ${code}, got: ${got}\n--- source ---\n${source}`,
             )
           }
+          const unexpected = fatals.filter(e => e.code !== code)
+          if (unexpected.length > 0) {
+            const dump = unexpected
+              .map(e => `  ${e.code}: ${e.message}`)
+              .join('\n')
+            throw new Error(
+              `expected only ${code}, but got additional fatal errors:\n${dump}\n--- source ---\n${source}`,
+            )
+          }
           return
         }
       }
