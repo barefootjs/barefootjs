@@ -43,6 +43,22 @@ export function templateBaseName(path: string, extension: string): string {
     : filename
 }
 
+/**
+ * Escape a string for safe embedding inside a Perl single-quoted
+ * literal (`'…'`). Single-quoted Perl strings honour only two
+ * metacharacters: `\\` and `\'`. Newlines, tabs, and everything else
+ * pass through literally.
+ *
+ * Used when interpolating a user-supplied / harness-derived
+ * `__instanceId` into the generated Perl render script — current
+ * call sites always pass `<ComponentName>_test`, but defensive
+ * escaping avoids a future fixture that injects a quote silently
+ * corrupting the generated script.
+ */
+function escapePerlSingleQuoted(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+}
+
 let _perlAvailable: boolean | null = null
 async function isPerlAvailable(): Promise<boolean> {
   if (_perlAvailable !== null) return _perlAvailable
@@ -185,8 +201,11 @@ export async function renderMojoComponent(options: RenderOptions): Promise<strin
 
     // Honour `__instanceId` from props for the root scope id so
     // shared-component fixtures (which pin `<ComponentName>_test`) match
-    // cross-adapter; default to 'test' otherwise.
-    const rootScopeId = typeof props?.__instanceId === 'string' ? props.__instanceId : 'test'
+    // cross-adapter; default to 'test' otherwise. Escape for Perl
+    // single-quoted embedding — `\` and `'` are the only metacharacters
+    // inside `q{}` / `'…'`.
+    const rootScopeIdRaw = typeof props?.__instanceId === 'string' ? props.__instanceId : 'test'
+    const rootScopeId = escapePerlSingleQuoted(rootScopeIdRaw)
 
     // Build child template rendering functions for Perl
     const childRenderers = buildChildRenderers(childTemplates, ir, tempDir)
@@ -366,9 +385,9 @@ function buildPerlProps(
   // Add scope_id — honour an explicit `__instanceId` from props so
   // shared-component fixtures (which pin a `<ComponentName>_test` scope
   // id) match cross-adapter; default to 'test' for the rest of the
-  // corpus.
+  // corpus. Escape for Perl single-quoted embedding.
   const explicitScope = typeof props?.__instanceId === 'string' ? props.__instanceId : 'test'
-  entries.push(`scope_id => '${explicitScope}'`)
+  entries.push(`scope_id => '${escapePerlSingleQuoted(explicitScope)}'`)
 
   // Add props params with defaults (before signals, so signals can reference them)
   for (const param of ir.metadata.propsParams) {

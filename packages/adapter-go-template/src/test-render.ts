@@ -229,7 +229,7 @@ func randomID(n int) string {
 func main() {
 	tmpl := template.Must(template.New("").Funcs(bfTestFuncMap()).Parse(tmplContent))
 	props := New${componentName}Props(${componentName}Input{
-		ScopeID: "${rootScopeId}",
+		ScopeID: ${JSON.stringify(rootScopeId)},
 ${propsInit}
 	})
 	if err := tmpl.ExecuteTemplate(os.Stdout, "${componentName}", props); err != nil {
