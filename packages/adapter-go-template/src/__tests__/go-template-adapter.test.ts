@@ -76,19 +76,16 @@ runAdapterConformanceTests({
     // hits the identical `template.HTML` interpolation gap as
     // `children-jsx-expression` above.
     'fragment-wrapped-children-jsx-expression',
-    // Shared-component corpus (#1466). The remaining failures here
-    // are the same boolean-attribute-serialisation divergence as Mojo:
-    // Hono emits `disabled=""` (boolean stringified); Go emits bare
-    // `disabled` (no value). Both shapes are well-formed HTML but the
-    // byte comparison can't reconcile without an adapter-side
-    // normaliser. The fixtures' single-component variants
-    // (counter-shared, conditional-return-*, reactive-props, ai-chat)
-    // pass — only the ones whose root or children carry boolean
-    // attribute bindings (`disabled`, `hidden`) are skipped.
+    // Shared-component multi-component fixtures (#1466). Boolean
+    // attribute divergence is now collapsed by `normalizeHTML`, so
+    // single-root variants (`conditional-return-*`, `form`, `portal`,
+    // `reactive-props`) participate again. These two still diverge
+    // because the harness's child renderer pins child `bf-s` to a
+    // `test_<sN>` literal rather than `<ChildName>_<id>_<sN>`. Same
+    // class of test-harness scope-id plumbing the `componentName`
+    // option fixed on the Hono side. Separate follow-up.
     'toggle-shared',
     'props-reactivity-comparison',
-    'form',
-    'portal',
   ],
   // Per-fixture build-time contracts for shapes the Go template
   // adapter intentionally refuses to lower. Lives here (not on the
