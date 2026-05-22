@@ -71,6 +71,12 @@ runAdapterConformanceTests({
     // makes the requirement loud. (The barefoot CLI passes
     // `siblingTemplatesRegistered: true` so CLI builds suppress it.)
     'static-array-children': [{ code: 'BF103', severity: 'error' }],
+    // TodoApp / TodoAppSSR import `TodoItem` from a sibling file and
+    // call it inside a keyed `.map`. Same BF103 surface as the
+    // synthetic `static-array-children` above — pinned at adapter
+    // level so the shared-component corpus stays adapter-neutral.
+    'todo-app': [{ code: 'BF103', severity: 'error' }],
+    'todo-app-ssr': [{ code: 'BF103', severity: 'error' }],
     // Array-destructure loop param (`([k, v]) => ...`) lowers to
     // invalid Perl (`% my $[k, v] = $entries->[$_i];`).
     'static-array-from-props': [{ code: 'BF104', severity: 'error' }],
@@ -174,6 +180,10 @@ runAdapterConformanceTests({
   skipMarkerConformance: new Set([
     'client-only',
     'client-only-loop-with-sibling-cond',
+    // Same as Hono: `/* @client */` markers on TodoApp's keyed `.map`
+    // intentionally elide a slot id from the SSR template that the IR
+    // still declares (s6). See hono-adapter.test for the contract.
+    'todo-app',
   ]),
   onRenderError: (err, id) => {
     if (err instanceof PerlNotAvailableError) {

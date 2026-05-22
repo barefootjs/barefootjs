@@ -94,6 +94,12 @@ runAdapterConformanceTests({
     // CLI passes `siblingTemplatesRegistered: true` so CLI builds
     // suppress the diagnostic — see compileJSX `siblingTemplatesRegistered`.)
     'static-array-children': [{ code: 'BF103', severity: 'error' }],
+    // TodoApp / TodoAppSSR import `TodoItem` from a sibling file and
+    // call it inside a keyed `.map`. Same BF103 surface as
+    // `static-array-children` above — pinned at adapter level so the
+    // shared-component corpus stays adapter-neutral.
+    'todo-app': [{ code: 'BF103', severity: 'error' }],
+    'todo-app-ssr': [{ code: 'BF103', severity: 'error' }],
     // Array-destructure loop param (`([k, v]) => ...`): Go's `{{range
     // $a, $b := ...}}` only supports single-name bindings, so the
     // adapter would otherwise emit invalid template syntax.
@@ -189,6 +195,13 @@ runAdapterConformanceTests({
   skipTemplatePrimitives: new Set([
     TemplatePrimitiveCaseId.USER_IMPORT_VIA_CONST,
     TemplatePrimitiveCaseId.NO_DOUBLE_REWRITE_OF_PROPS_OBJECT,
+  ]),
+  skipMarkerConformance: new Set<string>([
+    // Same as Hono / Mojo: `/* @client */` markers on TodoApp's keyed
+    // `.map` intentionally elide a slot id from the SSR template that
+    // the IR still declares (s6). See hono-adapter.test for the
+    // contract.
+    'todo-app',
   ]),
   onRenderError: (err, id) => {
     if (err instanceof GoNotAvailableError) {
