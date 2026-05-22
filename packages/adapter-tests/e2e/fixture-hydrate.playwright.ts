@@ -40,6 +40,7 @@ import { fixture as form } from '../fixtures/form'
 import { fixture as portal } from '../fixtures/portal'
 import { fixture as todoApp } from '../fixtures/todo-app'
 import { fixture as todoAppSsr } from '../fixtures/todo-app-ssr'
+import { fixture as aiChat } from '../fixtures/ai-chat'
 import type { JSXFixture, InteractionStep } from '../src/types'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -63,6 +64,7 @@ const fixtures: JSXFixture[] = [
   portal,
   todoApp,
   todoAppSsr,
+  aiChat,
 ]
 const byId = new Map(fixtures.map(f => [f.id, f]))
 
@@ -166,6 +168,12 @@ async function runStep(page: Page, step: InteractionStep): Promise<void> {
       return
     case 'expectHidden':
       await expect(page.locator(step.selector).first()).toBeHidden()
+      return
+    case 'fill':
+      await page.locator(step.selector).first().fill(step.value)
+      return
+    case 'expectValue':
+      await expect(page.locator(step.selector).first()).toHaveValue(step.value)
       return
     default:
       return assertNever(step)

@@ -36,6 +36,7 @@ import { spec as formSpec } from '../fixtures/form'
 import { spec as portalSpec } from '../fixtures/portal'
 import { spec as todoAppSpec } from '../fixtures/todo-app'
 import { spec as todoAppSsrSpec } from '../fixtures/todo-app-ssr'
+import { spec as aiChatSpec } from '../fixtures/ai-chat'
 
 const ALL_SPECS: SharedFixtureSpec[] = [
   counterSharedSpec,
@@ -48,6 +49,7 @@ const ALL_SPECS: SharedFixtureSpec[] = [
   portalSpec,
   todoAppSpec,
   todoAppSsrSpec,
+  aiChatSpec,
 ]
 
 const requested = process.argv.slice(2)
