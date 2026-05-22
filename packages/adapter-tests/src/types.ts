@@ -35,6 +35,12 @@ export interface ExpectedDiagnostic {
  *   visibility rather than a specific attribute value — e.g. the
  *   `hidden` boolean attribute disappears entirely on open, which a
  *   value-based `expectAttribute` cannot express.
+ * - `fill` — Playwright `locator.fill(value)`. Sets `<input>` /
+ *   `<textarea>` / `[contenteditable]` value AND fires the input event,
+ *   so the framework's `onInput` handlers run.
+ * - `expectValue` — Playwright `toHaveValue`. Asserts the form
+ *   control's *value property* (not the `value` HTML attribute, which
+ *   only reflects the initial value after user typing).
  */
 export type InteractionStep =
   | { type: 'click'; selector: string }
@@ -48,6 +54,8 @@ export type InteractionStep =
     }
   | { type: 'expectVisible'; selector: string }
   | { type: 'expectHidden'; selector: string }
+  | { type: 'fill'; selector: string; value: string }
+  | { type: 'expectValue'; selector: string; value: string }
 
 /**
  * A JSX fixture defines a component source and optional props for rendering.
