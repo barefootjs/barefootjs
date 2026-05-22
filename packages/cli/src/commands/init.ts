@@ -26,6 +26,7 @@ import {
 import { detectPackageManager, commandsFor, testRunnerFor, type PackageManager } from '../lib/pm'
 import { select, SelectCancelled } from '../lib/select'
 import { startSpinner } from '../lib/spinner'
+import { generateTestTemplate } from '../lib/test-template'
 
 interface InitFlags {
   name?: string
@@ -256,6 +257,27 @@ async function scaffoldApp(
       .replace(/\{\{__PROJECT_NAME__\}\}/g, pkgName)
       .replace(/\{\{__PM_TYPES_ENTRY__\}\}/g, pmTypesEntry)
     writeFileSync(target, resolved)
+    created++
+  }
+
+  // Companion IR test for the starter `components/Counter.tsx`. The
+  // scaffold's `package.json#scripts.test` is wired to the user's
+  // package manager (bun test / vitest run), so without at least one
+  // test file on disk the very first `<pm> test` a fresh user runs
+  // exits with `No test files found, exiting with code 1` — even
+  // though nothing is actually wrong with the project. Generating
+  // the same file `bf gen test Counter` would produce gives the
+  // starter a green test out of the box and doubles as an example
+  // of the IR-test pattern the docs steer users toward. Same code
+  // path as `bf gen test`, so the test file and the package.json
+  // `test` runner stay in lock-step across PMs.
+  const counterPath = path.join(projectDir, 'components/Counter.tsx')
+  const counterTestPath = path.join(projectDir, 'components/Counter.test.tsx')
+  if (existsSync(counterPath) && !existsSync(counterTestPath)) {
+    writeFileSync(
+      counterTestPath,
+      generateTestTemplate(counterPath, { importSource: runner.importSource }),
+    )
     created++
   }
 
