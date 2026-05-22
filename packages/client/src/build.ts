@@ -5,10 +5,18 @@
 // `@barefootjs/client/runtime` on the page.
 //
 // The compiler still needs a `TemplateAdapter` to drive IR→client-JS
-// codegen (template primitives, client-shim resolution, etc.). The marked
-// templates the adapter would produce are simply not written to disk.
-// `HonoAdapter` is used by default since it accepts the broadest JS surface
-// at template scope, matching what the browser can execute.
+// codegen (the analyzer consults `acceptsTemplateCall` when deciding
+// template-scope vs init-scope placement). The marked templates the
+// adapter would produce are simply not written to disk. The default
+// `CSRAdapter` is the minimum that satisfies the interface — its
+// `generate()` returns an empty `AdapterOutput` and the build
+// pipeline drops the empty marked-template file at the
+// `clientOnly` gate.
+//
+// (Pre-1.0 this was `HonoAdapter` from `@barefootjs/hono/adapter`,
+// which pulled the entire Hono package into a CSR app's
+// `node_modules` for output that was always thrown away. See
+// `csr-adapter.ts` for the rationale on the new in-package adapter.)
 
 import type {
   BarefootPaths,
@@ -18,8 +26,8 @@ import type {
   PostBuildContext,
   TemplateAdapter,
 } from '@barefootjs/jsx'
-import { HonoAdapter } from '@barefootjs/hono/adapter'
-import type { HonoAdapterOptions } from '@barefootjs/hono/adapter'
+import { CSRAdapter } from './csr-adapter'
+import type { CSRAdapterOptions } from './csr-adapter'
 
 export interface CSRBuildOptions {
   /** Project layout paths consumed by registry tooling. */
@@ -44,12 +52,12 @@ export interface CSRBuildOptions {
   bundleEntries?: BundleEntry[]
   /**
    * Override the compiler adapter. The marked templates this adapter
-   * generates are discarded in CSR mode — set this only if the default
-   * `HonoAdapter` clashes with something else in your build.
+   * generates are discarded in CSR mode — set this only if you need
+   * a different `TemplateAdapter` (e.g. a custom test adapter).
    */
   adapter?: TemplateAdapter
-  /** Options forwarded to the default `HonoAdapter`. Ignored when `adapter` is set. */
-  adapterOptions?: HonoAdapterOptions
+  /** Options forwarded to the default `CSRAdapter`. Ignored when `adapter` is set. */
+  adapterOptions?: CSRAdapterOptions
 }
 
 /**
@@ -59,13 +67,11 @@ export interface CSRBuildOptions {
  * a circular dependency between `@barefootjs/client` and `@barefootjs/cli`.
  */
 export function createConfig(options: CSRBuildOptions = {}) {
-  // Tag the default-adapter instance as 'csr' so `bf build`'s
-  // `Adapter: …` banner reflects the mode the user picked at scaffold
-  // time. A caller-supplied `adapter` is left untouched — its own
-  // `name` is authoritative.
-  const adapter =
-    options.adapter ??
-    new HonoAdapter({ name: 'csr', ...options.adapterOptions })
+  // `name` defaults to `'csr'` inside `CSRAdapter`; a caller-supplied
+  // `adapterOptions.name` (or a fully-custom `adapter`) wins, matching
+  // the pre-decoupling behaviour where `bf build`'s `Adapter: …`
+  // banner reflected the option override.
+  const adapter = options.adapter ?? new CSRAdapter(options.adapterOptions)
   return {
     adapter,
     paths: options.paths,
@@ -81,3 +87,6 @@ export function createConfig(options: CSRBuildOptions = {}) {
     postBuild: options.postBuild,
   }
 }
+
+export { CSRAdapter } from './csr-adapter'
+export type { CSRAdapterOptions } from './csr-adapter'
