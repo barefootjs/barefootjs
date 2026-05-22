@@ -175,38 +175,27 @@ export function normalizeHTML(html: string): string {
     //   bf-s="ComponentName_abc123_s10"      → bf-s="ComponentName_*_s10"
     //   bf-s="ParentName_xyz_s10"            → bf-s="ParentName_*_s10"
     .replace(/bf-s="([A-Z][a-zA-Z]*)_[a-z0-9]+((?:_s\d+)*)"/g, 'bf-s="$1_*$2"')
-    // Canonicalise reactive boolean-attribute serialisation across
-    // adapters (#1466 follow-up). Same user binding (`disabled={!ok()}`,
-    // `aria-checked={ok()}`) yields different bytes per adapter:
+    // HTML5 boolean attribute canonicalisation (#1466 follow-up).
+    // For `disabled={!ok()}` (true), Hono emits `disabled=""` while
+    // Mojo / Go emit bare `disabled`. Both are spec-equivalent
+    // (presence = true, absence = false) — collapse the empty-value
+    // form to bare so the byte comparison reads as adapter-neutral.
     //
-    //   binding evaluates to        Hono                       Mojo / Go
-    //   true (HTML5 boolean attr)   `disabled=""`              bare `disabled`
-    //   false (aria-* tri-state)    `aria-checked="false"`     `aria-checked="0"` (Mojo only)
+    // Scoped to the HTML5 spec whitelist to avoid stripping
+    // legitimate empty values on non-boolean attrs (`class=""`,
+    // `aria-label=""`).
     //
-    // Both forms are user-equivalent — boolean attrs are present-or-
-    // absent, and `aria-*="0"` is invalid per ARIA spec (only
-    // `"true" | "false" | "mixed"` are allowed) so the only adapter
-    // that produces it (Mojo, Perl integer-context coercion of JS
-    // false) is rounded up to the canonical `"false"`.
-    //
-    // Rules kept narrow:
-    //   - HTML5 boolean attrs from the spec whitelist → strip empty
-    //     value so `attr=""` collapses to bare `attr`.
-    //   - `aria-*="0"` → `aria-*="false"`. Only `"0"` — not `""`,
-    //     since `aria-label=""` (suppress accessible name) is
-    //     legitimate.
-    //
-    // `data-*` is intentionally untouched: dataset values are
-    // freeform, and a fixture binding `data-count={count()}` to a
-    // numeric signal must preserve `data-count="0"` rather than be
-    // coerced to `data-count="false"`. Mojo-specific `data-*=""` for
-    // JS boolean false (`data-active={ok()}`) stays per-fixture
-    // skip — adapter bug, not a normalisable shape.
+    // `data-*` and `aria-*` value canonicalisation is intentionally
+    // NOT done here: the Mojo adapter routes ARIA boolean attrs and
+    // structurally-boolean expressions through `bf->bool_str` at
+    // compile time, so the wire bytes already match Hono / Go.
+    // Touching `data-*` on the harness side would break legitimate
+    // numeric / string dataset values (`data-count={0}` → "0", not
+    // "false").
     .replace(
       /\s(disabled|hidden|checked|readonly|required|selected|autofocus|multiple|defer|async|controls|loop|muted|open|reversed|ismap|formnovalidate|nomodule|playsinline|inert|novalidate|allowfullscreen)=""/g,
       ' $1',
     )
-    .replace(/\s(aria-[a-z-]+)="0"/g, ' $1="false"')
     // Normalize void element self-closing: <br/> or <br /> → <br>
     .replace(new RegExp(`<(${VOID_ELEMENTS})(\\s[^>]*?)?\\s*/>`, 'g'), '<$1$2>')
     // Remove trailing whitespace before >

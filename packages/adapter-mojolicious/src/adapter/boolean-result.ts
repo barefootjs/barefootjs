@@ -81,3 +81,46 @@ export function isBooleanResultExpr(expr: string): boolean {
   if (!parsed) return false
   return isBooleanResultParsed(parsed)
 }
+
+/**
+ * ARIA attributes whose spec values are `"true"`, `"false"`, and (for
+ * tri-state members) `"mixed"`. When a fixture binds one of these to
+ * an arbitrary JS expression (`aria-checked={accepted()}`), the
+ * expression's actual type isn't recoverable from source text — but
+ * the attribute name itself witnesses that the binding is
+ * boolean-shaped. Routing these through `bf->bool_str` produces the
+ * spec-canonical `"true"` / `"false"` even when the expression is
+ * opaque, eliminating the Mojo-only `aria-*="0"` divergence at the
+ * source rather than papering it over in `normalizeHTML`.
+ *
+ * Deliberately conservative — only includes ARIA attributes whose
+ * spec value set is exactly `true | false` or `true | false | mixed`.
+ * Tokenised ARIA attributes (`aria-current` is `page | step | …`,
+ * `aria-sort` is `ascending | descending | …`) are intentionally
+ * excluded so a string-valued binding doesn't get coerced to
+ * `"true"` / `"false"`.
+ */
+const ARIA_BOOLEAN_ATTRS = new Set([
+  // Strict boolean state (true | false; some allow `undefined` =
+  // attribute absent, which the runtime emits as no-attr regardless).
+  'aria-atomic',
+  'aria-busy',
+  'aria-disabled',
+  'aria-hidden',
+  'aria-modal',
+  'aria-multiline',
+  'aria-multiselectable',
+  'aria-readonly',
+  'aria-required',
+  // Tri-state (true | false | mixed). The `bool_str` helper only
+  // maps Perl truthy / falsy to true / false — a fixture that wants
+  // the literal `"mixed"` would bind a string-valued JSX attr
+  // (`aria-checked="mixed"`), which lowers through the `literal` emit
+  // path and never touches this code.
+  'aria-checked',
+  'aria-pressed',
+])
+
+export function isAriaBooleanAttr(name: string): boolean {
+  return ARIA_BOOLEAN_ATTRS.has(name)
+}

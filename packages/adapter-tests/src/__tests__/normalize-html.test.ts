@@ -75,20 +75,17 @@ describe('normalizeHTML — boolean-attribute canonicalisation (#1466)', () => {
     expect(normalizeHTML(html)).toBe('<button aria-label="" class="">x</button>')
   })
 
-  test('canonicalises `aria-*="0"` to `aria-*="false"` (Mojo Perl coercion)', () => {
-    // Mojo emits `aria-checked="0"` for JS false; ARIA spec only allows
-    // `"true" | "false" | "mixed"`, so "0" is invalid — round up to
-    // the canonical `"false"`.
-    const html = '<button aria-checked="0" aria-expanded="0">x</button>'
+  test('does NOT rewrite ARIA values (boolean canonicalisation lives in the Mojo adapter now)', () => {
+    // Mojo used to emit `aria-checked="0"` for JS false, which the
+    // harness coerced to `"false"` on its side. The Mojo adapter now
+    // routes ARIA boolean / tri-state attribute bindings through
+    // `bf->bool_str` so the wire bytes already say `"false"` — and
+    // `normalizeHTML` no longer touches ARIA values, leaving room
+    // for token-valued attrs (`aria-current="page"`,
+    // `aria-checked="mixed"`) to round-trip cleanly.
+    const html = '<button aria-checked="true" aria-pressed="false" aria-current="page">x</button>'
     expect(normalizeHTML(html)).toBe(
-      '<button aria-checked="false" aria-expanded="false">x</button>',
-    )
-  })
-
-  test('leaves `aria-*="true"` and `aria-*="false"` untouched', () => {
-    const html = '<button aria-checked="true" aria-pressed="false">x</button>'
-    expect(normalizeHTML(html)).toBe(
-      '<button aria-checked="true" aria-pressed="false">x</button>',
+      '<button aria-checked="true" aria-current="page" aria-pressed="false">x</button>',
     )
   })
 

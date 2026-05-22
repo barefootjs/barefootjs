@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { isBooleanResultExpr } from '../boolean-result'
+import { isAriaBooleanAttr, isBooleanResultExpr } from '../boolean-result'
 
 describe('isBooleanResultExpr', () => {
   describe('detected as boolean-result', () => {
@@ -63,5 +63,44 @@ describe('isBooleanResultExpr', () => {
     // the classifier falls through to the default case and declines
     // to wrap. The contract here is "do not throw, do not wrap".
     expect(isBooleanResultExpr('???invalid<<')).toBe(false)
+  })
+})
+
+describe('isAriaBooleanAttr', () => {
+  test.each([
+    // Strict boolean state.
+    'aria-atomic',
+    'aria-busy',
+    'aria-disabled',
+    'aria-hidden',
+    'aria-modal',
+    'aria-multiline',
+    'aria-multiselectable',
+    'aria-readonly',
+    'aria-required',
+    // Tri-state.
+    'aria-checked',
+    'aria-pressed',
+  ])('%s is recognised as ARIA boolean', (name) => {
+    expect(isAriaBooleanAttr(name)).toBe(true)
+  })
+
+  test.each([
+    // String-valued / token-valued ARIA attributes — wrapping with
+    // `bool_str` would coerce a user-supplied string to "true"/"false".
+    'aria-label',
+    'aria-labelledby',
+    'aria-describedby',
+    'aria-current', // page | step | location | … | true | false
+    'aria-sort', // ascending | descending | none | other
+    'aria-haspopup', // false | true | menu | listbox | tree | grid | dialog
+    'aria-invalid', // false | true | grammar | spelling
+    // Non-ARIA attributes — should also fall through.
+    'disabled',
+    'data-active',
+    'class',
+    'id',
+  ])('%s is NOT recognised as ARIA boolean', (name) => {
+    expect(isAriaBooleanAttr(name)).toBe(false)
   })
 })
