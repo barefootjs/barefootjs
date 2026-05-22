@@ -42,12 +42,20 @@ export interface SharedFixtureSpec {
   /** Fixture id; also the `__snapshots__/<id>.{html,client.js}` basename. */
   id: string
   /**
-   * Component name as it appears in `integrations/shared/components/<Name>.tsx`
-   * and in the hydration registry. Used to derive the source path and the
-   * deterministic SSR `__instanceId` (`${componentName}_test`) the snapshot
-   * generator pins so the hydration walker resolves the registered component.
+   * Component name as it appears in the hydration registry. Used as the
+   * SSR render target and to derive the deterministic
+   * `__instanceId` (`${componentName}_test`) the snapshot generator pins
+   * so the hydration walker resolves the registered component.
    */
   componentName: string
+  /**
+   * Override for the basename inside
+   * `integrations/shared/components/<sourceFile>.tsx` when it differs
+   * from `componentName` — e.g. `PropsReactivityComparison` is the
+   * second export inside `ReactiveProps.tsx`, so the spec sets
+   * `sourceFile: 'ReactiveProps'`. Defaults to `componentName` when omitted.
+   */
+  sourceFile?: string
   /** Human-readable description for `JSXFixture.description`. */
   description: string
   /**
@@ -61,10 +69,14 @@ export interface SharedFixtureSpec {
   interactions?: ReadonlyArray<InteractionStep>
 }
 
+export function sourceFileBasename(spec: SharedFixtureSpec): string {
+  return spec.sourceFile ?? spec.componentName
+}
+
 export function defineSharedFixture(spec: SharedFixtureSpec): JSXFixture {
   const sourcePath = resolve(
     SHARED_COMPONENTS_DIR,
-    `${spec.componentName}.tsx`,
+    `${sourceFileBasename(spec)}.tsx`,
   )
   const htmlPath = resolve(SNAPSHOT_DIR, `${spec.id}.html`)
   const clientJsPath = resolve(SNAPSHOT_DIR, `${spec.id}.client.js`)

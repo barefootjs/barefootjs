@@ -35,6 +35,7 @@ import { fixture as toggleShared } from '../fixtures/toggle-shared'
 import { fixture as conditionalReturnButton } from '../fixtures/conditional-return-button'
 import { fixture as conditionalReturnLink } from '../fixtures/conditional-return-link'
 import { fixture as reactiveProps } from '../fixtures/reactive-props'
+import { fixture as propsReactivityComparison } from '../fixtures/props-reactivity-comparison'
 import type { JSXFixture, InteractionStep } from '../src/types'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -53,6 +54,7 @@ const fixtures: JSXFixture[] = [
   conditionalReturnButton,
   conditionalReturnLink,
   reactiveProps,
+  propsReactivityComparison,
 ]
 const byId = new Map(fixtures.map(f => [f.id, f]))
 
