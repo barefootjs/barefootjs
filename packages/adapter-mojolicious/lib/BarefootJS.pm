@@ -70,6 +70,30 @@ sub comment ($self, $text) {
     return "<!--bf-$text-->";
 }
 
+# ---------------------------------------------------------------------------
+# JS-equivalent value stringification
+# ---------------------------------------------------------------------------
+
+# Map a Perl boolean-shaped value to the JS `String(bool)` form.
+# Used by the Mojo adapter when emitting reactive attribute bindings
+# whose JS source `isBooleanResultExpr` classified as boolean —
+# a comparison (`count() > 0`), a logical negation (`!ok()`), or a
+# literal `true` / `false`. Perl's auto-stringification of those
+# expressions yields `''` / `1`; Hono and Go emit `'false'` / `'true'`.
+# Centralising the bool → string mapping here keeps the contract
+# testable and the template-emit syntax tidy
+# (`<%= bf->bool_str(...) %>` vs an inline ternary).
+#
+# Contract is boolean-only: callers must have classified the
+# expression as boolean-result before routing through this helper.
+# Non-boolean values reaching here will be Perl-truthy-coerced to
+# 'true' / 'false', which is generally wrong — non-boolean attribute
+# bindings stay on the plain `<%= expr %>` emit path and never reach
+# this function.
+sub bool_str ($self, $value) {
+    return $value ? 'true' : 'false';
+}
+
 sub text_start ($self, $slot_id) {
     return "<!--bf:$slot_id-->";
 }

@@ -175,6 +175,27 @@ export function normalizeHTML(html: string): string {
     //   bf-s="ComponentName_abc123_s10"      → bf-s="ComponentName_*_s10"
     //   bf-s="ParentName_xyz_s10"            → bf-s="ParentName_*_s10"
     .replace(/bf-s="([A-Z][a-zA-Z]*)_[a-z0-9]+((?:_s\d+)*)"/g, 'bf-s="$1_*$2"')
+    // HTML5 boolean attribute canonicalisation (#1466 follow-up).
+    // For `disabled={!ok()}` (true), Hono emits `disabled=""` while
+    // Mojo / Go emit bare `disabled`. Both are spec-equivalent
+    // (presence = true, absence = false) — collapse the empty-value
+    // form to bare so the byte comparison reads as adapter-neutral.
+    //
+    // Scoped to the HTML5 spec whitelist to avoid stripping
+    // legitimate empty values on non-boolean attrs (`class=""`,
+    // `aria-label=""`).
+    //
+    // `data-*` and `aria-*` value canonicalisation is intentionally
+    // NOT done here: the Mojo adapter routes ARIA boolean attrs and
+    // structurally-boolean expressions through `bf->bool_str` at
+    // compile time, so the wire bytes already match Hono / Go.
+    // Touching `data-*` on the harness side would break legitimate
+    // numeric / string dataset values (`data-count={0}` → "0", not
+    // "false").
+    .replace(
+      /\s(disabled|hidden|checked|readonly|required|selected|autofocus|multiple|defer|async|controls|loop|muted|open|reversed|ismap|formnovalidate|nomodule|playsinline|inert|novalidate|allowfullscreen)=""/g,
+      ' $1',
+    )
     // Normalize void element self-closing: <br/> or <br /> → <br>
     .replace(new RegExp(`<(${VOID_ELEMENTS})(\\s[^>]*?)?\\s*/>`, 'g'), '<$1$2>')
     // Remove trailing whitespace before >

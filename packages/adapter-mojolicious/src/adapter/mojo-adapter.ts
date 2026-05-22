@@ -47,6 +47,7 @@ import {
   emitIRNode,
   emitAttrValue,
 } from '@barefootjs/jsx'
+import { isAriaBooleanAttr, isBooleanResultExpr } from './boolean-result'
 
 /**
  * Mojo adapter's IRNode render context. Mojo's lowering currently
@@ -825,7 +826,29 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
         // Boolean attributes: render conditionally (present or absent).
         return `<%= ${this.convertExpressionToPerl(value.expr)} ? '${name}' : '' %>`
       }
-      return `${name}="<%= ${this.convertExpressionToPerl(value.expr)} %>"`
+      // Boolean-result handling (#1466 follow-up). Two trigger paths:
+      //
+      //   - `isBooleanResultExpr(expr)` — the JS source structurally
+      //     evaluates to a boolean (comparison, `!`, literal,
+      //     both-sides-boolean logical / conditional).
+      //   - `isAriaBooleanAttr(name)` — the attribute is one of the
+      //     ARIA tri-state / boolean-state names whose spec values are
+      //     `"true" | "false" (| "mixed")`. The expression itself can
+      //     be opaque (e.g. `accepted()` — a call expression we can't
+      //     classify from source text), so we lean on the attribute
+      //     name as the type witness.
+      //
+      // Without either, Perl's auto-stringification turns a JS-false
+      // comparison into `''` (and a JS-true comparison into `'1'`),
+      // which renders as `attr=""` / `attr="1"` — diverging from
+      // Hono's / Go's `attr="false"` / `attr="true"`. Routing through
+      // the `bf->bool_str` Perl helper realigns the wire bytes with
+      // JS `String(boolean)` semantics.
+      const perl = this.convertExpressionToPerl(value.expr)
+      if (isBooleanResultExpr(value.expr) || isAriaBooleanAttr(name)) {
+        return `${name}="<%= bf->bool_str(${perl}) %>"`
+      }
+      return `${name}="<%= ${perl} %>"`
     },
     emitBooleanAttr: (_value, name) => name,
     emitTemplate: (value, name) =>
@@ -1156,6 +1179,7 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     })
     return true
   }
+
 
   private convertExpressionToPerl(expr: string): string {
     // Handle higher-order array methods via ParsedExpr AST.

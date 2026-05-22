@@ -60,26 +60,12 @@ runAdapterConformanceTests({
     // never receives a `theme` key. Provider SSR coverage on Mojo
     // waits on that adapter feature; see #1297 follow-up.
     'context-provider',
-    // Shared-component corpus (#1466). The following fixtures use
-    // reactive boolean attribute bindings (`data-active={count() > 0}`,
-    // `disabled={!accepted()}`, `aria-checked={accepted()}`,
-    // `hidden={!open()}`) whose Mojo serialisation diverges from
-    // Hono's. Hono stringifies the boolean (`data-active="false"`,
-    // `disabled=""`); Mojo treats `false` as bare (`data-active=""`,
-    // `disabled`) and Perl-coerces other booleans (`aria-checked="0"`
-    // instead of `"false"`). Both shapes are well-formed HTML but
-    // the byte comparison can't reconcile without an adapter-side
-    // normaliser. Same family as the pre-existing
-    // `style-object-dynamic` etc. limitations — pinning here keeps
-    // the shared-component corpus adapter-neutral.
-    'conditional-return-button',
-    'conditional-return-link',
-    'form',
-    'portal',
-    // Parent-with-child fixtures whose children ride the same
-    // boolean-serialisation divergence (e.g. ToggleItem's reactive
-    // style, ReactiveChild's reactive attrs). Skip at the parent
-    // level — SSR output is one comparison.
+    // Multi-component fixtures still diverge because Mojo's child
+    // template emitter pins the child's `bf-s` to the literal
+    // `test_<sN>` (`_scope_id("test_$sid")` in `test-render.ts`)
+    // instead of `<ChildName>_<id>_<sN>` like Hono / CSR. Same family
+    // of test-harness scope-id plumbing the `componentName` option
+    // fixed on the Hono side. Separate follow-up.
     'toggle-shared',
     'reactive-props',
     'props-reactivity-comparison',
