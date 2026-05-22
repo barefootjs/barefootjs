@@ -221,10 +221,9 @@ my $props = ${propsPerl};
 # Create BarefootJS instance with mock controller
 my $c = $app->build_controller;
 my $bf = BarefootJS->new($c, {});
-# Honour an explicit `__instanceId` from props so shared-component fixtures
-# (which pin a `<ComponentName>_test` scope id for cross-adapter normalisation)
-# match what Hono's `renderHonoComponent` emits. Fall back to the literal
-# 'test' for the rest of the corpus.
+# Honour an explicit __instanceId from props so shared-component fixtures
+# (which pin <ComponentName>_test scope ids for cross-adapter normalisation)
+# match what Hono renderHonoComponent emits. Default to 'test' otherwise.
 $bf->_scope_id('${rootScopeId}');
 
 ${childRenderers}

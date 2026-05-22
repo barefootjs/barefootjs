@@ -285,6 +285,12 @@ function buildGoPropsInit(
 
   const lines: string[] = []
   for (const [key, value] of Object.entries(props)) {
+    // Skip internal hydration markers — `__instanceId` / `__bfScope`
+    // / `__bfChild` are routed by the framework (consumed via the
+    // separate `ScopeID` struct field for `__instanceId` and never
+    // appear on the user-facing input struct). Including them produces
+    // `unknown field __instanceId in struct literal of type XxxInput`.
+    if (key.startsWith('__')) continue
     // Capitalize first letter for Go field name
     const goField = key.charAt(0).toUpperCase() + key.slice(1)
     if (typeof value === 'string') {
