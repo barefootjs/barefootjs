@@ -58,18 +58,24 @@ export interface CSRAdapterOptions {
   name?: string
 }
 
-const EMPTY_SECTIONS: TemplateSections = {
+// Frozen so a single shared sentinel can be returned from every
+// `generate()` call without risking that a downstream consumer
+// mutates it and bleeds state across compilations. `Object.freeze`
+// is shallow, so we freeze both the outer `AdapterOutput` and the
+// nested `sections` object — those are the two objects callers
+// could write to (string/extension fields are primitives).
+const EMPTY_SECTIONS: TemplateSections = Object.freeze({
   imports: '',
   types: '',
   component: '',
   defaultExport: '',
-}
+})
 
-const EMPTY_OUTPUT: AdapterOutput = {
+const EMPTY_OUTPUT: AdapterOutput = Object.freeze({
   template: '',
   sections: EMPTY_SECTIONS,
   extension: '.tsx',
-}
+})
 
 export class CSRAdapter extends BaseAdapter {
   name: string
@@ -85,8 +91,9 @@ export class CSRAdapter extends BaseAdapter {
   }
 
   // Sentinel: the marked-template is discarded in clientOnly mode,
-  // so a single shared empty `AdapterOutput` (frozen via const) is
-  // enough. Re-creating per call would just allocate garbage.
+  // so a single shared empty `AdapterOutput` (frozen — see
+  // `EMPTY_OUTPUT` above) is enough. Re-creating per call would just
+  // allocate garbage.
   generate(): AdapterOutput {
     return EMPTY_OUTPUT
   }

@@ -41,4 +41,25 @@ describe('client/build createConfig', () => {
     expect(out.sections.component).toBe('')
     expect(out.sections.defaultExport).toBe('')
   })
+
+  test('CSRAdapter.generate() returns a frozen sentinel — accidental mutation cannot bleed state across compilations', () => {
+    const adapter = new CSRAdapter()
+    const a = adapter.generate()
+    const b = adapter.generate()
+    // Same object identity — sentinel, not a fresh allocation.
+    expect(a).toBe(b)
+    // Outer object frozen.
+    expect(Object.isFrozen(a)).toBe(true)
+    // Nested `sections` object also frozen (Object.freeze is shallow).
+    expect(Object.isFrozen(a.sections)).toBe(true)
+    // Strict-mode write throws; downstream code accidentally mutating
+    // the sentinel would surface loudly here instead of silently
+    // leaking state into the next compilation.
+    expect(() => {
+      ;(a as { template: string }).template = 'mutated'
+    }).toThrow(TypeError)
+    expect(() => {
+      ;(a.sections as { imports: string }).imports = 'mutated'
+    }).toThrow(TypeError)
+  })
 })
