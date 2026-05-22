@@ -21,7 +21,7 @@
  * the CLI itself can import the spec to know what to generate.
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -102,4 +102,40 @@ export function defineSharedFixture(spec: SharedFixtureSpec): JSXFixture {
       : undefined,
     interactions: spec.interactions,
   })
+}
+
+/**
+ * Discover every shared-component fixture file in this directory by
+ * convention: any `*.ts` that is neither this `_helpers` module nor
+ * `index.ts`, and whose module exports both `spec` and `fixture`. The
+ * pair-export contract distinguishes shared-component fixtures from
+ * the adapter-conformance corpus fixtures that only export `fixture`.
+ *
+ * Returning sorted-by-id keeps test ordering deterministic regardless
+ * of filesystem iteration order.
+ */
+async function loadAllModules(): Promise<
+  Array<{ spec: SharedFixtureSpec; fixture: JSXFixture }>
+> {
+  const here = dirname(fileURLToPath(import.meta.url))
+  const entries: Array<{ spec: SharedFixtureSpec; fixture: JSXFixture }> = []
+  for (const file of readdirSync(here)) {
+    if (!file.endsWith('.ts')) continue
+    if (file.startsWith('_')) continue
+    if (file === 'index.ts') continue
+    const moduleName = file.replace(/\.ts$/, '')
+    const mod = await import(`./${moduleName}`)
+    if (mod.spec && mod.fixture) {
+      entries.push({ spec: mod.spec, fixture: mod.fixture })
+    }
+  }
+  return entries.sort((a, b) => a.spec.id.localeCompare(b.spec.id))
+}
+
+export async function loadAllSharedFixtures(): Promise<JSXFixture[]> {
+  return (await loadAllModules()).map(e => e.fixture)
+}
+
+export async function loadAllSharedSpecs(): Promise<SharedFixtureSpec[]> {
+  return (await loadAllModules()).map(e => e.spec)
 }

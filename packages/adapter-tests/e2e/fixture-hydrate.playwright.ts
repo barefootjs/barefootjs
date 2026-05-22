@@ -30,17 +30,7 @@ import { fileURLToPath } from 'node:url'
 import { existsSync, readFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { fixture as counterShared } from '../fixtures/counter-shared'
-import { fixture as toggleShared } from '../fixtures/toggle-shared'
-import { fixture as conditionalReturnButton } from '../fixtures/conditional-return-button'
-import { fixture as conditionalReturnLink } from '../fixtures/conditional-return-link'
-import { fixture as reactiveProps } from '../fixtures/reactive-props'
-import { fixture as propsReactivityComparison } from '../fixtures/props-reactivity-comparison'
-import { fixture as form } from '../fixtures/form'
-import { fixture as portal } from '../fixtures/portal'
-import { fixture as todoApp } from '../fixtures/todo-app'
-import { fixture as todoAppSsr } from '../fixtures/todo-app-ssr'
-import { fixture as aiChat } from '../fixtures/ai-chat'
+import { loadAllSharedFixtures } from '../fixtures/_helpers'
 import type { JSXFixture, InteractionStep } from '../src/types'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -53,19 +43,12 @@ let server: Server
 let baseUrl: string
 let runtimeSource: string
 
-const fixtures: JSXFixture[] = [
-  counterShared,
-  toggleShared,
-  conditionalReturnButton,
-  conditionalReturnLink,
-  reactiveProps,
-  propsReactivityComparison,
-  form,
-  portal,
-  todoApp,
-  todoAppSsr,
-  aiChat,
-]
+// Top-level await: discover every shared-component fixture by
+// directory convention. Adding a new fixture file is now zero-touch
+// for this spec — drop the file under `../fixtures/`, regenerate its
+// snapshot via `scripts/snapshot.ts`, and it shows up here on the
+// next test run.
+const fixtures: JSXFixture[] = await loadAllSharedFixtures()
 const byId = new Map(fixtures.map(f => [f.id, f]))
 
 function hostPage(fixture: JSXFixture): string {
