@@ -11,6 +11,7 @@ import { HonoAdapter } from '@barefootjs/hono/adapter'
 import { renderHonoComponent } from '@barefootjs/hono/test-render'
 import { normalizeHTML } from '../src/jsx-runner'
 import { indentHTML } from '../src/indent-html'
+import { generateAllSharedComponentSnapshots } from '../src/snapshot-generator'
 import { jsxFixtures } from '../fixtures'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -105,6 +106,20 @@ async function main() {
   }
 
   console.log(`\nDone: ${updated} updated, ${failed} failed, ${skipped} skipped`)
+
+  // Shared-component fixtures (fixture-hydrate corpus) write their
+  // expectedHtml + expectedClientJs to `fixtures/__snapshots__/<id>.{html,client.js}`
+  // instead of inline strings in the .ts file. Regenerate them here so a single
+  // auto-update run keeps both fixture flavours in sync — same trigger, same
+  // commit, no separate workflow.
+  console.log('\nRegenerating shared-component snapshots…')
+  try {
+    await generateAllSharedComponentSnapshots()
+  } catch (err) {
+    console.error(`✗ shared-component snapshots: ${(err as Error).message}`)
+    failed++
+  }
+
   if (failed > 0) process.exit(1)
 }
 
