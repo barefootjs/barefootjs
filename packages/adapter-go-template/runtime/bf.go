@@ -1159,28 +1159,48 @@ func projectSortKey(item any, keyKind, keyName string) any {
 // test data both resolve under a single key name. (#1487)
 func getFieldValue(item any, field string) any {
 	v := reflect.ValueOf(item)
+	// Defensive IsNil guards mirror `SpreadAttrs` — keeps the helper
+	// safe against typed-nil pointer / nil-interface items inside a
+	// `[]any` so a single bad row doesn't crash the whole sort.
 	if v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return nil
+		}
 		v = v.Elem()
 	}
 	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil
+		}
 		v = v.Elem()
 	}
 
 	if v.Kind() == reflect.Map {
-		if v.Type().Key().Kind() != reflect.String {
+		keyType := v.Type().Key()
+		if keyType.Kind() != reflect.String {
 			return nil
 		}
-		if mv := v.MapIndex(reflect.ValueOf(field)); mv.IsValid() {
-			return mv.Interface()
+		// Convert the lookup string to the map's actual key type so
+		// maps keyed by a named string type (`type Key string`) don't
+		// panic with `value of type string is not assignable to type X`.
+		lookup := func(s string) (any, bool) {
+			k := reflect.ValueOf(s).Convert(keyType)
+			if mv := v.MapIndex(k); mv.IsValid() {
+				return mv.Interface(), true
+			}
+			return nil, false
+		}
+		if r, ok := lookup(field); ok {
+			return r
 		}
 		if cap := capitalize(field); cap != field {
-			if mv := v.MapIndex(reflect.ValueOf(cap)); mv.IsValid() {
-				return mv.Interface()
+			if r, ok := lookup(cap); ok {
+				return r
 			}
 		}
 		if low := decapitalize(field); low != field {
-			if mv := v.MapIndex(reflect.ValueOf(low)); mv.IsValid() {
-				return mv.Interface()
+			if r, ok := lookup(low); ok {
+				return r
 			}
 		}
 		return nil

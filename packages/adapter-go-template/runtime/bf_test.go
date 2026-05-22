@@ -954,6 +954,46 @@ func TestSort_FieldOnMapReceiver_LowercaseKeys(t *testing.T) {
 	}
 }
 
+// (#1489 review) `MapIndex(reflect.ValueOf(string))` panics on a
+// `map[NamedString]V` because the dynamic key type doesn't match
+// `string`. `getFieldValue` converts the lookup to the map's
+// declared key type so JSON-decoded data with `type Key string`
+// keys still resolves.
+func TestSort_FieldOnMapReceiver_NamedStringKey(t *testing.T) {
+	type Key string
+	items := []any{
+		map[Key]any{"price": 30, "name": "c"},
+		map[Key]any{"price": 10, "name": "a"},
+		map[Key]any{"price": 20, "name": "b"},
+	}
+	got := Sort(items, "field", "Price", "numeric", "asc")
+	if len(got) != 3 {
+		t.Fatalf("Sort returned %d items, want 3", len(got))
+	}
+	firstPrice := got[0].(map[Key]any)["price"]
+	if firstPrice != 10 {
+		t.Errorf("Sort named-key map asc first.price = %v, want 10", firstPrice)
+	}
+}
+
+// (#1489 review) Nil interface entries inside `[]any` must not panic
+// — `getFieldValue`'s IsNil guards keep a single bad row from taking
+// the whole sort down.
+func TestSort_FieldOnMapReceiver_TolerantToNilEntries(t *testing.T) {
+	items := []any{
+		map[string]any{"price": 30},
+		nil,
+		map[string]any{"price": 10},
+	}
+	got := Sort(items, "field", "Price", "numeric", "asc")
+	if len(got) != 3 {
+		t.Fatalf("Sort returned %d items, want 3", len(got))
+	}
+	// nil projects to 0 (toFloat64(nil)) and sorts to the front
+	// alongside any other zero-keyed entries — the assertion here
+	// is that we didn't panic, and the result length is preserved.
+}
+
 // =============================================================================
 // JS-compat callees (#1188): bf_json / bf_string / bf_number /
 // bf_floor / bf_ceil / bf_round / bf_replace.
