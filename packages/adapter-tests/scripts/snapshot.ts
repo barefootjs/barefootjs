@@ -23,44 +23,22 @@ import { compileJSX, combineParentChildClientJs } from '@barefootjs/jsx'
 import {
   SHARED_COMPONENTS_DIR,
   SNAPSHOT_DIR,
+  loadAllSharedSpecs,
   sourceFileBasename,
   type SharedFixtureSpec,
 } from '../fixtures/_helpers'
-import { spec as counterSharedSpec } from '../fixtures/counter-shared'
-import { spec as toggleSharedSpec } from '../fixtures/toggle-shared'
-import { spec as conditionalReturnButtonSpec } from '../fixtures/conditional-return-button'
-import { spec as conditionalReturnLinkSpec } from '../fixtures/conditional-return-link'
-import { spec as reactivePropsSpec } from '../fixtures/reactive-props'
-import { spec as propsReactivityComparisonSpec } from '../fixtures/props-reactivity-comparison'
-import { spec as formSpec } from '../fixtures/form'
-import { spec as portalSpec } from '../fixtures/portal'
-import { spec as todoAppSpec } from '../fixtures/todo-app'
-import { spec as todoAppSsrSpec } from '../fixtures/todo-app-ssr'
-import { spec as aiChatSpec } from '../fixtures/ai-chat'
 
-const ALL_SPECS: SharedFixtureSpec[] = [
-  counterSharedSpec,
-  toggleSharedSpec,
-  conditionalReturnButtonSpec,
-  conditionalReturnLinkSpec,
-  reactivePropsSpec,
-  propsReactivityComparisonSpec,
-  formSpec,
-  portalSpec,
-  todoAppSpec,
-  todoAppSsrSpec,
-  aiChatSpec,
-]
+const allSpecs = await loadAllSharedSpecs()
 
 const requested = process.argv.slice(2)
 const selected =
   requested.length === 0
-    ? ALL_SPECS
-    : ALL_SPECS.filter(s => requested.includes(s.id))
+    ? allSpecs
+    : allSpecs.filter(s => requested.includes(s.id))
 
 if (requested.length > 0 && selected.length !== requested.length) {
-  const knownIds = ALL_SPECS.map(s => s.id).join(', ')
-  const unknown = requested.filter(id => !ALL_SPECS.some(s => s.id === id))
+  const knownIds = allSpecs.map(s => s.id).join(', ')
+  const unknown = requested.filter(id => !allSpecs.some(s => s.id === id))
   throw new Error(
     `Unknown fixture id(s): ${unknown.join(', ')}. Known: ${knownIds}`,
   )
