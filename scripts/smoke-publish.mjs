@@ -19,6 +19,8 @@
 // Run locally:
 //   bun run scripts/smoke-publish.mjs            # build + pack + scaffold + smoke
 //   bun run scripts/smoke-publish.mjs --no-build # skip the build step (reuse existing dist/)
+//   bun run scripts/smoke-publish.mjs --keep     # preserve the temp workspace + tarball
+//                                                # dir on success (always preserved on failure)
 //
 // Also wired into CI via `.github/workflows/ci-smoke-publish.yml`.
 
@@ -108,15 +110,27 @@ for (const pkgDir of PUBLISHABLE) {
   const pkg = JSON.parse(
     readFileSync(resolve(repoRoot, pkgDir, 'package.json'), 'utf-8'),
   )
-  // `--quiet` prints only the tarball path on stdout — keeps the
-  // capture parse trivial across bun versions.
-  const out = runCapture(
-    `bun pm pack --quiet --destination=${tarballDir}`,
-    { cwd: resolve(repoRoot, pkgDir) },
-  )
-  const tarballPath = out.trim().split('\n').pop()
+  // Log the package up-front so a `bun pm pack` crash names which
+  // workspace was being packed at the time of the failure — without
+  // this, the per-package line only printed on success and CI logs
+  // would surface a bare execSync stack with no package context.
+  process.stdout.write(`  ${pkg.name.padEnd(34)} → `)
+  let tarballPath
+  try {
+    // `--quiet` prints only the tarball path on stdout — keeps the
+    // capture parse trivial across bun versions.
+    const out = runCapture(
+      `bun pm pack --quiet --destination=${tarballDir}`,
+      { cwd: resolve(repoRoot, pkgDir) },
+    )
+    tarballPath = out.trim().split('\n').pop()
+  } catch (err) {
+    console.log('FAILED')
+    err.message = `bun pm pack failed for ${pkg.name} (${pkgDir}): ${err.message}`
+    throw err
+  }
   tarballs[pkg.name] = tarballPath
-  console.log(`  ${pkg.name.padEnd(34)} → ${tarballPath.split('/').pop()}`)
+  console.log(tarballPath.split('/').pop())
 }
 
 // ── 3. Scaffold via the create-barefootjs tarball ──────────────────
@@ -191,6 +205,16 @@ header('Smoke commands')
 
 const failures = []
 
+// `spawnSync` reports termination via `.status` (number) on a normal
+// exit OR `.signal` (e.g. 'SIGSEGV', 'SIGKILL') when the process was
+// killed. `status` is `null` in the signal case, which would render as
+// "exit null" with no diagnostic info — surface the signal name when
+// it's set so a kill is distinguishable from a non-zero exit.
+function describeExit(r) {
+  if (r.signal) return `signal ${r.signal}`
+  return `exit ${r.status}`
+}
+
 function smoke(label, cmd, opts = {}) {
   console.log(`\n• ${label}`)
   console.log(`  $ ${cmd}`)
@@ -199,11 +223,19 @@ function smoke(label, cmd, opts = {}) {
     shell: true,
     encoding: 'utf-8',
   })
-  const ok = r.status === 0 &&
+  const ok = r.status === 0 && !r.signal &&
     (!opts.expect || (r.stdout ?? '').includes(opts.expect))
   if (!ok) {
-    failures.push({ label, cmd, status: r.status, expect: opts.expect, stdout: r.stdout, stderr: r.stderr })
-    console.log(`  ✗ failed (exit ${r.status}${opts.expect ? `, expected "${opts.expect}"` : ''})`)
+    failures.push({
+      label,
+      cmd,
+      status: r.status,
+      signal: r.signal,
+      expect: opts.expect,
+      stdout: r.stdout,
+      stderr: r.stderr,
+    })
+    console.log(`  ✗ failed (${describeExit(r)}${opts.expect ? `, expected "${opts.expect}"` : ''})`)
     const tail = (s) => (s ?? '').slice(-1200)
     if (r.stdout) console.log(`  stdout:\n${tail(r.stdout)}`)
     if (r.stderr) console.log(`  stderr:\n${tail(r.stderr)}`)
@@ -263,7 +295,7 @@ if (failures.length === 0) {
 
 console.log(`${failures.length} smoke step(s) failed:`)
 for (const f of failures) {
-  console.log(`  - ${f.label} (exit ${f.status}${f.expect ? `, expected "${f.expect}"` : ''})`)
+  console.log(`  - ${f.label} (${describeExit(f)}${f.expect ? `, expected "${f.expect}"` : ''})`)
 }
 console.log(`\nWorkspace kept for inspection: ${workspace}`)
 console.log(`Tarballs kept for inspection:  ${tarballDir}`)
