@@ -2,11 +2,12 @@
 //
 // End-to-end smoke test for published tarballs.
 //
-// Runs every publishable `@barefootjs/*` package through `npm pack`,
-// scaffolds a fresh user-style project against the resulting tarballs
-// (no workspace: refs, no monorepo paths), and exercises the `bf` CLI
-// surface that depends on bundled resources or workspace-shaped
-// imports.
+// Runs every publishable `@barefootjs/*` package through `bun pm pack`
+// (see the `Pack tarballs` section below for why bun rather than
+// `npm pack`), scaffolds a fresh user-style project against the
+// resulting tarballs (no workspace: refs, no monorepo paths), and
+// exercises the `bf` CLI surface that depends on bundled resources
+// or workspace-shaped imports.
 //
 // Catches the class of bugs where a command works inside the monorepo
 // but breaks when the same code runs from a `node_modules/@barefootjs/*`
@@ -23,7 +24,6 @@
 
 import { execSync, spawnSync } from 'node:child_process'
 import {
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -37,8 +37,12 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '..')
 
-// Publishable packages, in dependency order so `bun run --filter X build`
-// finds the artefacts it needs. Mirrors `.github/workflows/pkg-pr-new.yml`.
+// Publishable packages — the set must stay in sync with
+// `.github/workflows/pkg-pr-new.yml`'s publish list (which is the
+// source of truth for "what ships"). Order here is the dependency
+// order needed for `bun run --filter X build` to find upstream
+// artefacts; the pkg-pr-new workflow uses its own order (build vs
+// publish), so we deliberately don't mirror that — only the set.
 const PUBLISHABLE = [
   'packages/shared',
   'packages/jsx',
