@@ -182,6 +182,11 @@ export async function renderGoTemplateComponent(options: RenderOptions): Promise
     // Build props initialization
     const propsInit = buildGoPropsInit(componentName, props)
 
+    // Honour `__instanceId` from props for the root scope id so
+    // shared-component fixtures (which pin `<ComponentName>_test`) match
+    // cross-adapter; default to 'test' otherwise.
+    const rootScopeId = typeof props?.__instanceId === 'string' ? props.__instanceId : 'test'
+
     // main.go — render program
     const mainGo = `package main
 
@@ -224,7 +229,7 @@ func randomID(n int) string {
 func main() {
 	tmpl := template.Must(template.New("").Funcs(bfTestFuncMap()).Parse(tmplContent))
 	props := New${componentName}Props(${componentName}Input{
-		ScopeID: "test",
+		ScopeID: "${rootScopeId}",
 ${propsInit}
 	})
 	if err := tmpl.ExecuteTemplate(os.Stdout, "${componentName}", props); err != nil {

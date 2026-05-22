@@ -183,6 +183,11 @@ export async function renderMojoComponent(options: RenderOptions): Promise<strin
     // Build props hash for Perl
     const propsPerl = buildPerlProps(componentName, props, ir)
 
+    // Honour `__instanceId` from props for the root scope id so
+    // shared-component fixtures (which pin `<ComponentName>_test`) match
+    // cross-adapter; default to 'test' otherwise.
+    const rootScopeId = typeof props?.__instanceId === 'string' ? props.__instanceId : 'test'
+
     // Build child template rendering functions for Perl
     const childRenderers = buildChildRenderers(childTemplates, ir, tempDir)
 
@@ -216,7 +221,11 @@ my $props = ${propsPerl};
 # Create BarefootJS instance with mock controller
 my $c = $app->build_controller;
 my $bf = BarefootJS->new($c, {});
-$bf->_scope_id('test');
+# Honour an explicit `__instanceId` from props so shared-component fixtures
+# (which pin a `<ComponentName>_test` scope id for cross-adapter normalisation)
+# match what Hono's `renderHonoComponent` emits. Fall back to the literal
+# 'test' for the rest of the corpus.
+$bf->_scope_id('${rootScopeId}');
 
 ${childRenderers}
 
@@ -355,8 +364,12 @@ function buildPerlProps(
 ): string {
   const entries: string[] = []
 
-  // Add scope_id
-  entries.push("scope_id => 'test'")
+  // Add scope_id — honour an explicit `__instanceId` from props so
+  // shared-component fixtures (which pin a `<ComponentName>_test` scope
+  // id) match cross-adapter; default to 'test' for the rest of the
+  // corpus.
+  const explicitScope = typeof props?.__instanceId === 'string' ? props.__instanceId : 'test'
+  entries.push(`scope_id => '${explicitScope}'`)
 
   // Add props params with defaults (before signals, so signals can reference them)
   for (const param of ir.metadata.propsParams) {
