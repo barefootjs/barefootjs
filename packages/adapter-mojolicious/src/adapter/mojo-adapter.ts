@@ -884,7 +884,17 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     const parts: string[] = []
 
     for (const attr of element.attrs) {
-      const attrName = attr.name === 'className' ? 'class' : attr.name
+      // Rewrite JSX special-prop names to their HTML-attribute
+      // counterparts (#1475). `className` → `class` was already
+      // wired in; the `key` → `data-key` rewrite matches the
+      // canonical Hono attribute name the client runtime
+      // reconciles against. Hono SSR strips raw `key` via its JSX
+      // runtime; the Mojo template path has no such layer so the
+      // rewrite happens at attribute-emit time.
+      let attrName: string
+      if (attr.name === 'className') attrName = 'class'
+      else if (attr.name === 'key') attrName = 'data-key'
+      else attrName = attr.name
       const lowered = emitAttrValue(attr.value, this.elementAttrEmitter, attrName)
       if (lowered) parts.push(lowered)
     }

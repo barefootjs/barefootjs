@@ -4163,8 +4163,17 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     const parts: string[] = []
 
     for (const attr of element.attrs) {
-      // Convert JSX className to HTML class attribute
-      const attrName = attr.name === 'className' ? 'class' : attr.name
+      // Rewrite JSX special-prop names to their HTML-attribute
+      // counterparts. The Hono reference adapter relies on its JSX
+      // runtime to strip `key` and emit `data-key` from a separate
+      // emit path; the Go template adapter has no such runtime, so
+      // the rewrite happens at attribute-emit time. Mirror of
+      // `packages/jsx/src/ir-to-client-js/html-template.ts:878`
+      // (`a.name === 'key'` branch). #1475
+      let attrName: string
+      if (attr.name === 'className') attrName = 'class'
+      else if (attr.name === 'key') attrName = 'data-key'
+      else attrName = attr.name
       const lowered = emitAttrValue(attr.value, this.elementAttrEmitter, attrName)
       if (lowered) parts.push(lowered)
     }

@@ -76,16 +76,17 @@ runAdapterConformanceTests({
     // hits the identical `template.HTML` interpolation gap as
     // `children-jsx-expression` above.
     'fragment-wrapped-children-jsx-expression',
-    // #1475: same `key → data-key` adapter-emit gap as the Mojo
-    // sibling — the Go template adapter doesn't rewrite the JSX
-    // `key` attribute name, so it lands in the rendered HTML as
-    // `<li key="">` (template-action evaluation drops the value
-    // before the attribute slot). #1448 Tier B's field-based sort
-    // fixtures are the first to seed non-empty loop items at SSR
-    // time, surfacing the gap; the standalone Tier B fixtures
-    // (`array-sort-primitive`, `array-sort-locale`,
-    // `array-toSorted`) keep the sort lowering coverage. Drops
-    // when #1475 lands.
+    // #1487: #1475's `key → data-key` rewrite landed in this PR
+    // (the Mojo sibling now passes end-to-end), but Go SSR through
+    // the test renderer still can't render the field-based sort
+    // fixtures: `generateTypes` falls back to `Items interface{}`
+    // for nested object arrays, and the test renderer emits
+    // `map[string]any` with lowercase keys → `{{.Name}}` resolves
+    // to the zero value. Sort lowering itself is exercised by the
+    // standalone Tier B fixtures (`array-sort-primitive`,
+    // `array-sort-locale`, `array-toSorted`) and pinned via the
+    // fixture-driven block at the bottom of this file. Drops when
+    // #1487 lands.
     'array-sort-field-asc',
     'array-sort-field-desc',
   ],

@@ -60,22 +60,6 @@ runAdapterConformanceTests({
     // never receives a `theme` key. Provider SSR coverage on Mojo
     // waits on that adapter feature; see #1297 follow-up.
     'context-provider',
-    // #1475: the Mojo adapter doesn't rewrite JSX `key={…}` →
-    // `data-key="…"` on element attribute emit (the Hono reference
-    // adapter does, via the `a.name === 'key'` branch in
-    // `irToHtmlTemplate`). The #1448 Tier B field-based sort
-    // fixtures are the first to seed non-empty loop items at SSR
-    // time, surfacing the gap — existing keyed-loop fixtures use
-    // `'use client'` + `createSignal<T[]>([])` so the SSR side
-    // renders an empty `<ul>` and the key never lands in HTML.
-    //
-    // Sort lowering itself is exercised by the standalone fixtures
-    // (`array-sort-primitive`, `array-sort-locale`, `array-toSorted`)
-    // and pinned via the fixture-driven block at the bottom of this
-    // file — the JSX-render skip here is the key-attr gap, not a
-    // sort regression. Drops when #1475 lands.
-    'array-sort-field-asc',
-    'array-sort-field-desc',
   ],
   // Per-fixture build-time contracts for shapes the Mojo adapter
   // intentionally refuses to lower. Owned by this adapter test file
