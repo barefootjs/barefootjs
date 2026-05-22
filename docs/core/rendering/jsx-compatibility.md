@@ -61,12 +61,12 @@ return <div>...</div>
 ))}
 
 // ✅ Filter, sort, then render
-{items().filter(x => x.active).sort((a, b) => a.name > b.name ? 1 : -1).map(item => (
+{items().filter(x => x.active).sort((a, b) => a.name.localeCompare(b.name)).map(item => (
   <Item key={item.id} item={item} />
 ))}
 ```
 
-Some comparators (e.g., `localeCompare`, block bodies) are not supported and will produce a compile error — use `/* @client */` in that case.
+Supported comparator shapes: `(a, b) => a - b`, `(a, b) => a.field - b.field`, `(a, b) => a.localeCompare(b)`, `(a, b) => a.field.localeCompare(b.field)` (reverse the operands for descending order). Other shapes — block bodies, ternary returns, custom helpers — produce a compile error; use `/* @client */` in that case.
 
 
 ## Event Handling
@@ -146,14 +146,14 @@ Some JavaScript expressions cannot be translated into marked template syntax. Wh
 
 ### Patterns that error on all adapters
 
-**Unsupported sort comparators** (`localeCompare`, block bodies):
+**Unsupported sort comparators** (block bodies, ternary returns):
 
 ```tsx
 // ❌ BF021 (all adapters)
-{items().sort((a, b) => a.name.localeCompare(b.name)).map(...)}
+{items().sort((a, b) => a.name > b.name ? 1 : -1).map(...)}
 
 // ✅ Use /* @client */
-{/* @client */ items().sort((a, b) => a.name.localeCompare(b.name)).map(...)}
+{/* @client */ items().sort((a, b) => a.name > b.name ? 1 : -1).map(...)}
 ```
 
 See the [TodoApp example](https://github.com/piconic-ai/barefootjs/blob/main/integrations/shared/components/TodoApp.tsx) for a real-world component using `/* @client */`.
