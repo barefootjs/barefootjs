@@ -542,7 +542,14 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
     // stay unsupported.
     if (ts.isObjectBindingPattern(param.name)) {
       const fieldMap = new Map<string, DestructureBinding>()
-      const collect = collectDestructureBindings(param.name, [], fieldMap, raw)
+      // `excludedTopKeys` mirrors the JS rest-binding exclusion set:
+      // the source-object keys explicitly consumed at the top level
+      // (#1532 review). Used by `validateRestUsage` for the
+      // `rest.X is always undefined` collision check — `fieldMap`
+      // keys on local rename / leaf names and would miss
+      // `({done: d, ...rest}) => rest.done` or `({user: {name}, ...rest}) => rest.user`.
+      const excludedTopKeys = new Set<string>()
+      const collect = collectDestructureBindings(param.name, [], fieldMap, raw, excludedTopKeys)
       if (!collect.ok) {
         return { kind: 'unsupported', raw, reason: collect.reason }
       }
@@ -599,7 +606,7 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
       // Also catches `restName.X` where `X` is a declared field — that
       // shape is always `undefined` per JS spec and is a user bug.
       if (restName !== undefined) {
-        const check = validateRestUsage(body, restName, fieldMap)
+        const check = validateRestUsage(body, restName, excludedTopKeys)
         if (!check.ok) {
           return { kind: 'unsupported', raw, reason: check.reason }
         }
@@ -837,6 +844,7 @@ function collectDestructureBindings(
   pathPrefix: readonly string[],
   fieldMap: Map<string, DestructureBinding>,
   raw: string,
+  excludedTopKeys?: Set<string>,
 ): { ok: true; restName?: string } | { ok: false; reason: string } {
   let restName: string | undefined
   for (const el of pattern.elements) {
@@ -884,11 +892,22 @@ function collectDestructureBindings(
       if (!el.propertyName || !ts.isIdentifier(el.propertyName)) {
         return { ok: false, reason: 'Non-identifier (computed/string/numeric) keys in destructured filter param are not supported' }
       }
+      // Track the outer key the nested pattern consumed at this level.
+      // It never becomes a local binding (only the nested leaves do),
+      // but a top-level rest binding still excludes it (#1532 review):
+      // `({ user: { name }, ...rest }) => rest.user` is statically
+      // undefined per JS spec, and was previously silently rewritten
+      // to `_t.user`. The collision check needs the property name set,
+      // not the local-binding `fieldMap` keys.
+      if (excludedTopKeys && pathPrefix.length === 0) {
+        excludedTopKeys.add(el.propertyName.text)
+      }
       const inner = collectDestructureBindings(
         el.name,
         [...pathPrefix, el.propertyName.text],
         fieldMap,
         raw,
+        excludedTopKeys,
       )
       if (!inner.ok) return inner
       continue
@@ -933,6 +952,14 @@ function collectDestructureBindings(
       defaultExpr = parsed
     }
     fieldMap.set(el.name.text, { path: [...pathPrefix, fieldName], defaultExpr })
+    // Top-level leaf: record the consumed source-object key, NOT the
+    // local binding name. `({done: d, ...rest}) => rest.done` is the
+    // canonical miss for `fieldMap.has(...)` collision detection —
+    // `fieldMap` keys on local rename `d`, but JS rest excludes the
+    // source key `done` (#1532 review).
+    if (excludedTopKeys && pathPrefix.length === 0) {
+      excludedTopKeys.add(fieldName)
+    }
   }
   return { ok: true, restName }
 }
@@ -1008,25 +1035,29 @@ function findImpureDefaultNode(expr: ParsedExpr): string | null {
  *    These shapes need a residual-object value, which Go's template
  *    runtime has no primitive for at predicate scope.
  *
- *  - `restName.X` where `X` is also a declared field in `fieldMap`.
- *    Per JS spec the rest binding excludes the explicitly-named
- *    keys, so the read is statically always `undefined` — flag the
- *    user bug rather than silently rewrite to `_t.X` (which WOULD
- *    return the value, masking the mistake).
+ *  - `restName.X` where `X` is a top-level key the destructure
+ *    explicitly consumed (`excludedTopKeys`). Per JS spec the rest
+ *    binding excludes those keys, so the read is statically always
+ *    `undefined` — flag the user bug rather than silently rewrite
+ *    to `_t.X` (which WOULD return the value, masking the mistake).
+ *    `excludedTopKeys` carries source-object property names, not
+ *    local binding names — so renamed (`{done: d}`) and
+ *    nested-pattern (`{user: {name}}`) outer keys are caught
+ *    alongside plain shorthand (`{done}`) (#1532 review).
  *
- * The walker recurses into nested arrow / higher-order bodies on
- * purpose: lexical capture means an inner arrow that references
- * the outer `restName` is still a use of the same binding, and
- * `substituteDestructuredFields` does NOT recurse through arrows.
- * Refusing here keeps the substitution path total — every retained
- * rest reference is a top-level `restName.X` that the substitution
- * step rewrites correctly. If a future inner-arrow shadowing model
- * lands, this can relax to track shadowing scopes.
+ * Recurses into nested arrow / higher-order bodies (lexical capture
+ * still uses the outer `restName`), but short-circuits when an
+ * inner callback's param shadows `restName` — the inner reference
+ * is then a different binding, and walking it would emit a
+ * spurious BF021 (#1532 review). `substituteDestructuredFields`
+ * does NOT recurse through arrows, so the validator's "refuse all
+ * remaining rest references in arrow bodies" stance keeps the
+ * substitution path total.
  */
 function validateRestUsage(
   expr: ParsedExpr,
   restName: string,
-  fieldMap: Map<string, DestructureBinding>,
+  excludedTopKeys: Set<string>,
 ): { ok: true } | { ok: false; reason: string } {
   let valueUse = false
   let collision: string | null = null
@@ -1046,7 +1077,7 @@ function validateRestUsage(
             valueUse = true
             return
           }
-          if (fieldMap.has(e.property)) {
+          if (excludedTopKeys.has(e.property)) {
             collision = e.property
           }
           return
@@ -1076,11 +1107,17 @@ function validateRestUsage(
         }
         return
       case 'arrow-fn':
+        // Inner arrow that re-uses `restName` as its own parameter
+        // shadows the outer rest binding — references inside its
+        // body belong to the inner param, not us (#1532 review).
+        if (e.param === restName) return
         walk(e.body)
         return
       case 'higher-order':
         walk(e.object)
-        walk(e.predicate)
+        // The predicate is the inner-callback body; its `param`
+        // shadows the outer rest binding when names match.
+        if (e.param !== restName) walk(e.predicate)
         return
       case 'array-literal':
         for (const el of e.elements) walk(el)
