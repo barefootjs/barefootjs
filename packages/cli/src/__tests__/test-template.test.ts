@@ -87,4 +87,64 @@ describe('generateTestTemplate', () => {
     expect(tpl).toContain(`import { describe, test, expect } from 'vitest'`)
     expect(tpl).not.toContain(`from 'bun:test'`)
   })
+
+  // `onKeyDown` is the React-style prop name preserved on component
+  // nodes; deriving the prop name from the lowercased IR event name
+  // (`'on' + 'K' + 'eydown'`) produced `onKeydown`, so the generated
+  // `props['onKeydown'] != null` arm never matched and the test failed
+  // out of the box on the first user component that listened to
+  // keystrokes (e.g. an Enter-to-submit input wired through `<Input
+  // onKeyDown=…>`).
+  test('emits onKeyDown (not onKeydown) for keydown handlers', () => {
+    const tpl = tplFor(`
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Input } from '@/components/ui/input'
+      export function Form() {
+        const [text, setText] = createSignal('')
+        return (
+          <Input
+            value={text()}
+            onKeyDown={(e) => e.key === 'Enter' && setText('')}
+          />
+        )
+      }
+    `, 'Form.tsx')
+    expect(tpl).toContain(`n.props['onKeyDown'] != null`)
+    expect(tpl).not.toContain(`n.props['onKeydown']`)
+  })
+
+  // Components that return another component as their root (e.g. a
+  // thin wrapper `function Form() { return <Input ... /> }`) had
+  // their generated "renders as <Input>" test assert
+  // `result.root.tag === 'Input'`. The IR carries the component on
+  // `root.componentName` and leaves `root.tag` null for non-intrinsic
+  // roots, so the assertion always failed out of the box. Pick the
+  // matching IR field at template-time based on the captured name's
+  // casing — PascalCase ⇒ componentName, lowercase ⇒ tag.
+  test('asserts componentName (not tag) when the root is a child component', () => {
+    const tpl = tplFor(`
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Input } from '@/components/ui/input'
+      export function Form() {
+        const [text, setText] = createSignal('')
+        return <Input value={text()} onInput={(e) => setText((e.target as HTMLInputElement).value)} />
+      }
+    `, 'Form.tsx')
+    expect(tpl).toContain(`expect(result.root.componentName).toBe('Input')`)
+    expect(tpl).not.toContain(`expect(result.root.tag).toBe('Input')`)
+  })
+
+  // Intrinsic-element roots stay on `tag` — the casing-based switch
+  // must not regress the lowercase path.
+  test('still asserts tag for intrinsic-element roots', () => {
+    const tpl = tplFor(`
+      export function Box() {
+        return <div>hi</div>
+      }
+    `, 'Box.tsx')
+    expect(tpl).toContain(`expect(result.root.tag).toBe('div')`)
+    expect(tpl).not.toContain(`expect(result.root.componentName).toBe('div')`)
+  })
 })

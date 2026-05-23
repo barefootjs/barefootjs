@@ -5,6 +5,18 @@ import { readFileSync } from 'fs'
 import path from 'path'
 import { parseComponent } from './parse-component'
 
+// IR `events` array entries (lowercase event names from intrinsic
+// elements) → JSX prop names preserved on component nodes. Multi-word
+// events break the naive `'on' + event[0].toUpperCase() + event.slice(1)`
+// derivation (`keydown` → `onKeydown`, but the React-style prop is
+// `onKeyDown`), so we keep the mapping explicit.
+const ON_PROP_BY_EVENT: Record<string, string> = {
+  click: 'onClick',
+  input: 'onInput',
+  change: 'onChange',
+  keydown: 'onKeyDown',
+}
+
 export interface GenerateTestTemplateOptions {
   /**
    * Import specifier the emitted file uses for `describe` / `test` /
@@ -121,12 +133,24 @@ function generateDescribeBlock(
   }
   lines.push(``)
 
-  // Root element
+  // Root element. PascalCase ⇒ child component (the parent renders e.g.
+  // `<Input ...>` as its own root); lowercase ⇒ intrinsic HTML tag.
+  // The IR distinguishes them on different fields — components carry
+  // `componentName`, intrinsic elements carry `tag` — so asserting
+  // `result.root.tag === 'Input'` for a component-rooted parent always
+  // fails (`tag` is null for components). Pick the matching field at
+  // template-time so the generated test reflects the IR shape.
   if (funcInfo.rootTag) {
+    const isComponentRoot = /^[A-Z]/.test(funcInfo.rootTag)
     lines.push(`  test('renders as <${funcInfo.rootTag}>', () => {`)
     if (funcInfo.hasConditionalReturn) {
       lines.push(`    // Component has conditional return (e.g., asChild branch)`)
-      lines.push(`    expect(result.find({ tag: '${funcInfo.rootTag}' })).not.toBeNull()`)
+      const finder = isComponentRoot
+        ? `result.find({ componentName: '${funcInfo.rootTag}' })`
+        : `result.find({ tag: '${funcInfo.rootTag}' })`
+      lines.push(`    expect(${finder}).not.toBeNull()`)
+    } else if (isComponentRoot) {
+      lines.push(`    expect(result.root.componentName).toBe('${funcInfo.rootTag}')`)
     } else {
       lines.push(`    expect(result.root.tag).toBe('${funcInfo.rootTag}')`)
     }
@@ -198,7 +222,7 @@ function generateDescribeBlock(
     lines.push(`  test('has event handlers', () => {`)
     lines.push(`    const all = result.findAll({})`)
     for (const event of funcInfo.events) {
-      const onProp = 'on' + event.charAt(0).toUpperCase() + event.slice(1)
+      const onProp = ON_PROP_BY_EVENT[event]
       lines.push(`    expect(`)
       lines.push(`      all.some(n => n.events.includes('${event}') || n.props['${onProp}'] != null),`)
       lines.push(`    ).toBe(true)`)
@@ -323,12 +347,16 @@ function analyzeFunction(source: string, componentName: string): FunctionInfo {
   // Conditional return (asChild pattern)
   const hasConditionalReturn = /if\s*\(.*\)\s*\{?\s*return/.test(funcBody)
 
-  // Event handlers in JSX
+  // Event handlers in JSX. Keys here are the lowercased event name
+  // surfaced on the IR's `events` array for intrinsic elements; values
+  // are the JSX prop name preserved on component nodes (`props.onKeyDown`,
+  // not `props.onKeydown`). The two halves diverge for multi-word events
+  // like keydown, so we keep the mapping explicit instead of deriving the
+  // prop name from the event name.
   const events: string[] = []
-  if (/onClick=/.test(funcBody)) events.push('click')
-  if (/onInput=/.test(funcBody)) events.push('input')
-  if (/onChange=/.test(funcBody)) events.push('change')
-  if (/onKeyDown=/.test(funcBody)) events.push('keydown')
+  for (const [event, onProp] of Object.entries(ON_PROP_BY_EVENT)) {
+    if (new RegExp(`${onProp}=`).test(funcBody)) events.push(event)
+  }
 
   // Child components (PascalCase tags in JSX, excluding HTML elements)
   const childCompRegex = /<([A-Z][A-Za-z]+)[\s/>]/g

@@ -35,7 +35,7 @@ npm run dev
 
 Then open the URL the dev server prints (defaults to `http://localhost:8787`). The starter app ships a Counter component you can edit at `components/Counter.tsx`.
 
-The full walkthrough — adapter / CSS choices, generated layout, and editing the Counter — lives in [`docs/core/quick-start.md`](./docs/core/quick-start.md).
+The full walkthrough — adapter / CSS choices, generated layout, and editing the Counter — lives in [`docs/core/quick-start.mdx`](./docs/core/quick-start.mdx).
 
 ---
 
