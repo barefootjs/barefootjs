@@ -133,12 +133,24 @@ function generateDescribeBlock(
   }
   lines.push(``)
 
-  // Root element
+  // Root element. PascalCase ⇒ child component (the parent renders e.g.
+  // `<Input ...>` as its own root); lowercase ⇒ intrinsic HTML tag.
+  // The IR distinguishes them on different fields — components carry
+  // `componentName`, intrinsic elements carry `tag` — so asserting
+  // `result.root.tag === 'Input'` for a component-rooted parent always
+  // fails (`tag` is null for components). Pick the matching field at
+  // template-time so the generated test reflects the IR shape.
   if (funcInfo.rootTag) {
+    const isComponentRoot = /^[A-Z]/.test(funcInfo.rootTag)
     lines.push(`  test('renders as <${funcInfo.rootTag}>', () => {`)
     if (funcInfo.hasConditionalReturn) {
       lines.push(`    // Component has conditional return (e.g., asChild branch)`)
-      lines.push(`    expect(result.find({ tag: '${funcInfo.rootTag}' })).not.toBeNull()`)
+      const finder = isComponentRoot
+        ? `result.find({ componentName: '${funcInfo.rootTag}' })`
+        : `result.find({ tag: '${funcInfo.rootTag}' })`
+      lines.push(`    expect(${finder}).not.toBeNull()`)
+    } else if (isComponentRoot) {
+      lines.push(`    expect(result.root.componentName).toBe('${funcInfo.rootTag}')`)
     } else {
       lines.push(`    expect(result.root.tag).toBe('${funcInfo.rootTag}')`)
     }
