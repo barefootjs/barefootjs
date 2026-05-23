@@ -642,6 +642,15 @@ boundary on those routes remains the responsibility of the framework
 registry (every registry component ships `"use client"`) and of the
 shared-program-aware build pipeline.
 
+**Known limitation — JSX-tag shadowing.** The "used as a JSX tag" check
+matches identifier names lexically, not via symbol resolution. If a
+local binding shadows an imported component name inside an inner scope
+(`function Foo({ Label: NewLabel }) { return <NewLabel /> }`) and the
+import name still appears as a JSX tag elsewhere, BF003 keys off the
+outer reference and can fire on a binding that isn't actually used as a
+component at runtime. Closing this would require feeding the TypeChecker
+symbol of each JSX tag through to the resolver; tracked as a follow-up.
+
 ---
 
 ## Error Codes

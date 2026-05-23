@@ -237,6 +237,108 @@ describe('BF003 — client importing server component', () => {
     expect(bf003Errors(ctx)).toHaveLength(0)
   })
 
+  test('resolves an explicit-extension relative import (./foo.tsx)', () => {
+    writeFixture('explicit-ext.tsx', `
+      "use client"
+      export function Explicit({ children }: { children?: unknown }) {
+        return <span>{children}</span>
+      }
+    `)
+    const parentPath = writeFixture('use-explicit.tsx', `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Explicit } from './explicit-ext.tsx'
+
+      export function UseExplicit() {
+        const [v] = createSignal(0)
+        return <Explicit>{v()}</Explicit>
+      }
+    `)
+    const ctx = analyzeComponent(
+      `'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Explicit } from './explicit-ext.tsx'
+
+      export function UseExplicit() {
+        const [v] = createSignal(0)
+        return <Explicit>{v()}</Explicit>
+      }`,
+      parentPath
+    )
+    // Source has "use client" — no BF003 expected. The point of this
+    // test is that the resolver actually finds explicit-ext.tsx via
+    // the as-is branch, rather than probing `.tsx.tsx` / `.tsx.ts`
+    // and silently missing (which would also produce 0 errors but
+    // for the wrong reason; the negative-case test below pins it).
+    expect(bf003Errors(ctx)).toHaveLength(0)
+  })
+
+  test('explicit-extension import to a non-"use client" target still fires', () => {
+    writeFixture('explicit-server.tsx', `
+      export function ExplicitServer({ children }: { children?: unknown }) {
+        return <span>{children}</span>
+      }
+    `)
+    const parentPath = writeFixture('use-explicit-server.tsx', `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { ExplicitServer } from './explicit-server.tsx'
+
+      export function UseExplicitServer() {
+        const [v] = createSignal(0)
+        return <ExplicitServer>{v()}</ExplicitServer>
+      }
+    `)
+    const ctx = analyzeComponent(
+      `'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { ExplicitServer } from './explicit-server.tsx'
+
+      export function UseExplicitServer() {
+        const [v] = createSignal(0)
+        return <ExplicitServer>{v()}</ExplicitServer>
+      }`,
+      parentPath
+    )
+    expect(bf003Errors(ctx)).toHaveLength(1)
+  })
+
+  test('accepts "use client" placed after a value declaration (analyzer semantics)', () => {
+    // The analyzer itself treats any ExpressionStatement of `'use client'`
+    // as the directive (BF002 enforces top-of-file placement separately);
+    // BF003 must match that semantics or it would fire on files the
+    // analyzer would classify as client.
+    writeFixture('directive-after-import.tsx', `
+      import type { ReactNode } from 'react'
+      "use client"
+      export function AfterImport({ children }: { children?: ReactNode }) {
+        return <span>{children}</span>
+      }
+    `)
+    const parentPath = writeFixture('use-after-import.tsx', `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { AfterImport } from './directive-after-import'
+
+      export function UseAfterImport() {
+        const [v] = createSignal(0)
+        return <AfterImport>{v()}</AfterImport>
+      }
+    `)
+    const ctx = analyzeComponent(
+      `'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { AfterImport } from './directive-after-import'
+
+      export function UseAfterImport() {
+        const [v] = createSignal(0)
+        return <AfterImport>{v()}</AfterImport>
+      }`,
+      parentPath
+    )
+    expect(bf003Errors(ctx)).toHaveLength(0)
+  })
+
   test('honors block-comment preamble before "use client"', () => {
     writeFixture('commented.tsx', `
       /**

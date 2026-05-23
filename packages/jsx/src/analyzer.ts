@@ -2743,6 +2743,13 @@ function validateClientImports(ctx: AnalyzerContext): void {
   const jsxComponentTags = collectJsxComponentTags(ctx.sourceFile)
   if (jsxComponentTags.size === 0) return
 
+  // Dedup synchronous fs.stat / readFile across imports within this
+  // analyzer call. Same-source imports (`import { A } from './x'` +
+  // `import { B } from './x'`) and index.tsx-resolution probes share
+  // the cache via the resolved absolute path.
+  const resolveCache = new Map<string, string | null>()
+  const directiveCache = new Map<string, boolean>()
+
   for (const imp of ctx.imports) {
     if (imp.isTypeOnly) continue
     if (!isResolvableComponentSource(imp.source)) continue
@@ -2754,10 +2761,19 @@ function validateClientImports(ctx: AnalyzerContext): void {
     })
     if (!usedAsComponent) continue
 
-    const resolvedPath = resolveRelativeImportToFile(imp.source, ctx.filePath)
+    let resolvedPath = resolveCache.get(imp.source)
+    if (resolvedPath === undefined) {
+      resolvedPath = resolveRelativeImportToFile(imp.source, ctx.filePath)
+      resolveCache.set(imp.source, resolvedPath)
+    }
     if (!resolvedPath) continue
 
-    if (fileHasUseClientDirective(resolvedPath)) continue
+    let hasDirective = directiveCache.get(resolvedPath)
+    if (hasDirective === undefined) {
+      hasDirective = fileHasUseClientDirective(resolvedPath)
+      directiveCache.set(resolvedPath, hasDirective)
+    }
+    if (hasDirective) continue
 
     const usedNames = imp.specifiers
       .filter(s => !s.isNamespace && jsxComponentTags.has(s.alias ?? s.name))
@@ -2807,12 +2823,19 @@ function collectJsxComponentTags(sourceFile: ts.SourceFile): Set<string> {
 function resolveRelativeImportToFile(source: string, fromFile: string): string | null {
   const baseDir = path.dirname(fromFile)
   const candidate = path.resolve(baseDir, source)
-  const candidates = [
-    candidate + '.tsx',
-    candidate + '.ts',
-    path.join(candidate, 'index.tsx'),
-    path.join(candidate, 'index.ts'),
-  ]
+  // Source already carries an extension (`./x.tsx`) — try the candidate
+  // as-is before falling through to the extension-fallback list, which
+  // would otherwise probe `x.tsx.tsx` / `x.tsx.ts` and silently miss.
+  const KNOWN_EXTS = ['.tsx', '.ts', '.jsx', '.js']
+  const sourceHasExt = KNOWN_EXTS.some(ext => source.endsWith(ext))
+  const candidates = sourceHasExt
+    ? [candidate]
+    : [
+        candidate + '.tsx',
+        candidate + '.ts',
+        path.join(candidate, 'index.tsx'),
+        path.join(candidate, 'index.ts'),
+      ]
   for (const c of candidates) {
     try {
       const stat = fs.statSync(c)
@@ -2832,27 +2855,32 @@ function fileHasUseClientDirective(filePath: string): boolean {
     // Unreadable — silent skip rather than false-firing BF003.
     return true
   }
-  // The directive must precede any non-comment statement. Scan past
-  // leading whitespace, line comments, and block comments.
-  let i = 0
-  while (i < content.length) {
-    const ch = content[i]
-    if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') { i++; continue }
-    if (content.startsWith('//', i)) {
-      const nl = content.indexOf('\n', i)
-      if (nl < 0) return false
-      i = nl + 1
-      continue
+  // Match the analyzer's own directive detection on this file: any
+  // ExpressionStatement whose expression is the string literal
+  // `'use client'` counts, regardless of whether it sits at the
+  // directive-prologue position. BF002 is the spec's enforcement of
+  // top-of-file placement; consulting that semantics here would make
+  // BF003 fire for files the analyzer itself classifies as client.
+  const sf = ts.createSourceFile(
+    filePath,
+    content,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TSX,
+  )
+  let found = false
+  function visit(node: ts.Node): void {
+    if (found) return
+    if (ts.isExpressionStatement(node) && ts.isStringLiteral(node.expression)) {
+      if (node.expression.text === 'use client') {
+        found = true
+        return
+      }
     }
-    if (content.startsWith('/*', i)) {
-      const end = content.indexOf('*/', i + 2)
-      if (end < 0) return false
-      i = end + 2
-      continue
-    }
-    return /^(["'])use client\1\s*;?/.test(content.slice(i))
+    ts.forEachChild(node, visit)
   }
-  return false
+  visit(sf)
+  return found
 }
 
 function validateInitStatementReferences(ctx: AnalyzerContext): void {
