@@ -16,8 +16,11 @@
  *   - #1499 — `docs/core/rendering/{client-directive,fragment}.md`
  *   - #1502 → #1527 — statement-mode + module-mode infrastructure +
  *     the rest of `docs/core/**` (29 pages total in the corpus)
- *   - this PR — client-JS snapshot assertion for ✅ examples (the
- *     "/and/or" half of #1439 v3's remaining work)
+ *   - #1529 — client-JS snapshot assertion for ✅ examples (74 seeded)
+ *   - this PR — statement-mode scaffold now appends `return <div />`
+ *     so signal / memo / effect declarations in API-reference snippets
+ *     land in the analyzed component and become snapshottable. Lifts
+ *     coverage from 74 → 142 contracts.
  *
  * Pipeline per page:
  *   1. Walk fenced ```tsx blocks. If a fence contains any `//` marker,
@@ -35,8 +38,13 @@
  *      wrap with the matching scaffold:
  *        - expression (`{...}` / `<...>`): wrap inside a JSX render tree
  *          with pre-declared signals (`count`, `todos`, `items`, …).
- *        - statement (`const`, `if`, plain call): wrap inside an empty
- *          function body with the reactivity imports available.
+ *        - statement (`const`, `if`, plain call): wrap inside a function
+ *          body that returns `<div />`, with the reactivity imports
+ *          available. The trailing return is what makes the body a
+ *          renderable component — without it, `analyzeComponent`
+ *          short-circuits and emits no IR / no client JS, so
+ *          declarations like `createSignal(0)` in the body would not
+ *          be snapshotted.
  *        - module (`'use client'` / `import` / `export` / `type` /
  *          `interface`): compile as-is at module scope.
  *   5. Compile via `TestAdapter` (Hono-like baseline):
@@ -113,6 +121,18 @@ function detectSharedSkipReason(body: string): string | undefined {
   if (/\(\s*\.\.\.\s*\)/.test(body)) return 'contains `(...)` placeholder'
   if (/>\s*\.\.\.\s*</.test(body)) return 'contains `>...<` placeholder'
   if (/\{\s*\.\.\.\s*\}/.test(body)) return 'contains `{ ... }` placeholder'
+  if (/\[\s*\.\.\.\s*\]/.test(body)) return 'contains `[ ... ]` placeholder'
+  // TS-signature notation in prose-style snippets like
+  // `createPortal(children, container?, options?)`. The `?` after an
+  // identifier immediately followed by `,` / `)` is not valid TSX (TS
+  // only allows `?` on parameter declarations, not on call arguments),
+  // so snapshotting these would pin parser leniency rather than any
+  // real compiler semantics — and become fragile if parsing tightens.
+  // Excludes legitimate `?.` optional chaining and `cond ? a : b`
+  // ternaries by requiring `,` or `)` immediately after `?`.
+  if (/\w\?\s*[,)]/.test(body)) {
+    return 'TS-signature notation (`arg?, …` / `arg?)`) — placeholder, not real code'
+  }
   if (/\bbf[A-Z]\w*\(/.test(body)) {
     return 'uses compiler-internal helper (bfText/bfComment/bfScopeAttr/...)'
   }
@@ -221,7 +241,16 @@ import { createSignal, createEffect, createMemo, onMount, onCleanup, untrack } f
 export function StatementExample() {
 `
 
+// Trailing JSX return forces the statement body to be analysed as a
+// renderable component. Without this, `analyzeComponent` short-circuits
+// on `!ctx.jsxReturn`, producing no IR / no client JS — leaving these
+// snippets at the weaker "no fatal errors" assertion. With the return
+// in place, signal / memo / effect declarations in the body land in the
+// component's reactivity graph and show up in the snapshotted client
+// JS, so a regression that silently drops, say, a dep from a memo is
+// caught here too (the #1439 gap behind v4).
 const STATEMENT_SCAFFOLD_FOOTER = `
+  return <div />
 }
 `
 
