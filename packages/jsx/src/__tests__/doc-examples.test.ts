@@ -254,6 +254,7 @@ const PAGES: PageSpec[] = [
   { path: 'core/components/props-type-safety.md' },
   { path: 'core/components/styling.md' },
   { path: 'core/core-concepts/how-it-works.md' },
+  { path: 'core/core-concepts/reactivity.md' },
 ]
 
 const adapter = new TestAdapter()
