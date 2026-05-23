@@ -274,6 +274,7 @@ const PAGES: PageSpec[] = [
     pageSkip: () =>
       'error-reference page — illustrative snippets depend on file-level context (#1439 future work)',
   },
+  { path: 'core/advanced/performance.md' },
 ]
 
 const adapter = new TestAdapter()
