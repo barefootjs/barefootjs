@@ -259,6 +259,7 @@ const PAGES: PageSpec[] = [
   { path: 'core/core-concepts/ai-native.md' },
   { path: 'core/adapters/hono-adapter.md' },
   { path: 'core/adapters/go-template-adapter.md' },
+  { path: 'core/adapters/custom-adapter.md' },
 ]
 
 const adapter = new TestAdapter()
