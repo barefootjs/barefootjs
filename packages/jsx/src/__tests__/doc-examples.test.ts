@@ -129,8 +129,9 @@ function extractExamples(md: string, page: PageSpec): DocExample[] {
     const blockLines = lines.slice(i + 1, j)
     // Marker comments are at column 0 (e.g. `// ❌ BF021`, `// Source`).
     // Indented `//` lines are in-code comments and must NOT chop the fence
-    // into segments.
-    const isMarker = (l: string) => /^\/\//.test(l)
+    // into segments. Compiler directive comments (`// @bf-ignore …`) are
+    // part of the snippet, not a separator.
+    const isMarker = (l: string) => /^\/\//.test(l) && !/^\/\/\s*@/.test(l)
     const hasMarkerLine = blockLines.some(isMarker)
     const segments: Array<{ offset: number; lines: string[] }> = []
     let cur: { offset: number; lines: string[] } | null = null
@@ -247,6 +248,7 @@ const PAGES: PageSpec[] = [
   { path: 'core/components/children-slots.md' },
   { path: 'core/components/context-api.md' },
   { path: 'core/components/portals.md' },
+  { path: 'core/components/props-type-safety.md' },
 ]
 
 const adapter = new TestAdapter()
