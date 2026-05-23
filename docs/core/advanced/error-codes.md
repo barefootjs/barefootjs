@@ -73,25 +73,29 @@ export function Counter() {
 const [count, setCount] = createSignal(0)
 ```
 
-### BF011 — Signal Used Outside Component
+### BF011 — Module-Level Reactive Declaration
 
-**Trigger:** `createSignal` at module level.
+**Trigger:** A `createSignal` or `createMemo` call at module scope. The downstream codegen drops the declaration silently and every reference to the resulting binding becomes a `ReferenceError` at SSR and at hydrate.
 
 ```tsx
+'use client'
+import { createSignal } from '@barefootjs/client'
 // ❌ BF011 — module-level signal
 const [count, setCount] = createSignal(0)
-
 export function Counter() {
-  return <span>{count()}</span>
+  return <button onClick={() => setCount(count() + 1)}>{count()}</button>
 }
 ```
 
-**Fix:**
+**Fix:** Move the declaration inside the component function so each mount gets its own state.
 
 ```tsx
+'use client'
+import { createSignal } from '@barefootjs/client'
+
 export function Counter() {
   const [count, setCount] = createSignal(0)
-  return <span>{count()}</span>
+  return <button onClick={() => setCount(count() + 1)}>{count()}</button>
 }
 ```
 
@@ -290,7 +294,7 @@ function Component({ checked }: Props) {
 | BF001 | Error | Missing `"use client"` directive |
 | BF003 | Error | Client component importing server component |
 | BF010 | Error | Unknown signal reference |
-| BF011 | Error | Signal used outside component |
+| BF011 | Error | Module-level reactive declaration |
 | BF012 | Error | Invalid signal usage |
 | BF020 | Error | Invalid JSX expression |
 | BF021 | Error | Unsupported JSX pattern for SSR |
