@@ -73,21 +73,21 @@ export function Counter() {
 const [count, setCount] = createSignal(0)
 ```
 
-### BF011 — Module-Level Reactive Declaration Without `/* @client */`
+### BF011 — Module-Level Reactive Declaration
 
-**Trigger:** A `createSignal` or `createMemo` call at module scope without a leading `/* @client */` directive. The default SSR path cannot host a module-scope reactive declaration (the binding would leak across requests and the codegen drops the declaration silently), so authors must opt in explicitly to scope it to the browser bundle.
+**Trigger:** A `createSignal` or `createMemo` call at module scope. The downstream codegen drops the declaration silently and every reference to the resulting binding becomes a `ReferenceError` at SSR and at hydrate.
 
 ```tsx
 'use client'
 import { createSignal } from '@barefootjs/client'
-// ❌ BF011 — module-level signal without /* @client */
+// ❌ BF011 — module-level signal
 const [count, setCount] = createSignal(0)
 export function Counter() {
   return <button onClick={() => setCount(count() + 1)}>{count()}</button>
 }
 ```
 
-**Fix (option A):** Move the declaration inside the component function so each mount gets its own state.
+**Fix:** Move the declaration inside the component function so each mount gets its own state.
 
 ```tsx
 'use client'
@@ -95,20 +95,6 @@ import { createSignal } from '@barefootjs/client'
 
 export function Counter() {
   const [count, setCount] = createSignal(0)
-  return <button onClick={() => setCount(count() + 1)}>{count()}</button>
-}
-```
-
-**Fix (option B):** Prefix the declaration with `/* @client */` to opt into client-only module-scope state (intended for "global signal" / "store" patterns shared across components in the bundle). The wired-up working path lands in a follow-up; today only the diagnostic side is implemented.
-
-```tsx
-'use client'
-import { createSignal } from '@barefootjs/client'
-
-/* @client */
-const [count, setCount] = createSignal(0)
-
-export function Counter() {
   return <button onClick={() => setCount(count() + 1)}>{count()}</button>
 }
 ```
@@ -308,7 +294,7 @@ function Component({ checked }: Props) {
 | BF001 | Error | Missing `"use client"` directive |
 | BF003 | Error | Client component importing server component |
 | BF010 | Error | Unknown signal reference |
-| BF011 | Error | Module-level reactive declaration without `/* @client */` |
+| BF011 | Error | Module-level reactive declaration |
 | BF012 | Error | Invalid signal usage |
 | BF020 | Error | Invalid JSX expression |
 | BF021 | Error | Unsupported JSX pattern for SSR |

@@ -109,9 +109,9 @@ const errorMessages: Record<ErrorCode, string> = {
 
   [ErrorCodes.UNKNOWN_SIGNAL]: 'Unknown signal reference',
   [ErrorCodes.SIGNAL_OUTSIDE_COMPONENT]:
-    'Module-level reactive declaration (createSignal / createMemo) requires the /* @client */ directive. ' +
-    'Without it the binding is silently dropped from both SSR and client output and every reference becomes a ReferenceError. ' +
-    'Prefix the declaration with /* @client */ to opt into client-only module-scope state, or move it inside a component function.',
+    'Module-level reactive declaration (createSignal / createMemo) is not allowed. ' +
+    'The downstream codegen drops the declaration silently and every reference becomes a ReferenceError at SSR and at hydrate. ' +
+    'Move the declaration inside a component function so each mount gets its own state.',
   [ErrorCodes.INVALID_SIGNAL_USAGE]: 'Invalid signal usage',
 
   [ErrorCodes.INVALID_JSX_EXPRESSION]: 'Invalid JSX expression',
