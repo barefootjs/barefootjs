@@ -124,7 +124,7 @@ Elements receive a `slotId` when they have:
 
 ```tsx
 {todos().filter(t => !t.done).sort((a, b) => a.date - b.date).map(t => (
-  <li>{t.name}</li>
+  <li key={t.id}>{t.name}</li>
 ))}
 ```
 
