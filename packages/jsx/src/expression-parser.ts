@@ -766,7 +766,7 @@ function collectDestructureBindings(
       // shorthand `{ { name } }` doesn't exist. Computed / string
       // / numeric property names stay refused.
       if (!el.propertyName || !ts.isIdentifier(el.propertyName)) {
-        return { ok: false, reason: 'Unsupported binding element in destructured filter param' }
+        return { ok: false, reason: 'Non-identifier (computed/string/numeric) keys in destructured filter param are not supported' }
       }
       const inner = collectDestructureBindings(
         el.name,
@@ -781,12 +781,21 @@ function collectDestructureBindings(
       // per #1530 out-of-scope. Filter predicates rarely receive tuples.
       return { ok: false, reason: 'Array binding patterns in destructured filter param are not supported' }
     }
-    const localName = el.name.text
-    const fieldName =
-      el.propertyName && ts.isIdentifier(el.propertyName)
-        ? el.propertyName.text
-        : localName // shorthand: `{done}` ≡ `{done: done}`
-    fieldMap.set(localName, [...pathPrefix, fieldName])
+    // Leaf binding. A non-identifier propertyName (`{ 'x': y }`,
+    // `{ 0: y }`) would silently fall back to `localName` and rewrite
+    // `y` to `<synthetic>.y` instead of `<synthetic>['x']` — a
+    // semantic bug. Refuse explicitly until we extend the path
+    // representation to carry computed segments.
+    let fieldName: string
+    if (el.propertyName) {
+      if (!ts.isIdentifier(el.propertyName)) {
+        return { ok: false, reason: 'Non-identifier (computed/string/numeric) keys in destructured filter param are not supported' }
+      }
+      fieldName = el.propertyName.text
+    } else {
+      fieldName = el.name.text // shorthand: `{done}` ≡ `{done: done}`
+    }
+    fieldMap.set(el.name.text, [...pathPrefix, fieldName])
   }
   return { ok: true }
 }

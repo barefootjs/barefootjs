@@ -423,6 +423,31 @@ describe('expression-parser', () => {
       }
     })
 
+    // Array binding inside an object destructure (`{a: [x]}`) stays
+    // refused — different shape (numeric indices). Lock in the
+    // refusal here so a future change doesn't accidentally start
+    // lowering it via the object-destructure path (#1530).
+    test('rejects .filter(({a: [x]}) => x) — array binding inside object destructure (#1530)', () => {
+      const result = parseExpression('items().filter(({a: [x]}) => x)')
+      // Falls through to plain `call` — adapter surfaces BF101.
+      expect(result.kind).toBe('call')
+    })
+
+    // Non-identifier property names (`{ 'x': y }`, `{ 0: y }`) used to
+    // silently fall back to the local name, which would rewrite `y`
+    // to `<synthetic>.y` instead of the correct `<synthetic>['x']`.
+    // Refuse explicitly until we can carry computed segments through
+    // the path representation (#1530).
+    test('rejects .filter(({ "x": y }) => y) — string-literal key in destructure (#1530)', () => {
+      const result = parseExpression("items().filter(({ 'x': y }) => y)")
+      expect(result.kind).toBe('call')
+    })
+
+    test('rejects .filter(({ 0: y }) => y) — numeric-literal key in destructure (#1530)', () => {
+      const result = parseExpression('items().filter(({ 0: y }) => y)')
+      expect(result.kind).toBe('call')
+    })
+
     // Synthetic param collision — body references a free `_t` AND the
     // destructure also introduces `_t` as a leaf binding. Both must be
     // avoided when picking the synthetic name (#1530 acceptance).
