@@ -255,6 +255,7 @@ const PAGES: PageSpec[] = [
   { path: 'core/components/styling.md' },
   { path: 'core/core-concepts/how-it-works.md' },
   { path: 'core/core-concepts/reactivity.md' },
+  { path: 'core/core-concepts/mpa-style.md' },
 ]
 
 const adapter = new TestAdapter()
