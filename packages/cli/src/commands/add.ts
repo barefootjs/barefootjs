@@ -71,7 +71,37 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
 const DEFAULT_REGISTRY_URL = 'https://ui.barefootjs.dev/r/'
 
 /**
+ * Normalize a component name to the registry's canonical kebab-case form.
+ * The registry stores entries as `<name>.json` with lowercase kebab-case
+ * names (`radio-group.json`, `input-otp.json`), but users naturally type
+ * PascalCase or camelCase to match the JSX import (`bf add RadioGroup`).
+ * Without normalization the literal name 404s — `bf docs <name>` already
+ * normalizes via `tryLoadComponent`'s case-insensitive fallback; mirror
+ * that here so both paths accept the same surface.
+ *
+ *   Button       → button
+ *   Combobox     → combobox
+ *   RadioGroup   → radio-group
+ *   InputOTP     → input-otp
+ *   input-group  → input-group   (already canonical — no change)
+ */
+export function toRegistryName(name: string): string {
+  return name
+    // `RadioGroup` → `Radio-Group`, `InputOTP` → `InputOTP` (acronym not split here)
+    .replace(/([a-z\d])([A-Z])/g, '$1-$2')
+    // `InputOTP` → `Input-OTP` (split trailing acronym before final word boundary)
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+    .toLowerCase()
+}
+
+/**
  * Fetch a single registry item. Returns null if skipErrors is true and fetch fails.
+ *
+ * Names are normalized through `toRegistryName` so PascalCase / camelCase
+ * inputs hit the registry's canonical kebab-case URL. If the literal name
+ * differs from the normalized one we retry against the literal URL only
+ * when the canonical fetch 404s — staging registries that legitimately
+ * use mixed-case keys keep working.
  */
 async function tryFetchRegistryItem(
   registryUrl: string,
@@ -79,20 +109,29 @@ async function tryFetchRegistryItem(
   skipErrors: boolean,
 ): Promise<RegistryItem | null> {
   const base = registryUrl.endsWith('/') ? registryUrl : `${registryUrl}/`
-  const url = `${base}${name}.json`
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
-    if (!res.ok) {
+  const canonical = toRegistryName(name)
+  const candidates: string[] = canonical === name ? [name] : [canonical, name]
+  let lastUrl = ''
+  let lastStatus = 0
+  for (const candidate of candidates) {
+    const url = `${base}${candidate}.json`
+    lastUrl = url
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+      if (res.ok) return await res.json()
+      lastStatus = res.status
+      // Only fall through to the literal-name retry on 404 — other
+      // HTTP errors (5xx, auth) shouldn't trigger an extra round-trip.
+      if (res.status !== 404) break
+    } catch (err) {
       if (skipErrors) return null
-      console.error(`Error: Registry returned HTTP ${res.status} for ${url}`)
+      console.error(`Error: Failed to fetch component "${name}" from ${url}: ${err instanceof Error ? err.message : err}`)
       process.exit(1)
     }
-    return await res.json()
-  } catch (err) {
-    if (skipErrors) return null
-    console.error(`Error: Failed to fetch component "${name}" from ${url}: ${err instanceof Error ? err.message : err}`)
-    process.exit(1)
   }
+  if (skipErrors) return null
+  console.error(`Error: Registry returned HTTP ${lastStatus} for ${lastUrl}`)
+  process.exit(1)
 }
 
 /**

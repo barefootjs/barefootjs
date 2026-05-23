@@ -51,6 +51,7 @@
 - [Adapter Architecture](./adapters/adapter-architecture.md) — How adapters work, the `TemplateAdapter` interface, and the IR contract
 - [Hono Adapter](./adapters/hono-adapter.md) — Configuration and output format for Hono / JSX-based servers
 - [Go Template Adapter](./adapters/go-template-adapter.md) — Configuration and output format for Go `html/template`
+- [CSR (Client-Side Rendering)](./adapters/csr.md) — Static-hosting renderer: emit client JS only, no SSR template
 - [Writing a Custom Adapter](./adapters/custom-adapter.md) — Step-by-step guide to implementing your own adapter
 
 ### 8. [Advanced](./advanced.md)

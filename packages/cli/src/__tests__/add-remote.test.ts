@@ -1,6 +1,6 @@
 import { describe, test, expect, spyOn, beforeEach, afterEach } from 'bun:test'
 import { fetchRegistryItem } from '../lib/meta-loader'
-import { addFromRegistry } from '../commands/add'
+import { addFromRegistry, toRegistryName } from '../commands/add'
 import type { RegistryItem } from '../lib/types'
 import type { BarefootConfig } from '../context'
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs'
@@ -316,5 +316,82 @@ describe('addFromRegistry', () => {
 
     // Should log resolved dependencies
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Resolved dependencies'))
+  })
+
+  // Users naturally type PascalCase or camelCase to match the JSX import
+  // (`bf add Combobox`, `bf add RadioGroup`) but the registry stores
+  // entries as kebab-case JSON keys (`combobox.json`, `radio-group.json`),
+  // so before normalization the literal name 404'd and `bf docs <Name>`
+  // (which DOES normalize via meta-loader's case-insensitive fallback)
+  // contradicted `bf add <Name>` on the same case. Mirror the meta-loader
+  // contract by normalizing before the registry round-trip.
+  test('accepts PascalCase / camelCase component names by normalizing to kebab-case', async () => {
+    let fetchedUrl = ''
+    globalThis.fetch = async (url: any) => {
+      fetchedUrl = String(url)
+      return new Response(JSON.stringify(buttonItem), { status: 200 })
+    }
+
+    await addFromRegistry(['Button'], 'https://example.com/r/', tmpDir, config, false)
+    expect(fetchedUrl).toBe('https://example.com/r/button.json')
+  })
+
+  test('normalizes multi-word PascalCase to kebab-case (RadioGroup → radio-group)', async () => {
+    const radioGroup: RegistryItem = {
+      ...buttonItem,
+      name: 'radio-group',
+      files: [
+        { path: 'components/ui/radio-group/index.tsx', type: 'registry:ui', content: 'export function RadioGroup() {}' },
+      ],
+    }
+    const seenUrls: string[] = []
+    globalThis.fetch = async (url: any) => {
+      seenUrls.push(String(url))
+      return new Response(JSON.stringify(radioGroup), { status: 200 })
+    }
+
+    await addFromRegistry(['RadioGroup'], 'https://example.com/r/', tmpDir, config, false)
+    expect(seenUrls).toEqual(['https://example.com/r/radio-group.json'])
+  })
+
+  test('falls back to the literal name when the kebab-case form 404s (staging registries with mixed-case keys)', async () => {
+    const seenUrls: string[] = []
+    globalThis.fetch = async (url: any) => {
+      seenUrls.push(String(url))
+      // Canonical kebab-case → 404; literal `Mixed` → 200. The mixed-case
+      // key only exists in staging-style registries; the retry path keeps
+      // them working without rewriting their layout.
+      if (String(url).endsWith('mixed.json')) return new Response('Not Found', { status: 404 })
+      return new Response(JSON.stringify({ ...buttonItem, name: 'Mixed', files: [{ path: 'components/ui/mixed/index.tsx', type: 'registry:ui', content: '' }] }), { status: 200 })
+    }
+
+    await addFromRegistry(['Mixed'], 'https://example.com/r/', tmpDir, config, false)
+    expect(seenUrls).toEqual([
+      'https://example.com/r/mixed.json',
+      'https://example.com/r/Mixed.json',
+    ])
+  })
+})
+
+// ---------- toRegistryName ----------
+
+describe('toRegistryName', () => {
+  test('lowercases single-word PascalCase', () => {
+    expect(toRegistryName('Button')).toBe('button')
+    expect(toRegistryName('Combobox')).toBe('combobox')
+  })
+  test('kebab-cases multi-word PascalCase', () => {
+    expect(toRegistryName('RadioGroup')).toBe('radio-group')
+    expect(toRegistryName('ToggleGroup')).toBe('toggle-group')
+  })
+  test('handles trailing acronyms', () => {
+    expect(toRegistryName('InputOTP')).toBe('input-otp')
+  })
+  test('leaves already-canonical kebab-case alone', () => {
+    expect(toRegistryName('input-group')).toBe('input-group')
+    expect(toRegistryName('radio-group')).toBe('radio-group')
+  })
+  test('lowercases mixed-case kebab', () => {
+    expect(toRegistryName('Input-Group')).toBe('input-group')
   })
 })
