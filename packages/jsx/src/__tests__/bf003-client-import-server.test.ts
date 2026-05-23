@@ -339,6 +339,67 @@ describe('BF003 — client importing server component', () => {
     expect(bf003Errors(ctx)).toHaveLength(0)
   })
 
+  test('resolves an extensionless import to a sibling .js file', () => {
+    writeFixture('legacy-js.js', `
+      "use client"
+      export function LegacyJs({ children }) {
+        return children
+      }
+    `)
+    const parentPath = writeFixture('use-legacy-js.tsx', `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { LegacyJs } from './legacy-js'
+
+      export function UseLegacyJs() {
+        const [v] = createSignal(0)
+        return <LegacyJs>{v()}</LegacyJs>
+      }
+    `)
+    const ctx = analyzeComponent(
+      `'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { LegacyJs } from './legacy-js'
+
+      export function UseLegacyJs() {
+        const [v] = createSignal(0)
+        return <LegacyJs>{v()}</LegacyJs>
+      }`,
+      parentPath
+    )
+    expect(bf003Errors(ctx)).toHaveLength(0)
+  })
+
+  test('extensionless import to a non-"use client" .jsx target fires', () => {
+    writeFixture('legacy-jsx-server.jsx', `
+      export function LegacyJsxServer({ children }) {
+        return children
+      }
+    `)
+    const parentPath = writeFixture('use-legacy-jsx-server.tsx', `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { LegacyJsxServer } from './legacy-jsx-server'
+
+      export function UseLegacyJsxServer() {
+        const [v] = createSignal(0)
+        return <LegacyJsxServer>{v()}</LegacyJsxServer>
+      }
+    `)
+    const ctx = analyzeComponent(
+      `'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { LegacyJsxServer } from './legacy-jsx-server'
+
+      export function UseLegacyJsxServer() {
+        const [v] = createSignal(0)
+        return <LegacyJsxServer>{v()}</LegacyJsxServer>
+      }`,
+      parentPath
+    )
+    expect(bf003Errors(ctx)).toHaveLength(1)
+  })
+
   test('honors block-comment preamble before "use client"', () => {
     writeFixture('commented.tsx', `
       /**

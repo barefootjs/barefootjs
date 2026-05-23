@@ -2833,8 +2833,12 @@ function resolveRelativeImportToFile(source: string, fromFile: string): string |
     : [
         candidate + '.tsx',
         candidate + '.ts',
+        candidate + '.jsx',
+        candidate + '.js',
         path.join(candidate, 'index.tsx'),
         path.join(candidate, 'index.ts'),
+        path.join(candidate, 'index.jsx'),
+        path.join(candidate, 'index.js'),
       ]
   for (const c of candidates) {
     try {
