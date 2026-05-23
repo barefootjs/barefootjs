@@ -665,6 +665,24 @@ describe('expression-parser', () => {
       expect(result.kind).toBe('call')
     })
 
+    // Method call on rest (#1532 review). `rest.foo()` would lower
+    // to `_t.foo()`, but JS evaluates the call with `this` bound to
+    // the member receiver — `rest` (residual object) and `_t` (the
+    // original item) are different bindings, and rest also excludes
+    // consumed keys. Both changes are observable, so refuse the
+    // shape rather than silently rewrite.
+    test('rejects .filter(({a, ...rest}) => rest.foo()) — method call on rest (#1532 review)', () => {
+      const result = parseExpression('items().filter(({a, ...rest}) => rest.foo())')
+      expect(result.kind).toBe('call')
+    })
+
+    // Same for method-call-with-args — confirms the dedicated branch
+    // catches it regardless of argument shape.
+    test('rejects .filter(({a, ...rest}) => rest.hasOwnProperty("k")) — method call on rest with args (#1532 review)', () => {
+      const result = parseExpression('items().filter(({a, ...rest}) => rest.hasOwnProperty("k"))')
+      expect(result.kind).toBe('call')
+    })
+
     // Computed rest access with a literal key still refuses (#1532):
     // the residual-object accessor doesn't exist in template syntax,
     // and rewriting `rest[0]` to `_t[0]` would silently include the

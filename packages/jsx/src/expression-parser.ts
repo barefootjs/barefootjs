@@ -1061,9 +1061,10 @@ function validateRestUsage(
 ): { ok: true } | { ok: false; reason: string } {
   let valueUse = false
   let collision: string | null = null
+  let methodCall: string | null = null
 
   const walk = (e: ParsedExpr): void => {
-    if (valueUse || collision !== null) return
+    if (valueUse || collision !== null || methodCall !== null) return
     switch (e.kind) {
       case 'identifier':
         if (e.name === restName) valueUse = true
@@ -1085,6 +1086,22 @@ function validateRestUsage(
         walk(e.object)
         return
       case 'call':
+        // `restName.foo(...)` method call — the substitution rewrites
+        // `restName.foo` to `_t.foo`, but JS evaluates the call with
+        // `this` bound to the member receiver (`restName` vs `_t`),
+        // and the residual object also excludes consumed keys. So
+        // the lowering would change observable semantics in two
+        // independent ways. Refuse with a dedicated message rather
+        // than silently rewriting (#1532 review).
+        if (
+          e.callee.kind === 'member' &&
+          !e.callee.computed &&
+          e.callee.object.kind === 'identifier' &&
+          e.callee.object.name === restName
+        ) {
+          methodCall = e.callee.property
+          return
+        }
         walk(e.callee)
         for (const a of e.args) walk(a)
         return
@@ -1144,6 +1161,12 @@ function validateRestUsage(
     return {
       ok: false,
       reason: `Rest binding '${restName}.${collision}' reads source key '${collision}' which the destructure already consumed, so the value is statically excluded from '${restName}' and is always undefined. Workaround: read '${collision}' from the iterated item directly (via its destructured binding or by adding it to the destructure), or remove '${collision}' from the destructure so the rest binding includes it.`,
+    }
+  }
+  if (methodCall !== null) {
+    return {
+      ok: false,
+      reason: `Method call '${restName}.${methodCall}()' on a rest binding cannot be lowered — rewriting to '_t.${methodCall}()' would change the call's 'this' receiver (residual object → original item) and also bypass the rest binding's key exclusion. Workaround: bind the method's result to a closure variable outside the predicate, or add /* @client */ to evaluate the predicate on the client.`,
     }
   }
   if (valueUse) {
