@@ -237,6 +237,7 @@ const PAGES: PageSpec[] = [
   { path: 'core/reactivity/on-mount.md' },
   { path: 'core/reactivity/on-cleanup.md' },
   { path: 'core/reactivity/untrack.md' },
+  { path: 'core/reactivity/props-reactivity.md' },
 ]
 
 const adapter = new TestAdapter()
