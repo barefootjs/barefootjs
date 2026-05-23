@@ -261,6 +261,7 @@ const PAGES: PageSpec[] = [
   { path: 'core/adapters/go-template-adapter.md' },
   { path: 'core/adapters/custom-adapter.md' },
   { path: 'core/advanced/code-splitting.md' },
+  { path: 'core/advanced/compiler-internals.md' },
 ]
 
 const adapter = new TestAdapter()
