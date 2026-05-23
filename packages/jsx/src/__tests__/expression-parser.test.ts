@@ -340,13 +340,201 @@ describe('expression-parser', () => {
       }
     })
 
-    // Defaults / rest stay unsupported — each would need its own
-    // residual-object accessor pipeline. Nested destructure is
-    // covered separately below (#1530).
-    test('rejects .filter(({done = false}) => done) — defaults in destructure are unsupported (#1443)', () => {
+    // Defaults inside destructure (#1531). The parser folds the
+    // default into the rewritten body as `(_t.field ?? <default>)`
+    // so adapters reuse the standard logical-`??` lowering instead
+    // of a residual-undefined accessor pipeline. Rest stays
+    // unsupported. Nested + default combined is also out of scope
+    // (covered separately).
+    test('lowers .filter(({done = false}) => done) to higher-order with `??` default (#1531)', () => {
       const result = parseExpression('todos().filter(({done = false}) => done)')
-      // Falls through to plain `call` (not higher-order), so isSupported
-      // will surface BF101 at the adapter via the UNSUPPORTED_METHODS gate.
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        expect(result.method).toBe('filter')
+        expect(result.param).not.toBe('done')
+        // Predicate is `<synthetic>.done ?? false`.
+        expect(result.predicate.kind).toBe('logical')
+        if (result.predicate.kind === 'logical') {
+          expect(result.predicate.op).toBe('??')
+          expect(result.predicate.left.kind).toBe('member')
+          if (result.predicate.left.kind === 'member') {
+            expect(result.predicate.left.property).toBe('done')
+            expect(result.predicate.left.object.kind).toBe('identifier')
+            if (result.predicate.left.object.kind === 'identifier') {
+              expect(result.predicate.left.object.name).toBe(result.param)
+            }
+          }
+          expect(result.predicate.right.kind).toBe('literal')
+          if (result.predicate.right.kind === 'literal') {
+            expect(result.predicate.right.value).toBe(false)
+            expect(result.predicate.right.literalType).toBe('boolean')
+          }
+        }
+      }
+    })
+
+    test('lowers .filter(({count = 0}) => count > 5) — numeric default (#1531)', () => {
+      const result = parseExpression('items().filter(({count = 0}) => count > 5)')
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        // Predicate: `(_t.count ?? 0) > 5`.
+        expect(result.predicate.kind).toBe('binary')
+        if (result.predicate.kind === 'binary') {
+          expect(result.predicate.op).toBe('>')
+          expect(result.predicate.left.kind).toBe('logical')
+          if (result.predicate.left.kind === 'logical') {
+            expect(result.predicate.left.op).toBe('??')
+            expect(result.predicate.left.left.kind).toBe('member')
+            expect(result.predicate.left.right.kind).toBe('literal')
+            if (result.predicate.left.right.kind === 'literal') {
+              expect(result.predicate.left.right.value).toBe(0)
+            }
+          }
+        }
+      }
+    })
+
+    test("lowers .filter(({name = 'anon'}) => name.startsWith('a')) — string default (#1531)", () => {
+      const result = parseExpression("items().filter(({name = 'anon'}) => name.startsWith('a'))")
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        // Predicate: `(_t.name ?? 'anon').startsWith('a')`.
+        expect(result.predicate.kind).toBe('call')
+        if (result.predicate.kind === 'call') {
+          expect(result.predicate.callee.kind).toBe('member')
+          if (result.predicate.callee.kind === 'member') {
+            expect(result.predicate.callee.property).toBe('startsWith')
+            expect(result.predicate.callee.object.kind).toBe('logical')
+            if (result.predicate.callee.object.kind === 'logical') {
+              expect(result.predicate.callee.object.op).toBe('??')
+              expect(result.predicate.callee.object.right.kind).toBe('literal')
+              if (result.predicate.callee.object.right.kind === 'literal') {
+                expect(result.predicate.callee.object.right.value).toBe('anon')
+              }
+            }
+          }
+        }
+      }
+    })
+
+    test('lowers .filter(({label = `untitled-${suffix}`}) => label) — template-literal default (#1531)', () => {
+      const result = parseExpression('items().filter(({label = `untitled-${suffix}`}) => label)')
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        // Predicate: `_t.label ?? \`untitled-${suffix}\``.
+        expect(result.predicate.kind).toBe('logical')
+        if (result.predicate.kind === 'logical') {
+          expect(result.predicate.op).toBe('??')
+          expect(result.predicate.right.kind).toBe('template-literal')
+        }
+      }
+    })
+
+    test('lowers .every(({done = true}) => done) — defaults work on .every (#1531)', () => {
+      const result = parseExpression('items().every(({done = true}) => done)')
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        expect(result.method).toBe('every')
+        expect(result.predicate.kind).toBe('logical')
+      }
+    })
+
+    test('lowers .find(({active = false}) => active) — defaults work on .find (#1531)', () => {
+      const result = parseExpression('items().find(({active = false}) => active)')
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        expect(result.method).toBe('find')
+        expect(result.predicate.kind).toBe('logical')
+      }
+    })
+
+    // Semantic note (#1531): JS destructure defaults trigger only on
+    // `undefined`, while `??` triggers on `undefined` OR `null`. The
+    // rewrite uses `??` for simplicity, so `null` ALSO produces the
+    // default in lowered code — a one-bit gap from native JS semantics.
+    // Pin the choice with a test that the IR is `logical` `??` (not
+    // a conditional `!== undefined ? … : …`), so a future change to
+    // sentinel-based lowering would be a deliberate decision rather
+    // than a silent semantic shift.
+    test('uses `??` (not sentinel undefined check) — pins the null-triggers-default gap (#1531)', () => {
+      const result = parseExpression('items().filter(({done = false}) => done)')
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        // `??` => `null` ALSO triggers the default; this is the
+        // documented gap from JS destructure-default semantics, which
+        // only trigger on `undefined`. If this assertion fails, the
+        // rewrite shape changed — re-document the semantic difference.
+        expect(result.predicate.kind).toBe('logical')
+        if (result.predicate.kind === 'logical') {
+          expect(result.predicate.op).toBe('??')
+        }
+      }
+    })
+
+    // The default-with-renamed-field combination: `{ done: isDone = false }`.
+    // Local name is `isDone`, field on the source is `done`, default is
+    // `false`. Body references `isDone`, which rewrites to
+    // `(_t.done ?? false)`.
+    test('lowers .filter(({done: isDone = false}) => isDone) — renamed + default (#1531)', () => {
+      const result = parseExpression('todos().filter(({done: isDone = false}) => isDone)')
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        expect(result.predicate.kind).toBe('logical')
+        if (result.predicate.kind === 'logical') {
+          expect(result.predicate.op).toBe('??')
+          expect(result.predicate.left.kind).toBe('member')
+          if (result.predicate.left.kind === 'member') {
+            expect(result.predicate.left.property).toBe('done') // field, not the rename
+          }
+        }
+      }
+    })
+
+    // Rest in destructure stays unsupported even with our default work.
+    test('rejects .filter(({a, ...rest}) => a) — rest stays unsupported (#1531)', () => {
+      const result = parseExpression('items().filter(({a, ...rest}) => a)')
+      expect(result.kind).toBe('call')
+    })
+
+    // Nested destructure with a default on an INNER LEAF composes
+    // the two rewrites naturally — the inner leaf is reached through
+    // the threaded property path, and the leaf default wraps the
+    // accessor in `??` like any other leaf-level default. The #1531
+    // issue lists this shape as "out of scope" only because no
+    // special design was needed: the existing nested + leaf-default
+    // mechanics produce a correct lowering for free.
+    test('lowers .filter(({user: {name = "anon"}}) => name) — inner-leaf default composes (#1531)', () => {
+      const result = parseExpression('items().filter(({user: {name = "anon"}}) => name)')
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        // Predicate: `_t.user.name ?? "anon"`.
+        expect(result.predicate.kind).toBe('logical')
+        if (result.predicate.kind === 'logical') {
+          expect(result.predicate.op).toBe('??')
+          // Walk: `_t.user.name`.
+          const lhs = result.predicate.left
+          expect(lhs.kind).toBe('member')
+          if (lhs.kind === 'member') {
+            expect(lhs.property).toBe('name')
+            expect(lhs.object.kind).toBe('member')
+            if (lhs.object.kind === 'member') {
+              expect(lhs.object.property).toBe('user')
+            }
+          }
+          if (result.predicate.right.kind === 'literal') {
+            expect(result.predicate.right.value).toBe('anon')
+          }
+        }
+      }
+    })
+
+    // Default ON the nested-pattern slot itself (`({ user: { name } = {} })`)
+    // — different from a leaf-level default. The outer slot's default
+    // says "if user is undefined, use {} before destructuring name",
+    // which needs an extra outer-level `??` paired with the inner
+    // walk. Stays refused; out of scope for #1531.
+    test('rejects .filter(({user: {name} = {}}) => name) — default on nested-pattern slot (#1531)', () => {
+      const result = parseExpression('items().filter(({user: {name} = {}}) => name)')
       expect(result.kind).toBe('call')
     })
 

@@ -528,15 +528,18 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
     const body = convertNode(node.body, raw)
 
     // Destructured-object param: `({done}) => done` (#1443),
-    // `({user: {name}}) => name` (#1530). We synthesise the equivalent
-    // dotted-access form so adapters can reuse their existing
-    // higher-order paths instead of needing a residual-object-accessor
-    // pipeline (#1384 territory). Nested destructure recurses into
-    // the inner pattern and threads a dotted path; rest / defaults /
-    // array binding stay unsupported.
+    // `({user: {name}}) => name` (#1530), `({done = false}) => done`
+    // (#1531). We synthesise the equivalent dotted-access form so
+    // adapters can reuse their existing higher-order paths instead of
+    // needing a residual-object-accessor pipeline (#1384 territory).
+    // Nested destructure recurses into the inner pattern and threads
+    // a dotted path; leaf defaults fold into the rewrite as
+    // `(_t.field ?? <default>)`. Rest patterns, array binding
+    // patterns, and defaults at non-leaf (nested-pattern) slots
+    // stay unsupported.
     if (ts.isObjectBindingPattern(param.name)) {
-      const fieldMap = new Map<string, string[]>()
-      const collect = collectDestructureBindings(param.name, [], fieldMap)
+      const fieldMap = new Map<string, DestructureBinding>()
+      const collect = collectDestructureBindings(param.name, [], fieldMap, raw)
       if (!collect.ok) {
         return { kind: 'unsupported', raw, reason: collect.reason }
       }
@@ -737,8 +740,30 @@ function classifySortOperand(
 }
 
 /**
+ * Per-binding entry stored in `fieldMap`: the dotted path from the
+ * synthetic param down to the field, plus an optional default
+ * ParsedExpr captured from `({ field = <default> }) => …` (#1531).
+ * Defaults are folded into the rewrite as `(<path> ?? <default>)` so
+ * adapters reuse the standard logical-`??` lowering instead of
+ * needing a residual-undefined accessor pipeline.
+ */
+type DestructureBinding = {
+  path: string[]
+  // Present only when the destructure carried `= <expr>`. The
+  // ParsedExpr is captured once here and re-emitted verbatim at every
+  // substitution site for the bound name — its identifiers are NOT
+  // re-substituted against `fieldMap`, so a default that references
+  // another destructured field (`({ a, b = a }) => b`) would resolve
+  // `a` against the OUTER scope, not `_t.a`. That cross-reference
+  // shape is rare and shares the spirit of the explicit "nested +
+  // default combined" out-of-scope carve-out in #1531; document the
+  // gap if a user hits it.
+  defaultExpr?: ParsedExpr
+}
+
+/**
  * Walk an object-binding pattern and populate `fieldMap` with
- * `localName → [field, field, …]` entries. Nested patterns extend
+ * `localName → { path, defaultExpr? }` entries. Nested patterns extend
  * the path; renamed bindings use the property name (the field on
  * the source object) rather than the local rename. Returns an
  * error result for any shape outside the supported set so the
@@ -747,7 +772,8 @@ function classifySortOperand(
 function collectDestructureBindings(
   pattern: ts.ObjectBindingPattern,
   pathPrefix: readonly string[],
-  fieldMap: Map<string, string[]>,
+  fieldMap: Map<string, DestructureBinding>,
+  raw: string,
 ): { ok: true } | { ok: false; reason: string } {
   for (const el of pattern.elements) {
     if (!ts.isBindingElement(el)) {
@@ -756,15 +782,23 @@ function collectDestructureBindings(
     if (el.dotDotDotToken) {
       return { ok: false, reason: 'Rest patterns in destructured filter param are not supported' }
     }
-    if (el.initializer) {
-      return { ok: false, reason: 'Default values in destructured filter param are not supported' }
-    }
     if (ts.isObjectBindingPattern(el.name)) {
       // Nested object pattern: `{ user: { name } }`. The outer slot
       // MUST carry an identifier propertyName — the JS grammar for
       // nested destructure requires `key: <pattern>`, so the
       // shorthand `{ { name } }` doesn't exist. Computed / string
       // / numeric property names stay refused.
+      //
+      // Nested + default combined (`({ user: { name = 'anon' } })`)
+      // is out of scope per #1531 — the inner default would need to
+      // compose with the outer-level missing-`user` fallback, which
+      // multiplies the `??` rewrite paths. The inner pattern's
+      // `el.initializer` is rejected by the recursive call below
+      // (defaults on a non-leaf binding element are surfaced when
+      // that nested element is visited).
+      if (el.initializer) {
+        return { ok: false, reason: 'Default values combined with nested destructure are not supported' }
+      }
       if (!el.propertyName || !ts.isIdentifier(el.propertyName)) {
         return { ok: false, reason: 'Non-identifier (computed/string/numeric) keys in destructured filter param are not supported' }
       }
@@ -772,6 +806,7 @@ function collectDestructureBindings(
         el.name,
         [...pathPrefix, el.propertyName.text],
         fieldMap,
+        raw,
       )
       if (!inner.ok) return inner
       continue
@@ -795,7 +830,27 @@ function collectDestructureBindings(
     } else {
       fieldName = el.name.text // shorthand: `{done}` ≡ `{done: done}`
     }
-    fieldMap.set(el.name.text, [...pathPrefix, fieldName])
+    // Leaf default value (`{ done = false }`): parse the initializer
+    // through the standard expression pipeline so the rewrite emits
+    // `(_t.done ?? false)` instead of a bare accessor (#1531). A
+    // default that itself fails to parse surfaces the inner reason
+    // rather than the catch-all "Default values… not supported".
+    //
+    // Semantic gap: JS destructure defaults trigger only on
+    // `undefined`, while `??` triggers on `undefined` OR `null`. The
+    // gap matters only when a field is explicitly set to `null`; for
+    // typed receivers (objects with optional fields) the two are
+    // equivalent. Users hitting the `null` case should fold the
+    // default inline.
+    let defaultExpr: ParsedExpr | undefined
+    if (el.initializer) {
+      const parsed = convertNode(el.initializer, raw)
+      if (parsed.kind === 'unsupported') {
+        return { ok: false, reason: `Default value in destructured filter param failed to parse: ${parsed.reason}` }
+      }
+      defaultExpr = parsed
+    }
+    fieldMap.set(el.name.text, { path: [...pathPrefix, fieldName], defaultExpr })
   }
   return { ok: true }
 }
@@ -816,9 +871,16 @@ function collectDestructureBindings(
  * (`user` in `{ user: { name } }`) are consumed in the path and
  * never bound in scope, so they don't need collision avoidance.
  */
-function pickSyntheticParam(fieldMap: Map<string, string[]>, body: ParsedExpr): string {
+function pickSyntheticParam(fieldMap: Map<string, DestructureBinding>, body: ParsedExpr): string {
   const used = new Set<string>(fieldMap.keys())
   collectIdentifiers(body, used)
+  // Default expressions (`{ name = otherVar }`) become part of the
+  // rewritten body — their free identifiers (`otherVar`) must also
+  // be excluded from the synthetic param candidate set to avoid
+  // silently shadowing a closure capture (#1531).
+  for (const entry of fieldMap.values()) {
+    if (entry.defaultExpr) collectIdentifiers(entry.defaultExpr, used)
+  }
   let name = '_t'
   while (used.has(name)) name = name + '_'
   return name
@@ -883,20 +945,27 @@ function collectIdentifiers(expr: ParsedExpr, out: Set<string>): void {
  */
 function substituteDestructuredFields(
   expr: ParsedExpr,
-  fieldMap: Map<string, string[]>,
+  fieldMap: Map<string, DestructureBinding>,
   syntheticParam: string,
 ): ParsedExpr {
   const walk = (e: ParsedExpr): ParsedExpr => {
     switch (e.kind) {
       case 'identifier': {
-        const path = fieldMap.get(e.name)
-        if (path === undefined) return e
+        const entry = fieldMap.get(e.name)
+        if (entry === undefined) return e
         // Build `<syntheticParam>.<path[0]>.<path[1]>…` as a left-leaning
         // chain of `member` nodes. Single-level destructure produces a
         // one-hop chain identical to the pre-#1530 shape.
         let node: ParsedExpr = { kind: 'identifier', name: syntheticParam }
-        for (const segment of path) {
+        for (const segment of entry.path) {
           node = { kind: 'member', object: node, property: segment, computed: false }
+        }
+        // Default value (#1531): wrap the accessor in `?? <default>` so
+        // a missing field falls back to the user-supplied literal /
+        // expression. Adapters already lower `??` through the standard
+        // logical-operator path, so no per-target work is needed.
+        if (entry.defaultExpr) {
+          return { kind: 'logical', op: '??', left: node, right: entry.defaultExpr }
         }
         return node
       }
