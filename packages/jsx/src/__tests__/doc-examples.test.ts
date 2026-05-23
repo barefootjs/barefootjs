@@ -17,10 +17,17 @@
  *   - #1502 → #1527 — statement-mode + module-mode infrastructure +
  *     the rest of `docs/core/**` (29 pages total in the corpus)
  *   - #1529 — client-JS snapshot assertion for ✅ examples (74 seeded)
- *   - this PR — statement-mode scaffold now appends `return <div />`
- *     so signal / memo / effect declarations in API-reference snippets
- *     land in the analyzed component and become snapshottable. Lifts
- *     coverage from 74 → 142 contracts.
+ *   - #1534 — statement-mode scaffold appends `return <div />` so
+ *     signal / memo / effect declarations in API-reference snippets
+ *     become snapshottable (74 → 140 contracts after Copilot-suggested
+ *     placeholder skip rules)
+ *   - this PR — per-BFxxx matcher for `error-codes.md`, lifting that
+ *     page out of blanket-skip. Walks each `### BFxxx —` H3 and tests
+ *     its ❌/⚠️ snippet against a permissive (`code IS in errors`)
+ *     assertion. Surfaced 11 BFxxx codes that `errors.ts` defines but
+ *     no production code emits, plus 3 codes whose doc snippet is too
+ *     minimal to trip the implemented check; both lists catalogued as
+ *     `test.skip` with explicit reasons.
  *
  * Pipeline per page:
  *   1. Walk fenced ```tsx blocks. If a fence contains any `//` marker,
@@ -299,18 +306,12 @@ const PAGES: PageSpec[] = [
   { path: 'core/adapters/custom-adapter.md' },
   { path: 'core/advanced/code-splitting.md' },
   { path: 'core/advanced/compiler-internals.md' },
-  {
-    // Reference page listing every BFxxx code with illustrative
-    // ❌/✅ snippets. Many depend on file-level context (module vs
-    // function scope, directive position, undefined identifiers like
-    // `Child`/`count`) that the shared scaffold can't reproduce, so
-    // they don't fire the BFxxx the doc claims. The extractor still
-    // walks the page to catch markdown structure changes; a
-    // per-BFxxx-section matcher is tracked as future work in #1439.
-    path: 'core/advanced/error-codes.md',
-    pageSkip: () =>
-      'error-reference page — illustrative snippets depend on file-level context (#1439 future work)',
-  },
+  // `core/advanced/error-codes.md` is handled by the per-BFxxx
+  // matcher (see bottom of file) rather than the general extractor:
+  // its `negative-all-adapters` strictness ("BFxxx must be the ONLY
+  // fatal") doesn't fit a reference page whose minimal reproductions
+  // routinely trip unrelated checks, and the per-section walker can
+  // tie each ❌ snippet to its parent `### BFxxx —` H3.
   { path: 'core/advanced/performance.md' },
   { path: 'core/reactivity.md' },
   { path: 'core/introduction.md' },
@@ -398,3 +399,184 @@ for (const page of PAGES) {
     }
   })
 }
+
+// =============================================================================
+// Per-BFxxx matcher for `docs/core/advanced/error-codes.md`
+// =============================================================================
+//
+// The general extractor blanket-skips `error-codes.md` because its
+// illustrative snippets depend on file-level context the shared
+// scaffold can't reproduce (module vs function scope, directive
+// position, undefined identifiers like `Child`/`count`) and because
+// its `negative-all-adapters` assertion requires the labelled code
+// to be the ONLY fatal — too strict for a reference page whose
+// minimal repros routinely trip unrelated checks.
+//
+// This block walks each `### BFxxx — …` H3 section and tests its
+// `// ❌` / `// ⚠️` snippet against a permissive assertion: the
+// BFxxx code MUST appear among the diagnostics, but other diagnostics
+// are allowed.
+//
+// Two gap categories surfaced by this matcher are catalogued via
+// `test.skip` rather than removed, so the test corpus stays loud
+// about the doc/compiler drift:
+//
+//   - "Documented but unimplemented" (BF002, BF010, BF011, BF012,
+//     BF020, BF022, BF025, BF030, BF031, BF040, BF041, BF042, BF045):
+//     `errors.ts` defines the constant + message but `grep ErrorCodes.X`
+//     across `packages/jsx/src/**` finds zero production emission
+//     sites, so no snippet shape will ever trip it.
+//   - "Implemented but doc snippet too minimal": the code IS emitted
+//     by the compiler in real programs, but the literal snippet in
+//     `error-codes.md` doesn't carry enough context (e.g. BF043 needs
+//     a stateful component; BF044 needs a declared signal getter).
+//     These are doc-edit follow-ups.
+//
+// Both lists live in code so a future PR that wires up the missing
+// emission site / enriches the doc snippet simply removes the entry
+// and the corresponding `test()` starts asserting for real.
+
+interface ErrorCodeContract {
+  code: string
+  marker: '❌' | '⚠️'
+  body: string
+  line: number
+  label: string
+  skipReason?: string
+}
+
+// BFxxx codes whose ❌/⚠️ snippet in `error-codes.md` is too minimal
+// to actually trip the emission site (the doc shows the smallest
+// possible reproduction, but the compiler check is gated by
+// surrounding context the snippet omits).
+const ERROR_CODES_DOC_TOO_MINIMAL: Record<string, string> = {
+  BF021: 'BF021 has multiple ❌ snippets in placeholder form (`.map(...)`) — covered concretely by `jsx-compatibility.md` tests; the doc-form snippets here remain placeholder',
+  BF043: 'BF043 fires only for STATEFUL components (signals/memos/effects). The doc snippet `function Child({ count }: Props)` has no reactivity, so the check is correctly silent — doc snippet needs enrichment to be testable as-is',
+  BF044: 'BF044 fires only when a real signal getter is bound. The doc snippet `<Child count={count} />` references an undeclared `count`, so the check is silent — doc snippet needs enrichment',
+}
+
+// BFxxx codes that `errors.ts` defines but no production code in
+// `packages/jsx/src/**` actually emits. Verified via
+// `grep ErrorCodes.<NAME>` returning zero sites outside `errors.ts`
+// and `__tests__/`. Documented for visibility; un-skipping requires
+// implementing the missing emission site.
+const ERROR_CODES_UNIMPLEMENTED: Record<string, string> = {
+  BF002: 'documented but no emission site in packages/jsx/src/** (see ErrorCodes.INVALID_DIRECTIVE_POSITION)',
+  BF010: 'documented but no emission site (see ErrorCodes.UNKNOWN_SIGNAL)',
+  BF011: 'documented but no emission site (see ErrorCodes.SIGNAL_OUTSIDE_COMPONENT)',
+  BF012: 'documented but no emission site (see ErrorCodes.INVALID_SIGNAL_USAGE)',
+  BF020: 'documented but no emission site (see ErrorCodes.INVALID_JSX_EXPRESSION)',
+  BF022: 'documented but no emission site (see ErrorCodes.INVALID_JSX_ATTRIBUTE)',
+  BF030: 'documented but no emission site (see ErrorCodes.TYPE_INFERENCE_FAILED)',
+  BF031: 'documented but no emission site (see ErrorCodes.PROPS_TYPE_MISMATCH)',
+  BF040: 'documented but no emission site (see ErrorCodes.COMPONENT_NOT_FOUND)',
+  BF041: 'documented but no emission site (see ErrorCodes.CIRCULAR_DEPENDENCY)',
+  BF042: 'documented but no emission site (see ErrorCodes.INVALID_COMPONENT_NAME)',
+}
+
+function extractErrorCodeContracts(md: string): ErrorCodeContract[] {
+  const lines = md.split('\n')
+  const contracts: ErrorCodeContract[] = []
+
+  // Walk H3 sections. A section runs from one `### BF\d+` heading to
+  // the next H3 of any code (or EOF).
+  let sectionCode: string | null = null
+  let i = 0
+  while (i < lines.length) {
+    const heading = lines[i].match(/^###\s+(BF\d+)\b/)
+    if (heading) {
+      sectionCode = heading[1]
+      i++
+      continue
+    }
+    // Boundary into a non-BF H3 or H2 closes the section.
+    if (/^#{1,3}\s/.test(lines[i]) && !/^###\s+BF\d+/.test(lines[i])) {
+      sectionCode = null
+      i++
+      continue
+    }
+    if (sectionCode && /^```tsx\s*$/.test(lines[i])) {
+      const fenceLineNumber = i + 1
+      let j = i + 1
+      while (j < lines.length && !/^```\s*$/.test(lines[j])) j++
+      const blockLines = lines.slice(i + 1, j)
+      // Same marker rules as the general extractor: column-0 `//`,
+      // excluding `// @`-prefixed compiler directives. Split into
+      // segments on markers + blank lines (when any marker exists).
+      const isMarker = (l: string) => /^\/\//.test(l) && !/^\/\/\s*@/.test(l)
+      const hasMarker = blockLines.some(isMarker)
+      type Seg = { offset: number; lines: string[] }
+      const segments: Seg[] = []
+      let cur: Seg | null = null
+      const flush = () => { if (cur && cur.lines.some(l => l.trim() !== '')) segments.push(cur); cur = null }
+      blockLines.forEach((ln, idx) => {
+        if (isMarker(ln)) { flush(); cur = { offset: idx, lines: [ln] } }
+        else if (ln.trim() === '' && hasMarker) flush()
+        else { if (!cur) cur = { offset: idx, lines: [] }; cur.lines.push(ln) }
+      })
+      flush()
+      for (const seg of segments) {
+        const labelLine = /^\s*\/\//.test(seg.lines[0]) ? seg.lines[0] : ''
+        const body = (labelLine ? seg.lines.slice(1) : seg.lines).join('\n').trim()
+        if (body === '') continue
+        const markerMatch = labelLine.match(/(❌|⚠️)/)
+        if (!markerMatch) continue
+        const marker = markerMatch[1] as '❌' | '⚠️'
+        const label = labelLine.replace(/^\s*\/\/\s*/, '').trim() || '(empty)'
+        const startLine = fenceLineNumber + 1 + seg.offset + (labelLine ? 1 : 0)
+        const skipReason =
+          detectSharedSkipReason(body) ??
+          ERROR_CODES_UNIMPLEMENTED[sectionCode] ??
+          ERROR_CODES_DOC_TOO_MINIMAL[sectionCode]
+        contracts.push({ code: sectionCode, marker, body, line: startLine, label, skipReason })
+      }
+      i = j + 1
+      continue
+    }
+    i++
+  }
+  return contracts
+}
+
+describe('docs/core/advanced/error-codes.md per-BFxxx matchers', () => {
+  const md = readFileSync(resolve(DOCS_ROOT, 'core/advanced/error-codes.md'), 'utf8')
+  const contracts = extractErrorCodeContracts(md)
+
+  test('extractor returned a non-empty contract set', () => {
+    if (contracts.length === 0) {
+      throw new Error('extractor returned zero contracts — has the page structure changed?')
+    }
+  })
+
+  for (const c of contracts) {
+    const name = `L${c.line} — ${c.code}: ${c.label}`
+    if (c.skipReason) {
+      test.skip(`${name}  [skip: ${c.skipReason}]`, () => {})
+      continue
+    }
+    test(name, () => {
+      // Module-level snippets (full files / module-level decls) compile
+      // as-is; expression-mode snippets get wrapped in the expression
+      // scaffold so identifiers like `items` resolve. detectBodyKind's
+      // 'statement' bucket would normally wrap in `StatementExample`,
+      // but error-codes.md statement-shaped bodies (`const [count] = …`
+      // demonstrating module-level signal antipatterns) need to stay
+      // at module scope to preserve the file-level context the BFxxx
+      // check is actually about — so we treat 'statement' as 'module'
+      // here.
+      const trimmed = c.body.trim()
+      const isExpression = trimmed.startsWith('{') || trimmed.startsWith('<')
+      const source = isExpression
+        ? EXPRESSION_SCAFFOLD_HEADER + c.body + EXPRESSION_SCAFFOLD_FOOTER
+        : c.body + '\n'
+      const result = compileJSX(source, 'DocExample.tsx', { adapter })
+      const matched = result.errors.find(e => e.code === c.code)
+      if (!matched) {
+        const got = result.errors.map(e => `  ${e.severity} ${e.code}: ${e.message}`).join('\n') || '  (no diagnostics)'
+        throw new Error(
+          `expected diagnostic ${c.code}, got:\n${got}\n--- source ---\n${source}`,
+        )
+      }
+    })
+  }
+})
