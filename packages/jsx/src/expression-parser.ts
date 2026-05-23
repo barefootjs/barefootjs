@@ -543,6 +543,45 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
       if (!collect.ok) {
         return { kind: 'unsupported', raw, reason: collect.reason }
       }
+      // Post-validate defaults (#1536 review). The rewrite inlines the
+      // default at every reference site (`x` → `_t.x ?? <default>`), so
+      // two shapes that JS would handle differently both produce
+      // surprises here:
+      //   1. Cross-binding refs (`({ a, b = a }) => b`): JS resolves
+      //      `a` to the destructured field; our rewrite would resolve
+      //      it to the outer scope (no per-default substitution against
+      //      `fieldMap`). Refuse so the mismatch can't sneak in.
+      //   2. Side-effecting defaults (`({ x = getX() }) => x + x`): JS
+      //      evaluates the default at most once per call; our rewrite
+      //      duplicates the default at every reference site, so a
+      //      side-effecting expression fires N times. Restrict defaults
+      //      to side-effect-free shapes (no `call` / `array-method` /
+      //      `higher-order` / `arrow-fn` subnodes).
+      // Both refusals route back through the standard `unsupported`
+      // path so adapters surface BF101; the workaround is to fold the
+      // default inline at the binding site.
+      for (const [name, entry] of fieldMap) {
+        if (!entry.defaultExpr) continue
+        const refs = new Set<string>()
+        collectIdentifiers(entry.defaultExpr, refs)
+        for (const ref of refs) {
+          if (fieldMap.has(ref)) {
+            return {
+              kind: 'unsupported',
+              raw,
+              reason: `Default value for '${name}' references destructured binding '${ref}'; cross-binding default references are not supported. Workaround: inline the default at the use site.`,
+            }
+          }
+        }
+        const impure = findImpureDefaultNode(entry.defaultExpr)
+        if (impure) {
+          return {
+            kind: 'unsupported',
+            raw,
+            reason: `Default value for '${name}' contains a '${impure}' expression; defaults must be side-effect-free (no function calls) because the rewrite inlines the default at every reference site. Workaround: bind the result to a closure variable and reference that, or fold the default inline at the use site.`,
+          }
+        }
+      }
       const syntheticParam = pickSyntheticParam(fieldMap, body)
       const rewritten = substituteDestructuredFields(body, fieldMap, syntheticParam)
       return { kind: 'arrow-fn', param: syntheticParam, body: rewritten }
@@ -853,6 +892,56 @@ function collectDestructureBindings(
     fieldMap.set(el.name.text, { path: [...pathPrefix, fieldName], defaultExpr })
   }
   return { ok: true }
+}
+
+/**
+ * Walk a default expression and return the first impure subnode's kind,
+ * or `null` if the whole tree is side-effect-free (#1536 review). The
+ * rewrite inlines the default at every reference site, so any node that
+ * could fire a function (`call`, `array-method`, `higher-order`,
+ * `arrow-fn`) breaks JS's "default evaluated at most once per call"
+ * semantic when the bound name is referenced more than once in the body.
+ * Pure shapes (literal / identifier / member / unary / binary / logical /
+ * conditional / template-literal / array-literal with pure parts) duplicate
+ * cleanly.
+ */
+function findImpureDefaultNode(expr: ParsedExpr): string | null {
+  switch (expr.kind) {
+    case 'literal':
+    case 'identifier':
+    case 'unsupported':
+      return null
+    case 'member':
+      return findImpureDefaultNode(expr.object)
+    case 'unary':
+      return findImpureDefaultNode(expr.argument)
+    case 'binary':
+    case 'logical':
+      return findImpureDefaultNode(expr.left) ?? findImpureDefaultNode(expr.right)
+    case 'conditional':
+      return findImpureDefaultNode(expr.test)
+        ?? findImpureDefaultNode(expr.consequent)
+        ?? findImpureDefaultNode(expr.alternate)
+    case 'template-literal':
+      for (const part of expr.parts) {
+        if (part.type === 'expression') {
+          const inner = findImpureDefaultNode(part.expr)
+          if (inner) return inner
+        }
+      }
+      return null
+    case 'array-literal':
+      for (const el of expr.elements) {
+        const inner = findImpureDefaultNode(el)
+        if (inner) return inner
+      }
+      return null
+    case 'call':
+    case 'array-method':
+    case 'higher-order':
+    case 'arrow-fn':
+      return expr.kind
+  }
 }
 
 /**

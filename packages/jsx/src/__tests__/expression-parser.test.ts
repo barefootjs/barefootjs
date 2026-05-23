@@ -538,6 +538,61 @@ describe('expression-parser', () => {
       expect(result.kind).toBe('call')
     })
 
+    // Cross-binding default reference (`{ a, b = a }`) — JS resolves
+    // `a` to the destructured field, but our rewrite would emit
+    // `_t.b ?? a` and resolve `a` against the outer scope. To avoid
+    // the silent semantic mismatch, refuse the shape and let users
+    // fold the default inline (#1536 review).
+    test('rejects .filter(({a, b = a}) => b) — default refs another destructured binding (#1536)', () => {
+      const result = parseExpression('items().filter(({a, b = a}) => b)')
+      expect(result.kind).toBe('call')
+    })
+
+    // Side-effecting default (`{ x = getX() }`) — the rewrite duplicates
+    // the default at every reference site, so `x + x` would fire `getX()`
+    // twice. JS evaluates the default at most once per call. Refuse to
+    // avoid the silent multi-eval (#1536 review). Workaround: bind to a
+    // closure var.
+    test('rejects .filter(({x = getX()}) => x + x) — default contains a call (#1536)', () => {
+      const result = parseExpression('items().filter(({x = getX()}) => x + x)')
+      expect(result.kind).toBe('call')
+    })
+
+    test('rejects .filter(({xs = arr.slice()}) => xs) — default contains array-method (#1536)', () => {
+      const result = parseExpression('items().filter(({xs = arr.slice()}) => xs)')
+      expect(result.kind).toBe('call')
+    })
+
+    // Pure shapes that DO compose with the inline rewrite — these
+    // pin the "still works" side of the side-effect restriction.
+    test('lowers .filter(({x = fallback}) => x) — identifier default is pure (#1536)', () => {
+      // `fallback` resolves to outer scope; that's fine — duplicating
+      // a bare identifier read has no semantic cost.
+      const result = parseExpression('items().filter(({x = fallback}) => x)')
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        expect(result.predicate.kind).toBe('logical')
+        if (result.predicate.kind === 'logical') {
+          expect(result.predicate.op).toBe('??')
+          expect(result.predicate.right.kind).toBe('identifier')
+        }
+      }
+    })
+
+    test('lowers .filter(({x = config.fallback}) => x) — member-access default is pure (#1536)', () => {
+      // `config.fallback` is a property read — assumed pure (no getter
+      // side effects); duplicating across reference sites is harmless
+      // for the common case.
+      const result = parseExpression('items().filter(({x = config.fallback}) => x)')
+      expect(result.kind).toBe('higher-order')
+      if (result.kind === 'higher-order') {
+        expect(result.predicate.kind).toBe('logical')
+        if (result.predicate.kind === 'logical') {
+          expect(result.predicate.right.kind).toBe('member')
+        }
+      }
+    })
+
     // Nested destructure (#1530). The parser recurses into the inner
     // object pattern and threads the property path, so
     // `({user: {name}}) => name === 'alice'` rewrites to
