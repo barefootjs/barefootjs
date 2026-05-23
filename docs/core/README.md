@@ -8,7 +8,7 @@
 - Why BarefootJS?
 - Design Philosophy
 
-### 2. [Quick Start](./quick-start.md)
+### 2. [Quick Start](./quick-start.mdx)
 
 - Scaffold an app with `npm create barefootjs@latest`
 - Run the dev server and edit the starter Counter
