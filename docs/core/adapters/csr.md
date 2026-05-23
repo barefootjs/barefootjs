@@ -17,16 +17,15 @@ When you do control the server (Hono, Go, etc.), prefer SSR + hydration instead.
 
 ## Configuration
 
-Set `clientOnly: true` in `barefoot.config.ts`. This skips marked template output and emits only client JS plus the runtime bundle:
+Use `createConfig` from `@barefootjs/client/build` in `barefoot.config.ts`. It wires the in-package `CSRAdapter` and skips marked template output automatically — no `clientOnly` flag is needed:
 
 ```typescript
 // barefoot.config.ts
-import { createConfig } from '@barefootjs/hono/build'
+import { createConfig } from '@barefootjs/client/build'
 
 export default createConfig({
   components: ['./components'],
   outDir: 'dist',
-  clientOnly: true,
 })
 ```
 
@@ -42,7 +41,7 @@ dist/
 ## API
 
 ```typescript
-import { render } from '@barefootjs/client'
+import { render } from '@barefootjs/client/runtime'
 
 render(container, componentName, props?)
 ```
@@ -62,13 +61,13 @@ The component must be registered first by importing its `.client.js` file — th
 <html>
 <head>
   <script type="importmap">
-    { "imports": { "@barefootjs/client": "/static/components/barefoot.js" } }
+    { "imports": { "@barefootjs/client/runtime": "/static/components/barefoot.js" } }
   </script>
 </head>
 <body>
   <div id="app"></div>
   <script type="module">
-    import { render } from '@barefootjs/client'
+    import { render } from '@barefootjs/client/runtime'
     await import('/static/components/Counter.client.js')
     render(document.getElementById('app'), 'Counter', { initialCount: 0 })
   </script>

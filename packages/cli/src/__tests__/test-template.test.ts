@@ -87,4 +87,30 @@ describe('generateTestTemplate', () => {
     expect(tpl).toContain(`import { describe, test, expect } from 'vitest'`)
     expect(tpl).not.toContain(`from 'bun:test'`)
   })
+
+  // `onKeyDown` is the React-style prop name preserved on component
+  // nodes; deriving the prop name from the lowercased IR event name
+  // (`'on' + 'K' + 'eydown'`) produced `onKeydown`, so the generated
+  // `props['onKeydown'] != null` arm never matched and the test failed
+  // out of the box on the first user component that listened to
+  // keystrokes (e.g. an Enter-to-submit input wired through `<Input
+  // onKeyDown=…>`).
+  test('emits onKeyDown (not onKeydown) for keydown handlers', () => {
+    const tpl = tplFor(`
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Input } from '@/components/ui/input'
+      export function Form() {
+        const [text, setText] = createSignal('')
+        return (
+          <Input
+            value={text()}
+            onKeyDown={(e) => e.key === 'Enter' && setText('')}
+          />
+        )
+      }
+    `, 'Form.tsx')
+    expect(tpl).toContain(`n.props['onKeyDown'] != null`)
+    expect(tpl).not.toContain(`n.props['onKeydown']`)
+  })
 })
