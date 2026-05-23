@@ -554,9 +554,12 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
       //   2. Side-effecting defaults (`({ x = getX() }) => x + x`): JS
       //      evaluates the default at most once per call; our rewrite
       //      duplicates the default at every reference site, so a
-      //      side-effecting expression fires N times. Restrict defaults
-      //      to side-effect-free shapes (no `call` / `array-method` /
-      //      `higher-order` / `arrow-fn` subnodes).
+      //      function-call-like subnode would fire N times. Restrict
+      //      defaults to shapes with no function-call-like subnodes
+      //      (`call` / `array-method` / `higher-order` / `arrow-fn`).
+      //      `member` access stays allowed even though getters/Proxies
+      //      can technically side-effect — see the docstring on
+      //      `findImpureDefaultNode` for the rationale.
       // Both refusals route back through the standard `unsupported`
       // path so adapters surface BF101; the workaround is to fold the
       // default inline at the binding site.
@@ -578,7 +581,7 @@ function convertNode(node: ts.Node, raw: string): ParsedExpr {
           return {
             kind: 'unsupported',
             raw,
-            reason: `Default value for '${name}' contains a '${impure}' expression; defaults must be side-effect-free (no function calls) because the rewrite inlines the default at every reference site. Workaround: bind the result to a closure variable and reference that, or fold the default inline at the use site.`,
+            reason: `Default value for '${name}' contains a '${impure}' expression; defaults must have no function-call-like subnodes because the rewrite inlines the default at every reference site. Workaround: bind the result to a closure variable and reference that, or fold the default inline at the use site.`,
           }
         }
       }
@@ -790,13 +793,15 @@ type DestructureBinding = {
   path: string[]
   // Present only when the destructure carried `= <expr>`. The
   // ParsedExpr is captured once here and re-emitted verbatim at every
-  // substitution site for the bound name — its identifiers are NOT
+  // substitution site for the bound name. Its identifiers are NOT
   // re-substituted against `fieldMap`, so a default that references
   // another destructured field (`({ a, b = a }) => b`) would resolve
-  // `a` against the OUTER scope, not `_t.a`. That cross-reference
-  // shape is rare and shares the spirit of the explicit "nested +
-  // default combined" out-of-scope carve-out in #1531; document the
-  // gap if a user hits it.
+  // `a` against the outer scope rather than `_t.a` — a silent
+  // semantic mismatch. The post-collection validation in the
+  // `isObjectBindingPattern` arm of `convertNode` explicitly refuses
+  // any default whose identifier set intersects `fieldMap.keys()`,
+  // so by the time substitution runs every retained default is
+  // guaranteed cross-binding-free (#1536 review).
   defaultExpr?: ParsedExpr
 }
 
@@ -828,15 +833,17 @@ function collectDestructureBindings(
       // shorthand `{ { name } }` doesn't exist. Computed / string
       // / numeric property names stay refused.
       //
-      // Nested + default combined (`({ user: { name = 'anon' } })`)
-      // is out of scope per #1531 — the inner default would need to
-      // compose with the outer-level missing-`user` fallback, which
-      // multiplies the `??` rewrite paths. The inner pattern's
-      // `el.initializer` is rejected by the recursive call below
-      // (defaults on a non-leaf binding element are surfaced when
-      // that nested element is visited).
+      // Default on the NESTED-PATTERN SLOT itself
+      // (`({ user: { name } = {} })`) is out of scope — that shape
+      // says "if user is undefined, substitute {} before
+      // destructuring name", which needs an outer-level `??` paired
+      // with the inner walk and multiplies the rewrite paths.
+      // Inner-LEAF defaults (`({ user: { name = 'anon' } })`) work
+      // fine — they're surfaced by the recursive call below when the
+      // inner leaf element is visited, and compose naturally with
+      // the threaded property path.
       if (el.initializer) {
-        return { ok: false, reason: 'Default values combined with nested destructure are not supported' }
+        return { ok: false, reason: 'Default values on a nested-pattern slot in destructured filter param are not supported' }
       }
       if (!el.propertyName || !ts.isIdentifier(el.propertyName)) {
         return { ok: false, reason: 'Non-identifier (computed/string/numeric) keys in destructured filter param are not supported' }
@@ -895,15 +902,25 @@ function collectDestructureBindings(
 }
 
 /**
- * Walk a default expression and return the first impure subnode's kind,
- * or `null` if the whole tree is side-effect-free (#1536 review). The
- * rewrite inlines the default at every reference site, so any node that
- * could fire a function (`call`, `array-method`, `higher-order`,
- * `arrow-fn`) breaks JS's "default evaluated at most once per call"
- * semantic when the bound name is referenced more than once in the body.
- * Pure shapes (literal / identifier / member / unary / binary / logical /
- * conditional / template-literal / array-literal with pure parts) duplicate
- * cleanly.
+ * Walk a default expression and return the first function-call-like
+ * subnode's kind, or `null` if no such node exists (#1536 review). The
+ * rewrite inlines the default at every reference site, so any node
+ * that obviously fires a function (`call`, `array-method`,
+ * `higher-order`, `arrow-fn`) breaks JS's "default evaluated at most
+ * once per call" semantic when the bound name is referenced more than
+ * once in the body.
+ *
+ * The check is intentionally narrow: it only refuses function-call-like
+ * shapes, not all side effects. `member` access is allowed even though
+ * a getter / Proxy trap can technically run code on every read — pure
+ * struct-field access is the overwhelmingly common shape in template
+ * predicates, and refusing it would lock out idioms like
+ * `{ x = config.fallback }`. Users who pass objects with side-effecting
+ * getters into a filter predicate are outside the spirit of "render a
+ * snapshot of state", so we don't try to defend against them. The
+ * remaining shapes (literal / identifier / member / unary / binary /
+ * logical / conditional / template-literal / array-literal with pure
+ * parts) duplicate cleanly under inlining.
  */
 function findImpureDefaultNode(expr: ParsedExpr): string | null {
   switch (expr.kind) {
