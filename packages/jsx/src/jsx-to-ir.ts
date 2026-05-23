@@ -68,6 +68,8 @@ interface TransformContext {
   getTemplateJS(node: ts.Node): string
   /** Cached set of reactive getter names (signal getters + memo names) for O(1) lookup */
   _reactiveGetterNames?: Set<string>
+  /** Cached set of module-scope @client signal/memo names. */
+  _moduleClientSignalNames?: Set<string>
   /** Cached set of destructured prop names for AST-based rewriting */
   _destructuredPropNames?: Set<string> | null
   /** Active loop parameter names for slotId assignment to loop-param-dependent expressions */
@@ -189,6 +191,36 @@ function exprCallsReactiveGetters(expr: ts.Expression, ctx: TransformContext): b
     if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
       if (names.has(n.expression.text)) { found = true; return }
     }
+    ts.forEachChild(n, visit)
+  }
+  visit(expr)
+  return found
+}
+
+/**
+ * Walk an expression to check if it calls a module-scope `@client` signal
+ * getter or memo. Such references are automatically `clientOnly` in JSX
+ * so that SSR emits a placeholder and the client init evaluates them live.
+ */
+function exprReferencesModuleClientSignal(expr: ts.Expression, ctx: TransformContext): boolean {
+  if (!ctx._moduleClientSignalNames) {
+    ctx._moduleClientSignalNames = new Set<string>()
+    for (const s of ctx.analyzer.signals) {
+      if (s.isModule) {
+        ctx._moduleClientSignalNames.add(s.getter)
+        if (s.setter) ctx._moduleClientSignalNames.add(s.setter)
+      }
+    }
+    for (const m of ctx.analyzer.memos) {
+      if (m.isModule) ctx._moduleClientSignalNames.add(m.name)
+    }
+  }
+  if (ctx._moduleClientSignalNames.size === 0) return false
+  const names = ctx._moduleClientSignalNames
+  let found = false
+  function visit(n: ts.Node) {
+    if (found) return
+    if (ts.isIdentifier(n) && names.has(n.text)) { found = true; return }
     ts.forEachChild(n, visit)
   }
   visit(expr)
@@ -1212,6 +1244,7 @@ function transformExpression(
   // `getFullText()` would false-positive on string literals or trailing
   // comments containing "@client".
   const isClientOnly = hasLeadingClientDirective(expr, ctx.sourceFile)
+    || exprReferencesModuleClientSignal(expr, ctx)
 
   return transformExpressionInner(expr, ctx, node, isClientOnly)
 }

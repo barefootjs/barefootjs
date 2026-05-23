@@ -79,9 +79,11 @@ export abstract class JsxAdapter extends BaseAdapter {
     // jsxBody + signal initial values + memo computations (these are the "consumers")
     const primaryRefs = [jsxBody]
     for (const signal of ir.metadata.signals) {
+      if (signal.isModule) continue
       primaryRefs.push(signal.initialValue)
     }
     for (const memo of ir.metadata.memos) {
+      if (memo.isModule) continue
       primaryRefs.push(memo.computation)
     }
     const primaryRefText = primaryRefs.join('\n')
@@ -107,6 +109,7 @@ export abstract class JsxAdapter extends BaseAdapter {
     const setterRefText = primaryRefText + '\n' + reachableBodies
 
     for (const signal of ir.metadata.signals) {
+      if (signal.isModule) continue
       // Create a getter that returns the initial value for SSR
       const rawInitialValue = preserveTypes
         ? (signal.typedInitialValue ?? signal.initialValue)
@@ -135,6 +138,7 @@ export abstract class JsxAdapter extends BaseAdapter {
     }
 
     for (const memo of ir.metadata.memos) {
+      if (memo.isModule) continue
       // Evaluate memo computation at SSR time
       const computation = preserveTypes
         ? (memo.typedComputation ?? memo.computation)

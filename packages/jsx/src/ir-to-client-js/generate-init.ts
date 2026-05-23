@@ -88,6 +88,8 @@ export function generateInitFunction(
   const moduleConstantsCode = emitModuleLevelDeclarations(
     classification.moduleLevelConstants,
     classification.moduleLevelFunctions,
+    classification.moduleLevelSignals,
+    classification.moduleLevelMemos,
   )
 
   return generatedCode

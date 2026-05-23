@@ -19,7 +19,7 @@
  * them onto the placeholder replacements at the end of emission.
  */
 
-import type { ComponentIR, ConstantInfo, FunctionInfo } from '../types'
+import type { ComponentIR, ConstantInfo, FunctionInfo, SignalInfo, MemoInfo } from '../types'
 import {
   RUNTIME_MODULE,
   collectExternalImports,
@@ -41,26 +41,41 @@ import {
 export function emitModuleLevelDeclarations(
   moduleLevelConstants: readonly ConstantInfo[],
   moduleLevelFunctions: readonly FunctionInfo[],
+  moduleLevelSignals: readonly SignalInfo[] = [],
+  moduleLevelMemos: readonly MemoInfo[] = [],
 ): string {
   const lines: string[] = []
   for (const constant of moduleLevelConstants) {
     if (!constant.value) continue
     lines.push(`var ${constant.name} = ${constant.name} ?? ${constant.value}`)
   }
-  // `export` is intentionally omitted — client JS files are self-contained
-  // entry points, not imported by other modules. Add export when a concrete
-  // cross-module use case arises.
   for (const fn of moduleLevelFunctions) {
     const paramStr = fn.params.map(p => {
       const rest = p.isRest ? '...' : ''
       return p.defaultValue !== undefined ? `${rest}${p.name} = ${p.defaultValue}` : `${rest}${p.name}`
     }).join(', ')
     const asyncKw = fn.isAsync ? 'async ' : ''
-    // Generator functions (`function*`) cannot be lowered to an arrow
-    // form (arrows can't yield) — preserve the `*` here so emit reads
-    // the modifier from IR rather than re-deriving from `fn.body` text.
     const genStar = fn.isGenerator ? '*' : ''
     lines.push(`var ${fn.name} = ${fn.name} ?? ${asyncKw}function${genStar}(${paramStr}) ${fn.body}`)
+  }
+  for (const signal of moduleLevelSignals) {
+    const tupleVar = `__bf_m_${signal.getter}_tuple`
+    if (signal.isExported) {
+      lines.push(`export const [${signal.getter}${signal.setter ? `, ${signal.setter}` : ''}] = createSignal(${signal.initialValue})`)
+    } else {
+      lines.push(`var ${tupleVar} = ${tupleVar} ?? createSignal(${signal.initialValue})`)
+      lines.push(`var ${signal.getter} = ${tupleVar}[0]`)
+      if (signal.setter) {
+        lines.push(`var ${signal.setter} = ${tupleVar}[1]`)
+      }
+    }
+  }
+  for (const memo of moduleLevelMemos) {
+    if (memo.isExported) {
+      lines.push(`export const ${memo.name} = createMemo(${memo.computation})`)
+    } else {
+      lines.push(`var ${memo.name} = ${memo.name} ?? createMemo(${memo.computation})`)
+    }
   }
   return lines.length > 0 ? lines.join('\n') + '\n' : ''
 }
