@@ -362,11 +362,21 @@ export function formatComponentGraph(graph: ComponentGraph): string {
   if (graph.domBindings.length > 0) {
     lines.push(`  dom bindings:`)
     for (const d of graph.domBindings) {
-      const arrow = d.type === 'event' ? ' ->' : ' <-'
-      const depStr = d.deps.join(', ')
       // For attribute bindings use the attr name; for others use slotId
       const id = d.type === 'attribute' ? `"${d.label}"` : `"${d.slotId}"`
       const marker = d.classification === 'fallback' ? '~ ' : '  '
+      // No tracked deps ⇒ drop the arrow entirely instead of emitting
+      // a dangling `<- ` (trailing space). Fallback-wrapped attribute
+      // handlers like `<Button onClick={() => setCount(0)}>` legitimately
+      // read no signal, so an empty deps list is the common case; mark
+      // it explicitly so the reader doesn't wonder if the analyzer
+      // dropped data.
+      if (d.deps.length === 0) {
+        lines.push(`    ${marker}${d.type} ${id} (no tracked deps)`)
+        continue
+      }
+      const arrow = d.type === 'event' ? ' ->' : ' <-'
+      const depStr = d.deps.join(', ')
       lines.push(`    ${marker}${d.type} ${id}${arrow} ${depStr}`)
     }
   }

@@ -240,6 +240,51 @@ describe('formatComponentGraph', () => {
     expect(output).toContain('dependency graph:')
     expect(output).toContain('count -> memo:doubled')
   })
+
+  // A handler like `<button onClick={() => setCount(0)}>` is a
+  // legitimate fallback-wrapped binding with zero tracked deps. The
+  // line used to render as `~ event "s0" <- ` with a dangling arrow
+  // + trailing space — readers seeing a one-sided arrow naturally
+  // suspect the analyzer dropped data. Drop the arrow and label the
+  // empty case explicitly. (No trailing whitespace either — easy to
+  // miss in review but breaks diff viewers.)
+  test('formats zero-dep bindings without a dangling arrow or trailing space', () => {
+    // `<Button onClick={() => setCount(0)}>` is the motivating shape
+    // (the registry's bundled Button + a setter-only handler in the
+    // scaffolded Counter). It produces an `attribute`-type binding with
+    // `classification: 'fallback'` and an empty deps list — exactly the
+    // case that used to render as `~ attribute "Button.onClick" <- `
+    // with a dangling arrow + trailing space.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Button } from '@/components/ui/button'
+      export function Counter() {
+        const [count, setCount] = createSignal(0)
+        return (
+          <div>
+            <p>{count()}</p>
+            <Button onClick={() => setCount(0)}>Reset</Button>
+          </div>
+        )
+      }
+    `
+    const graph = buildComponentGraph(source, 'Counter.tsx')
+    const output = formatComponentGraph(graph)
+    // There IS at least one zero-dep binding (the Reset handler reads
+    // no signal — `setCount(0)` is a setter call, not a tracked read).
+    const zeroDepBindings = graph.domBindings.filter(d => d.deps.length === 0)
+    expect(zeroDepBindings.length).toBeGreaterThan(0)
+    // ... and it's labelled,
+    expect(output).toContain('(no tracked deps)')
+    // does NOT carry the dangling-arrow shape on ANY line.
+    expect(output).not.toMatch(/ <- *$/m)
+    expect(output).not.toMatch(/ -> *$/m)
+    // No line in the output ends with whitespace.
+    for (const line of output.split('\n')) {
+      expect(line).toBe(line.trimEnd())
+    }
+  })
 })
 
 describe('formatUpdatePath', () => {
