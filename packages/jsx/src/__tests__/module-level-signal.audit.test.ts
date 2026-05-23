@@ -205,6 +205,24 @@ export function Counter() {
     expect(ssr).toContain('client:s')
   })
 
+  test('full compile: exported signal uses `export const` in client JS', () => {
+    const src = `'use client'
+import { createSignal } from '@barefootjs/client'
+/* @client */
+export const [count, setCount] = createSignal(0)
+export function Counter() {
+  return <span>{count()}</span>
+}
+`
+    const r = compile(src)
+    expect(bf011(r.errors)).toHaveLength(0)
+    const files = Object.fromEntries(r.files.map(f => [f.path, f.content]))
+    const clientJs = files['Counter.client.js']
+    expect(clientJs).toContain('export const [count, setCount] = createSignal(0)')
+    // non-exported var pattern should NOT be used
+    expect(clientJs).not.toContain('__bf_m_count_tuple')
+  })
+
   test('control: in-component signal compiles cleanly', () => {
     const src = `'use client'
 import { createSignal } from '@barefootjs/client'
