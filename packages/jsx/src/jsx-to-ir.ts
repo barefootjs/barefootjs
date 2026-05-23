@@ -1942,34 +1942,34 @@ function extractFilterPredicate(
 
   const firstParam = callback.parameters[0]
 
-  // Destructured filter param (#1443, #1530, #1531, #1532). Reconstruct
-  // the whole arrow source and route through `parseExpression` so the
-  // parser's destructure rewrite path runs end-to-end: synthesised
-  // `_t` param, body rewritten to `_t.field` (with `??` defaults and
-  // rest member-access rewrites). Refusal reasons from the parser —
-  // including #1532 Mode B (`rest` as value) and the rest/declared-key
-  // collision — surface here as `unsupportedReason`, which the caller
-  // turns into BF021.
+  // Destructured filter param (#1443, #1530, #1531, #1532).
+  // `extractFilterPredicate` itself doesn't carry destructure rewrites
+  // — those run inside the adapter's `parseExpression` pass over the
+  // raw array text (the surrounding `setArray(mapSource)` keeps the
+  // whole `items().filter(({a, ...rest}) => …)` chain in the array
+  // string, and the adapter's higher-order path lowers it the same
+  // way it would for a hand-written `(_t) => _t.a` shape).
+  //
+  // Validate-only here so refusal reasons from the parser — including
+  // the #1532 Mode B "rest as value" path and the rest/declared-key
+  // collision — surface as `unsupportedReason`. The caller turns that
+  // into BF021 (with the `@client` workaround); for shapes the parser
+  // accepts, leaving `result: null` with no reason preserves the
+  // existing adapter raw-text lowering path.
   if (!ts.isIdentifier(firstParam.name)) {
-    if (ts.isBlock(callback.body)) {
-      return {
-        result: null,
-        unsupportedReason:
-          'Block body in a destructured filter param is not supported. Workaround: use an expression-body arrow, or add /* @client */.',
-      }
-    }
+    if (ts.isBlock(callback.body)) return { result: null }
     const raw = ctx.getJS(callback)
     const parsed = parseExpression(raw)
     if (parsed.kind === 'unsupported') {
       return { result: null, unsupportedReason: parsed.reason }
     }
-    if (parsed.kind !== 'arrow-fn') return { result: null }
-    const support = isSupported(parsed.body)
-    if (!support.supported) {
-      return { result: null, unsupportedReason: support.reason }
+    if (parsed.kind === 'arrow-fn') {
+      const support = isSupported(parsed.body)
+      if (!support.supported) {
+        return { result: null, unsupportedReason: support.reason }
+      }
     }
-    const bodyRaw = ctx.getJS(callback.body)
-    return { result: { param: parsed.param, predicate: parsed.body, raw: bodyRaw } }
+    return { result: null }
   }
 
   const param = firstParam.name.getText(ctx.sourceFile)
