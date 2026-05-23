@@ -995,7 +995,13 @@ describe('discriminated-union props rendering different subtrees per discriminat
 })
 
 describe('default-prop value that itself reads a signal', () => {
-  test('default value is computed from a signal accessor', () => {
+  // Skipped pending the planned module-scope client-only state path.
+  // The source exercises a module-level `createSignal` because the
+  // default-param `global()` reference can't reach an in-component
+  // declaration, so the binding must live at outer scope. BF011 now
+  // rejects this shape categorically; re-enable once a working
+  // module-scope opt-in lands.
+  test.skip('default value is computed from a signal accessor', () => {
     const src = `
       'use client'
       import { createSignal } from '@barefootjs/client'

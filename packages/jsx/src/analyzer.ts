@@ -441,6 +441,26 @@ function visit(
     const isExported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
     const isLet = (node.declarationList.flags & ts.NodeFlags.Let) !== 0
     for (const decl of node.declarationList.declarations) {
+      // BF011: a module-level `createSignal` / `createMemo` declaration
+      // is silently dropped by the downstream pipeline today and every
+      // reference to the resulting binding becomes a ReferenceError at
+      // SSR and at hydrate. Fire the diagnostic here for every binding
+      // shape `visitComponentBody` would normally route through a signal
+      // collector (tuple destructure, identifier tuple-ref, element
+      // access, memo) so the surface area matches.
+      //
+      // A future `/* @client */` opt-in (Phase 2) will both suppress the
+      // diagnostic and wire the declaration through the working module-
+      // scope codegen path. Until that pair lands together, no escape
+      // hatch is recognized — partial support would re-introduce the
+      // exact silent-bug shape the diagnostic is here to surface.
+      if (declarationIsReactiveFactoryCall(decl, ctx)) {
+        ctx.errors.push(createError(
+          ErrorCodes.SIGNAL_OUTSIDE_COMPONENT,
+          getSourceLocation(decl, ctx.sourceFile, ctx.filePath),
+        ))
+        continue
+      }
       if (
         ts.isIdentifier(decl.name) &&
         decl.initializer &&
@@ -2075,6 +2095,24 @@ function nodeContainsArrow(node: ts.Node): boolean {
   }
   visit(node)
   return found
+}
+
+/**
+ * True when the VariableDeclaration's initializer is recognized as a
+ * `createSignal(...)` / `createMemo(...)` / signal-tuple-ref /
+ * signal-index-access call. Covers every shape `visitComponentBody`
+ * routes through dedicated collectors so BF011 detection at module
+ * scope catches the same surface area.
+ */
+function declarationIsReactiveFactoryCall(
+  decl: ts.VariableDeclaration,
+  ctx: AnalyzerContext,
+): boolean {
+  if (isSignalDeclaration(decl, ctx)) return true
+  if (isMemoDeclaration(decl, ctx)) return true
+  if (isSignalTupleDeclaration(decl)) return true
+  if (isSignalIndexAccess(decl, ctx) !== null) return true
+  return false
 }
 
 /**

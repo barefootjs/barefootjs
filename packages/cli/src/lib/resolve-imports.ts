@@ -747,6 +747,7 @@ async function walkAndCollect(
   loggingPath: string,
   stripped: StrippedImport[],
   stubDeps: Set<string>,
+  nextId: { value: number },
 ): Promise<string> {
   // Parse the body with the TypeScript compiler API and walk every
   // top-level `ImportDeclaration`. Working off the AST — rather than
@@ -968,7 +969,7 @@ async function walkAndCollect(
       const jsCode = transpile(sourceContent, { loader: 'ts' })
       mod = {
         path: result.path,
-        topLevelId: `__bf_inline_${modules.size}`,
+        topLevelId: `__bf_inline_${nextId.value++}`,
         transpiledBody: jsCode,
         originalSource: sourceContent,
         searchDirs: [dirname(result.path), ...searchDirs.slice(1)],
@@ -986,6 +987,7 @@ async function walkAndCollect(
         loggingPath,
         stripped,
         stubDeps,
+        nextId,
       )
       mod.transpiledBody = replacedBody
       visiting.delete(result.path)
@@ -1066,7 +1068,16 @@ async function inlineRelativeImports(
   const modules = new Map<string, InlinedModule>()
   const visiting = new Set<string>()
   const stripped: StrippedImport[] = []
-  let parentContent = await walkAndCollect(content, searchDirs, modules, visiting, loggingPath, stripped, stubDeps)
+  // Scan for __bf_inline_N identifiers already present in the content (e.g.
+  // from a previous resolveRelativeImports pass that was pulled in by the
+  // combineParentChildClientJs step). Start the counter past the highest
+  // existing N so new inlines never collide with stale ones. #1542.
+  let startId = 0
+  for (const m of content.matchAll(/__bf_inline_(\d+)\b/g)) {
+    startId = Math.max(startId, Number(m[1]) + 1)
+  }
+  const nextId = { value: startId }
+  let parentContent = await walkAndCollect(content, searchDirs, modules, visiting, loggingPath, stripped, stubDeps, nextId)
 
   if (modules.size === 0) {
     // No IIFEs to prepend — the parent content already reflects every
