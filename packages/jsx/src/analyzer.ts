@@ -21,6 +21,7 @@ import {
 } from './analyzer-context'
 import { createError, createWarning, ErrorCodes } from './errors'
 import path from 'path'
+import fs from 'fs'
 
 // =============================================================================
 // TypeScript Program Creation
@@ -2700,6 +2701,158 @@ function validateContext(ctx: AnalyzerContext): void {
   // BF110: flag tuple-destructures that would have been silent runtime
   // failures before factory inlining landed (#931).
   validateReactiveFactoryCalls(ctx)
+
+  // BF003: a `"use client"` file may not import a component from a
+  // non-`"use client"` source file (#1501). Server-side knowledge must
+  // not transitively cross into the client bundle, and hydration-marker
+  // emission requires both sides of the boundary to be compile-aware.
+  validateClientImports(ctx)
+}
+
+// =============================================================================
+// BF003 — Cross-file "use client" import validation
+// =============================================================================
+
+/**
+ * Enforce the one-way directionality: a `"use client"` file cannot import
+ * a JSX-component binding from a file that lacks the `"use client"`
+ * directive. The rule is component-scoped — non-JSX value imports
+ * (utility functions, constants, etc.) are not flagged, since they have
+ * no hydration-marker emission and no server-only-rendering surface that
+ * the directive guards.
+ *
+ * Resolution is best-effort:
+ *   - Relative imports (`./foo`, `../foo`) resolve against the file's
+ *     directory with the usual `.tsx`/`.ts`/`index.*` extension fallback.
+ *   - npm packages (`@barefootjs/...`, bare specifiers) and unresolved
+ *     aliased paths (`@/...` without tsconfig paths support) are skipped:
+ *     the BF051 check covers the framework-package shape, and aliased
+ *     resolution requires shared-program / tsconfig wiring that isn't
+ *     guaranteed at this layer.
+ *
+ * The check fires only on imports whose binding appears as a JSX tag
+ * identifier in the current file. This matches the spec language
+ * ("Client component cannot import server component") and avoids
+ * false-positives on legitimate utility-function imports from
+ * non-`"use client"` modules.
+ */
+function validateClientImports(ctx: AnalyzerContext): void {
+  if (!ctx.hasUseClientDirective) return
+  if (ctx.imports.length === 0) return
+
+  const jsxComponentTags = collectJsxComponentTags(ctx.sourceFile)
+  if (jsxComponentTags.size === 0) return
+
+  for (const imp of ctx.imports) {
+    if (imp.isTypeOnly) continue
+    if (!isResolvableComponentSource(imp.source)) continue
+
+    const usedAsComponent = imp.specifiers.some(s => {
+      if (s.isNamespace) return false
+      const local = s.alias ?? s.name
+      return jsxComponentTags.has(local)
+    })
+    if (!usedAsComponent) continue
+
+    const resolvedPath = resolveRelativeImportToFile(imp.source, ctx.filePath)
+    if (!resolvedPath) continue
+
+    if (fileHasUseClientDirective(resolvedPath)) continue
+
+    const usedNames = imp.specifiers
+      .filter(s => !s.isNamespace && jsxComponentTags.has(s.alias ?? s.name))
+      .map(s => s.alias ?? s.name)
+    const suggestionTarget = path.relative(path.dirname(ctx.filePath), resolvedPath)
+
+    ctx.errors.push(createError(ErrorCodes.CLIENT_IMPORTING_SERVER, imp.loc, {
+      severity: 'error',
+      message: `Client component cannot import '${usedNames.join("', '")}' from '${imp.source}' — the target file lacks the "use client" directive.`,
+      suggestion: {
+        message: `Add "use client" at the top of ${suggestionTarget}, or move the component into the importing file.`,
+      },
+    }))
+  }
+}
+
+function isResolvableComponentSource(source: string): boolean {
+  // Relative imports — the only specifier shape we can resolve without
+  // a program / tsconfig paths context. Aliased imports (`@/...`,
+  // workspace packages) are intentionally skipped: those resolve via
+  // bundler / shared-program configuration that this layer doesn't
+  // currently consume. Worst case here is a false negative; BF003 is
+  // additive on top of the existing same-file destructure path.
+  return source.startsWith('./') || source.startsWith('../')
+}
+
+function collectJsxComponentTags(sourceFile: ts.SourceFile): Set<string> {
+  const tags = new Set<string>()
+  function visit(node: ts.Node): void {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tagName = node.tagName
+      if (ts.isIdentifier(tagName)) {
+        const first = tagName.text.charAt(0)
+        // PascalCase tags reference component bindings; intrinsic
+        // elements (lowercase) are not import targets.
+        if (first >= 'A' && first <= 'Z') {
+          tags.add(tagName.text)
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return tags
+}
+
+function resolveRelativeImportToFile(source: string, fromFile: string): string | null {
+  const baseDir = path.dirname(fromFile)
+  const candidate = path.resolve(baseDir, source)
+  const candidates = [
+    candidate + '.tsx',
+    candidate + '.ts',
+    path.join(candidate, 'index.tsx'),
+    path.join(candidate, 'index.ts'),
+  ]
+  for (const c of candidates) {
+    try {
+      const stat = fs.statSync(c)
+      if (stat.isFile()) return c
+    } catch {
+      // not found — try next
+    }
+  }
+  return null
+}
+
+function fileHasUseClientDirective(filePath: string): boolean {
+  let content: string
+  try {
+    content = fs.readFileSync(filePath, 'utf8')
+  } catch {
+    // Unreadable — silent skip rather than false-firing BF003.
+    return true
+  }
+  // The directive must precede any non-comment statement. Scan past
+  // leading whitespace, line comments, and block comments.
+  let i = 0
+  while (i < content.length) {
+    const ch = content[i]
+    if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') { i++; continue }
+    if (content.startsWith('//', i)) {
+      const nl = content.indexOf('\n', i)
+      if (nl < 0) return false
+      i = nl + 1
+      continue
+    }
+    if (content.startsWith('/*', i)) {
+      const end = content.indexOf('*/', i + 2)
+      if (end < 0) return false
+      i = end + 2
+      continue
+    }
+    return /^(["'])use client\1\s*;?/.test(content.slice(i))
+  }
+  return false
 }
 
 function validateInitStatementReferences(ctx: AnalyzerContext): void {
