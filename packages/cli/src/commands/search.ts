@@ -84,16 +84,16 @@ export function printSearchResults(results: SearchResult[], jsonFlag: boolean) {
   }
 
   const nameWidth = Math.max(25, ...results.map(r => r.name.length + 2))
-  const sourceWidth = 12
   const typeWidth = 12
   const catWidth = 16
-  const header = `${'NAME'.padEnd(nameWidth)}${'SOURCE'.padEnd(sourceWidth)}${'TYPE'.padEnd(typeWidth)}${'CATEGORY'.padEnd(catWidth)}DESCRIPTION`
+  const sourceWidth = 12
+  const header = `${'NAME'.padEnd(nameWidth)}${'TYPE'.padEnd(typeWidth)}${'CATEGORY'.padEnd(catWidth)}${'SOURCE'.padEnd(sourceWidth)}DESCRIPTION`
   console.log(header)
   console.log('-'.repeat(header.length))
   for (const r of results) {
     const statefulMark = r.stateful ? ' *' : ''
     console.log(
-      `${(r.name + statefulMark).padEnd(nameWidth)}${r.source.padEnd(sourceWidth)}${r.type.padEnd(typeWidth)}${r.category.padEnd(catWidth)}${r.description.slice(0, 40)}`
+      `${(r.name + statefulMark).padEnd(nameWidth)}${r.type.padEnd(typeWidth)}${r.category.padEnd(catWidth)}${r.source.padEnd(sourceWidth)}${r.description.slice(0, 40)}`
     )
   }
 

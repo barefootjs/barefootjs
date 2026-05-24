@@ -280,10 +280,15 @@ describe('printSearchResults', () => {
     { name: 'button', type: 'component', source: 'local', category: 'input', description: 'A button' },
   ]
 
-  test('prints SOURCE column in table header', () => {
+  test('prints SOURCE column after CATEGORY in table header', () => {
     printSearchResults(oneResult, false)
-    expect(logs[0]).toContain('SOURCE')
-    expect(logs[0]).toContain('NAME')
+    const header = logs[0]
+    expect(header).toContain('SOURCE')
+    const catIdx = header.indexOf('CATEGORY')
+    const srcIdx = header.indexOf('SOURCE')
+    const descIdx = header.indexOf('DESCRIPTION')
+    expect(catIdx).toBeLessThan(srcIdx)
+    expect(srcIdx).toBeLessThan(descIdx)
   })
 
   test('prints source value in each row', () => {
