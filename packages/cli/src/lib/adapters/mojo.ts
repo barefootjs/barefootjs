@@ -126,6 +126,7 @@ const MOJO_TSCONFIG = `{
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "jsxImportSource": "@barefootjs/jsx",
+    "types": ["node"{{__PM_TYPES_ENTRY__}}],
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -210,6 +211,7 @@ export const MOJO_ADAPTER: AdapterTemplate = {
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
     '@barefootjs/test': 'latest',
+    '@types/node': '^22.0.0',
     concurrently: '^9.0.0',
     typescript: '^5.6.0',
   },
