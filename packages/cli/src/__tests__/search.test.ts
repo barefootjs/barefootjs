@@ -1,5 +1,5 @@
 import { describe, test, expect, spyOn, beforeEach, afterEach } from 'bun:test'
-import { search, resolvePrintOptions, printSearchResults, type SearchResult } from '../commands/search'
+import { search, printSearchResults, mergeResults, type SearchResult } from '../commands/search'
 import { loadIndex, fetchIndex, tryFetchIndex } from '../lib/meta-loader'
 import { scanCoreDocs } from '../lib/docs-loader'
 import type { MetaIndex } from '../lib/types'
@@ -12,12 +12,20 @@ describe('search', () => {
   const index = loadIndex(metaDir)
 
   test('finds component by name', () => {
-    const results = search('button', index)
+    const results = search('button', index, 'local')
     expect(results.some(r => r.name === 'button')).toBe(true)
   })
 
+  test('tags results with the given source', () => {
+    const local = search('button', index, 'local')
+    expect(local.filter(r => r.type === 'component').every(r => r.source === 'local')).toBe(true)
+
+    const reg = search('button', index, 'registry')
+    expect(reg.filter(r => r.type === 'component').every(r => r.source === 'registry')).toBe(true)
+  })
+
   test('finds component by category', () => {
-    const results = search('input', index)
+    const results = search('input', index, 'local')
     expect(results.length).toBeGreaterThan(0)
     expect(results.every(r =>
       r.name.includes('input') ||
@@ -27,8 +35,7 @@ describe('search', () => {
   })
 
   test('finds component by tag', () => {
-    const results = search('button', index)
-    // All results should match "button" in name, category, or description
+    const results = search('button', index, 'local')
     expect(results.every(r =>
       r.name.includes('button') ||
       r.category.includes('button') ||
@@ -37,19 +44,18 @@ describe('search', () => {
   })
 
   test('expands category aliases (form → input)', () => {
-    const results = search('form', index)
+    const results = search('form', index, 'local')
     const hasInputCategory = results.some(r => r.category === 'input')
     expect(hasInputCategory).toBe(true)
   })
 
   test('returns empty array for no match', () => {
-    const results = search('zzz_nonexistent_zzz', index)
+    const results = search('zzz_nonexistent_zzz', index, 'local')
     expect(results).toEqual([])
   })
 
   test('--dir override: searches in arbitrary directory', () => {
-    // search() accepts any MetaIndex, verifying --dir plumbing works
-    const results = search('button', index)
+    const results = search('button', index, 'local')
     expect(results.some(r => r.name === 'button')).toBe(true)
   })
 
@@ -177,116 +183,85 @@ describe('search - core docs', () => {
   const coreDocs = scanCoreDocs(docsDir)
 
   test('finds core doc by slug', () => {
-    const results = search('create-signal', index, coreDocs)
+    const results = search('create-signal', index, 'local', coreDocs)
     expect(results.some(r => r.type === 'doc' && r.name.includes('create-signal'))).toBe(true)
   })
 
+  test('doc results have source "doc"', () => {
+    const results = search('create-signal', index, 'local', coreDocs)
+    const docs = results.filter(r => r.type === 'doc')
+    expect(docs.length).toBeGreaterThan(0)
+    expect(docs.every(r => r.source === 'doc')).toBe(true)
+  })
+
   test('finds core doc by description keyword', () => {
-    const results = search('hydration', index, coreDocs)
+    const results = search('hydration', index, 'local', coreDocs)
     expect(results.some(r => r.type === 'doc')).toBe(true)
   })
 
   test('mixed results: components + docs', () => {
-    // "input" matches both input components and possibly some docs
-    const results = search('input', index, coreDocs)
+    const results = search('input', index, 'local', coreDocs)
     expect(results.some(r => r.type === 'component')).toBe(true)
   })
 
   test('category alias: "signal" matches "reactivity" docs', () => {
-    const results = search('signal', index, coreDocs)
+    const results = search('signal', index, 'local', coreDocs)
     const reactivityDocs = results.filter(r => r.type === 'doc' && r.category === 'reactivity')
     expect(reactivityDocs.length).toBeGreaterThan(0)
   })
 
   test('returns empty when no match in either source', () => {
-    const results = search('zzz_nonexistent_zzz', index, coreDocs)
+    const results = search('zzz_nonexistent_zzz', index, 'local', coreDocs)
     expect(results).toEqual([])
   })
 })
 
-describe('resolvePrintOptions — source label + hint trigger', () => {
-  // The hint exists so `bf search` from a fresh scaffold doesn't read
-  // as "this component doesn't exist" when in fact it lives in the
-  // upstream registry the caller hasn't `--registry`'d yet. The hint
-  // SHOULD fire on the default path and SHOULD NOT fire when the
-  // caller already made an explicit scope choice (`--registry` /
-  // `--dir`) or when the metaDir already IS the monorepo registry.
-
-  test('scaffold default: relative path label + registry hint', () => {
-    const opts = resolvePrintOptions({
-      dirFlagUsed: false,
-      metaDir: '/proj/meta',
-      cwd: '/proj',
-      isMonorepoRegistry: false,
-    })
-    expect(opts.sourceLabel).toBe('meta')
-    expect(opts.hintRegistry).toBe(true)
+describe('mergeResults', () => {
+  test('deduplicates by name, local wins', () => {
+    const local: SearchResult[] = [
+      { name: 'button', type: 'component', source: 'local', category: 'input', description: 'local button' },
+    ]
+    const registry: SearchResult[] = [
+      { name: 'button', type: 'component', source: 'registry', category: 'input', description: 'registry button' },
+      { name: 'dialog', type: 'component', source: 'registry', category: 'overlay', description: 'a dialog' },
+    ]
+    const merged = mergeResults(local, registry)
+    expect(merged).toHaveLength(2)
+    expect(merged.find(r => r.name === 'button')!.source).toBe('local')
+    expect(merged.find(r => r.name === 'dialog')!.source).toBe('registry')
   })
 
-  test('cwd === metaDir: label collapses to "."', () => {
-    const opts = resolvePrintOptions({
-      dirFlagUsed: false,
-      metaDir: '/proj/meta',
-      cwd: '/proj/meta',
-      isMonorepoRegistry: false,
-    })
-    expect(opts.sourceLabel).toBe('.')
+  test('preserves doc results from local', () => {
+    const local: SearchResult[] = [
+      { name: 'reactivity/create-signal', type: 'doc', source: 'doc', category: 'reactivity', description: 'signal doc' },
+    ]
+    const registry: SearchResult[] = [
+      { name: 'slider', type: 'component', source: 'registry', category: 'input', description: 'a slider' },
+    ]
+    const merged = mergeResults(local, registry)
+    expect(merged).toHaveLength(2)
+    expect(merged.some(r => r.type === 'doc')).toBe(true)
   })
 
-  test('monorepo registry fallback: shows the real path + suppresses the hint', () => {
-    // `createContext` falls back to `<repo>/ui/meta` when no
-    // barefoot.config.ts is found. The hint pointing at the upstream
-    // registry would be redundant there (that's exactly the data the
-    // upstream is built from), so it's suppressed.
-    const opts = resolvePrintOptions({
-      dirFlagUsed: false,
-      metaDir: '/repo/ui/meta',
-      cwd: '/repo',
-      isMonorepoRegistry: true,
-    })
-    expect(opts.sourceLabel).toBe('ui/meta')
-    expect(opts.hintRegistry).toBe(false)
+  test('empty local returns all registry', () => {
+    const merged = mergeResults([], [
+      { name: 'tooltip', type: 'component', source: 'registry', category: 'overlay', description: 'tooltip' },
+    ])
+    expect(merged).toHaveLength(1)
+    expect(merged[0].source).toBe('registry')
   })
 
-  test('--registry <url>: hostname label, no hint', () => {
-    const opts = resolvePrintOptions({
-      registryUrl: 'https://ui.barefootjs.dev/r/',
-      dirFlagUsed: false,
-      metaDir: '/proj/meta',
-      cwd: '/proj',
-      isMonorepoRegistry: false,
-    })
-    expect(opts.sourceLabel).toBe('ui.barefootjs.dev')
-    expect(opts.hintRegistry).toBe(false)
-  })
-
-  test('--dir <path>: relative path label, no hint', () => {
-    const opts = resolvePrintOptions({
-      dirFlagUsed: true,
-      metaDir: '/proj/custom/meta',
-      cwd: '/proj',
-      isMonorepoRegistry: false,
-    })
-    expect(opts.sourceLabel).toBe('custom/meta')
-    expect(opts.hintRegistry).toBe(false)
-  })
-
-  test('metaDir outside cwd: falls back to absolute path', () => {
-    const opts = resolvePrintOptions({
-      dirFlagUsed: true,
-      metaDir: '/elsewhere/meta',
-      cwd: '/proj',
-      isMonorepoRegistry: false,
-    })
-    // path.relative returns "../elsewhere/meta"; the leading "..\"
-    // triggers the absolute-path fallback so the label can't be
-    // mistaken for a sibling of the project.
-    expect(opts.sourceLabel).toBe('/elsewhere/meta')
-    expect(opts.hintRegistry).toBe(false)
+  test('empty registry returns all local', () => {
+    const local: SearchResult[] = [
+      { name: 'button', type: 'component', source: 'local', category: 'input', description: 'btn' },
+    ]
+    const merged = mergeResults(local, [])
+    expect(merged).toHaveLength(1)
+    expect(merged[0].source).toBe('local')
   })
 })
 
-describe('printSearchResults — registry hint surface', () => {
+describe('printSearchResults', () => {
   let logSpy: ReturnType<typeof spyOn>
   let logs: string[]
 
@@ -302,30 +277,40 @@ describe('printSearchResults — registry hint surface', () => {
   })
 
   const oneResult: SearchResult[] = [
-    { name: 'button', type: 'component', category: 'input', description: 'A button' },
+    { name: 'button', type: 'component', source: 'local', category: 'input', description: 'A button' },
   ]
 
-  test('prints the source label + registry hint on default path', () => {
-    printSearchResults(oneResult, false, { sourceLabel: 'meta', hintRegistry: true })
-    expect(logs[0]).toBe('Searching: meta')
-    expect(logs[1]).toContain('--registry https://ui.barefootjs.dev/r/')
+  test('prints SOURCE column after CATEGORY in table header', () => {
+    printSearchResults(oneResult, false)
+    const header = logs[0]
+    expect(header).toContain('SOURCE')
+    const catIdx = header.indexOf('CATEGORY')
+    const srcIdx = header.indexOf('SOURCE')
+    const descIdx = header.indexOf('DESCRIPTION')
+    expect(catIdx).toBeLessThan(srcIdx)
+    expect(srcIdx).toBeLessThan(descIdx)
   })
 
-  test('omits the hint when caller passed --registry', () => {
-    printSearchResults(oneResult, false, { sourceLabel: 'ui.barefootjs.dev', hintRegistry: false })
-    expect(logs[0]).toBe('Searching: ui.barefootjs.dev')
-    expect(logs.some((l) => l.includes('--registry'))).toBe(false)
+  test('prints source value in each row', () => {
+    const mixed: SearchResult[] = [
+      { name: 'button', type: 'component', source: 'local', category: 'input', description: 'local btn' },
+      { name: 'dialog', type: 'component', source: 'registry', category: 'overlay', description: 'reg dialog' },
+    ]
+    printSearchResults(mixed, false)
+    const rows = logs.filter(l => !l.startsWith('NAME') && !l.startsWith('-') && !l.includes('found') && !l.includes('bf'))
+    expect(rows.some(r => r.includes('local'))).toBe(true)
+    expect(rows.some(r => r.includes('registry'))).toBe(true)
   })
 
-  test('hint fires even when the result set is empty (the case the hint exists for)', () => {
-    printSearchResults([], false, { sourceLabel: 'meta', hintRegistry: true })
-    expect(logs.some((l) => l.includes('--registry https://ui.barefootjs.dev/r/'))).toBe(true)
-    expect(logs.some((l) => l === 'No results found.')).toBe(true)
+  test('shows "No results found." for empty results', () => {
+    printSearchResults([], false)
+    expect(logs.some(l => l === 'No results found.')).toBe(true)
   })
 
-  test('--json: header is suppressed (machine output stays just the JSON)', () => {
-    printSearchResults(oneResult, true, { sourceLabel: 'meta', hintRegistry: true })
+  test('--json includes source field', () => {
+    printSearchResults(oneResult, true)
     expect(logs).toHaveLength(1)
-    expect(JSON.parse(logs[0])).toEqual(oneResult)
+    const parsed = JSON.parse(logs[0])
+    expect(parsed[0].source).toBe('local')
   })
 })
