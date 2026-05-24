@@ -1403,7 +1403,8 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
       const safeArrayExpr = arrayExpr === UNSAFE_TEMPLATE_EXPR ? '[]' : arrayExpr
       let mapExpr: string
       if (node.mapPreamble) {
-        const preamble = node.templateMapPreamble ?? node.mapPreamble
+        const rawPreamble = node.templateMapPreamble ?? node.mapPreamble
+        const preamble = applyPropsRewrite(rawPreamble, propsObjectName ?? null)
         mapExpr = `\${${safeArrayExpr}.map((${node.param}${indexParam}) => { ${preamble} return \`${childTemplate}\` }).join('')}`
       } else {
         mapExpr = `\${${safeArrayExpr}.map((${node.param}${indexParam}) => \`${childTemplate}\`).join('')}`
