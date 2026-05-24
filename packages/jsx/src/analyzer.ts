@@ -2359,7 +2359,15 @@ function collectConstant(
       // design — arbitrary nested arrows shouldn't be inlined), but
       // map/flatMap callbacks ARE the JSX-bearing content. Inline at
       // the use site so `transformMapCall` compiles the JSX.
-      isJsx = true
+      //
+      // NOT marked `isJsx = true`: that would unconditionally suppress
+      // the const from init emission, breaking cases where the variable
+      // is also referenced outside JSX-child position (e.g.
+      // `children.length`). Instead, rely on the natural
+      // `usedIdentifiers` gate in `classifyConstant` — when the
+      // variable is only used as a JSX child, the inlining removes it
+      // from the reference graph, so the classifier skips it without
+      // `isJsx`.
       ctx.inlineableJsxConsts.set(name, init)
     }
 
