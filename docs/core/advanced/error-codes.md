@@ -1,6 +1,6 @@
 ---
 title: Error Codes Reference
-description: Complete list of BF-prefixed compiler error codes with explanations and fixes.
+description: BF-prefixed compiler error codes with explanations and fixes.
 ---
 
 # Error Codes Reference
@@ -54,24 +54,7 @@ export function Counter() { ... }
 
 ---
 
-## Signal Errors (BF010–BF012)
-
-### BF010 — Unknown Signal Reference
-
-**Trigger:** Undeclared signal getter referenced.
-
-```tsx
-"use client"
-export function Counter() {
-  return <span>{count()}</span>  // ❌ count not declared
-}
-```
-
-**Fix:**
-
-```tsx
-const [count, setCount] = createSignal(0)
-```
+## Signal Errors (BF011)
 
 ### BF011 — Module-Level Reactive Declaration
 
@@ -113,17 +96,9 @@ export function Counter() {
 }
 ```
 
-### BF012 — Invalid Signal Usage
-
-**Trigger:** Unsupported signal API pattern.
-
 ---
 
-## JSX Errors (BF020–BF023)
-
-### BF020 — Invalid JSX Expression
-
-**Trigger:** Uncompilable JSX expression.
+## JSX Errors (BF021–BF023)
 
 ### BF021 — Unsupported JSX Pattern
 
@@ -180,10 +155,6 @@ Simple subtraction: `(a, b) => a.field - b.field`:
 ))}
 ```
 
-### BF022 — Invalid JSX Attribute
-
-**Trigger:** Uncompilable attribute value.
-
 ### BF023 — Missing Key in List
 
 **Trigger:** `.map()` loop without `key` prop.
@@ -202,31 +173,7 @@ Simple subtraction: `(a, b) => a.field - b.field`:
 
 ---
 
-## Type Errors (BF030–BF031)
-
-### BF030 — Type Inference Failed
-
-**Trigger:** Type inference failed for signal or expression.
-
-### BF031 — Props Type Mismatch
-
-**Trigger:** Prop value doesn't match declared type.
-
----
-
-## Component Errors (BF040–BF044)
-
-### BF040 — Component Not Found
-
-**Trigger:** Unresolvable child component reference.
-
-### BF041 — Circular Dependency
-
-**Trigger:** Mutual component imports.
-
-### BF042 — Invalid Component Name
-
-**Trigger:** Non-PascalCase component name.
+## Component Errors (BF043–BF044)
 
 ### BF043 — Props Destructuring (Warning)
 
@@ -269,7 +216,7 @@ function Child({ initialCount }: Props) {
 **Trigger:** Signal/memo getter passed without calling it.
 
 ```tsx
-// ⚠️ BF044
+// ❌ BF044
 <Child count={count} />  // Passing getter function, not the value
 ```
 
@@ -307,17 +254,8 @@ function Component({ checked }: Props) {
 |------|----------|-------------|
 | BF001 | Error | Missing `"use client"` directive |
 | BF003 | Error | Client component importing server component |
-| BF010 | Error | Unknown signal reference |
 | BF011 | Error | Module-level reactive declaration without `/* @client */` |
-| BF012 | Error | Invalid signal usage |
-| BF020 | Error | Invalid JSX expression |
 | BF021 | Error | Unsupported JSX pattern for SSR |
-| BF022 | Error | Invalid JSX attribute |
 | BF023 | Error | Missing key in list |
-| BF030 | Error | Type inference failed |
-| BF031 | Error | Props type mismatch |
-| BF040 | Error | Component not found |
-| BF041 | Error | Circular dependency |
-| BF042 | Error | Invalid component name |
 | BF043 | Warning | Props destructuring breaks reactivity |
 | BF044 | Error | Signal/memo getter passed without calling it |
