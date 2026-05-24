@@ -417,24 +417,21 @@ for (const page of PAGES) {
 // BFxxx code MUST appear among the diagnostics, but other diagnostics
 // are allowed.
 //
-// Two gap categories surfaced by this matcher are catalogued via
-// `test.skip` rather than removed, so the test corpus stays loud
-// about the doc/compiler drift:
+// One gap category is catalogued via `test.skip` so the test corpus
+// stays loud about the doc/compiler drift:
 //
-//   - "Documented but unimplemented" (BF010, BF012,
-//     BF020, BF022, BF025, BF030, BF031, BF040, BF041, BF042, BF045):
-//     `errors.ts` defines the constant + message but `grep ErrorCodes.X`
-//     across `packages/jsx/src/**` finds zero production emission
-//     sites, so no snippet shape will ever trip it.
 //   - "Implemented but doc snippet too minimal": the code IS emitted
 //     by the compiler in real programs, but the literal snippet in
 //     `error-codes.md` doesn't carry enough context (e.g. BF043 needs
 //     a stateful component; BF044 needs a declared signal getter).
 //     These are doc-edit follow-ups.
 //
-// Both lists live in code so a future PR that wires up the missing
-// emission site / enriches the doc snippet simply removes the entry
-// and the corresponding `test()` starts asserting for real.
+// Previously-documented-but-unimplemented codes (BF010, BF012, BF020,
+// BF022, BF030, BF031, BF040, BF041, BF042) were removed from the
+// doc to keep it honest. The constants remain reserved in `errors.ts`.
+//
+// The skip list lives in code so a future PR that enriches the doc
+// snippet simply removes the entry and the test starts asserting.
 
 interface ErrorCodeContract {
   code: string
@@ -456,21 +453,12 @@ const ERROR_CODES_DOC_TOO_MINIMAL: Record<string, string> = {
 }
 
 // BFxxx codes that `errors.ts` defines but no production code in
-// `packages/jsx/src/**` actually emits. Verified via
-// `grep ErrorCodes.<NAME>` returning zero sites outside `errors.ts`
-// and `__tests__/`. Documented for visibility; un-skipping requires
-// implementing the missing emission site.
-const ERROR_CODES_UNIMPLEMENTED: Record<string, string> = {
-  BF010: 'documented but no emission site (see ErrorCodes.UNKNOWN_SIGNAL)',
-  BF012: 'documented but no emission site (see ErrorCodes.INVALID_SIGNAL_USAGE)',
-  BF020: 'documented but no emission site (see ErrorCodes.INVALID_JSX_EXPRESSION)',
-  BF022: 'documented but no emission site (see ErrorCodes.INVALID_JSX_ATTRIBUTE)',
-  BF030: 'documented but no emission site (see ErrorCodes.TYPE_INFERENCE_FAILED)',
-  BF031: 'documented but no emission site (see ErrorCodes.PROPS_TYPE_MISMATCH)',
-  BF040: 'documented but no emission site (see ErrorCodes.COMPONENT_NOT_FOUND)',
-  BF041: 'documented but no emission site (see ErrorCodes.CIRCULAR_DEPENDENCY)',
-  BF042: 'documented but no emission site (see ErrorCodes.INVALID_COMPONENT_NAME)',
-}
+// `packages/jsx/src/**` actually emits. These were removed from
+// `error-codes.md` to keep the docs honest — the constants remain
+// in `errors.ts` as reserved slots for future implementation.
+// If a code is re-added to the doc, add it here so the test stays
+// loud about the gap until the emission site lands.
+const ERROR_CODES_UNIMPLEMENTED: Record<string, string> = {}
 
 function extractErrorCodeContracts(md: string): ErrorCodeContract[] {
   const lines = md.split('\n')
