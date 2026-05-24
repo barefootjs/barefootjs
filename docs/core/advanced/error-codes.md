@@ -1,6 +1,6 @@
 ---
 title: Error Codes Reference
-description: Complete list of BF-prefixed compiler error codes with explanations and fixes.
+description: BF-prefixed compiler error codes with explanations and fixes.
 ---
 
 # Error Codes Reference
@@ -216,7 +216,7 @@ function Child({ initialCount }: Props) {
 **Trigger:** Signal/memo getter passed without calling it.
 
 ```tsx
-// ⚠️ BF044
+// ❌ BF044
 <Child count={count} />  // Passing getter function, not the value
 ```
 
