@@ -465,6 +465,99 @@ describe('TS ambient declarations are in scope for BF052', () => {
   })
 })
 
+describe('For-loop variable declarations do not trigger BF052 (#1554)', () => {
+  test('for (let i = 0; ...; i++) does not emit BF052', () => {
+    const source = `
+      'use client'
+
+      export function ListBuilder(props: { items: string[] }) {
+        const result: string[] = []
+        for (let i = 0; i < props.items.length; i++) {
+          result.push(props.items[i])
+        }
+        return <div>{result.join(',')}</div>
+      }
+    `
+
+    const result = compileJSX(source, 'ListBuilder.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('for...of with const does not emit BF052', () => {
+    const source = `
+      'use client'
+
+      export function ListBuilder(props: { items: string[] }) {
+        const result: string[] = []
+        for (const item of props.items) {
+          result.push(item)
+        }
+        return <div>{result.join(',')}</div>
+      }
+    `
+
+    const result = compileJSX(source, 'ListBuilder.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('for...in with const does not emit BF052', () => {
+    const source = `
+      'use client'
+
+      export function ObjKeys(props: { data: Record<string, number> }) {
+        const keys: string[] = []
+        for (const k in props.data) {
+          keys.push(k)
+        }
+        return <div>{keys.join(',')}</div>
+      }
+    `
+
+    const result = compileJSX(source, 'ObjKeys.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('for loop with destructured let does not emit BF052', () => {
+    const source = `
+      'use client'
+
+      export function Comp(props: { pairs: [string, number][] }) {
+        const labels: string[] = []
+        for (let [name, value] of props.pairs) {
+          name = name.toUpperCase()
+          labels.push(name + ':' + value)
+        }
+        return <div>{labels.join(',')}</div>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.find(e => e.code === 'BF052')
+    expect(bf052).toBeUndefined()
+  })
+
+  test('undeclared assignment inside for body still emits BF052', () => {
+    const source = `
+      'use client'
+
+      export function Comp(props: { n: number }) {
+        for (let i = 0; i < props.n; i++) {
+          leakedGlobal = i
+        }
+        return <div/>
+      }
+    `
+
+    const result = compileJSX(source, 'Comp.tsx', { adapter })
+    const bf052 = result.errors.filter(e => e.code === 'BF052')
+    expect(bf052).toHaveLength(1)
+    expect(bf052[0].message.toLowerCase()).toContain('leakedglobal')
+  })
+})
+
 describe('Bodyless FunctionDeclarations are not emitted as helpers', () => {
   // Regression: `collectFunction` previously pushed every FunctionDeclaration
   // (including ambient signatures and TS overload signatures, which have

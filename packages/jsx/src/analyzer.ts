@@ -1581,7 +1581,56 @@ function extractAssignedIdentifiersFromNode(node: ts.Node): Set<string> {
   }
 
   visit(node)
+
+  // Subtract locally declared variables (e.g. `let i` in `for (let i = 0; …; i++)`)
+  // so assignments to loop-local names don't trigger BF052.
+  const localDecls = collectLocalDeclarations(node)
+  for (const name of localDecls) ids.delete(name)
+
   return ids
+}
+
+/**
+ * Collect all variable names declared within a statement tree (for-loop
+ * initializers, for-in/of bindings, nested `let`/`const`/`var` blocks).
+ * These names are local to the statement and must not be flagged by BF052.
+ */
+function collectLocalDeclarations(root: ts.Node): Set<string> {
+  const names = new Set<string>()
+
+  function addBindingName(name: ts.BindingName): void {
+    if (ts.isIdentifier(name)) {
+      names.add(name.text)
+      return
+    }
+    if (ts.isArrayBindingPattern(name)) {
+      for (const el of name.elements) {
+        if (ts.isBindingElement(el)) addBindingName(el.name)
+      }
+      return
+    }
+    if (ts.isObjectBindingPattern(name)) {
+      for (const el of name.elements) {
+        addBindingName(el.name)
+      }
+    }
+  }
+
+  function visit(n: ts.Node): void {
+    if (
+      ts.isArrowFunction(n) ||
+      ts.isFunctionExpression(n) ||
+      ts.isFunctionDeclaration(n)
+    ) return
+
+    if (ts.isVariableDeclaration(n)) {
+      addBindingName(n.name)
+    }
+
+    ts.forEachChild(n, visit)
+  }
+  visit(root)
+  return names
 }
 
 // =============================================================================

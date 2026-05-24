@@ -823,10 +823,16 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     // `.toSorted` (non-mutating) preserves shared prop arrays across
     // renders — `.sort()` here would reorder `_p.items` in place.
     const chainedArray = applyHonoLoopChain(loop)
-    if (preamble) {
-      mapExpr = `{${chainedArray}.map((${loop.param}${paramAnnotation}${indexParam}) => { ${preamble} return ${safeChildren} })}`
+    const iterMethod = loop.method ?? 'map'
+
+    if (loop.flatMapCallback) {
+      // Complex flatMap: use the original raw callback body (preserves JSX
+      // for Hono's runtime JSX evaluation).
+      mapExpr = `{${chainedArray}.flatMap(${loop.flatMapCallback.params} => ${loop.flatMapCallback.rawBody})}`
+    } else if (preamble) {
+      mapExpr = `{${chainedArray}.${iterMethod}((${loop.param}${paramAnnotation}${indexParam}) => { ${preamble} return ${safeChildren} })}`
     } else {
-      mapExpr = `{${chainedArray}.map((${loop.param}${paramAnnotation}${indexParam}) => ${safeChildren})}`
+      mapExpr = `{${chainedArray}.${iterMethod}((${loop.param}${paramAnnotation}${indexParam}) => ${safeChildren})}`
     }
     // Wrap with loop boundary markers so reconciliation doesn't affect siblings.
     // bfComment('loop:<id>') → <!--bf-loop:<id>-->. The marker id is unique

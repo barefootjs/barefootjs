@@ -24,6 +24,8 @@ import {
   type IRTemplatePart,
   type LoopParamBinding,
   type RestExcludeKey,
+  type FlatMapCallback,
+  type FlatMapJsxFragment,
   type SourceLocation,
   type TypeInfo,
   type OriginInfo,
@@ -1745,11 +1747,12 @@ function transformJsxExpression(
       return null
     }
     case ts.SyntaxKind.CallExpression: {
-      if (isMapCall(node)) {
+      const mapMethod = getMapLikeMethod(node)
+      if (mapMethod) {
         // `isClientOnly` gates sort/filter extraction inside transformMapCall
         // (client-only loops keep the map callback verbatim). Thread through
         // so JSX-child position preserves pre-refactor behaviour.
-        const mapResult = transformMapCall(node, ctx, isClientOnly)
+        const mapResult = transformMapCall(node, ctx, isClientOnly, mapMethod)
         if (mapResult) return mapResult
       }
       const callee = node.expression
@@ -1861,8 +1864,15 @@ function transformConditionalBranch(
 // =============================================================================
 
 function isMapCall(node: ts.CallExpression): boolean {
-  if (!ts.isPropertyAccessExpression(node.expression)) return false
-  return node.expression.name.text === 'map'
+  return getMapLikeMethod(node) === 'map'
+}
+
+function getMapLikeMethod(node: ts.CallExpression): 'map' | 'flatMap' | null {
+  if (!ts.isPropertyAccessExpression(node.expression)) return null
+  const name = node.expression.name.text
+  if (name === 'map') return 'map'
+  if (name === 'flatMap') return 'flatMap'
+  return null
 }
 
 /**
@@ -2479,7 +2489,8 @@ function loopBodyIsMultiRoot(children: IRNode[]): boolean {
 function transformMapCall(
   node: ts.CallExpression,
   ctx: TransformContext,
-  isClientOnly = false
+  isClientOnly = false,
+  method: 'map' | 'flatMap' = 'map'
 ): IRLoop | null {
   // Capture nesting depth before we register this map's own params.
   // ctx.loopParams is populated by the *outer* map; if non-empty we are inside one.
@@ -2643,6 +2654,7 @@ function transformMapCall(
   let indexType: string | undefined
   let children: IRNode[] = []
   let paramBindings: LoopParamBinding[] | undefined
+  let flatMapCallback: FlatMapCallback | undefined
 
   if (ts.isArrowFunction(callback)) {
     // Extract parameter names and type annotations
@@ -2713,7 +2725,13 @@ function transformMapCall(
       } else if (ts.isConditionalExpression(inner)) {
         // Parenthesized ternary: items.map(item => (cond ? <A/> : <B/>))
         children = [transformConditional(inner, ctx)]
+      } else if (method === 'flatMap' && ts.isArrayLiteralExpression(inner)) {
+        // flatMap arrow with array literal: items.flatMap(item => ([<A/>, <B/>]))
+        children = transformArrayLiteralChildren(inner, ctx)
       }
+    } else if (method === 'flatMap' && ts.isArrayLiteralExpression(body)) {
+      // flatMap arrow with array literal: items.flatMap(item => [<A/>, <B/>])
+      children = transformArrayLiteralChildren(body, ctx)
     } else if (ts.isBlock(body)) {
       // Block body: (item) => { const label = ...; return <div>{label}</div> }
       const returnStmt = body.statements.find(
@@ -2756,6 +2774,12 @@ function transformMapCall(
           }
         }
       }
+
+      // flatMap block body fallback: compile JSX inline when children
+      // couldn't be extracted via the standard single-return path.
+      if (method === 'flatMap' && children.length === 0) {
+        flatMapCallback = buildFlatMapCallback(callback, body, ctx)
+      }
     }
 
     // Unregister loop params
@@ -2768,8 +2792,9 @@ function transformMapCall(
   }
 
   // If no JSX children were found (e.g., callback returns a function call),
-  // fall back to treating the entire .map() expression as an IRExpression.
-  if (children.length === 0) {
+  // fall back to treating the entire expression as an IRExpression — unless
+  // flatMap already built a compiled callback (flatMapCallback).
+  if (children.length === 0 && !flatMapCallback) {
     return null
   }
 
@@ -2842,6 +2867,7 @@ function transformMapCall(
 
   return {
     type: 'loop',
+    method: method === 'flatMap' ? 'flatMap' : undefined,
     array,
     templateArray,
     arrayType: null,
@@ -2876,7 +2902,107 @@ function transformMapCall(
     typedMapPreamble,
     paramBindings,
     arrayFreeIdentifiers: extractFreeIdentifiersFromNode(arrayExpr),
+    flatMapCallback,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+  }
+}
+
+/**
+ * Transform elements of an ArrayLiteralExpression into IR children.
+ * Used for flatMap arrow bodies like: `items.flatMap(item => [<A/>, <B/>])`
+ */
+function transformArrayLiteralChildren(
+  arrayLiteral: ts.ArrayLiteralExpression,
+  ctx: TransformContext
+): IRNode[] {
+  const children: IRNode[] = []
+  for (const element of arrayLiteral.elements) {
+    if (ts.isSpreadElement(element)) continue
+    let inner: ts.Expression = element
+    while (ts.isParenthesizedExpression(inner)) inner = inner.expression
+    if (ts.isJsxElement(inner) || ts.isJsxSelfClosingElement(inner) || ts.isJsxFragment(inner)) {
+      const transformed = transformNode(inner, ctx)
+      if (transformed) children.push(transformed)
+    }
+  }
+  return children
+}
+
+function containsJsx(node: ts.Node): boolean {
+  if (
+    ts.isJsxElement(node) ||
+    ts.isJsxSelfClosingElement(node) ||
+    ts.isJsxFragment(node)
+  ) return true
+  let found = false
+  node.forEachChild(child => {
+    if (!found) found = containsJsx(child)
+  })
+  return found
+}
+
+/**
+ * Build a FlatMapCallback for complex flatMap block bodies (conditional
+ * returns, variable-assigned JSX, etc.). Walks the callback body AST,
+ * transforms each JSX node to IR, replaces it with a `__BF_JSX_N__`
+ * placeholder, and returns the compiled callback descriptor.
+ */
+function buildFlatMapCallback(
+  callback: ts.ArrowFunction | ts.FunctionExpression,
+  body: ts.Block,
+  ctx: TransformContext,
+): FlatMapCallback | undefined {
+  if (!containsJsx(body)) return undefined
+
+  const fragments: FlatMapJsxFragment[] = []
+  const sourceText = ctx.sourceFile.text
+  const bodyStart = body.getStart(ctx.sourceFile)
+  const bodyEnd = body.getEnd()
+  const bodyText = sourceText.slice(bodyStart, bodyEnd)
+
+  // Collect all JSX nodes and their positions, sorted by start position
+  const jsxNodes: Array<{ node: ts.Node; start: number; end: number }> = []
+  function collectJsx(n: ts.Node): void {
+    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxFragment(n)) {
+      jsxNodes.push({
+        node: n,
+        start: n.getStart(ctx.sourceFile) - bodyStart,
+        end: n.getEnd() - bodyStart,
+      })
+      return
+    }
+    n.forEachChild(collectJsx)
+  }
+  collectJsx(body)
+
+  if (jsxNodes.length === 0) return undefined
+
+  // Build the body text with JSX replaced by placeholders
+  let compiledBody = ''
+  let lastEnd = 0
+  for (let i = 0; i < jsxNodes.length; i++) {
+    const { node, start, end } = jsxNodes[i]
+    const placeholder = `__BF_JSX_${i}__`
+    compiledBody += bodyText.slice(lastEnd, start) + placeholder
+    lastEnd = end
+
+    const ir = transformNode(node as any, ctx)
+    fragments.push({
+      placeholder,
+      ir: ir ?? { type: 'text', content: '', slotId: null, loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath) },
+    })
+  }
+  compiledBody += bodyText.slice(lastEnd)
+
+  // Build the template body (with prop refs rewritten)
+  const paramsText = callback.parameters.map(p => p.getText(ctx.sourceFile)).join(', ')
+
+  return {
+    params: `(${paramsText})`,
+    body: compiledBody,
+    templateBody: compiledBody,
+    rawBody: bodyText,
+    fragments,
   }
 }
 
