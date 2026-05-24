@@ -199,17 +199,17 @@ function exprCallsReactiveGetters(expr: ts.Expression, ctx: TransformContext): b
 
 /**
  * Walk an expression to check if it calls a module-scope `@client` signal
- * getter or memo. Such references are automatically `clientOnly` in JSX
- * so that SSR emits a placeholder and the client init evaluates them live.
+ * getter or memo. Only call-expression identifiers are matched (not bare
+ * identifier references) — this avoids false-positives when a local
+ * variable shadows a module-signal name. Setters are excluded because
+ * they only appear inside event-handler callbacks which are already
+ * client-only by construction.
  */
 function exprReferencesModuleClientSignal(expr: ts.Expression, ctx: TransformContext): boolean {
   if (!ctx._moduleClientSignalNames) {
     ctx._moduleClientSignalNames = new Set<string>()
     for (const s of ctx.analyzer.signals) {
-      if (s.isModule) {
-        ctx._moduleClientSignalNames.add(s.getter)
-        if (s.setter) ctx._moduleClientSignalNames.add(s.setter)
-      }
+      if (s.isModule) ctx._moduleClientSignalNames.add(s.getter)
     }
     for (const m of ctx.analyzer.memos) {
       if (m.isModule) ctx._moduleClientSignalNames.add(m.name)
@@ -220,7 +220,10 @@ function exprReferencesModuleClientSignal(expr: ts.Expression, ctx: TransformCon
   let found = false
   function visit(n: ts.Node) {
     if (found) return
-    if (ts.isIdentifier(n) && names.has(n.text)) { found = true; return }
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && names.has(n.expression.text)) {
+      found = true
+      return
+    }
     ts.forEachChild(n, visit)
   }
   visit(expr)

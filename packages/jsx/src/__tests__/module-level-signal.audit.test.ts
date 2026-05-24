@@ -150,6 +150,39 @@ export function Display() {
     expect(moduleMemos[0].name).toBe('total')
   })
 
+  test('tuple-ref shape under `/* @client */`: BF011 still fires (unsupported)', () => {
+    const src = `'use client'
+import { createSignal } from '@barefootjs/client'
+/* @client */
+const tuple = createSignal(0)
+export function Counter() {
+  return <span>x</span>
+}
+`
+    const ctx = analyzeComponent(src, '/tmp/c.tsx', 'Counter')
+    expect(bf011(ctx.errors)).toHaveLength(1)
+    expect(ctx.errors[0].message).toContain('tuple-ref')
+  })
+
+  test('two module signals in one file', () => {
+    const src = `'use client'
+import { createSignal } from '@barefootjs/client'
+/* @client */
+const [a, setA] = createSignal(0)
+/* @client */
+const [b, setB] = createSignal('x')
+export function Counter() {
+  return <div>{a()}{b()}</div>
+}
+`
+    const r = compile(src)
+    expect(bf011(r.errors)).toHaveLength(0)
+    const files = Object.fromEntries(r.files.map(f => [f.path, f.content]))
+    const clientJs = files['Counter.client.js']
+    expect(clientJs).toContain('__bf_m_a_tuple')
+    expect(clientJs).toContain('__bf_m_b_tuple')
+  })
+
   test('`export /* @client */` marks signal as exported', () => {
     const src = `'use client'
 import { createSignal } from '@barefootjs/client'

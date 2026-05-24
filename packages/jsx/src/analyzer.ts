@@ -2162,11 +2162,19 @@ function collectModuleScopeReactive(
     memo.isExported = isExported || undefined
     return
   }
-  // tuple-ref and index-access shapes at module level under @client
-  // are supported in principle but rare — the canonical pattern is
-  // `const [getter, setter] = createSignal(...)`. Collecting
-  // signalTupleRefs / index-access here requires the same flush
-  // logic visitComponentBody uses; defer to a follow-up if needed.
+  // tuple-ref (`const t = createSignal(0)`) and index-access
+  // (`const c = createSignal(0)[0]`) shapes are not yet supported at
+  // module scope — the flush logic they need is tightly coupled to
+  // visitComponentBody. Emit BF011 so the user gets a diagnostic
+  // rather than a silent drop.
+  ctx.errors.push(createError(
+    ErrorCodes.SIGNAL_OUTSIDE_COMPONENT,
+    getSourceLocation(decl, ctx.sourceFile, ctx.filePath),
+    {
+      message: 'Module-level reactive declaration using tuple-ref or index-access pattern is not yet supported. ' +
+        'Use the `const [getter, setter] = createSignal(...)` form with /* @client */ instead.',
+    },
+  ))
 }
 
 /**

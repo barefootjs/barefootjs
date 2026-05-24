@@ -55,6 +55,7 @@ export function emitModuleLevelDeclarations(
       return p.defaultValue !== undefined ? `${rest}${p.name} = ${p.defaultValue}` : `${rest}${p.name}`
     }).join(', ')
     const asyncKw = fn.isAsync ? 'async ' : ''
+    // Generator functions (`function*`) can't be arrows — preserve `*`.
     const genStar = fn.isGenerator ? '*' : ''
     lines.push(`var ${fn.name} = ${fn.name} ?? ${asyncKw}function${genStar}(${paramStr}) ${fn.body}`)
   }

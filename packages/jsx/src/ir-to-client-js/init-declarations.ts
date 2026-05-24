@@ -23,6 +23,7 @@
 import type {
   ConstantInfo,
   FunctionInfo,
+  MemoInfo,
   ReferencesGraph,
   SignalInfo,
 } from '../types'
@@ -56,9 +57,9 @@ export interface LocalClassification {
    *  createEffect to sync with parent updates. */
   controlledSignals: ControlledSignal[]
   /** Signals declared at module scope under `/* @client *​/`. */
-  moduleLevelSignals: import('../types').SignalInfo[]
+  moduleLevelSignals: SignalInfo[]
   /** Memos declared at module scope under `/* @client *​/`. */
-  moduleLevelMemos: import('../types').MemoInfo[]
+  moduleLevelMemos: MemoInfo[]
 }
 
 export function classifyLocalDeclarations(
@@ -98,8 +99,8 @@ export function classifyLocalDeclarations(
   }
 
   const controlledSignals: ControlledSignal[] = []
-  const moduleLevelSignals: import('../types').SignalInfo[] = []
-  const moduleLevelMemos: import('../types').MemoInfo[] = []
+  const moduleLevelSignals: SignalInfo[] = []
+  const moduleLevelMemos: MemoInfo[] = []
   for (const signal of ctx.signals) {
     if (signal.isModule) {
       moduleLevelSignals.push(signal)
