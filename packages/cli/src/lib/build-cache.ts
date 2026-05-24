@@ -22,6 +22,11 @@ export interface CacheEntry {
   /** Adapter-generated types (e.g. Go structs). Restored on cache hit so the
    *  postBuild hook sees types from every component, not just freshly compiled ones. */
   types?: string
+  /** Pre-resolve compiled client JS content. The combine step needs the
+   *  original compiled output (before resolveRelativeImports rewrites it) so
+   *  stale __bf_inline_N identifiers from a prior build's resolution pass
+   *  don't leak into the combined file. See piconic-ai/barefootjs#1542. */
+  compiledClientJs?: string
 }
 
 export interface BuildCache {

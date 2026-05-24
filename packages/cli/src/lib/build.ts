@@ -667,6 +667,7 @@ export async function build(
       manifestEntry: result.manifestEntry,
       typesKey: result.typesKey,
       types: result.types,
+      compiledClientJs: result.compiledClientJs,
     }
   }
 
@@ -754,18 +755,35 @@ export async function build(
   // crash with `SyntaxError`. Normalise everything back to the bare
   // module specifier here so combine merges them under a single key —
   // step 6c then rewrites that one import to the correct per-file path.
+  //
+  // Prefer the cached pre-resolve compiled content (compiledClientJs) over
+  // the on-disk file: on incremental builds a cached child's file on disk
+  // is the FINAL output from the previous build (post-resolveRelativeImports),
+  // which already contains __bf_inline_N IIFEs. Combining that stale content
+  // with a freshly-recompiled parent would introduce colliding identifiers
+  // once step 6b runs. Using the original compiled content avoids the
+  // problem at the source. See piconic-ai/barefootjs#1542.
+  const compiledClientJsByKey = new Map<string, string>()
+  for (const entry of Object.values(nextEntries)) {
+    if (entry.manifestKey && entry.compiledClientJs) {
+      compiledClientJsByKey.set(entry.manifestKey, entry.compiledClientJs)
+    }
+  }
   const RUNTIME_REL_PATH = /from\s+(['"])(?:\.{1,2}\/)+barefoot\.js\1/g
   const clientJsFiles = new Map<string, string>()
   for (const [name, entry] of Object.entries(manifest)) {
     if (!entry.clientJs) continue
-    const filePath = resolve(config.outDir, entry.clientJs)
-    try {
-      const raw = await readText(filePath)
-      const canonical = raw.replace(RUNTIME_REL_PATH, `from '@barefootjs/client/runtime'`)
-      clientJsFiles.set(name, canonical)
-    } catch {
-      // File may not exist (e.g. __barefoot__)
+    let raw = compiledClientJsByKey.get(name)
+    if (!raw) {
+      const filePath = resolve(config.outDir, entry.clientJs)
+      try {
+        raw = await readText(filePath)
+      } catch {
+        continue
+      }
     }
+    const canonical = raw.replace(RUNTIME_REL_PATH, `from '@barefootjs/client/runtime'`)
+    clientJsFiles.set(name, canonical)
   }
 
   if (clientJsFiles.size > 0) {
@@ -1491,6 +1509,7 @@ type CompileEntryOutcome =
       wroteAny: boolean
       types?: string
       typesKey?: string
+      compiledClientJs?: string
     }
 
 async function compileEntry(args: CompileEntryArgs): Promise<CompileEntryOutcome> {
@@ -1683,6 +1702,7 @@ async function compileEntry(args: CompileEntryArgs): Promise<CompileEntryOutcome
     wroteAny,
     types: typesContent,
     typesKey: baseNameNoExt,
+    compiledClientJs: clientJsContent || undefined,
   }
 }
 
