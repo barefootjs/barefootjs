@@ -68,6 +68,8 @@ interface TransformContext {
   getTemplateJS(node: ts.Node): string
   /** Cached set of reactive getter names (signal getters + memo names) for O(1) lookup */
   _reactiveGetterNames?: Set<string>
+  /** Cached set of module-scope @client signal/memo names. */
+  _moduleClientSignalNames?: Set<string>
   /** Cached set of destructured prop names for AST-based rewriting */
   _destructuredPropNames?: Set<string> | null
   /** Active loop parameter names for slotId assignment to loop-param-dependent expressions */
@@ -188,6 +190,39 @@ function exprCallsReactiveGetters(expr: ts.Expression, ctx: TransformContext): b
     if (found) return
     if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
       if (names.has(n.expression.text)) { found = true; return }
+    }
+    ts.forEachChild(n, visit)
+  }
+  visit(expr)
+  return found
+}
+
+/**
+ * Walk an expression to check if it calls a module-scope `@client` signal
+ * getter or memo. Only call-expression identifiers are matched (not bare
+ * identifier references) — this avoids false-positives when a local
+ * variable shadows a module-signal name. Setters are excluded because
+ * they only appear inside event-handler callbacks which are already
+ * client-only by construction.
+ */
+function exprReferencesModuleClientSignal(expr: ts.Expression, ctx: TransformContext): boolean {
+  if (!ctx._moduleClientSignalNames) {
+    ctx._moduleClientSignalNames = new Set<string>()
+    for (const s of ctx.analyzer.signals) {
+      if (s.isModule) ctx._moduleClientSignalNames.add(s.getter)
+    }
+    for (const m of ctx.analyzer.memos) {
+      if (m.isModule) ctx._moduleClientSignalNames.add(m.name)
+    }
+  }
+  if (ctx._moduleClientSignalNames.size === 0) return false
+  const names = ctx._moduleClientSignalNames
+  let found = false
+  function visit(n: ts.Node) {
+    if (found) return
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && names.has(n.expression.text)) {
+      found = true
+      return
     }
     ts.forEachChild(n, visit)
   }
@@ -1212,6 +1247,7 @@ function transformExpression(
   // `getFullText()` would false-positive on string literals or trailing
   // comments containing "@client".
   const isClientOnly = hasLeadingClientDirective(expr, ctx.sourceFile)
+    || exprReferencesModuleClientSignal(expr, ctx)
 
   return transformExpressionInner(expr, ctx, node, isClientOnly)
 }

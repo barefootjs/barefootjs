@@ -117,8 +117,7 @@ export function Counter() {
     expect(bf011(compile(src).errors)).toHaveLength(1)
   })
 
-  test('phase 2 pending: `/* @client */` is not yet honored', () => {
-    // Pinned so that wiring up the opt-in flips this test loudly.
+  test('`/* @client */` suppresses BF011 and collects the signal', () => {
     const src = `'use client'
 import { createSignal } from '@barefootjs/client'
 /* @client */
@@ -128,7 +127,133 @@ export function Counter() {
 }
 `
     const ctx = analyzeComponent(src, '/tmp/c.tsx', 'Counter')
+    expect(bf011(ctx.errors)).toHaveLength(0)
+    const moduleSigs = ctx.signals.filter(s => s.isModule)
+    expect(moduleSigs).toHaveLength(1)
+    expect(moduleSigs[0].getter).toBe('count')
+    expect(moduleSigs[0].setter).toBe('setCount')
+  })
+
+  test('`/* @client */` on createMemo suppresses BF011', () => {
+    const src = `'use client'
+import { createMemo } from '@barefootjs/client'
+/* @client */
+const total = createMemo(() => 1 + 1)
+export function Display() {
+  return <span>{total()}</span>
+}
+`
+    const ctx = analyzeComponent(src, '/tmp/d.tsx', 'Display')
+    expect(bf011(ctx.errors)).toHaveLength(0)
+    const moduleMemos = ctx.memos.filter(m => m.isModule)
+    expect(moduleMemos).toHaveLength(1)
+    expect(moduleMemos[0].name).toBe('total')
+  })
+
+  test('tuple-ref shape under `/* @client */`: BF011 still fires (unsupported)', () => {
+    const src = `'use client'
+import { createSignal } from '@barefootjs/client'
+/* @client */
+const tuple = createSignal(0)
+export function Counter() {
+  return <span>x</span>
+}
+`
+    const ctx = analyzeComponent(src, '/tmp/c.tsx', 'Counter')
     expect(bf011(ctx.errors)).toHaveLength(1)
+    expect(ctx.errors[0].message).toContain('tuple-ref')
+  })
+
+  test('two module signals in one file', () => {
+    const src = `'use client'
+import { createSignal } from '@barefootjs/client'
+/* @client */
+const [a, setA] = createSignal(0)
+/* @client */
+const [b, setB] = createSignal('x')
+export function Counter() {
+  return <div>{a()}{b()}</div>
+}
+`
+    const r = compile(src)
+    expect(bf011(r.errors)).toHaveLength(0)
+    const files = Object.fromEntries(r.files.map(f => [f.path, f.content]))
+    const clientJs = files['Counter.client.js']
+    expect(clientJs).toContain('__bf_m_a_tuple')
+    expect(clientJs).toContain('__bf_m_b_tuple')
+  })
+
+  test('`export /* @client */` marks signal as exported', () => {
+    const src = `'use client'
+import { createSignal } from '@barefootjs/client'
+/* @client */
+export const [count, setCount] = createSignal(0)
+export function Counter() {
+  return <span>{count()}</span>
+}
+`
+    const ctx = analyzeComponent(src, '/tmp/c.tsx', 'Counter')
+    expect(bf011(ctx.errors)).toHaveLength(0)
+    const moduleSigs = ctx.signals.filter(s => s.isModule)
+    expect(moduleSigs).toHaveLength(1)
+    expect(moduleSigs[0].isExported).toBe(true)
+  })
+
+  test('full compile: client JS preserves module-level signal', () => {
+    const src = `'use client'
+import { createSignal } from '@barefootjs/client'
+/* @client */
+const [count, setCount] = createSignal(0)
+export function Counter() {
+  return <button onClick={() => setCount(count() + 1)}>{count()}</button>
+}
+`
+    const r = compile(src)
+    expect(bf011(r.errors)).toHaveLength(0)
+    const files = Object.fromEntries(r.files.map(f => [f.path, f.content]))
+    const clientJs = files['Counter.client.js']
+    expect(clientJs).toContain('__bf_m_count_tuple')
+    expect(clientJs).toContain('createSignal(0)')
+    // Signal declaration should NOT be inside the init function body
+    const initBody = clientJs.match(/function initCounter[\s\S]*?\n}/)?.[0] ?? ''
+    expect(initBody).not.toContain('createSignal')
+  })
+
+  test('full compile: SSR template uses placeholder for module-signal refs', () => {
+    const src = `'use client'
+import { createSignal } from '@barefootjs/client'
+/* @client */
+const [count, setCount] = createSignal(0)
+export function Counter() {
+  return <span>{count()}</span>
+}
+`
+    const r = compile(src)
+    expect(bf011(r.errors)).toHaveLength(0)
+    const files = Object.fromEntries(r.files.map(f => [f.path, f.content]))
+    const ssr = files['Counter.tsx']
+    // SSR template should NOT declare count as a getter
+    expect(ssr).not.toContain('const count = () =>')
+    // SSR template should have a client-only placeholder (not the value)
+    expect(ssr).toContain('client:s')
+  })
+
+  test('full compile: exported signal uses `export const` in client JS', () => {
+    const src = `'use client'
+import { createSignal } from '@barefootjs/client'
+/* @client */
+export const [count, setCount] = createSignal(0)
+export function Counter() {
+  return <span>{count()}</span>
+}
+`
+    const r = compile(src)
+    expect(bf011(r.errors)).toHaveLength(0)
+    const files = Object.fromEntries(r.files.map(f => [f.path, f.content]))
+    const clientJs = files['Counter.client.js']
+    expect(clientJs).toContain('export const [count, setCount] = createSignal(0)')
+    // non-exported var pattern should NOT be used
+    expect(clientJs).not.toContain('__bf_m_count_tuple')
   })
 
   test('control: in-component signal compiles cleanly', () => {

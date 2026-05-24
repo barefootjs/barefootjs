@@ -122,13 +122,14 @@ export function extractSsrDefaults(metadata: IRMetadata): Record<string, SsrDefa
   // signals (Counter's `doubled = createMemo(() => count() * 2)`).
   const bindings: Record<string, EvalResult> = {}
   for (const sig of metadata.signals) {
-    if (!sig.getter) continue
+    if (!sig.getter || sig.isModule) continue
     const value = tryStaticEval(sig.initialValue, { bindings, propsLike })
     out[sig.getter] = { value: resultToJsonable(value) }
     bindings[sig.getter] = value
   }
 
   for (const memo of metadata.memos) {
+    if (memo.isModule) continue
     const value = tryStaticEval(memo.computation, { bindings, propsLike })
     out[memo.name] = { value: resultToJsonable(value) }
     bindings[memo.name] = value

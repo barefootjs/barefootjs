@@ -23,6 +23,7 @@
 import type {
   ConstantInfo,
   FunctionInfo,
+  MemoInfo,
   ReferencesGraph,
   SignalInfo,
 } from '../types'
@@ -55,6 +56,10 @@ export interface LocalClassification {
   /** Signals whose initial value reads a prop — they need a
    *  createEffect to sync with parent updates. */
   controlledSignals: ControlledSignal[]
+  /** Signals declared at module scope under `/* @client *​/`. */
+  moduleLevelSignals: SignalInfo[]
+  /** Memos declared at module scope under `/* @client *​/`. */
+  moduleLevelMemos: MemoInfo[]
 }
 
 export function classifyLocalDeclarations(
@@ -94,10 +99,21 @@ export function classifyLocalDeclarations(
   }
 
   const controlledSignals: ControlledSignal[] = []
+  const moduleLevelSignals: SignalInfo[] = []
+  const moduleLevelMemos: MemoInfo[] = []
   for (const signal of ctx.signals) {
+    if (signal.isModule) {
+      moduleLevelSignals.push(signal)
+      continue
+    }
     const controlledPropName = getControlledPropName(signal, ctx.propsParams, ctx.propsObjectName)
     if (controlledPropName) {
       controlledSignals.push({ signal, propName: controlledPropName })
+    }
+  }
+  for (const memo of ctx.memos) {
+    if (memo.isModule) {
+      moduleLevelMemos.push(memo)
     }
   }
 
@@ -108,6 +124,8 @@ export function classifyLocalDeclarations(
     moduleLevelFunctions,
     neededProps,
     controlledSignals,
+    moduleLevelSignals,
+    moduleLevelMemos,
   }
 }
 
@@ -139,6 +157,7 @@ export function emitSortedDeclarations(
   }
 
   for (const signal of ctx.signals) {
+    if (signal.isModule) continue
     const controlled = controlledSignals.find(c => c.signal === signal)
     declarations.push({
       kind: 'signal',
@@ -149,6 +168,7 @@ export function emitSortedDeclarations(
   }
 
   for (const memo of ctx.memos) {
+    if (memo.isModule) continue
     declarations.push({
       kind: 'memo',
       info: memo,
