@@ -108,6 +108,31 @@ export function Viewer() {
     expect(ssr).not.toContain("const val = () =>")
   })
 
+  test('client JS rewrites @client signal import path to .client.js', () => {
+    writeFixture('signals.tsx', `'use client'
+import { createSignal } from '@barefootjs/client'
+/* @client */
+export const [val, setVal] = createSignal('hi')
+`)
+    const consumerPath = writeFixture('consumer.tsx', `'use client'
+import { val } from './signals'
+export function Consumer() {
+  return <span>{val()}</span>
+}
+`)
+    const r = compileJSX(`'use client'
+import { val } from './signals'
+export function Consumer() {
+  return <span>{val()}</span>
+}
+`, consumerPath, { adapter })
+    const files = Object.fromEntries(r.files.map(f => [f.path, f.content]))
+    const clientJs = Object.values(files).find(c => c.includes('initConsumer'))
+    expect(clientJs).toBeDefined()
+    expect(clientJs).toContain("from './signals.client.js'")
+    expect(clientJs).not.toContain("from './signals'")
+  })
+
   test('state-only file produces standalone client JS', () => {
     const statePath = writeFixture('store.tsx', `'use client'
 import { createSignal } from '@barefootjs/client'

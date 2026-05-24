@@ -100,7 +100,11 @@ export function collectExternalImports(ir: ComponentIR, generatedCode: string, l
     }
 
     if (usedSpecs.length > 0) {
-      importLines.push(`import { ${usedSpecs.join(', ')} } from '${imp.source}'`)
+      let source = imp.source
+      if (ir.metadata.clientSignalImportSources?.has(source)) {
+        source = source.replace(/\.tsx?$/, '') + '.client.js'
+      }
+      importLines.push(`import { ${usedSpecs.join(', ')} } from '${source}'`)
     }
   }
   return importLines
