@@ -1238,6 +1238,13 @@ export interface IRMetadata {
   localConstants: ConstantInfo[]
   /** Pre-computed client JS analysis for adapter use */
   clientAnalysis?: ClientAnalysis
+  /**
+   * Relative import sources that resolve to a file exporting `@client`
+   * signals/memos. Used by `collectExternalImports` to rewrite the
+   * import path from `./state` → `./state.client.js` so the browser
+   * resolves the compiled module rather than the source `.tsx`.
+   */
+  clientSignalImportSources?: Set<string>
 }
 
 // =============================================================================

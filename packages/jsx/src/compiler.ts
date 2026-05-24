@@ -543,6 +543,25 @@ export function compileJSX(
   // Pre-compute client JS analysis for adapter optimization
   componentIR.metadata.clientAnalysis = analyzeClientNeeds(componentIR)
 
+  // Cross-file @client signal sources: identify which import sources
+  // need `.client.js` path rewriting in the client bundle.
+  if (ctx.importedClientSignalNames.size > 0) {
+    const sources = new Set<string>()
+    for (const imp of ctx.imports) {
+      if (imp.isTypeOnly) continue
+      if (!imp.source.startsWith('./') && !imp.source.startsWith('../')) continue
+      for (const spec of imp.specifiers) {
+        if (ctx.importedClientSignalNames.has(spec.alias ?? spec.name)) {
+          sources.add(imp.source)
+          break
+        }
+      }
+    }
+    if (sources.size > 0) {
+      componentIR.metadata.clientSignalImportSources = sources
+    }
+  }
+
   // Apply CSS layer prefix if configured
   if (options.cssLayerPrefix) {
     applyCssLayerPrefix(componentIR, options.cssLayerPrefix)
