@@ -385,6 +385,17 @@ export interface IRLoopChildComponent {
 
 export interface IRLoop {
   type: 'loop'
+  /**
+   * Array iteration method. Defaults to `'map'`. When `'flatMap'`, emitters
+   * use `.flatMap()` instead of `.map()` and children may represent the
+   * per-element fragments of the flattened result.
+   *
+   * For complex flatMap callbacks (block bodies with conditional returns,
+   * variable-assigned JSX, etc.) that can't be decomposed into `children`,
+   * `flatMapCallback` carries the full callback body with JSX compiled
+   * inline via placeholder substitution — see `FlatMapCallback`.
+   */
+  method?: 'flatMap'
   array: string
   /** Pre-transformed array expr with destructured prop refs rewritten to _p.xxx. */
   templateArray?: string
@@ -530,6 +541,45 @@ export interface IRLoop {
    * instead of running word-boundary regex against `array`.
    */
   arrayFreeIdentifiers?: ReadonlySet<string>
+
+  /**
+   * For flatMap callbacks whose body can't be decomposed into simple
+   * `children` (block bodies with conditional returns, variable-assigned
+   * JSX, etc.). Carries the full callback body with JSX fragments
+   * replaced by `__BF_JSX_N__` placeholders, plus the IR for each
+   * fragment so each adapter can render them appropriately.
+   *
+   * When present, `children` is empty — emitters use this field instead.
+   */
+  flatMapCallback?: FlatMapCallback
+}
+
+/**
+ * A compiled flatMap callback body. JSX elements in the original
+ * callback have been transformed to IR nodes and replaced with
+ * `__BF_JSX_0__`, `__BF_JSX_1__`, … placeholders in `body`.
+ *
+ * Each emitter (html-template, hono-adapter) renders the IR fragments
+ * in its own format and substitutes the placeholders accordingly.
+ */
+export interface FlatMapCallback {
+  /** Callback parameters text, e.g. `"(frame, i)"` */
+  params: string
+  /** Callback body text with JSX replaced by `__BF_JSX_N__` placeholders */
+  body: string
+  /** Same as `body` but with prop refs rewritten for template context */
+  templateBody?: string
+  /** Original callback body text with JSX preserved (for Hono .tsx output) */
+  rawBody: string
+  /** IR nodes for each JSX placeholder, ordered by placeholder index */
+  fragments: FlatMapJsxFragment[]
+}
+
+export interface FlatMapJsxFragment {
+  /** Placeholder string, e.g. `"__BF_JSX_0__"` */
+  placeholder: string
+  /** Compiled IR node for this JSX fragment */
+  ir: IRNode
 }
 
 /**
