@@ -251,4 +251,43 @@ describe('hydrate() template generation for signal-bearing components', () => {
     // Must be wrapped in an IIFE form so bindings stay in scope at template eval time
     expect(template).toMatch(/\(\(\)\s*=>\s*\{[\s\S]*const b =/)
   })
+
+  test('props.X inside .map() callback preamble is rewritten to _p.X (#1545)', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      function styleForLine(role: string, progress: number): string {
+        return role + progress
+      }
+
+      export function TransitionStage(props: { lines: string[]; progress: number }) {
+        const [active, setActive] = createSignal(false)
+        return (
+          <pre>
+            {props.lines.map((role, i) => {
+              const style = styleForLine(role, props.progress)
+              return (
+                <span key={i} data-style={style}>{role}</span>
+              )
+            })}
+          </pre>
+        )
+      }
+    `
+    const result = compileJSX(source, 'TransitionStage.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')
+    expect(clientJs).toBeDefined()
+    const content = clientJs!.content
+
+    const templateMatch = content.match(/hydrate\('TransitionStage',\s*\{[^`]*template:[^`]*`([\s\S]*?)`\s*\}/)
+    expect(templateMatch).toBeTruthy()
+    const template = templateMatch![1]
+
+    // The preamble inside .map() must rewrite props.progress → _p.progress
+    expect(template).toContain('_p.progress')
+    expect(template).not.toMatch(/[^_]props\.progress/)
+  })
 })
