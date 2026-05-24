@@ -93,7 +93,7 @@ export function printSearchResults(results: SearchResult[], jsonFlag: boolean) {
   for (const r of results) {
     const statefulMark = r.stateful ? ' *' : ''
     console.log(
-      `${(r.name + statefulMark).padEnd(nameWidth)}${r.type.padEnd(typeWidth)}${r.category.padEnd(catWidth)}${r.source.padEnd(sourceWidth)}${r.description.slice(0, 40)}`
+      `${(r.name + statefulMark).padEnd(nameWidth)}${r.type.padEnd(typeWidth)}${r.category.padEnd(catWidth)}${r.source.padEnd(sourceWidth)}${r.description.slice(0, 50)}`
     )
   }
 
@@ -150,33 +150,31 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
     process.exit(1)
   }
 
-  // Load core docs (skip gracefully if not available)
-  const docsDir = path.join(ctx.root, 'docs/core')
-  const coreDocs = scanCoreDocs(docsDir)
-
   const query = args.join(' ')
 
-  // Explicit --registry: search only that registry
+  // Explicit --registry: search only that registry (no local docs)
   if (registryUrl) {
     const index = await fetchIndex(registryUrl)
     const results = query
-      ? search(query, index, 'registry', coreDocs)
+      ? search(query, index, 'registry')
       : index.components.map(c => ({ name: c.name, type: 'component' as const, source: 'registry' as const, category: c.category, description: c.description, stateful: c.stateful }))
     printSearchResults(results, ctx.jsonFlag)
     return
   }
 
-  // Explicit --dir: search only that directory
+  // Explicit --dir: search only that directory (no local docs)
   if (dirFlagUsed) {
     const index = loadIndex(metaDir)
     const results = query
-      ? search(query, index, 'local', coreDocs)
+      ? search(query, index, 'local')
       : index.components.map(c => ({ name: c.name, type: 'component' as const, source: 'local' as const, category: c.category, description: c.description, stateful: c.stateful }))
     printSearchResults(results, ctx.jsonFlag)
     return
   }
 
   // Default: search both local + upstream registry
+  const docsDir = path.join(ctx.root, 'docs/core')
+  const coreDocs = scanCoreDocs(docsDir)
   const localIndex = loadIndex(metaDir)
   const localResults = query
     ? search(query, localIndex, 'local', coreDocs)
