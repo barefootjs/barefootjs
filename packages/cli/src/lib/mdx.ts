@@ -15,9 +15,15 @@
 // future docs page needs nested JSX or expression interpolation we'll
 // swap this for a real MDX compiler.
 
+export interface MdxBlockChild {
+  props: Record<string, string>
+  content: string
+}
+
 export type MdxNode =
   | { type: 'md'; text: string }
   | { type: 'jsx'; name: string; props: Record<string, string> }
+  | { type: 'jsx-block'; name: string; props: Record<string, string>; children: MdxBlockChild[] }
 
 export interface ParsedMdx {
   frontmatter: Record<string, string>
@@ -27,6 +33,12 @@ export interface ParsedMdx {
 
 /** Match a self-closing JSX tag on its own line, capturing name and attrs. */
 const TAG_LINE_RE = /^[\t ]*<([A-Z][A-Za-z0-9]*)\b([^>]*?)\/>[\t ]*$/
+
+/** Match an opening JSX tag (not self-closing), e.g. `<Tabs id="adapter">`. */
+const OPEN_TAG_RE = /^[\t ]*<([A-Z][A-Za-z0-9]*)\b([^>]*?)>[\t ]*$/
+
+/** Match a closing JSX tag, e.g. `</Tabs>`. */
+const CLOSE_TAG_RE = /^[\t ]*<\/([A-Z][A-Za-z0-9]*)>[\t ]*$/
 
 const FENCE_RE = /^[\t ]*(```|~~~)/
 
@@ -84,6 +96,15 @@ export function parseMdx(source: string): ParsedMdx {
   let buffer: string[] = []
   let inFence = false
 
+  // Block-level tag state
+  let inBlock = false
+  let blockName = ''
+  let blockProps: Record<string, string> = {}
+  let blockChildren: MdxBlockChild[] = []
+  let blockChildProps: Record<string, string> | null = null
+  let blockBuffer: string[] = []
+  let blockFence = false
+
   const flushBuffer = () => {
     if (buffer.length === 0) return
     const text = buffer.join('\n').replace(/^\n+|\n+$/g, '')
@@ -91,7 +112,48 @@ export function parseMdx(source: string): ParsedMdx {
     buffer = []
   }
 
+  const flushBlockChild = () => {
+    if (blockChildProps !== null) {
+      const content = blockBuffer.join('\n').replace(/^\n+|\n+$/g, '')
+      blockChildren.push({ props: blockChildProps, content })
+      blockBuffer = []
+    }
+  }
+
   for (const line of lines) {
+    if (inBlock) {
+      if (FENCE_RE.test(line)) {
+        blockFence = !blockFence
+        blockBuffer.push(line)
+        continue
+      }
+
+      if (!blockFence) {
+        const closeMatch = line.match(CLOSE_TAG_RE)
+        if (closeMatch && closeMatch[1] === blockName) {
+          flushBlockChild()
+          nodes.push({ type: 'jsx-block', name: blockName, props: blockProps, children: blockChildren })
+          inBlock = false
+          blockName = ''
+          blockProps = {}
+          blockChildren = []
+          blockChildProps = null
+          blockBuffer = []
+          continue
+        }
+
+        const tabMatch = line.match(TAG_LINE_RE)
+        if (tabMatch) {
+          flushBlockChild()
+          blockChildProps = parseProps(tabMatch[2])
+          continue
+        }
+      }
+
+      blockBuffer.push(line)
+      continue
+    }
+
     if (FENCE_RE.test(line)) {
       inFence = !inFence
       buffer.push(line)
@@ -105,6 +167,19 @@ export function parseMdx(source: string): ParsedMdx {
         nodes.push({ type: 'jsx', name: match[1], props: parseProps(match[2]) })
         continue
       }
+
+      const openMatch = line.match(OPEN_TAG_RE)
+      if (openMatch) {
+        flushBuffer()
+        inBlock = true
+        blockName = openMatch[1]
+        blockProps = parseProps(openMatch[2])
+        blockChildren = []
+        blockChildProps = null
+        blockBuffer = []
+        blockFence = false
+        continue
+      }
     }
 
     buffer.push(line)
@@ -114,7 +189,7 @@ export function parseMdx(source: string): ParsedMdx {
   return { frontmatter, nodes, body }
 }
 
-export type MdxProjector = (props: Record<string, string>) => string
+export type MdxProjector = (props: Record<string, string>, children?: MdxBlockChild[]) => string
 
 /**
  * Re-emit `<ComponentName ... />` tags as plain markdown by looking
@@ -137,6 +212,10 @@ export function projectMdxToMarkdown(
   const body = parsed.nodes
     .map((node) => {
       if (node.type === 'md') return node.text
+      if (node.type === 'jsx-block') {
+        const project = projectors[node.name]
+        return project ? project(node.props, node.children) : ''
+      }
       const project = projectors[node.name]
       return project ? project(node.props) : ''
     })
@@ -155,6 +234,16 @@ export const defaultMdxProjectors: Record<string, MdxProjector> = {
     const pm = defaultPm || 'npm'
     const cmd = renderPackageManagerCommand(pm, command || '', (mode as 'dlx' | 'create') || 'dlx')
     return '```bash\n' + cmd + '\n```'
+  },
+  Tabs: (props, children) => {
+    if (!children || children.length === 0) {
+      const labels = props.labels
+      if (labels) return labels.split(',').map((l) => `- ${l.trim()}`).join('\n')
+      return ''
+    }
+    const defaultLabel = props.default
+    const defaultChild = children.find((c) => c.props.label === defaultLabel) || children[0]
+    return defaultChild?.content || ''
   },
 }
 

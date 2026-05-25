@@ -1,12 +1,12 @@
 /**
  * Hono application for the BarefootJS documentation site.
  *
- * Registers routes for each markdown page:
+ * Routes for each page:
  *   GET /{slug}     → Rendered HTML
- *   GET /{slug}.md  → Raw Markdown
+ *   GET /{slug}.md  → Raw Markdown (plain projection for .mdx pages)
  *
- * Quick Start lives in `./pages/quick-start.tsx` because its content
- * is JSX, not markdown — the page embeds `<PackageManagerTabs>`.
+ * .mdx pages (Quick Start, Introduction, etc.) have dedicated handlers
+ * that render JSX components (`<PackageManagerTabs>`, `<Tabs>`) inline.
  */
 
 import { Hono } from 'hono'
@@ -15,6 +15,7 @@ import { initHighlighter, renderMarkdown } from './lib/markdown'
 import { getDocsNavLinks } from './lib/navigation'
 import type { Page, ContentMap, MdxContentMap } from './lib/content'
 import { registerQuickStartRoutes } from './pages/quick-start'
+import { registerMdxDocsRoutes } from './pages/mdx-docs-page'
 
 /**
  * Create the Hono app with routes for all documentation pages.
@@ -31,6 +32,16 @@ export async function createDocsApp(content: ContentMap, pages: Page[], mdx: Mdx
 
   const quickStartSource = mdx['quick-start']
   if (quickStartSource) registerQuickStartRoutes(app, quickStartSource)
+
+  // MDX pages with <Tabs> blocks
+  for (const [slug, source] of Object.entries(mdx)) {
+    if (slug === 'quick-start' || slug === '') continue
+    registerMdxDocsRoutes(app, slug, source)
+  }
+
+  // README.mdx (index page)
+  const readmeSource = mdx['']
+  if (readmeSource) registerMdxDocsRoutes(app, '', readmeSource)
 
   // All pages: HTML version + raw Markdown version
   for (const page of pages.filter((p) => p.slug !== '')) {

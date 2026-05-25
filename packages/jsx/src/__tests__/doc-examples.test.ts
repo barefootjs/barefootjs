@@ -291,13 +291,13 @@ const PAGES: PageSpec[] = [
   { path: 'core/reactivity/on-cleanup.md' },
   { path: 'core/reactivity/untrack.md' },
   { path: 'core/reactivity/props-reactivity.md' },
-  { path: 'core/components/component-authoring.md' },
+  { path: 'core/components/component-authoring.mdx' },
   { path: 'core/components/children-slots.md' },
   { path: 'core/components/context-api.md' },
   { path: 'core/components/portals.md' },
   { path: 'core/components/props-type-safety.md' },
   { path: 'core/components/styling.md' },
-  { path: 'core/core-concepts/how-it-works.md' },
+  { path: 'core/core-concepts/how-it-works.mdx' },
   { path: 'core/core-concepts/reactivity.md' },
   { path: 'core/core-concepts/mpa-style.md' },
   { path: 'core/core-concepts/ai-native.md' },
@@ -314,7 +314,7 @@ const PAGES: PageSpec[] = [
   // tie each ❌ snippet to its parent `### BFxxx —` H3.
   { path: 'core/advanced/performance.md' },
   { path: 'core/reactivity.md' },
-  { path: 'core/introduction.md' },
+  { path: 'core/introduction.mdx' },
 ]
 
 const adapter = new TestAdapter()

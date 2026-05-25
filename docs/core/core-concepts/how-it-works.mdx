@@ -51,8 +51,9 @@ The IR records:
 
 Marked template (Phase 2a):
 
-<!-- tabs:adapter -->
-<!-- tab:Hono -->
+<Tabs id="adapter" default="Hono">
+<Tab label="Hono" />
+
 ```tsx
 export function Counter({ __instanceId, ... }) {
   const __scopeId = __instanceId || `Counter_${Math.random().toString(36).slice(2, 8)}`
@@ -65,7 +66,9 @@ export function Counter({ __instanceId, ... }) {
   )
 }
 ```
-<!-- tab:Go Template -->
+
+<Tab label="Go Template" />
+
 ```go-template
 {{define "Counter"}}
 <button bf-s="{{bfScopeAttr .}}" bf="s1">
@@ -73,7 +76,8 @@ export function Counter({ __instanceId, ... }) {
 </button>
 {{end}}
 ```
-<!-- /tabs -->
+
+</Tabs>
 
 Client JS (Phase 2b):
 

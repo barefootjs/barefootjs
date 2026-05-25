@@ -129,9 +129,9 @@ function createMarked(): Marked {
         const text = this.parser.parseInline(tokens)
         let resolvedHref = href || ''
 
-        // Transform .md links to clean URLs for internal navigation
-        if (resolvedHref.startsWith('./') || resolvedHref.startsWith('../') || (!resolvedHref.startsWith('http') && resolvedHref.endsWith('.md'))) {
-          resolvedHref = resolvedHref.replace(/\.md$/, '')
+        // Transform .md/.mdx links to clean URLs for internal navigation
+        if (resolvedHref.startsWith('./') || resolvedHref.startsWith('../') || (!resolvedHref.startsWith('http') && (resolvedHref.endsWith('.md') || resolvedHref.endsWith('.mdx')))) {
+          resolvedHref = resolvedHref.replace(/\.mdx?$/, '')
           if (resolvedHref.startsWith('./')) {
             resolvedHref = '/docs' + resolvedHref.slice(1)
           }

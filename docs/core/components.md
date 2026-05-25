@@ -11,7 +11,7 @@ For the `"use client"` directive and the server/client boundary, see [Backend Fr
 
 | Topic | Description |
 |-------|-------------|
-| [Component Authoring](./components/component-authoring.md) | Server components, client components, and the compilation model |
+| [Component Authoring](./components/component-authoring.mdx) | Server components, client components, and the compilation model |
 | [Props & Type Safety](./components/props-type-safety.md) | Typing props, defaults, and rest spreading |
 | [Children & Slots](./components/children-slots.md) | Children prop, the `Slot` component, and the `asChild` pattern |
 | [Context API](./components/context-api.md) | Sharing state across compound components with `createContext` / `useContext` |

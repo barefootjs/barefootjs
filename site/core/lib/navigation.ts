@@ -1,6 +1,6 @@
 /**
  * Navigation structure for the documentation sidebar.
- * Mirrors the table of contents in docs/core/README.md.
+ * Mirrors the table of contents in docs/core/README.mdx.
  */
 
 export interface NavItem {
