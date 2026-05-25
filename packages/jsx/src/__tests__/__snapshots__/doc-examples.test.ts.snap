@@ -2060,7 +2060,7 @@ hydrate('Example', { init: initExample, template: (_p) => \`<div>\${get} value()
 export function Example(_p, __bfKey) { return createComponent('Example', _p, __bfKey) }"
 `;
 
-exports[`docs/core/components/component-authoring.md doc-examples L16 — (no label) 1`] = `
+exports[`docs/core/components/component-authoring.mdx doc-examples L16 — (no label) 1`] = `
 "import { $t, createComponent, createEffect, hydrate } from '@barefootjs/client/runtime'
 
 
@@ -2083,7 +2083,7 @@ hydrate('Greeting', { init: initGreeting, template: (_p) => \`<h1 bf="s1">Hello,
 export function Greeting(_p, __bfKey) { return createComponent('Greeting', _p, __bfKey) }"
 `;
 
-exports[`docs/core/components/component-authoring.md doc-examples L29 — (no label) 1`] = `
+exports[`docs/core/components/component-authoring.mdx doc-examples L29 — (no label) 1`] = `
 "import { $, $t, createComponent, createEffect, createSignal, hydrate } from '@barefootjs/client/runtime'
 
 
@@ -2108,7 +2108,7 @@ hydrate('Counter', { init: initCounter, template: (_p) => \`<button bf="s1"> Cou
 export function Counter(_p, __bfKey) { return createComponent('Counter', _p, __bfKey) }"
 `;
 
-exports[`docs/core/components/component-authoring.md doc-examples L79 — (no label) 1`] = `
+exports[`docs/core/components/component-authoring.mdx doc-examples L79 — (no label) 1`] = `
 "import { $, __bfSlot, createComponent, createSignal, hydrate, insert } from '@barefootjs/client/runtime'
 
 
@@ -2137,7 +2137,7 @@ hydrate('Toggle', { init: initToggle, template: (_p) => \`<button bf="s1">\${(fa
 export function Toggle(_p, __bfKey) { return createComponent('Toggle', _p, __bfKey) }"
 `;
 
-exports[`docs/core/components/component-authoring.md doc-examples L166 — (no label) 1`] = `
+exports[`docs/core/components/component-authoring.mdx doc-examples L170 — (no label) 1`] = `
 "import { $c, createComponent, hydrate, initChild, renderChild } from '@barefootjs/client/runtime'
 import '/* @bf-child:UserList */'
 import '/* @bf-child:Counter */'
@@ -2159,7 +2159,7 @@ hydrate('Page', { init: initPage, template: (_p) => \`<div>\${renderChild('UserL
 export function Page(_p, __bfKey) { return createComponent('Page', _p, __bfKey) }"
 `;
 
-exports[`docs/core/components/component-authoring.md doc-examples L187 — (no label) 1`] = `
+exports[`docs/core/components/component-authoring.mdx doc-examples L191 — (no label) 1`] = `
 "import { $, createComponent, createEffect, hydrate } from '@barefootjs/client/runtime'
 
 
@@ -2180,7 +2180,7 @@ hydrate('AutoFocus', { init: initAutoFocus, template: (_p) => \`<input placehold
 export function AutoFocus(_p, __bfKey) { return createComponent('AutoFocus', _p, __bfKey) }"
 `;
 
-exports[`docs/core/components/component-authoring.md doc-examples L202 — (no label) 1`] = `
+exports[`docs/core/components/component-authoring.mdx doc-examples L206 — (no label) 1`] = `
 "import { createComponent, hydrate } from '@barefootjs/client/runtime'
 
 function initStatementExample() {}
@@ -3427,7 +3427,7 @@ hydrate('StatementExample', { init: initStatementExample, template: (_p) => \`<d
 export function StatementExample(_p, __bfKey) { return createComponent('StatementExample', _p, __bfKey) }"
 `;
 
-exports[`docs/core/core-concepts/how-it-works.md doc-examples L33 — (no label) 1`] = `
+exports[`docs/core/core-concepts/how-it-works.mdx doc-examples L33 — (no label) 1`] = `
 "import { $, $t, createComponent, createEffect, createSignal, hydrate } from '@barefootjs/client/runtime'
 
 
@@ -4802,7 +4802,7 @@ hydrate('StatementExample', { init: initStatementExample, template: (_p) => \`<d
 export function StatementExample(_p, __bfKey) { return createComponent('StatementExample', _p, __bfKey) }"
 `;
 
-exports[`docs/core/introduction.md doc-examples L15 — (no label) 1`] = `
+exports[`docs/core/introduction.mdx doc-examples L15 — (no label) 1`] = `
 "import { $, $t, createComponent, createEffect, createSignal, hydrate } from '@barefootjs/client/runtime'
 
 

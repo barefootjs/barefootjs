@@ -34,7 +34,7 @@ function slugFor(rel: string, kind: 'md' | 'mdx'): { slug: string; name: string 
   const ext = kind === 'mdx' ? /\.mdx$/ : /\.md$/
   const noExt = rel.replace(ext, '')
   const name = noExt.split('/').pop() || ''
-  const slug = rel === 'README.md' ? '' : noExt
+  const slug = (rel === 'README.md' || rel === 'README.mdx') ? '' : noExt
   return { slug, name }
 }
 

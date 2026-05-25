@@ -65,6 +65,72 @@ After`
     const result = parseMdx('<Marker />')
     expect(result.nodes).toEqual([{ type: 'jsx', name: 'Marker', props: {} }])
   })
+
+  test('parses a block-level tag with Tab children', () => {
+    const source = `Before
+
+<Tabs id="adapter" default="Hono">
+<Tab label="Hono" />
+
+Hono content
+
+<Tab label="Go Template" />
+
+Go content
+
+</Tabs>
+
+After`
+    const result = parseMdx(source)
+    expect(result.nodes).toEqual([
+      { type: 'md', text: 'Before' },
+      {
+        type: 'jsx-block',
+        name: 'Tabs',
+        props: { id: 'adapter', default: 'Hono' },
+        children: [
+          { props: { label: 'Hono' }, content: 'Hono content' },
+          { props: { label: 'Go Template' }, content: 'Go content' },
+        ],
+      },
+      { type: 'md', text: 'After' },
+    ])
+  })
+
+  test('handles code fences inside block-level tab content', () => {
+    const source = `<Tabs id="adapter" default="Hono">
+<Tab label="Hono" />
+
+\`\`\`tsx
+const x = 1
+\`\`\`
+
+<Tab label="Go" />
+
+\`\`\`go-template
+{{define "X"}}{{end}}
+\`\`\`
+
+</Tabs>`
+    const result = parseMdx(source)
+    expect(result.nodes).toHaveLength(1)
+    const node = result.nodes[0]
+    expect(node.type).toBe('jsx-block')
+    if (node.type === 'jsx-block') {
+      expect(node.children).toHaveLength(2)
+      expect(node.children[0].content).toContain('```tsx')
+      expect(node.children[1].content).toContain('```go-template')
+    }
+  })
+
+  test('parses a block-level tag with no Tab children (empty block)', () => {
+    const source = `<Tabs id="test">
+</Tabs>`
+    const result = parseMdx(source)
+    expect(result.nodes).toEqual([
+      { type: 'jsx-block', name: 'Tabs', props: { id: 'test' }, children: [] },
+    ])
+  })
 })
 
 describe('projectMdxToMarkdown', () => {
@@ -120,5 +186,45 @@ After`
     expect(projectMdxToMarkdown(source, defaultMdxProjectors)).toBe(
       ['```bash', 'bun create my-pkg', '```', ''].join('\n'),
     )
+  })
+
+  test('projects Tabs block to default tab content', () => {
+    const source = `Before
+
+<Tabs id="adapter" default="Hono">
+<Tab label="Hono" />
+
+Hono content here
+
+<Tab label="Go Template" />
+
+Go content here
+
+</Tabs>
+
+After`
+    const projected = projectMdxToMarkdown(source, defaultMdxProjectors)
+    expect(projected).toBe('Before\n\nHono content here\n\nAfter\n')
+  })
+
+  test('projects Tabs block defaults to first tab when no default prop', () => {
+    const source = `<Tabs id="adapter">
+<Tab label="A" />
+
+Alpha
+
+<Tab label="B" />
+
+Beta
+
+</Tabs>`
+    const projected = projectMdxToMarkdown(source, defaultMdxProjectors)
+    expect(projected).toBe('Alpha\n')
+  })
+
+  test('projects self-closing Tabs with labels to a bulleted list', () => {
+    const source = `<Tabs id="pm" labels="npm,bun,pnpm,yarn" />`
+    const projected = projectMdxToMarkdown(source, defaultMdxProjectors)
+    expect(projected).toBe('- npm\n- bun\n- pnpm\n- yarn\n')
   })
 })

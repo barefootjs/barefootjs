@@ -28,8 +28,9 @@ export function Counter() {
 
 This single file compiles into two outputs:
 
-<!-- tabs:adapter -->
-<!-- tab:Hono -->
+<Tabs id="adapter" default="Hono">
+<Tab label="Hono" />
+
 **Marked template** — Renders static HTML with hydration markers:
 
 ```tsx
@@ -45,7 +46,8 @@ export function Counter({ __instanceId, ... }) {
 }
 ```
 
-<!-- tab:Go Template -->
+<Tab label="Go Template" />
+
 **Marked template** — Go `html/template` with hydration markers:
 
 ```go-template
@@ -56,7 +58,7 @@ export function Counter({ __instanceId, ... }) {
 {{end}}
 ```
 
-<!-- /tabs -->
+</Tabs>
 
 **Client script** — Wires up only the interactive parts:
 
@@ -84,4 +86,3 @@ hydrate('Counter', {
   template: (_p) => `<button bf="s1"> Count: <!--bf:s0-->${(0)}<!--/--></button>`
 })
 ```
-

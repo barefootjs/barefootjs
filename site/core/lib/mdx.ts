@@ -10,15 +10,21 @@
 // come back as `{ name, props }` so the caller can resolve them
 // against a component registry it owns.
 
-import { parseMdx, projectMdxToMarkdown, defaultMdxProjectors, type MdxProjector } from '../../../packages/cli/src/lib/mdx'
+import { parseMdx, projectMdxToMarkdown, defaultMdxProjectors, type MdxProjector, type MdxBlockChild } from '../../../packages/cli/src/lib/mdx'
 import { renderMarkdown, type Frontmatter, type TocItem } from './markdown'
 
 export type { MdxProjector }
 export { projectMdxToMarkdown, defaultMdxProjectors }
 
+export interface RenderedBlockChild {
+  props: Record<string, string>
+  html: string
+}
+
 export type MdxRenderPart =
   | { type: 'html'; html: string }
   | { type: 'component'; name: string; props: Record<string, string> }
+  | { type: 'block-component'; name: string; props: Record<string, string>; children: RenderedBlockChild[] }
 
 export interface RenderedMdx {
   frontmatter: Frontmatter
@@ -43,12 +49,20 @@ export async function renderMdx(source: string): Promise<RenderedMdx> {
       const md = await renderMarkdown(node.text)
       if (md.html.trim()) parts.push({ type: 'html', html: md.html })
       toc.push(...md.toc)
-      // The first chunk's frontmatter is empty (parseMdx already
-      // peeled it off) but title-from-H1 still fires; promote it
-      // when the source had no explicit title.
       if (!frontmatter.title && md.frontmatter.title) {
         frontmatter.title = md.frontmatter.title
       }
+    } else if (node.type === 'jsx-block') {
+      const renderedChildren: RenderedBlockChild[] = []
+      for (const child of node.children) {
+        if (child.content) {
+          const md = await renderMarkdown(child.content)
+          renderedChildren.push({ props: child.props, html: md.html })
+        } else {
+          renderedChildren.push({ props: child.props, html: '' })
+        }
+      }
+      parts.push({ type: 'block-component', name: node.name, props: node.props, children: renderedChildren })
     } else {
       parts.push({ type: 'component', name: node.name, props: node.props })
     }

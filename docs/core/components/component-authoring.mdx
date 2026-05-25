@@ -40,7 +40,7 @@ export function Counter() {
 }
 ```
 
-The compiler produces a **marked template** (server HTML with `bf-*` attributes) and **client JS** (signals, effects, event handlers). See [How It Works](../core-concepts/how-it-works.md#two-phase-compilation) for details.
+The compiler produces a **marked template** (server HTML with `bf-*` attributes) and **client JS** (signals, effects, event handlers). See [How It Works](../core-concepts/how-it-works.mdx#two-phase-compilation) for details.
 
 ### When `"use client"` Is Required
 
@@ -92,8 +92,9 @@ export function Toggle() {
 
 **Marked template:**
 
-<!-- tabs:adapter -->
-<!-- tab:Hono -->
+<Tabs id="adapter" default="Hono">
+<Tab label="Hono" />
+
 ```tsx
 export function Toggle({ __instanceId, ... }) {
   const __scopeId = __instanceId || `Toggle_${...}`
@@ -107,7 +108,9 @@ export function Toggle({ __instanceId, ... }) {
   )
 }
 ```
-<!-- tab:Go Template -->
+
+<Tab label="Go Template" />
+
 ```go-template
 {{define "Toggle"}}
 <button bf-s="{{bfScopeAttr .}}" bf="s1">
@@ -116,7 +119,8 @@ export function Toggle({ __instanceId, ... }) {
 </button>
 {{end}}
 ```
-<!-- /tabs -->
+
+</Tabs>
 
 **Client JS:**
 

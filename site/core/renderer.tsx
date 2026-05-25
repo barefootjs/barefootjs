@@ -51,6 +51,7 @@ function WithPredictableIds({ children }: { children: any }) {
 }
 
 import { themeInitScript } from '@barefootjs/site-shared/lib/theme-init'
+import { docsTabsInitScript } from '@barefootjs/site-shared/lib/docs-tabs-init'
 
 // Import map for resolving @barefootjs/client in client JS
 const importMapScript = JSON.stringify({
@@ -160,6 +161,7 @@ export const renderer = jsxRenderer(
             <meta name="author" content="kobaken a.k.a @kfly8" />
             <link rel="author" href="https://kobaken.co" />
             <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+            <script dangerouslySetInnerHTML={{ __html: docsTabsInitScript }} />
             <link rel="stylesheet" href="/static/globals.css" />
             <link rel="stylesheet" href="/static/uno.css" />
           </head>
