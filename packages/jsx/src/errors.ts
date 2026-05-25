@@ -24,7 +24,6 @@ export const ErrorCodes = {
 
   // JSX errors (BF021-BF029)
   UNSUPPORTED_JSX_PATTERN: 'BF021',
-  INVALID_JSX_ATTRIBUTE: 'BF022',
   MISSING_KEY_IN_LIST: 'BF023',
   MISSING_KEY_IN_NESTED_LIST: 'BF024',
   UNSUPPORTED_DESTRUCTURE_REST: 'BF025',
@@ -110,7 +109,6 @@ const errorMessages: Record<ErrorCode, string> = {
     'Move the declaration inside a component function so each mount gets its own state.',
 
   [ErrorCodes.UNSUPPORTED_JSX_PATTERN]: 'Unsupported JSX pattern',
-  [ErrorCodes.INVALID_JSX_ATTRIBUTE]: 'Invalid JSX attribute',
   [ErrorCodes.MISSING_KEY_IN_LIST]:
     'Missing key attribute in list rendering. Add a key prop for efficient updates',
   [ErrorCodes.MISSING_KEY_IN_NESTED_LIST]:
