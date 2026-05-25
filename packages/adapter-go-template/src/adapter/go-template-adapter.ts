@@ -308,6 +308,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
    * follow-up).
    */
   private restPropsName: string | null = null
+  private templateVarCounter: number = 0
   /** Local type names resolved from typeDefinitions (populated during generateTypes) */
   private localTypeNames: Set<string> = new Set()
   /** Local type aliases mapping type name to base type (e.g., Filter → 'string') */
@@ -334,6 +335,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   generate(ir: ComponentIR, options?: AdapterGenerateOptions): AdapterOutput {
     this.componentName = ir.metadata.componentName
     this.errors = []
+    this.templateVarCounter = 0
     this.propsObjectName = ir.metadata.propsObjectName
     this.restPropsName = ir.metadata.restPropsName ?? null
 
@@ -2562,6 +2564,18 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   binary(op: string, left: ParsedExpr, right: ParsedExpr, emit: (e: ParsedExpr) => string): string {
     const l = emit(left)
     const r = emit(right)
+    if (this.isTemplateBlock(l) || this.isTemplateBlock(r)) {
+      this.errors.push({
+        code: 'BF101',
+        severity: 'error',
+        message: `Higher-order method with complex predicate cannot be composed inside a binary expression in Go templates`,
+        loc: this.makeLoc(),
+        suggestion: {
+          message: 'Options:\n1. Use @client directive for client-side evaluation\n2. Pre-compute the value in Go code',
+        },
+      })
+      return `""`
+    }
     switch (op) {
       case '===':
       case '==':
@@ -2607,6 +2621,18 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   ): string {
     const l = emit(left)
     const r = emit(right)
+    if (this.isTemplateBlock(l) || this.isTemplateBlock(r)) {
+      this.errors.push({
+        code: 'BF101',
+        severity: 'error',
+        message: `Higher-order method with complex predicate cannot be composed inside a logical expression in Go templates`,
+        loc: this.makeLoc(),
+        suggestion: {
+          message: 'Options:\n1. Use @client directive for client-side evaluation\n2. Pre-compute the value in Go code',
+        },
+      })
+      return `""`
+    }
     const wrapLeft = this.needsParens(left) ? `(${l})` : l
     const wrapRight = this.needsParens(right) ? `(${r})` : r
     if (op === '&&') return `and ${wrapLeft} ${wrapRight}`
@@ -2620,6 +2646,18 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     emit: (e: ParsedExpr) => string,
   ): string {
     const t = emit(test)
+    if (this.isTemplateBlock(t)) {
+      this.errors.push({
+        code: 'BF101',
+        severity: 'error',
+        message: `Higher-order method with complex predicate cannot be used as a ternary condition in Go templates`,
+        loc: this.makeLoc(),
+        suggestion: {
+          message: 'Options:\n1. Use @client directive for client-side evaluation\n2. Pre-compute the value in Go code',
+        },
+      })
+      return `""`
+    }
     // Nested conditionals already return complete {{if}}...{{end}} blocks;
     // literals return bare text (used within attributes).
     const c = this.renderConditionalBranch(consequent)
@@ -2984,12 +3022,14 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     }
 
     if (expr.method === 'findLast') {
+      const v = `$bf_r${this.templateVarCounter++}`
       const capture = propertyAccess ? `.${propertyAccess}` : '.'
-      return `{{if true}}{{$bf_result := ""}}{{range ${arrayExpr}}}{{if ${condition}}}{{$bf_result = ${capture}}}{{end}}{{end}}{{$bf_result}}{{end}}`
+      return `{{${v} := ""}}{{range ${arrayExpr}}}{{if ${condition}}}{{${v} = ${capture}}}{{end}}{{end}}{{${v}}}`
     }
 
     if (expr.method === 'findLastIndex') {
-      return `{{if true}}{{$bf_result := -1}}{{range $i, $_ := ${arrayExpr}}}{{if ${condition}}}{{$bf_result = $i}}{{end}}{{end}}{{$bf_result}}{{end}}`
+      const v = `$bf_r${this.templateVarCounter++}`
+      return `{{${v} := -1}}{{range $i, $_ := ${arrayExpr}}}{{if ${condition}}}{{${v} = $i}}{{end}}{{end}}{{${v}}}`
     }
 
     return null
@@ -3078,6 +3118,10 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
    */
   private needsParens(expr: ParsedExpr): boolean {
     return expr.kind === 'logical' || expr.kind === 'unary' || expr.kind === 'conditional'
+  }
+
+  private isTemplateBlock(rendered: string): boolean {
+    return rendered.includes('{{')
   }
 
   // =============================================================================
@@ -3800,6 +3844,19 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
           right = `(${right})`
         }
 
+        if (this.isTemplateBlock(left) || this.isTemplateBlock(right)) {
+          this.errors.push({
+            code: 'BF101',
+            severity: 'error',
+            message: `Higher-order method with complex predicate cannot be composed inside a binary expression in Go templates`,
+            loc: this.makeLoc(),
+            suggestion: {
+              message: 'Options:\n1. Use @client directive for client-side evaluation\n2. Pre-compute the value in Go code',
+            },
+          })
+          return `""`
+        }
+
         switch (expr.op) {
           case '===':
           case '==':
@@ -3843,6 +3900,18 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       case 'logical': {
         const left = this.renderConditionExpr(expr.left)
         const right = this.renderConditionExpr(expr.right)
+        if (this.isTemplateBlock(left) || this.isTemplateBlock(right)) {
+          this.errors.push({
+            code: 'BF101',
+            severity: 'error',
+            message: `Higher-order method with complex predicate cannot be composed inside a logical expression in Go templates`,
+            loc: this.makeLoc(),
+            suggestion: {
+              message: 'Options:\n1. Use @client directive for client-side evaluation\n2. Pre-compute the value in Go code',
+            },
+          })
+          return `""`
+        }
         // Wrap in parentheses if needed
         const wrapLeft = this.needsParens(expr.left) ? `(${left})` : left
         const wrapRight = this.needsParens(expr.right) ? `(${right})` : right
