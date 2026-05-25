@@ -426,9 +426,8 @@ for (const page of PAGES) {
 //     a stateful component; BF044 needs a declared signal getter).
 //     These are doc-edit follow-ups.
 //
-// Previously-documented-but-unimplemented codes (BF042)
-// were removed from the
-// doc to keep it honest. The constants remain reserved in `errors.ts`.
+// Previously-documented-but-unimplemented codes were removed from the
+// doc to keep it honest.
 //
 // The skip list lives in code so a future PR that enriches the doc
 // snippet simply removes the entry and the test starts asserting.
