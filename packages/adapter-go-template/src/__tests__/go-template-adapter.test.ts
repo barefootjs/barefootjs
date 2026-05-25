@@ -1086,8 +1086,9 @@ export function ItemFinder() {
   return <div>{items().findLastIndex(t => t.price > 50 && t.active)}</div>
 }
 `)
-      expect(result.template).toMatch(/\$bf_r\d+ := -1/)
-      expect(result.template).toMatch(/\$bf_r\d+ = \$i/)
+      const varMatch = result.template.match(/(\$bf_r\d+) := -1/)
+      expect(varMatch).not.toBeNull()
+      expect(result.template).toContain(`${varMatch![1]} = $i`)
       expect(result.template).not.toContain('{{break}}')
     })
 
@@ -1111,7 +1112,7 @@ export function ItemFinder() {
       expect(output.template).toContain('yes')
     })
 
-    test('emits BF101 when findLast() complex predicate is composed in binary expression', () => {
+    test('findLast() complex predicate in binary expression compiles via preamble hoisting', () => {
       const adapter = new GoTemplateAdapter()
       const ir = compileToIR(`
 "use client"
@@ -1125,8 +1126,11 @@ export function ItemFinder() {
   return <div class={items().findLast(t => t.price > 100 && t.category === type()) === 'special' ? 'highlight' : 'normal'}>test</div>
 }
 `, adapter)
-      adapter.generate(ir)
-      expect(adapter.errors.some(e => e.code === 'BF101')).toBe(true)
+      const output = adapter.generate(ir)
+      expect(adapter.errors.filter(e => e.code === 'BF101')).toEqual([])
+      expect(output.template).toMatch(/\$bf_r\d+ := ""/)
+      expect(output.template).toContain('eq')
+      expect(output.template).toContain('"special"')
     })
   })
 
