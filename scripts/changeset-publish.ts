@@ -16,7 +16,7 @@
 //   - NODE_AUTH_TOKEN env var (set by actions/setup-node with registry-url)
 //
 // Usage:
-//   bun scripts/changeset-publish.mjs
+//   bun scripts/changeset-publish.ts
 
 import { resolve } from 'node:path'
 import { $ } from 'bun'

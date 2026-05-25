@@ -1,9 +1,9 @@
 # Automated release via Changesets.
 #
 # When .changeset/*.md files are present on main → opens a "Version Packages" PR.
-# When that PR is merged (no changeset files remain) → builds, lints, publishes.
+# When that PR is merged (no changeset files remain) → builds and publishes.
 #
-# Uses `bun publish` (via scripts/changeset-publish.mjs) instead of
+# Uses `bun publish` (via scripts/changeset-publish.ts) instead of
 # `npm publish` to resolve workspace:* protocol references automatically.
 #
 # Prerequisites (one-time setup):
