@@ -41,11 +41,10 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup Node (npm registry + OIDC)
+      - name: Setup Node
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
         with:
           node-version: '22'
-          registry-url: https://registry.npmjs.org/
 
       - run: bun install
 
