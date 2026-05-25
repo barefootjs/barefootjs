@@ -9,11 +9,15 @@
   "updateInternalDependencies": "patch",
   "ignore": [
     "@barefootjs/adapter-tests",
+    "@barefootjs/preview",
+    "@barefootjs/site-shared",
     "@barefootjs/ui",
-    "barefootjs-hono-jsx-example",
-    "barefootjs-mojolicious-example",
-    "barefootjs-echo-example",
+    "barefootjs-components",
     "barefootjs-csr-example",
-    "barefootjs-components"
+    "barefootjs-echo-example",
+    "barefootjs-hono-jsx-example",
+    "barefootjs-integrations-shared",
+    "barefootjs-mojolicious-example",
+    "barefootjs-site"
   ]
 }
