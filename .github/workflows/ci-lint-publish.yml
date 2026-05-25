@@ -1,0 +1,32 @@
+# Lint that publishable packages don't contain workspace: protocol in
+# their packed manifests. Catches regressions before they reach a release.
+#
+# Only triggers when publish-relevant files change (package.json, build
+# config, publish scripts) to avoid adding CI time to unrelated PRs.
+
+name: Lint publish readiness
+
+on:
+  pull_request:
+    paths:
+      - 'packages/*/package.json'
+      - 'package.json'
+      - 'scripts/swap-publish-config.mjs'
+      - 'scripts/lint-publish.mjs'
+      - 'scripts/changeset-publish.mjs'
+      - '.changeset/config.json'
+
+jobs:
+  lint-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun run lint:publish
