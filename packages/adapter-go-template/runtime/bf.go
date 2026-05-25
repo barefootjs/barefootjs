@@ -1083,9 +1083,15 @@ func FindLast(items any, field string, value any) any {
 	for i := v.Len() - 1; i >= 0; i-- {
 		item := v.Index(i)
 		if item.Kind() == reflect.Interface {
+			if item.IsNil() {
+				continue
+			}
 			item = item.Elem()
 		}
 		if item.Kind() == reflect.Ptr {
+			if item.IsNil() {
+				continue
+			}
 			item = item.Elem()
 		}
 		if item.Kind() != reflect.Struct {
@@ -1116,9 +1122,15 @@ func FindLastIndex(items any, field string, value any) int {
 	for i := v.Len() - 1; i >= 0; i-- {
 		item := v.Index(i)
 		if item.Kind() == reflect.Interface {
+			if item.IsNil() {
+				continue
+			}
 			item = item.Elem()
 		}
 		if item.Kind() == reflect.Ptr {
+			if item.IsNil() {
+				continue
+			}
 			item = item.Elem()
 		}
 		if item.Kind() != reflect.Struct {

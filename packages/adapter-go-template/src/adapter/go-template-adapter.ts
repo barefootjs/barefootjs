@@ -2985,11 +2985,11 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
 
     if (expr.method === 'findLast') {
       const capture = propertyAccess ? `.${propertyAccess}` : '.'
-      return `{{$bf_result := ""}}{{range ${arrayExpr}}}{{if ${condition}}}{{$bf_result = ${capture}}}{{end}}{{end}}{{$bf_result}}`
+      return `{{if true}}{{$bf_result := ""}}{{range ${arrayExpr}}}{{if ${condition}}}{{$bf_result = ${capture}}}{{end}}{{end}}{{$bf_result}}{{end}}`
     }
 
     if (expr.method === 'findLastIndex') {
-      return `{{$bf_result := -1}}{{range $i, $_ := ${arrayExpr}}}{{if ${condition}}}{{$bf_result = $i}}{{end}}{{end}}{{$bf_result}}`
+      return `{{if true}}{{$bf_result := -1}}{{range $i, $_ := ${arrayExpr}}}{{if ${condition}}}{{$bf_result = $i}}{{end}}{{end}}{{$bf_result}}{{end}}`
     }
 
     return null
