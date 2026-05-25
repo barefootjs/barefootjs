@@ -3,14 +3,17 @@
 # When .changeset/*.md files are present on main → opens a "Version Packages" PR.
 # When that PR is merged (no changeset files remain) → builds and publishes.
 #
-# Uses `bun publish` (via scripts/changeset-publish.ts) instead of
-# `npm publish` to resolve workspace:* protocol references automatically.
+# Uses a hybrid approach:
+#   - `bun pm pack` to resolve workspace:* protocol references
+#   - `npm publish <tarball> --provenance` for OIDC auth + provenance attestation
 #
-# Prerequisites (one-time setup):
-#   1. Create an npm Automation token scoped to @barefootjs/* packages
-#   2. Add it as repo secret NPM_TOKEN
-#   3. (Optional, recommended) Switch to npm Trusted Publishers + OIDC
-#      for tokenless publishing — see https://docs.npmjs.com/generating-provenance-statements
+# No long-lived NPM_TOKEN needed — uses npm Trusted Publishing (OIDC).
+#
+# Prerequisites (one-time setup on npmjs.com):
+#   For each package (or at org level for @barefootjs):
+#     Package settings → Trusted Publishers → Add GitHub Actions
+#       Repository: piconic-ai/barefootjs
+#       Workflow:   release.yml
 
 name: Release
 
@@ -25,6 +28,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 jobs:
   release:
@@ -37,7 +41,7 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup Node (npm registry auth)
+      - name: Setup Node (npm registry + OIDC)
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
         with:
           node-version: '22'
@@ -52,4 +56,3 @@ jobs:
           publish: bun run build && bun scripts/changeset-publish.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
