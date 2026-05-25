@@ -83,18 +83,21 @@ export function Counter() {
     const diagnostics = getSemanticDiagnostics(undeclaredSignalSource)
     // ts(2304) "Cannot find name" or ts(2552) "Cannot find name … Did you mean?"
     const undeclared = diagnostics.filter(d => d.code === 2304 || d.code === 2552)
-    const messages = undeclared.map(d => ts.flattenDiagnosticMessageText(d.messageText, '\n'))
-    expect(messages.some(m => m.includes('count'))).toBe(true)
+    // Match on the primary identifier, not a "Did you mean?" suggestion
+    expect(undeclared.some(d =>
+      ts.flattenDiagnosticMessageText(d.messageText, '\n').startsWith("Cannot find name 'count'")
+    )).toBe(true)
   })
 
   test('TypeScript reports undeclared-name error for signal setter', () => {
     const diagnostics = getSemanticDiagnostics(undeclaredSignalSource)
     const undeclared = diagnostics.filter(d => d.code === 2304 || d.code === 2552)
-    const messages = undeclared.map(d => ts.flattenDiagnosticMessageText(d.messageText, '\n'))
-    expect(messages.some(m => m.includes('setCount'))).toBe(true)
+    expect(undeclared.some(d =>
+      ts.flattenDiagnosticMessageText(d.messageText, '\n').startsWith("Cannot find name 'setCount'")
+    )).toBe(true)
   })
 
-  test('barefoot analyzer does not emit BF010 (code no longer exists)', () => {
+  test('barefoot analyzer produces no errors for a valid component', () => {
     const src = `'use client'
 import { createSignal } from '@barefootjs/client'
 export function Counter() {
@@ -103,7 +106,6 @@ export function Counter() {
 }
 `
     const ctx = analyzeComponent(src, '/tmp/Counter.tsx', 'Counter')
-    const bf010 = ctx.errors.filter(e => e.code === 'BF010')
-    expect(bf010).toHaveLength(0)
+    expect(ctx.errors).toHaveLength(0)
   })
 })
