@@ -22,8 +22,7 @@ export const ErrorCodes = {
   // Signal/Memo errors (BF011-BF019)
   SIGNAL_OUTSIDE_COMPONENT: 'BF011',
 
-  // JSX errors (BF020-BF029)
-  INVALID_JSX_EXPRESSION: 'BF020',
+  // JSX errors (BF021-BF029)
   UNSUPPORTED_JSX_PATTERN: 'BF021',
   INVALID_JSX_ATTRIBUTE: 'BF022',
   MISSING_KEY_IN_LIST: 'BF023',
@@ -110,7 +109,6 @@ const errorMessages: Record<ErrorCode, string> = {
     'The downstream codegen drops the declaration silently and every reference becomes a ReferenceError at SSR and at hydrate. ' +
     'Move the declaration inside a component function so each mount gets its own state.',
 
-  [ErrorCodes.INVALID_JSX_EXPRESSION]: 'Invalid JSX expression',
   [ErrorCodes.UNSUPPORTED_JSX_PATTERN]: 'Unsupported JSX pattern',
   [ErrorCodes.INVALID_JSX_ATTRIBUTE]: 'Invalid JSX attribute',
   [ErrorCodes.MISSING_KEY_IN_LIST]:
