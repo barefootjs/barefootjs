@@ -22,14 +22,6 @@ runAdapterConformanceTests({
   // `<!--bf-cond-start:sN-->` / `<!--bf-cond-end:sN-->` comment pairs)
   // is now collapsed by `normalizeHTML` in adapter-tests (#1266).
   //
-  // `nullish-coalescing-jsx` / `return-nullish-coalescing` have a
-  // separate semantic divergence: the Go template's `{{if ne .Banner
-  // ""}}` condition treats an unset `Banner` (Go nil) as `!= ""` and
-  // takes the truthy branch with empty content, while Hono's JS
-  // `??` operator falls through to the JSX default. That's a Go-
-  // adapter branch-selection bug — fixing it is out of scope for
-  // #1266.
-  //
   // `return-map` uses a `data-key` serialisation shape that differs
   // between Hono (runtime helper) and Go (template variable) in a
   // way that isn't structural — leaving it on `skipJsx` until a
@@ -43,8 +35,6 @@ runAdapterConformanceTests({
   // `BF104` at build time instead of silently emitting invalid
   // template syntax (#1266).
   skipJsx: [
-    'nullish-coalescing-jsx',
-    'return-nullish-coalescing',
     'return-map',
     // #1297 fixed the harness-side IR emission gate (multi-component
     // sources now emit one `ir` file per component, and the harness

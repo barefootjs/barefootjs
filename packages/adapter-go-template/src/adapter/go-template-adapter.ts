@@ -2471,7 +2471,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
 
   literal(value: string | number | boolean | null, literalType: LiteralType): string {
     if (literalType === 'string') return `"${value}"`
-    if (literalType === 'null') return '""'
+    if (literalType === 'null') return 'nil'
     return String(value)
   }
 
@@ -3310,7 +3310,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
           return `"${expr.value}"`
         }
         if (expr.literalType === 'null') {
-          return '""'
+          return 'nil'
         }
         return String(expr.value)
 
@@ -3727,7 +3727,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
           return `"${expr.value}"`
         }
         if (expr.literalType === 'null') {
-          return '""'
+          return 'nil'
         }
         return String(expr.value)
 
