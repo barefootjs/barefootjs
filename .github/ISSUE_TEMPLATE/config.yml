@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Contribution Policy
+    url: https://github.com/piconic-ai/barefootjs
+    about: |
+      We don't accept external PRs due to supply-chain and AI-slop concerns,
+      but design discussions in issues are very welcome — and contributions
+      made through issues will be credited as co-authors in commits.
