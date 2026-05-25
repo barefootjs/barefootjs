@@ -34,10 +34,12 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # Build all publishable packages. Order matters: client and jsx are
-      # consumed by the others, so build them first.
+      # Build all publishable packages. Order matters: shared is consumed
+      # by nearly everything, then client/jsx, then the rest.
       - name: Build packages
         run: |
+          bun run --filter '@barefootjs/shared' build
+          bun run --filter '@barefootjs/streaming' build
           bun run --filter '@barefootjs/jsx' build
           bun run --filter '@barefootjs/client' build
           bun run --filter '@barefootjs/form' build
