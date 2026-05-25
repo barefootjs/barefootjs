@@ -223,11 +223,10 @@ const HONO_NODE_TSCONFIG = `{
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      // Source first so tsc resolves the authored file (with full
-      // types) rather than the bf-build output (which may have
-      // implicit-any lambdas). The Hono JSX runtime renders
-      // hydration markers from source at serve time.
-      "@/components/*": ["./components/*", "./dist/components/*"]
+      // Build output first so the server resolves the compiled SSR
+      // template (with hydration markers + script collection).
+      // Source is the fallback for files not yet built.
+      "@/components/*": ["./dist/components/*", "./components/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],
