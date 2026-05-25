@@ -1,0 +1,55 @@
+# Automated release via Changesets.
+#
+# When .changeset/*.md files are present on main → opens a "Version Packages" PR.
+# When that PR is merged (no changeset files remain) → builds and publishes.
+#
+# Uses `bun publish` (via scripts/changeset-publish.ts) instead of
+# `npm publish` to resolve workspace:* protocol references automatically.
+#
+# Prerequisites (one-time setup):
+#   1. Create an npm Automation token scoped to @barefootjs/* packages
+#   2. Add it as repo secret NPM_TOKEN
+#   3. (Optional, recommended) Switch to npm Trusted Publishers + OIDC
+#      for tokenless publishing — see https://docs.npmjs.com/generating-provenance-statements
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node (npm registry auth)
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org/
+
+      - run: bun install
+
+      - name: Changesets — version or publish
+        uses: changesets/action@e0145edc7d9d8679003495b11f87bd8ef63c0cba # v1.4.9
+        with:
+          version: bunx changeset version
+          publish: bun run build && bun scripts/changeset-publish.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
