@@ -1,0 +1,16 @@
+{
+  "name": "barefootjs",
+  "owner": {
+    "name": "Piconic AI",
+    "email": "kentafly88@gmail.com"
+  },
+  "description": "Skills for building UI components with BarefootJS — signal-based reactivity for any backend.",
+  "version": "1.0.0",
+  "plugins": [
+    {
+      "name": "barefootjs",
+      "source": "./plugins/barefootjs",
+      "description": "Build, inspect, and debug UI components using the @barefootjs/cli."
+    }
+  ]
+}
