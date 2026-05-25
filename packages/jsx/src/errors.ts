@@ -28,8 +28,7 @@ export const ErrorCodes = {
   MISSING_KEY_IN_NESTED_LIST: 'BF024',
   UNSUPPORTED_DESTRUCTURE_REST: 'BF025',
 
-  // Type errors (BF030-BF039)
-  TYPE_INFERENCE_FAILED: 'BF030',
+  // Type errors (BF031-BF039)
   PROPS_TYPE_MISMATCH: 'BF031',
 
   // Component errors (BF040-BF049)
@@ -122,7 +121,6 @@ const errorMessages: Record<ErrorCode, string> = {
     // stable.
     'Computed property key in .map() callback destructure is not supported. Rewrite the callback to destructure explicit bindings (e.g., `({ a, b }) => ...`) so the compiler can rewrite references to per-item signal accessors.',
 
-  [ErrorCodes.TYPE_INFERENCE_FAILED]: 'Failed to infer type',
   [ErrorCodes.PROPS_TYPE_MISMATCH]: 'Props type mismatch',
 
   [ErrorCodes.COMPONENT_NOT_FOUND]: 'Component not found',
