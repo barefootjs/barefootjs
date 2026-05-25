@@ -78,7 +78,7 @@ try {
     console.log(`\n  publish  ${pkg.name}@${pkg.version} (${label})`)
 
     // Step 1: pack with bun (resolves workspace:*)
-    const pack = await $`bun pm pack --destination ${tmpDir}`
+    const pack = await $`bun pm pack --quiet --destination ${tmpDir}`
       .cwd(resolve(repoRoot, pkgDir))
       .quiet()
       .nothrow()
