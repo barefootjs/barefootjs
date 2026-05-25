@@ -19,24 +19,25 @@ jobs:
 
       - name: Check if changeset is required
         run: |
-          # Published-package source directories that require a changeset
-          # when modified. Derived from the non-private packages under
-          # packages/ (see .changeset/config.json "ignore" for the skip list).
-          PUBLISHED_SRC_PATHS=(
-            packages/adapter-go-template/src
-            packages/adapter-hono/src
-            packages/adapter-mojolicious/src
-            packages/chart/src
-            packages/cli/src
-            packages/client/src
-            packages/create-barefootjs/src
-            packages/form/src
-            packages/jsx/src
-            packages/shared/src
-            packages/streaming/src
-            packages/test/src
-            packages/xyflow/src
-          )
+          # Derive published-package src/ paths dynamically from:
+          #   - packages/*/package.json (skip private: true)
+          #   - .changeset/config.json ignore list
+          ignore_list=$(jq -r '.ignore[]' .changeset/config.json)
+          PUBLISHED_SRC_PATHS=()
+          for pkg_json in packages/*/package.json; do
+            dir=$(dirname "$pkg_json")
+            name=$(jq -r '.name' "$pkg_json")
+            is_private=$(jq -r '.private // false' "$pkg_json")
+            if [ "$is_private" = "true" ]; then
+              continue
+            fi
+            if echo "$ignore_list" | grep -qxF "$name"; then
+              continue
+            fi
+            if [ -d "$dir/src" ]; then
+              PUBLISHED_SRC_PATHS+=("$dir/src")
+            fi
+          done
 
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
