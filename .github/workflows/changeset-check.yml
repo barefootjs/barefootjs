@@ -1,0 +1,81 @@
+name: Changeset check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-changeset') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Check if changeset is required
+        run: |
+          # Published-package source directories that require a changeset
+          # when modified. Derived from the non-private packages under
+          # packages/ (see .changeset/config.json "ignore" for the skip list).
+          PUBLISHED_SRC_PATHS=(
+            packages/adapter-go-template/src
+            packages/adapter-hono/src
+            packages/adapter-mojolicious/src
+            packages/chart/src
+            packages/cli/src
+            packages/client/src
+            packages/create-barefootjs/src
+            packages/form/src
+            packages/jsx/src
+            packages/shared/src
+            packages/streaming/src
+            packages/test/src
+            packages/xyflow/src
+          )
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          changed_files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+          needs_changeset=false
+          matched_paths=()
+
+          for file in $changed_files; do
+            # Skip test files — they don't affect published output
+            if echo "$file" | grep -qE '(__tests__|\.test\.|\.spec\.)'; then
+              continue
+            fi
+            for prefix in "${PUBLISHED_SRC_PATHS[@]}"; do
+              if echo "$file" | grep -q "^${prefix}/"; then
+                needs_changeset=true
+                matched_paths+=("$file")
+                break
+              fi
+            done
+          done
+
+          if [ "$needs_changeset" = true ]; then
+            # Check for .changeset/*.md files (excluding README.md)
+            changeset_files=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' 2>/dev/null)
+
+            if [ -z "$changeset_files" ]; then
+              echo "::error::This PR modifies published package source but has no changeset."
+              echo ""
+              echo "Changed files that require a changeset:"
+              printf '  - %s\n' "${matched_paths[@]}"
+              echo ""
+              echo "Run 'bunx changeset' to add one, or add a 'no-changeset' label if this change doesn't affect consumers."
+              exit 1
+            else
+              echo "Changeset found — OK"
+              echo "$changeset_files"
+            fi
+          else
+            echo "No published source files changed — changeset not required"
+          fi
