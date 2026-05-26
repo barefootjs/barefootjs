@@ -559,5 +559,85 @@ describe('JSX function inlining (#569)', () => {
       expect(template).toContain('props.name')
       expect(template).not.toMatch(/\bwho\b/)
     })
+
+    test('switch/case helper is inlined as nested conditional', () => {
+      const source = `
+        'use client'
+
+        export function App(props: { icon: string }) {
+          function renderIcon(name: string) {
+            switch (name) {
+              case 'home': return <span>🏠</span>
+              case 'star': return <span>⭐</span>
+              default: return <span>?</span>
+            }
+          }
+
+          return <div>{renderIcon(props.icon)}</div>
+        }
+      `
+
+      const ctx = analyzeComponent(source, 'App.tsx')
+      expect(ctx.jsxMultiReturnFunctions.has('renderIcon')).toBe(true)
+      const info = ctx.jsxMultiReturnFunctions.get('renderIcon')!
+      expect(info.branches).toHaveLength(2)
+      expect(info.fallback).not.toBeNull()
+      expect(info.switchDiscriminant).toBeDefined()
+
+      const result = compileJSX(source, 'App.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      expect(template).toContain('🏠')
+      expect(template).toContain('⭐')
+      expect(template).toContain('?')
+      expect(template).not.toMatch(/function renderIcon/)
+    })
+
+    test('switch with null default is handled', () => {
+      const source = `
+        'use client'
+
+        export function App(props: { status: string }) {
+          function renderStatus(s: string) {
+            switch (s) {
+              case 'ok': return <span class="ok">OK</span>
+              default: return null
+            }
+          }
+
+          return <div>{renderStatus(props.status)}</div>
+        }
+      `
+
+      const result = compileJSX(source, 'App.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      expect(template).toContain('OK')
+      expect(template).not.toMatch(/function renderStatus/)
+    })
+
+    test('switch with side-effect discriminant is NOT inlined', () => {
+      const source = `
+        'use client'
+
+        export function App() {
+          function getValue(): string { return 'a' }
+          function renderByValue(v: string) {
+            switch (getValue()) {
+              case 'a': return <span>A</span>
+              default: return <span>B</span>
+            }
+          }
+
+          return <div>{renderByValue('x')}</div>
+        }
+      `
+
+      const ctx = analyzeComponent(source, 'App.tsx')
+      // Should NOT be registered because discriminant is a call expression
+      expect(ctx.jsxMultiReturnFunctions.has('renderByValue')).toBe(false)
+    })
   })
 })

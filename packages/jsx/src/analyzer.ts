@@ -1884,6 +1884,18 @@ function extractMultiReturnJsxBranches(
 
     // switch (expr) { case ...: return <jsx> }
     if (ts.isSwitchStatement(stmt)) {
+      // Reject mixed if+switch bodies — prior if branches would be
+      // incorrectly treated as switch case expressions.
+      if (branches.length > 0) return null
+
+      // Only inline switches whose discriminant is side-effect-free
+      // (identifier or property access). A call expression like
+      // `switch(getValue())` would be re-evaluated per branch in the
+      // generated nested ternary.
+      if (!ts.isIdentifier(stmt.expression) && !ts.isPropertyAccessExpression(stmt.expression)) {
+        return null
+      }
+
       for (const clause of stmt.caseBlock.clauses) {
         const jsxReturn = findJsxReturnInCaseClause(clause)
         const nullReturn = findNullReturnInCaseClause(clause)
