@@ -222,6 +222,12 @@ export interface LoopCore {
    * names as a recurring source of "forgotten variant" defects.
    */
   bindings: LoopChildBindings
+
+  /**
+   * Iteration shape from `.entries()` / `.keys()` / `.values()` chain
+   * (#1448 Tier B). Threaded from `IRLoop.iterationShape`.
+   */
+  iterationShape?: 'entries' | 'keys'
 }
 
 /**

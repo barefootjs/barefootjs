@@ -104,6 +104,11 @@ const statelessFixtures = new Set([
   'conditional-return-button',
   'todo-app',
   'ai-chat',
+  // #1448 Tier B — iteration shape fixtures are prop-based components
+  // without signals. SSR renders them fully; no client JS is emitted.
+  'array-entries',
+  'array-keys',
+  'array-values',
 ])
 
 describe('SSR-Hydration Contract', () => {

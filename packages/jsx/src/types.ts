@@ -497,6 +497,27 @@ export interface IRLoop {
   chainOrder?: 'filter-sort' | 'sort-filter'
 
   /**
+   * Pre-`.map()` iteration shape (#1448 Tier B).
+   *
+   * When the user writes `arr.entries().map(([i, v]) => ...)`,
+   * `arr.keys().map(i => ...)`, or `arr.values().map(v => ...)`,
+   * the chain-detection in `transformMapCall` strips the iterator
+   * method and records the shape here so adapters can emit the
+   * right loop variable bindings:
+   *
+   *   - `'entries'` → both index and value are bound
+   *     (Go: `$i, $v`; Mojo: `$i` + `$v = $arr->[$i]`)
+   *   - `'keys'` → only the index is bound
+   *     (Go: `$i, $_ :=`; Mojo: `$i` with no per-item lookup)
+   *   - `undefined` / `'values'` → standard iteration (value only)
+   *
+   * The chain detection also synthesises proper `param` / `index`
+   * from the `.entries()` destructure pattern so the BF104
+   * destructure-param refusal doesn't fire.
+   */
+  iterationShape?: 'entries' | 'keys'
+
+  /**
    * When true, loop should be evaluated on client side only.
    * SSR adapters should skip rendering and output placeholder markers.
    */

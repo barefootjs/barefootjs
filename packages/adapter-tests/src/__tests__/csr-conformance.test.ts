@@ -98,6 +98,12 @@ describe('CSR Conformance Tests', () => {
     'todo-app',
     'todo-app-ssr',
     'ai-chat',
+    // #1448 Tier B — iteration shape fixtures are SSR-only prop-based
+    // components. The CSR template path can't resolve bare prop refs
+    // (items, etc.) without `"use client"` + signal wiring.
+    'array-entries',
+    'array-keys',
+    'array-values',
   ])
 
   for (const fixture of jsxFixtures) {

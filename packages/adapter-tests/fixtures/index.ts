@@ -153,6 +153,12 @@ import { fixture as arraySortFieldDesc } from './methods/array-sort-field-desc'
 import { fixture as arraySortPrimitive } from './methods/array-sort-primitive'
 import { fixture as arraySortLocale } from './methods/array-sort-locale'
 import { fixture as arrayToSorted } from './methods/array-toSorted'
+// #1448 Tier B — `.entries()` / `.keys()` / `.values()` iteration shapes.
+// The compiler strips the iterator method from the chain and synthesises
+// proper loop bindings so adapters emit native index+value iteration.
+import { fixture as arrayEntries } from './methods/array-entries'
+import { fixture as arrayKeys } from './methods/array-keys'
+import { fixture as arrayValues } from './methods/array-values'
 
 import type { JSXFixture } from '../src/types'
 
@@ -287,4 +293,7 @@ export const jsxFixtures: JSXFixture[] = [
   arraySortPrimitive,
   arraySortLocale,
   arrayToSorted,
+  arrayEntries,
+  arrayKeys,
+  arrayValues,
 ]

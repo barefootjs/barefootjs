@@ -587,7 +587,12 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
       array = `$${sortedHoist}`
     }
     const param = loop.param
-    const indexVar = loop.index ? `$${loop.index}` : '$_i'
+    // `.keys().map(k => ...)` — the callback param is the index.
+    // Use it as the for-loop variable and skip the per-item value
+    // assignment.
+    const indexVar = loop.iterationShape === 'keys'
+      ? `$${param}`
+      : loop.index ? `$${loop.index}` : '$_i'
     const prevInLoop = this.inLoop
     this.inLoop = true
     const children = this.renderChildren(loop.children)
@@ -601,7 +606,9 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
       lines.push(`% my $${sortedHoist} = ${renderSortMethod(rawArray, loop.sortComparator)};`)
     }
     lines.push(`% for my ${indexVar} (0..$#{${array}}) {`)
-    lines.push(`% my $${param} = ${array}->[${indexVar}];`)
+    if (loop.iterationShape !== 'keys') {
+      lines.push(`% my $${param} = ${array}->[${indexVar}];`)
+    }
 
     // Handle filter().map() pattern by wrapping children in if-condition
     if (loop.filterPredicate) {
