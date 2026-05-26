@@ -417,9 +417,9 @@ export interface IRLoop {
   loc: SourceLocation
 
   /**
-   * True if the array is a static prop (not a signal).
-   * Static arrays don't need reconcileList - SSR elements are hydrated directly.
-   * Dynamic signal arrays need reconcileList to update DOM when signal changes.
+   * True when the array needs no reconciliation (literal arrays, local consts
+   * without prop/signal origin). False for signal arrays, function-call arrays,
+   * and direct prop arrays — all of which compile to mapArray.
    */
   isStaticArray: boolean
 
