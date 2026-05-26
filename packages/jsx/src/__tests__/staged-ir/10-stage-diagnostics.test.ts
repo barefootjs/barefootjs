@@ -16,7 +16,7 @@
  *
  * BF060: signal/memo getter referenced from template scope
  * BF061: init-scope local referenced from template scope
- * BF062: cross-stage await — emitted at Phase 1 dispatcher (not here)
+ * BF062: cross-stage await — emitted at Phase 1 dispatcher (jsx-to-ir.ts)
  */
 
 import { describe, test, expect } from 'bun:test'
@@ -654,5 +654,38 @@ describe('BF062: AwaitExpression in template scope', () => {
     `)
 
     expect(errors.find(e => e.startsWith('[BF062]'))).toBeUndefined()
+  })
+
+  test('await in JSX attribute position emits BF062', () => {
+    const { errors } = compile(`
+      'use client'
+
+      interface Props {}
+
+      export async function Foo(_props: Props) {
+        return <div data-x={await fetch('/api')}>hi</div>
+      }
+    `)
+
+    const bf062 = errors.find(e => e.startsWith('[BF062]'))
+    expect(bf062).toBeDefined()
+  })
+
+  test('emitted output remains parseable JS after BF062', () => {
+    const { errors, templateBody, initBody } = compile(`
+      'use client'
+
+      interface Props {}
+
+      export async function Foo(_props: Props) {
+        const result = await fetch('/api')
+        return <div>{await result.json()}</div>
+      }
+    `)
+
+    expect(errors.find(e => e.startsWith('[BF062]'))).toBeDefined()
+    // The emitted template/init should not contain bare 'await'
+    expect(templateBody).not.toContain('await')
+    expect(initBody).not.toContain('await')
   })
 })

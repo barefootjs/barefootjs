@@ -1939,7 +1939,15 @@ function transformJsxExpression(
           getSourceLocation(node, ctx.sourceFile, ctx.filePath),
         ),
       )
-      return null
+      return {
+        type: 'expression' as const,
+        expr: 'undefined',
+        typeInfo: null,
+        reactive: false,
+        slotId: null,
+        loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+        origin: { phase: 'tick', scope: 'template', effect: 'pure', freeRefs: [] },
+      } satisfies IRExpression
     case ts.SyntaxKind.YieldExpression:
       return null
 
@@ -3452,6 +3460,17 @@ function getAttributeValue(attr: ts.JsxAttribute, ctx: TransformContext): AttrVa
       if (branchInit && !initializerShapeContainsJsx(branchInit)) {
         expr = branchInit
       }
+    }
+
+    // BF062: AwaitExpression in attribute position
+    if (ts.isAwaitExpression(expr)) {
+      ctx.analyzer.errors.push(
+        createError(
+          ErrorCodes.STAGE_AWAIT_IN_TEMPLATE,
+          getSourceLocation(expr, ctx.sourceFile, ctx.filePath),
+        ),
+      )
+      return AttrValueOf.literal('undefined')
     }
 
     // Check for bare signal/memo identifier (BF044)
