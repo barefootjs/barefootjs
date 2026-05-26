@@ -314,6 +314,9 @@ const PAGES: PageSpec[] = [
   // tie each ❌ snippet to its parent `### BFxxx —` H3.
   { path: 'core/advanced/performance.md' },
   { path: 'core/reactivity.md' },
+  // `core/reactivity/shared-state.md` excluded: its examples show
+  // cross-file patterns (separate components in separate files) that
+  // cannot compile as single-module units.
   { path: 'core/introduction.mdx' },
 ]
 

@@ -284,7 +284,7 @@ For sharing reactive state across components in **separate files**, see [Shared 
 
 ### Body-level `useContext` in a server component
 
-```tsx
+```ts
 // ❌ Missing "use client" — function body runs during SSR
 export function Player(props: PlayerProps) {
   const ctx = useContext(MyContext)  // SSR error: useContext is browser-only
@@ -296,7 +296,7 @@ Fix: add `"use client"` as the first line.
 
 ### Cross-file context import
 
-```tsx
+```ts
 // ❌ context.tsx
 "use client"
 export const PlaybackContext = createContext<PlaybackValue>()
@@ -313,7 +313,7 @@ Fix: put the provider and all consumers in the **same file**, or use [custom eve
 
 ### Cross-file `src/` utility with `useContext`
 
-```tsx
+```ts
 // ❌ src/playback.ts — utility file
 import { createContext, useContext } from '@barefootjs/client'
 const PlaybackContext = createContext()
