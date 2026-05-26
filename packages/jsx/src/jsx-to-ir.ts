@@ -32,7 +32,7 @@ import {
   isReactiveOrigin,
   AttrValueOf,
 } from './types'
-import { type AnalyzerContext, getSourceLocation } from './analyzer-context'
+import { type AnalyzerContext, type MultiReturnJsxInfo, getSourceLocation } from './analyzer-context'
 import { parseExpression, isSupported, parseBlockBody, extractSortComparatorFromTS, type ParsedExpr, type ParsedStatement, type SortComparator } from './expression-parser'
 import { createError, ErrorCodes, internalInvariant } from './errors'
 import { containsReactiveExpression } from './reactivity-checker'
@@ -1446,6 +1446,108 @@ function transformJsxFunctionCall(
   }
 }
 
+function transformMultiReturnJsxFunctionCall(
+  callExpr: ts.CallExpression,
+  info: MultiReturnJsxInfo,
+  ctx: TransformContext,
+): IRNode {
+  // Build substitution map: paramName → argument expression text
+  const substitutions = new Map<string, string>()
+  for (let i = 0; i < info.params.length; i++) {
+    const paramName = info.params[i]
+    const arg = callExpr.arguments[i]
+    if (arg) {
+      substitutions.set(paramName, ctx.getJS(arg))
+    }
+  }
+
+  const baseGetJS = ctx.analyzer.getJS.bind(ctx.analyzer)
+  const originalCtxGetJS = ctx.getJS
+  const originalAnalyzerGetJS = ctx.analyzer.getJS
+
+  const substitutedGetJS = (node: ts.Node) => {
+    let text = baseGetJS(node)
+    for (const [paramName, argExpr] of substitutions) {
+      text = text.replace(new RegExp(`\\b${paramName}\\b`, 'g'), argExpr)
+    }
+    return text
+  }
+
+  ctx.getJS = substitutedGetJS
+  ctx.analyzer.getJS = substitutedGetJS
+
+  try {
+    const loc = getSourceLocation(callExpr, ctx.sourceFile, ctx.filePath)
+    const nullExpr: IRExpression = {
+      type: 'expression',
+      expr: 'null',
+      typeInfo: { kind: 'primitive', raw: 'null', primitive: 'null' },
+      reactive: false,
+      slotId: null,
+      loc,
+      origin: { phase: 'tick', scope: 'template', effect: 'pure', freeRefs: [] },
+    }
+
+    // Build the conditional chain from bottom up (last branch → first branch)
+    let result: IRNode = info.fallback
+      ? (transformNode(info.fallback, ctx) ?? nullExpr)
+      : nullExpr
+
+    for (let i = info.branches.length - 1; i >= 0; i--) {
+      const branch = info.branches[i]
+
+      // Build condition text with param substitution
+      let conditionText: string
+      if (info.switchDiscriminant) {
+        const discText = substitutedGetJS(info.switchDiscriminant)
+        const caseText = substitutedGetJS(branch.condition)
+        conditionText = `${discText} === ${caseText}`
+      } else {
+        conditionText = substitutedGetJS(branch.condition)
+      }
+
+      const conditionOrigin: OriginInfo = {
+        phase: 'tick',
+        scope: 'template',
+        effect: 'pure',
+        freeRefs: resolveFreeRefs(branch.condition, makeBindingEnv(ctx)),
+      }
+      const reactive = isReactiveExpression(conditionText, ctx, branch.condition)
+        || isReactiveOrigin(conditionOrigin)
+      const loopParamReactive = !reactive && referencesLoopParam(conditionText, ctx)
+      const callsReactive = exprCallsReactiveGetters(branch.condition, ctx)
+      const hasCalls = exprHasFunctionCalls(branch.condition)
+      const needsSlot = reactive || loopParamReactive || callsReactive || hasCalls
+      const slotId = needsSlot ? generateSlotId(ctx) : null
+
+      const whenTrue = branch.jsxReturn
+        ? (transformNode(branch.jsxReturn, ctx) ?? nullExpr)
+        : nullExpr
+
+      const conditional: IRConditional = {
+        type: 'conditional',
+        condition: conditionText,
+        templateCondition: rewriteBarePropRefs(conditionText, branch.condition, ctx),
+        conditionType: null,
+        reactive,
+        whenTrue,
+        whenFalse: result,
+        slotId,
+        callsReactiveGetters: callsReactive || undefined,
+        hasFunctionCalls: hasCalls || undefined,
+        loc,
+        origin: conditionOrigin,
+      }
+      result = conditional
+    }
+
+    return result
+  } finally {
+    ctx.getJS = originalCtxGetJS
+    ctx.analyzer.getJS = originalAnalyzerGetJS
+  }
+}
+
 function transformConditional(
   node: ts.ConditionalExpression,
   ctx: TransformContext
@@ -1760,6 +1862,10 @@ function transformJsxExpression(
         const jsxFunc = ctx.analyzer.jsxFunctions.get(callee.text)
         if (jsxFunc) {
           return transformJsxFunctionCall(node, jsxFunc, ctx, isClientOnly)
+        }
+        const multiJsxFunc = ctx.analyzer.jsxMultiReturnFunctions.get(callee.text)
+        if (multiJsxFunc) {
+          return transformMultiReturnJsxFunctionCall(node, multiJsxFunc, ctx)
         }
       }
       return null

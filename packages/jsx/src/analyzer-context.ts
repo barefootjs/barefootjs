@@ -53,6 +53,28 @@ export interface PendingSignalTuple {
 }
 
 /**
+ * One branch of a multi-return JSX helper function's if/else chain.
+ * `jsxReturn` is null for guard clauses that `return null`.
+ */
+export interface MultiReturnJsxBranch {
+  condition: ts.Expression
+  jsxReturn: ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment | null
+}
+
+/**
+ * Extracted control flow from a multi-return JSX helper function.
+ * Represents `if (c1) return <A/>; if (c2) return <B/>; return <C/>`
+ * as a chain of condition→JSX pairs plus an optional fallback.
+ */
+export interface MultiReturnJsxInfo {
+  branches: MultiReturnJsxBranch[]
+  fallback: ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment | null
+  params: string[]
+  /** For switch-sourced branches, the discriminant expression (e.g. `name` in `switch(name)`) */
+  switchDiscriminant?: ts.Expression
+}
+
+/**
  * Represents an if statement with a JSX return in a component function.
  */
 export interface ConditionalReturn {
@@ -120,6 +142,8 @@ export interface AnalyzerContext {
     jsxReturn: ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment
     params: string[]
   }>
+  /** Maps multi-return JSX helper functions for conditional inlining at call sites. */
+  jsxMultiReturnFunctions: Map<string, MultiReturnJsxInfo>
   /**
    * Maps function names to reactive-factory info (#931). A reactive factory
    * is a same-file helper whose body declares reactive primitives and
@@ -220,6 +244,7 @@ export function createAnalyzerContext(
     jsxConstants: new Map(),
     inlineableJsxConsts: new Map(),
     jsxFunctions: new Map(),
+    jsxMultiReturnFunctions: new Map(),
     reactiveFactories: new Map(),
     signalTupleRefs: new Map(),
 
