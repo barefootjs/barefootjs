@@ -2090,7 +2090,7 @@ function isSortCall(node: ts.Expression): { array: ts.Expression; callback: ts.E
  */
 function isIteratorShapeCall(
   node: ts.Expression,
-): { array: ts.Expression; shape: 'entries' | 'keys' | 'values' } | null {
+): { array: ts.LeftHandSideExpression; shape: 'entries' | 'keys' | 'values' } | null {
   if (!ts.isCallExpression(node)) return null
   if (!ts.isPropertyAccessExpression(node.expression)) return null
   if (node.arguments.length !== 0) return null
