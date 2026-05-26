@@ -23,7 +23,7 @@ import type {
   IRNode,
   LoopParamBinding,
 } from '../../../types'
-import { AttrValueOf } from '../../../types'
+import { AttrValueOf, pickAttrMeta } from '../../../types'
 import {
   wrapLoopParamAsAccessor,
   attrValueToString,
@@ -67,8 +67,6 @@ import type {
   InnerLoopText,
   InnerLoopsPlan,
 } from './inner-loop'
-import { toHtmlAttrName } from '../../utils'
-import { isBooleanAttr } from '../../../html-constants'
 
 export interface BuildInnerLoopsArgs {
   levels: readonly DepthLevel[]
@@ -200,14 +198,11 @@ function buildReactiveEmit(
 
   const reactiveAttrs: InnerLoopReactiveAttr[] = inner.bindings.reactiveAttrs.map(attr => {
     const wrapped = wrapLoopParamAsAccessor(wrapOuter(attr.expression), inner.param, inner.paramBindings)
-    const isStyleObject = attr.attrName === 'style' && /^\s*\{/.test(attr.expression)
     return {
       slotId: attr.childSlotId,
-      attrName: toHtmlAttrName(attr.attrName),
+      attrName: attr.attrName,
       wrappedExpression: wrapped,
-      isStyleObject,
-      isBoolean: isBooleanAttr(attr.attrName),
-      presenceOrUndefined: !!attr.presenceOrUndefined,
+      meta: pickAttrMeta(attr),
     }
   })
 

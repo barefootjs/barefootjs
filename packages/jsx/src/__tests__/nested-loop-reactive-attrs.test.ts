@@ -64,7 +64,7 @@ describe('reactive attributes inside a nested .map() body (#135)', () => {
     // Both effects must run inside the inner mapArray's renderItem (so
     // they capture `task` as the inner-loop accessor — `task()` rather
     // than the module-level closure).
-    expect(content).toMatch(/createEffect\(\(\) => \{\s*const __v = styleToCss\([\s\S]*?task\(\)\.id/)
+    expect(content).toMatch(/createEffect\(\(\) => \{[\s\S]*?styleToCss\([\s\S]*?task\(\)\.id/)
   })
 
   test('non-style reactive attribute (className) wires up too', () => {
@@ -141,7 +141,7 @@ describe('reactive attributes inside a nested .map() body (#135)', () => {
 
     // `data-off` uses the truthy-check shape (no `__v != null` for this
     // attribute) so a concrete `false` removes the attribute.
-    expect(content).toMatch(/createEffect\(\(\) => \{ if \([^)]*c\(\)\.isOff[^)]*\)\s*[^.]+\.setAttribute\('data-off',\s*''\)/)
+    expect(content).toMatch(/createEffect\(\(\) => \{[\s\S]*?if \(c\(\)\.isOff\)\s*\S+\.setAttribute\('data-off',\s*''\)/)
     // aria-* keeps the explicit "true" value per WAI-ARIA.
     expect(content).toContain("setAttribute('aria-pressed', 'true')")
   })
@@ -234,7 +234,7 @@ describe('reactive attributes inside a nested .map() body (#135)', () => {
     // to subscribe to the per-item accessor). The bug we're locking
     // down is purely in the createEffect emission, so scope to that.
     const effectMatch = content.match(
-      /createEffect\(\(\) => \{ const __v = styleToCss\(\{[\s\S]*?\}\); if \(__v != null\) __ta_s\d+\.setAttribute\('style'/,
+      /createEffect\(\(\) => \{[\s\S]*?styleToCss\(\{[\s\S]*?\}\)[\s\S]*?__ta_s\d+\.setAttribute\('style'/,
     )
     expect(effectMatch).not.toBeNull()
     const effectBody = effectMatch![0]
@@ -283,7 +283,7 @@ describe('reactive attributes inside a nested .map() body (#135)', () => {
     expect(result.errors).toHaveLength(0)
     const content = result.files.find((f) => f.type === 'clientJs')!.content
     const effectMatch = content.match(
-      /createEffect\(\(\) => \{ const __v = styleToCss\(\{[\s\S]*?\}\); if \(__v != null\) __ta_s\d+\.setAttribute\('style'/,
+      /createEffect\(\(\) => \{[\s\S]*?styleToCss\(\{[\s\S]*?\}\)[\s\S]*?__ta_s\d+\.setAttribute\('style'/,
     )
     expect(effectMatch).not.toBeNull()
     const effectBody = effectMatch![0]
