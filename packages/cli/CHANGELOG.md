@@ -1,5 +1,11 @@
 # @barefootjs/cli
 
+## 0.1.3
+
+### Patch Changes
+
+- 3335b89: Add block-level `<Tabs>`/`<Tab>` support to the MDX-lite parser and Tabs projector for adapter code tabs
+
 ## 0.1.2
 
 ### Patch Changes
