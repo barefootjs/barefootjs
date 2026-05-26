@@ -1932,10 +1932,14 @@ function transformJsxExpression(
       return null
 
     // --- Forbidden in render position ---
-    // Spec A.3.3 / A.3.5 reserve BF050 (`AwaitExpression`) and BF051
-    // (`YieldExpression`) for PR 5 once the dispatcher is the single
-    // entry point; for now preserve today's scalar-fallback behaviour.
     case ts.SyntaxKind.AwaitExpression:
+      ctx.analyzer.errors.push(
+        createError(
+          ErrorCodes.STAGE_AWAIT_IN_TEMPLATE,
+          getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+        ),
+      )
+      return null
     case ts.SyntaxKind.YieldExpression:
       return null
 

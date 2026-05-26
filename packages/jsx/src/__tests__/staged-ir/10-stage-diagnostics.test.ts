@@ -622,3 +622,37 @@ describe('compileJSX surfaces stage-violation diagnostics by default', () => {
     expect(errors.find(e => e.startsWith('[BF061]'))).toBeUndefined()
   })
 })
+
+describe('BF062: AwaitExpression in template scope', () => {
+  test('await in JSX child position emits BF062', () => {
+    const { errors } = compile(`
+      'use client'
+
+      interface Props {}
+
+      export async function Foo(_props: Props) {
+        const result = await fetch('/api')
+        return <div>{await result.json()}</div>
+      }
+    `)
+
+    const bf062 = errors.find(e => e.startsWith('[BF062]'))
+    expect(bf062).toBeDefined()
+    expect(bf062).toContain('AwaitExpression')
+  })
+
+  test('await in component body (not JSX) does NOT emit BF062', () => {
+    const { errors } = compile(`
+      'use client'
+
+      interface Props {}
+
+      export async function Foo(_props: Props) {
+        const data = await fetch('/api')
+        return <div>loaded</div>
+      }
+    `)
+
+    expect(errors.find(e => e.startsWith('[BF062]'))).toBeUndefined()
+  })
+})
