@@ -2084,7 +2084,7 @@ function isSortCall(node: ts.Expression): { array: ts.Expression; callback: ts.E
 
 /**
  * Check if a node is an `.entries()`, `.keys()`, or `.values()` call
- * (zero-arg, property-access form). Returns the underlying array
+ * (zero-arg, property-access form).  Returns the underlying array
  * expression and the iteration shape so `transformMapCall` can strip
  * the iterator method and record it on the IRLoop.
  */
