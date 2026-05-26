@@ -12,6 +12,7 @@
 
 import type { LoopChildEvent } from '../../types'
 import type {
+  AttrMeta,
   IRLoopChildComponent,
   LoopParamBinding,
 } from '../../../types'
@@ -48,29 +49,17 @@ export interface InnerLoopText {
  * etc. — every element in the loop body whose attribute reads a signal
  * (or the loop param) gets its own per-item `createEffect`.
  *
- * `attrName` is already in DOM-spelling (kebab for SVG presentation
- * attrs, `class` for `className`) so the stringifier can emit
- * `setAttribute(attrName, ...)` directly.
+ * `attrName` is in JSX form (e.g. `className`, not `class`) — the
+ * stringifier delegates to `emitAttrUpdate` which maps to HTML spelling.
  */
 export interface InnerLoopReactiveAttr {
   slotId: string
-  /** DOM attribute name (already mapped via `toHtmlAttrName`). */
+  /** JSX attribute name (mapped to HTML spelling by `emitAttrUpdate`). */
   attrName: string
   /** Already wrapped via inner+outer loop param accessor. */
   wrappedExpression: string
-  /** True for `style={{...}}` object literals — routed through `styleToCss`. */
-  isStyleObject: boolean
-  /** True for boolean DOM attributes (`disabled`, `checked`, ...). */
-  isBoolean: boolean
-  /**
-   * True for `attr={expr || undefined}` patterns where the compiler
-   * stripped the `|| undefined` and now stores the bare expression.
-   * The emitter must use a truthy check (not `!= null`) — otherwise a
-   * concrete `false` value writes `data-attr="false"` instead of
-   * removing the attribute. Surfaced by the calendar demo's
-   * `data-outside={day.isOutside || undefined}` on a nested map root.
-   */
-  presenceOrUndefined: boolean
+  /** Pre-copied attr metadata used by `emitAttrUpdate`. */
+  meta: AttrMeta
 }
 
 /**
