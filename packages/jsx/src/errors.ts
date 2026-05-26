@@ -148,7 +148,7 @@ const errorMessages: Record<ErrorCode, string> = {
     'Init-scope local referenced from template scope. The template lambda runs at module scope (via render() / renderChild()) and cannot reach init-body locals. Wrap the JSX expression in /* @client */, or lift the value to a prop or module-scope const.',
 
   [ErrorCodes.STAGE_AWAIT_IN_TEMPLATE]:
-    'AwaitExpression in template scope. The hydrate-time template lambda is synchronous; awaiting here would hang first render. Move the await into a server-side handler and pass the resolved value as a prop.',
+    'AwaitExpression in template scope. The generated template and init functions are synchronous — a bare `await` produces a SyntaxError at parse time. Move the await into the component body (before the return) or into an onMount/effect callback, and pass the resolved value to JSX.',
 
   [ErrorCodes.INLINE_JSX_CALLBACK_CAPTURE]:
     "Inline JSX-returning arrow function captures a non-module identifier. Extract the callback into a top-level 'use client' component (e.g. `function MyNode(n) { return <div/> }` then `renderNode={MyNode}`) or pass captured values via component props.",

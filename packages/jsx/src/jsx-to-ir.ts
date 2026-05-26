@@ -1333,6 +1333,24 @@ function transformExpressionInner(
   }
 
   // Scalar fallback — unchanged from pre-refactor.
+  // BF062: catch nested await inside scalar expressions (e.g. {foo(await bar)})
+  if (containsAwaitExpression(expr)) {
+    ctx.analyzer.errors.push(
+      createError(
+        ErrorCodes.STAGE_AWAIT_IN_TEMPLATE,
+        getSourceLocation(expr, ctx.sourceFile, ctx.filePath),
+      ),
+    )
+    return {
+      type: 'expression' as const,
+      expr: 'undefined',
+      typeInfo: null,
+      reactive: false,
+      slotId: null,
+      loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+      origin: { phase: 'tick', scope: 'template', effect: 'pure', freeRefs: [] },
+    } satisfies IRExpression
+  }
   const exprText = ctx.getJS(expr)
   const freeRefs = resolveFreeRefs(expr, makeBindingEnv(ctx))
   const origin: OriginInfo = {
@@ -1682,6 +1700,12 @@ function containsJsxInExpression(node: ts.Node): boolean {
   return ts.forEachChild(node, containsJsxInExpression) ?? false
 }
 
+function containsAwaitExpression(node: ts.Node): boolean {
+  if (ts.isAwaitExpression(node)) return true
+  if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) return false
+  return ts.forEachChild(node, containsAwaitExpression) ?? false
+}
+
 /**
  * Transform nullish coalescing (??) and logical OR (||) with JSX fallback.
  *
@@ -1932,10 +1956,22 @@ function transformJsxExpression(
       return null
 
     // --- Forbidden in render position ---
-    // Spec A.3.3 / A.3.5 reserve BF050 (`AwaitExpression`) and BF051
-    // (`YieldExpression`) for PR 5 once the dispatcher is the single
-    // entry point; for now preserve today's scalar-fallback behaviour.
     case ts.SyntaxKind.AwaitExpression:
+      ctx.analyzer.errors.push(
+        createError(
+          ErrorCodes.STAGE_AWAIT_IN_TEMPLATE,
+          getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+        ),
+      )
+      return {
+        type: 'expression' as const,
+        expr: 'undefined',
+        typeInfo: null,
+        reactive: false,
+        slotId: null,
+        loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+        origin: { phase: 'tick', scope: 'template', effect: 'pure', freeRefs: [] },
+      } satisfies IRExpression
     case ts.SyntaxKind.YieldExpression:
       return null
 
@@ -3451,6 +3487,17 @@ function getAttributeValue(attr: ts.JsxAttribute, ctx: TransformContext): AttrVa
       if (branchInit && !initializerShapeContainsJsx(branchInit)) {
         expr = branchInit
       }
+    }
+
+    // BF062: AwaitExpression in attribute position
+    if (ts.isAwaitExpression(expr)) {
+      ctx.analyzer.errors.push(
+        createError(
+          ErrorCodes.STAGE_AWAIT_IN_TEMPLATE,
+          getSourceLocation(expr, ctx.sourceFile, ctx.filePath),
+        ),
+      )
+      return AttrValueOf.expression('undefined')
     }
 
     // Check for bare signal/memo identifier (BF044)

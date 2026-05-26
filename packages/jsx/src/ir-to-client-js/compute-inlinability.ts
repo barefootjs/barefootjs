@@ -554,8 +554,8 @@ function collectTemplateRiskyNames(irRoot: IRNode): Set<string> {
  *  - BF061: init-scope local referenced from template scope. Same
  *    fallback shape, different binding kind.
  *
- * BF062 (cross-stage await) belongs at the Phase 1 dispatcher (await
- * is a statement-level concern); not surfaced here.
+ * BF062 (cross-stage await) is emitted at the Phase 1 dispatcher
+ * (jsx-to-ir.ts) for both child and attribute positions; not here.
  *
  * Promoted from warning to error in #1187 phase 6 — the
  * `templateRiskyNames` gate in `toLegacyInlinability` ensures only
