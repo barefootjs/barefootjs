@@ -42,9 +42,9 @@ test.describe('Recursive Comments Block', () => {
       // depth 0 mounted at slot s12 of RecursiveCommentsDemo
       const d0 = s.locator('[data-comment-id="1"]')
       await expect(d0).toHaveAttribute('bf-m', 's12')
-      // depth 4 mounted at slot s35 of its depth-3 parent CommentNode
+      // depth 4 mounted at slot s36 of its depth-3 parent CommentNode
       const d4 = s.locator('[data-comment-id="11111"]')
-      await expect(d4).toHaveAttribute('bf-m', 's35')
+      await expect(d4).toHaveAttribute('bf-m', 's36')
     })
   })
 
