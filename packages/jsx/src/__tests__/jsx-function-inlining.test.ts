@@ -105,7 +105,7 @@ describe('JSX function inlining (#569)', () => {
       expect(fn!.isJsxFunction).toBe(true)
     })
 
-    test('does not set isJsxFunction for functions with multiple returns', () => {
+    test('multi-return function is stored in jsxMultiReturnFunctions (not jsxFunctions)', () => {
       const source = `
         'use client'
 
@@ -121,6 +121,11 @@ describe('JSX function inlining (#569)', () => {
       const ctx = analyzeComponent(source, 'MyComponent.tsx')
 
       expect(ctx.jsxFunctions.has('renderItem')).toBe(false)
+      expect(ctx.jsxMultiReturnFunctions.has('renderItem')).toBe(true)
+      const info = ctx.jsxMultiReturnFunctions.get('renderItem')!
+      expect(info.params).toEqual(['active'])
+      expect(info.branches).toHaveLength(1)
+      expect(info.fallback).not.toBeNull()
     })
 
     test('does not set isJsxFunction for non-JSX returning functions', () => {
@@ -420,6 +425,281 @@ describe('JSX function inlining (#569)', () => {
       expect(template).toBeDefined()
       // Both table instances should appear in the template
       expect(template!.content).toContain('table')
+    })
+  })
+
+  describe('multi-return JSX function inlining', () => {
+    test('if/else helper is inlined as conditional IR', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/client'
+
+        export function StatusDisplay() {
+          const [status, setStatus] = createSignal('ok')
+
+          function renderBadge(s: string) {
+            if (s === 'error') return <span class="error">Error</span>
+            return <span class="ok">OK</span>
+          }
+
+          return <div>{renderBadge(status())}</div>
+        }
+      `
+
+      const ctx = analyzeComponent(source, 'StatusDisplay.tsx')
+      expect(ctx.jsxMultiReturnFunctions.has('renderBadge')).toBe(true)
+
+      const ir = jsxToIR(ctx)
+      expect(ir).not.toBeNull()
+
+      // Verify IR contains a conditional node (not an opaque expression)
+      function findConditional(node: any): any {
+        if (node?.type === 'conditional') return node
+        for (const child of node?.children ?? []) {
+          const found = findConditional(child)
+          if (found) return found
+        }
+        return null
+      }
+      const cond = findConditional(ir)
+      expect(cond).not.toBeNull()
+      expect(cond.type).toBe('conditional')
+
+      const result = compileJSX(source, 'StatusDisplay.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      expect(template).toContain('error')
+      expect(template).toContain('OK')
+      // Helper function should NOT appear verbatim — it's inlined
+      expect(template).not.toMatch(/function renderBadge/)
+
+      // Client JS should not contain the raw helper function with JSX
+      const clientJs = result.files.find(f => f.type === 'clientJs')
+      if (clientJs) {
+        expect(clientJs.content).not.toMatch(/function renderBadge/)
+      }
+    })
+
+    test('if/else if/else chain inlines to nested conditionals', () => {
+      const source = `
+        'use client'
+
+        export function Display(props: { level: string }) {
+          function renderLevel(lvl: string) {
+            if (lvl === 'high') return <span class="high">High</span>
+            if (lvl === 'mid') return <span class="mid">Mid</span>
+            return <span class="low">Low</span>
+          }
+
+          return <div>{renderLevel(props.level)}</div>
+        }
+      `
+
+      const result = compileJSX(source, 'Display.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      expect(template).toContain('High')
+      expect(template).toContain('Mid')
+      expect(template).toContain('Low')
+      expect(template).not.toMatch(/function renderLevel/)
+    })
+
+    test('guard clause (early return null) is handled', () => {
+      const source = `
+        'use client'
+        import { createSignal } from '@barefootjs/client'
+
+        export function App() {
+          const [show, setShow] = createSignal(true)
+
+          function renderOptional(visible: boolean) {
+            if (!visible) return null
+            return <strong>Visible</strong>
+          }
+
+          return <div>{renderOptional(show())}</div>
+        }
+      `
+
+      const result = compileJSX(source, 'App.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      expect(template).toContain('Visible')
+      expect(template).not.toMatch(/function renderOptional/)
+    })
+
+    test('arrow function with multi-return is inlined', () => {
+      const source = `
+        'use client'
+
+        export function App(props: { type: string }) {
+          const renderIcon = (t: string) => {
+            if (t === 'star') return <span>★</span>
+            return <span>○</span>
+          }
+
+          return <div>{renderIcon(props.type)}</div>
+        }
+      `
+
+      const ctx = analyzeComponent(source, 'App.tsx')
+      expect(ctx.jsxMultiReturnFunctions.has('renderIcon')).toBe(true)
+
+      const result = compileJSX(source, 'App.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      expect(template).toContain('★')
+      expect(template).toContain('○')
+    })
+
+    test('param substitution works in both condition and branches', () => {
+      const source = `
+        'use client'
+
+        export function App(props: { name: string }) {
+          function greet(who: string) {
+            if (who === 'world') return <span>Hello World!</span>
+            return <span>Hi {who}!</span>
+          }
+
+          return <div>{greet(props.name)}</div>
+        }
+      `
+
+      const result = compileJSX(source, 'App.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      // The param 'who' should be replaced with 'props.name' in the condition
+      expect(template).toContain('props.name')
+      expect(template).not.toMatch(/\bwho\b/)
+    })
+
+    test('switch/case helper is inlined as nested conditional', () => {
+      const source = `
+        'use client'
+
+        export function App(props: { icon: string }) {
+          function renderIcon(name: string) {
+            switch (name) {
+              case 'home': return <span>🏠</span>
+              case 'star': return <span>⭐</span>
+              default: return <span>?</span>
+            }
+          }
+
+          return <div>{renderIcon(props.icon)}</div>
+        }
+      `
+
+      const ctx = analyzeComponent(source, 'App.tsx')
+      expect(ctx.jsxMultiReturnFunctions.has('renderIcon')).toBe(true)
+      const info = ctx.jsxMultiReturnFunctions.get('renderIcon')!
+      expect(info.branches).toHaveLength(2)
+      expect(info.fallback).not.toBeNull()
+      expect(info.switchDiscriminant).toBeDefined()
+
+      const result = compileJSX(source, 'App.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      expect(template).toContain('🏠')
+      expect(template).toContain('⭐')
+      expect(template).toContain('?')
+      expect(template).not.toMatch(/function renderIcon/)
+    })
+
+    test('switch with null default is handled', () => {
+      const source = `
+        'use client'
+
+        export function App(props: { status: string }) {
+          function renderStatus(s: string) {
+            switch (s) {
+              case 'ok': return <span class="ok">OK</span>
+              default: return null
+            }
+          }
+
+          return <div>{renderStatus(props.status)}</div>
+        }
+      `
+
+      const result = compileJSX(source, 'App.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      expect(template).toContain('OK')
+      expect(template).not.toMatch(/function renderStatus/)
+    })
+
+    test('switch with side-effect discriminant is NOT inlined', () => {
+      const source = `
+        'use client'
+
+        export function App() {
+          function getValue(): string { return 'a' }
+          function renderByValue(v: string) {
+            switch (getValue()) {
+              case 'a': return <span>A</span>
+              default: return <span>B</span>
+            }
+          }
+
+          return <div>{renderByValue('x')}</div>
+        }
+      `
+
+      const ctx = analyzeComponent(source, 'App.tsx')
+      // Should NOT be registered because discriminant is a call expression
+      expect(ctx.jsxMultiReturnFunctions.has('renderByValue')).toBe(false)
+    })
+
+    test('switch without default clause is NOT inlined', () => {
+      const source = `
+        'use client'
+
+        export function App(props: { icon: string }) {
+          function renderIcon(name: string) {
+            switch (name) {
+              case 'home': return <span>🏠</span>
+              case 'star': return <span>⭐</span>
+            }
+          }
+
+          return <div>{renderIcon(props.icon)}</div>
+        }
+      `
+
+      const ctx = analyzeComponent(source, 'App.tsx')
+      expect(ctx.jsxMultiReturnFunctions.has('renderIcon')).toBe(false)
+    })
+
+    test('if/else with trailing return does not overwrite else fallback', () => {
+      const source = `
+        'use client'
+
+        export function App(props: { mode: string }) {
+          function renderMode(m: string) {
+            if (m === 'a') return <span>A</span>
+            else return <span>B</span>
+          }
+
+          return <div>{renderMode(props.mode)}</div>
+        }
+      `
+
+      const result = compileJSX(source, 'App.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      // The else fallback should be <span>B</span>, not overwritten
+      expect(template).toContain('A')
+      expect(template).toContain('B')
     })
   })
 })

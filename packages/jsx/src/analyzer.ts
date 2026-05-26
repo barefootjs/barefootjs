@@ -1834,6 +1834,194 @@ function extractSingleJsxReturn(
   return jsxReturn
 }
 
+type JsxReturnNode = ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment
+
+/**
+ * Extract conditional branches from a multi-return JSX helper function body.
+ * Supports if/else if chains and switch statements where every branch
+ * returns JSX or null. Returns null for unsupported patterns.
+ */
+function extractMultiReturnJsxBranches(
+  body: ts.Block
+): { branches: Array<{ condition: ts.Expression; jsxReturn: JsxReturnNode | null }>; fallback: JsxReturnNode | null; switchDiscriminant?: ts.Expression } | null {
+  const branches: Array<{ condition: ts.Expression; jsxReturn: JsxReturnNode | null }> = []
+  let fallback: JsxReturnNode | null = null
+
+  const stmts = body.statements
+  for (let i = 0; i < stmts.length; i++) {
+    const stmt = stmts[i]
+
+    // if (cond) return <jsx> — collect as a branch, continue to next statement
+    if (ts.isIfStatement(stmt)) {
+      // Walk this if/else if/else chain
+      let current: ts.Statement = stmt
+      while (ts.isIfStatement(current)) {
+        const ifStmt = current
+        // Reject branches with nested control flow — only accept
+        // direct `return <jsx>` / `return null` (or a block with
+        // exactly that as its only return).
+        if (!isDirectReturnBlock(ifStmt.thenStatement)) return null
+        const jsxReturn = findJsxReturnInBlock(ifStmt.thenStatement)
+        const nullReturn = findNullReturnInBlock(ifStmt.thenStatement)
+        if (!jsxReturn && !nullReturn) return null
+
+        branches.push({ condition: ifStmt.expression, jsxReturn: jsxReturn ?? null })
+
+        if (ifStmt.elseStatement) {
+          if (ts.isIfStatement(ifStmt.elseStatement)) {
+            current = ifStmt.elseStatement
+            continue
+          }
+          // Final else block — chain is complete, return immediately
+          // to prevent subsequent statements from overwriting fallback.
+          if (!isDirectReturnBlock(ifStmt.elseStatement)) return null
+          const elseJsx = findJsxReturnInBlock(ifStmt.elseStatement)
+          if (elseJsx) {
+            fallback = elseJsx
+          } else if (!findNullReturnInBlock(ifStmt.elseStatement)) {
+            return null
+          }
+          if (branches.length === 0) return null
+          return { branches, fallback }
+        }
+        break
+      }
+      continue
+    }
+
+    // switch (expr) { case ...: return <jsx> }
+    if (ts.isSwitchStatement(stmt)) {
+      // Reject mixed if+switch bodies — prior if branches would be
+      // incorrectly treated as switch case expressions.
+      if (branches.length > 0) return null
+
+      // Only inline switches whose discriminant is side-effect-free
+      // (identifier or property access). A call expression like
+      // `switch(getValue())` would be re-evaluated per branch in the
+      // generated nested ternary.
+      if (!ts.isIdentifier(stmt.expression) && !ts.isPropertyAccessExpression(stmt.expression)) {
+        return null
+      }
+
+      // Require an explicit default clause — without one, inlining
+      // adds an implicit `else null` that changes runtime behavior.
+      const hasDefault = stmt.caseBlock.clauses.some(c => ts.isDefaultClause(c))
+      if (!hasDefault) return null
+
+      for (const clause of stmt.caseBlock.clauses) {
+        const jsxReturn = findJsxReturnInCaseClause(clause)
+        const nullReturn = findNullReturnInCaseClause(clause)
+        if (!jsxReturn && !nullReturn) return null
+
+        if (ts.isCaseClause(clause)) {
+          branches.push({
+            condition: clause.expression,
+            jsxReturn: jsxReturn ?? null,
+          })
+        } else {
+          fallback = jsxReturn ?? null
+        }
+      }
+
+      if (branches.length === 0) return null
+      return { branches, fallback, switchDiscriminant: stmt.expression }
+    }
+
+    // Trailing return <jsx> or return null — this is the fallback
+    if (ts.isReturnStatement(stmt) && stmt.expression) {
+      const expr = unwrapJsxTransparent(stmt.expression)
+      if (ts.isJsxElement(expr) || ts.isJsxSelfClosingElement(expr) || ts.isJsxFragment(expr)) {
+        fallback = expr
+      } else if (expr.kind === ts.SyntaxKind.NullKeyword) {
+        // fallback stays null
+      } else {
+        return null
+      }
+      continue
+    }
+
+    // Reject bodies with variable declarations — locals referenced in
+    // conditions or JSX would become undefined after inlining.
+    if (ts.isVariableStatement(stmt)) return null
+
+    // Any other statement type → unsupported pattern
+    return null
+  }
+
+  if (branches.length === 0) return null
+  return { branches, fallback }
+}
+
+/**
+ * Check that a statement is a direct `return ...` or a block whose
+ * only non-variable statements are a single return. Rejects nested
+ * control flow (nested if/switch/for/while) that could cause
+ * `findJsxReturnInBlock` to pick the wrong return.
+ */
+function isDirectReturnBlock(node: ts.Statement): boolean {
+  if (ts.isReturnStatement(node)) return true
+  if (ts.isBlock(node)) {
+    let returnCount = 0
+    for (const stmt of node.statements) {
+      if (ts.isReturnStatement(stmt)) {
+        returnCount++
+      } else if (
+        ts.isIfStatement(stmt) ||
+        ts.isSwitchStatement(stmt) ||
+        ts.isForStatement(stmt) ||
+        ts.isForOfStatement(stmt) ||
+        ts.isForInStatement(stmt) ||
+        ts.isWhileStatement(stmt) ||
+        ts.isDoStatement(stmt) ||
+        ts.isTryStatement(stmt)
+      ) {
+        return false
+      }
+    }
+    return returnCount === 1
+  }
+  return false
+}
+
+function findNullReturnInBlock(node: ts.Statement): boolean {
+  if (ts.isBlock(node)) {
+    for (const stmt of node.statements) {
+      if (ts.isReturnStatement(stmt) && stmt.expression) {
+        const expr = unwrapJsxTransparent(stmt.expression)
+        if (expr.kind === ts.SyntaxKind.NullKeyword) return true
+      }
+    }
+  }
+  if (ts.isReturnStatement(node) && node.expression) {
+    const expr = unwrapJsxTransparent(node.expression)
+    if (expr.kind === ts.SyntaxKind.NullKeyword) return true
+  }
+  return false
+}
+
+function findJsxReturnInCaseClause(
+  clause: ts.CaseClause | ts.DefaultClause
+): JsxReturnNode | null {
+  for (const stmt of clause.statements) {
+    if (ts.isReturnStatement(stmt) && stmt.expression) {
+      return extractJsxFromExpression(stmt.expression)
+    }
+  }
+  return null
+}
+
+function findNullReturnInCaseClause(
+  clause: ts.CaseClause | ts.DefaultClause
+): boolean {
+  for (const stmt of clause.statements) {
+    if (ts.isReturnStatement(stmt) && stmt.expression) {
+      const expr = unwrapJsxTransparent(stmt.expression)
+      if (expr.kind === ts.SyntaxKind.NullKeyword) return true
+    }
+  }
+  return false
+}
+
 /**
  * Detect a multi-return JSX helper: every top-level exit point is a
  * `return <jsx>` or `return null`, and at least one return is JSX. Used
@@ -2002,6 +2190,15 @@ function collectFunction(
         jsxReturn,
         params: node.parameters.map(p => p.name.getText(ctx.sourceFile)),
       })
+    } else {
+      const multi = extractMultiReturnJsxBranches(node.body)
+      if (multi) {
+        isJsxFunction = true
+        ctx.jsxMultiReturnFunctions.set(name, {
+          ...multi,
+          params: node.parameters.map(p => p.name.getText(ctx.sourceFile)),
+        })
+      }
     }
   }
 
@@ -2382,6 +2579,15 @@ function collectConstant(
             jsxReturn,
             params: init.parameters.map(p => p.name.getText(ctx.sourceFile)),
           })
+        } else {
+          const multi = extractMultiReturnJsxBranches(arrowBody)
+          if (multi) {
+            isJsxFunction = true
+            ctx.jsxMultiReturnFunctions.set(name, {
+              ...multi,
+              params: init.parameters.map(p => p.name.getText(ctx.sourceFile)),
+            })
+          }
         }
       } else {
         // Implicit return: () => <div>...</div>
