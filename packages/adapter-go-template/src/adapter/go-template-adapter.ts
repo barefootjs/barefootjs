@@ -308,6 +308,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
    * follow-up).
    */
   private restPropsName: string | null = null
+  private templateVarCounter: number = 0
   /** Local type names resolved from typeDefinitions (populated during generateTypes) */
   private localTypeNames: Set<string> = new Set()
   /** Local type aliases mapping type name to base type (e.g., Filter → 'string') */
@@ -334,6 +335,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   generate(ir: ComponentIR, options?: AdapterGenerateOptions): AdapterOutput {
     this.componentName = ir.metadata.componentName
     this.errors = []
+    this.templateVarCounter = 0
     this.propsObjectName = ir.metadata.propsObjectName
     this.restPropsName = ir.metadata.restPropsName ?? null
 
@@ -2613,6 +2615,12 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     return `or ${wrapLeft} ${wrapRight}`
   }
 
+  // Note: JSX-level ternaries (`{expr ? a : b}`) are handled at the
+  // IR level as IRConditional, which goes through convertConditionToGo
+  // → renderConditionExpr (preamble-aware). This emitter method is
+  // only reached for ternaries nested inside other ParsedExpr trees
+  // (e.g. template-literal interpolation), where the test is always a
+  // simple pipeline expression (runtime helpers, not template blocks).
   conditional(
     test: ParsedExpr,
     consequent: ParsedExpr,
@@ -2620,8 +2628,6 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     emit: (e: ParsedExpr) => string,
   ): string {
     const t = emit(test)
-    // Nested conditionals already return complete {{if}}...{{end}} blocks;
-    // literals return bare text (used within attributes).
     const c = this.renderConditionalBranch(consequent)
     const a = this.renderConditionalBranch(alternate)
     return `{{if ${t}}}${c}{{else}}${a}{{end}}`
@@ -2984,12 +2990,14 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     }
 
     if (expr.method === 'findLast') {
+      const v = `$bf_r${this.templateVarCounter++}`
       const capture = propertyAccess ? `.${propertyAccess}` : '.'
-      return `{{if true}}{{$bf_result := ""}}{{range ${arrayExpr}}}{{if ${condition}}}{{$bf_result = ${capture}}}{{end}}{{end}}{{$bf_result}}{{end}}`
+      return `{{${v} := ""}}{{range ${arrayExpr}}}{{if ${condition}}}{{${v} = ${capture}}}{{end}}{{end}}{{${v}}}`
     }
 
     if (expr.method === 'findLastIndex') {
-      return `{{if true}}{{$bf_result := -1}}{{range $i, $_ := ${arrayExpr}}}{{if ${condition}}}{{$bf_result = $i}}{{end}}{{end}}{{$bf_result}}{{end}}`
+      const v = `$bf_r${this.templateVarCounter++}`
+      return `{{${v} := -1}}{{range $i, $_ := ${arrayExpr}}}{{if ${condition}}}{{${v} = $i}}{{end}}{{end}}{{${v}}}`
     }
 
     return null
@@ -3015,13 +3023,14 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     if (condition.includes('[UNSUPPORTED')) return null
 
     if (expr.method === 'every') {
-      // Negate condition: if NOT condition, set false and break
+      const v = `$bf_r${this.templateVarCounter++}`
       const negated = this.negateGoCondition(condition)
-      return `{{$bf_result := true}}{{range ${arrayExpr}}}{{if ${negated}}}{{$bf_result = false}}{{break}}{{end}}{{end}}{{$bf_result}}`
+      return `{{${v} := true}}{{range ${arrayExpr}}}{{if ${negated}}}{{${v} = false}}{{break}}{{end}}{{end}}{{${v}}}`
     }
 
     if (expr.method === 'some') {
-      return `{{$bf_result := false}}{{range ${arrayExpr}}}{{if ${condition}}}{{$bf_result = true}}{{break}}{{end}}{{end}}{{$bf_result}}`
+      const v = `$bf_r${this.templateVarCounter++}`
+      return `{{${v} := false}}{{range ${arrayExpr}}}{{if ${condition}}}{{${v} = true}}{{break}}{{end}}{{end}}{{${v}}}`
     }
 
     return null
@@ -3078,6 +3087,28 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
    */
   private needsParens(expr: ParsedExpr): boolean {
     return expr.kind === 'logical' || expr.kind === 'unary' || expr.kind === 'conditional'
+  }
+
+  /**
+   * Split a rendered template block into preamble + final expression.
+   * The last `{{...}}` must be a variable reference (`$bf_rN` or
+   * `$bf_result`). Control tokens like `{{end}}` or `{{break}}` are
+   * rejected — those template blocks (e.g. find's range/break form)
+   * can't be composed in binary/logical expressions.
+   */
+  private splitPreamble(rendered: string): { preamble: string; expr: string } | null {
+    if (!rendered.includes('{{')) return null
+    const lastOpen = rendered.lastIndexOf('{{')
+    const lastClose = rendered.lastIndexOf('}}')
+    if (lastOpen >= 0 && lastClose > lastOpen) {
+      const candidate = rendered.substring(lastOpen + 2, lastClose)
+      if (!candidate.startsWith('$')) return null
+      return {
+        preamble: rendered.substring(0, lastOpen),
+        expr: candidate,
+      }
+    }
+    return null
   }
 
   // =============================================================================
@@ -3694,196 +3725,149 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       return { condition: `false`, preamble: '' }
     }
 
-    const rendered = this.renderConditionExpr(parsed)
-
-    // Detect template blocks (e.g., from every/some with complex predicates).
-    // These cannot be placed inside {{if ...}} directly.
-    // Split into preamble (template block) + condition variable.
-    if (rendered.startsWith('{{')) {
-      const lastOpen = rendered.lastIndexOf('{{')
-      const lastClose = rendered.lastIndexOf('}}')
-      if (lastOpen >= 0 && lastClose > lastOpen) {
-        const preamble = rendered.substring(0, lastOpen)
-        const condition = rendered.substring(lastOpen + 2, lastClose)
-        return { condition, preamble }
-      }
-    }
-
-    return { condition: rendered, preamble: '' }
+    const { preamble, expr: condition } = this.renderConditionExpr(parsed)
+    return { condition, preamble }
   }
 
-  /**
-   * Render a ParsedExpr as a Go template condition.
-   */
-  private renderConditionExpr(expr: ParsedExpr): string {
+  private renderConditionExpr(expr: ParsedExpr): { preamble: string; expr: string } {
+    const plain = (e: string) => ({ preamble: '', expr: e })
+
     switch (expr.kind) {
       case 'identifier':
-        // Inside a `{{range $_, $todo := .Todos}}` loop, a bare reference
-        // to the loop variable (`todo`) is just Go template's dot. The
-        // `ParsedExprEmitter` path already handles this at memberAccess
-        // (line ~2449); this condition-expression path needs the same
-        // normalization or `todo.done` ends up as `.Todo.Done` — a
-        // non-existent field that Go template silently expands to ""
-        // and then aborts the surrounding `{{if}}`/template execution
-        // (echo logs it as a 200 with truncated bytes; #1442 repro).
         {
           const currentLoopParam = this.loopParamStack[this.loopParamStack.length - 1]
           if (currentLoopParam && expr.name === currentLoopParam) {
-            return '.'
+            return plain('.')
           }
         }
-        return `.${this.capitalizeFieldName(expr.name)}`
+        return plain(`.${this.capitalizeFieldName(expr.name)}`)
 
       case 'literal':
-        if (expr.literalType === 'string') {
-          return `"${expr.value}"`
-        }
-        if (expr.literalType === 'null') {
-          return 'nil'
-        }
-        return String(expr.value)
+        if (expr.literalType === 'string') return plain(`"${expr.value}"`)
+        if (expr.literalType === 'null') return plain('nil')
+        return plain(String(expr.value))
 
       case 'call': {
-        // Signal call: count() -> .Count
         if (expr.callee.kind === 'identifier' && expr.args.length === 0) {
-          return `.${this.capitalizeFieldName(expr.callee.name)}`
+          return plain(`.${this.capitalizeFieldName(expr.callee.name)}`)
         }
-        return this.renderParsedExpr(expr)
+        return plain(this.renderParsedExpr(expr))
       }
 
       case 'member': {
-        // Handle .length with higher-order filter → len (bf_filter ...)
         if (expr.property === 'length' && expr.object.kind === 'higher-order') {
-          const result = this.renderFilterLengthExpr(expr.object, e => this.renderConditionExpr(e))
-          if (result) {
-            return result
-          }
+          // renderFilterLengthExpr uses bf_filter runtime helpers (not
+          // template blocks), so .preamble is always empty here today.
+          // If a future higher-order method produces preambles through
+          // this path, the callback would need to propagate them.
+          const result = this.renderFilterLengthExpr(expr.object, e => this.renderConditionExpr(e).expr)
+          if (result) return plain(result)
         }
 
-        // Handle SolidJS-style props pattern: props.xxx -> .Xxx
         if (expr.object.kind === 'identifier' && this.propsObjectName && expr.object.name === this.propsObjectName) {
-          return `.${this.capitalizeFieldName(expr.property)}`
+          return plain(`.${this.capitalizeFieldName(expr.property)}`)
         }
 
-        // Loop-param member access: `todo.done` inside
-        // `{{range $_, $todo := .Todos}}` is `.Done` (Go template's dot
-        // is the current item). The `ParsedExprEmitter` already does
-        // this for renderParsedExpr; mirror it here so condition-only
-        // positions like boolean attributes (`checked={todo.done}`)
-        // and `{{if}}` operands don't fall through to the generic
-        // `.Todo.Done` shape, which references a non-existent field.
         {
           const currentLoopParam = this.loopParamStack[this.loopParamStack.length - 1]
           if (expr.object.kind === 'identifier' && currentLoopParam && expr.object.name === currentLoopParam) {
-            return `.${this.capitalizeFieldName(expr.property)}`
+            return plain(`.${this.capitalizeFieldName(expr.property)}`)
           }
         }
 
         const obj = this.renderConditionExpr(expr.object)
         if (expr.property === 'length') {
-          return `len ${obj}`
+          return { preamble: obj.preamble, expr: `len ${obj.expr}` }
         }
-        return `${obj}.${this.capitalizeFieldName(expr.property)}`
+        return { preamble: obj.preamble, expr: `${obj.expr}.${this.capitalizeFieldName(expr.property)}` }
       }
 
       case 'binary': {
-        // Check if left operand needs parentheses (e.g., function calls in Go template)
         const leftNeedsParens = this.needsParensInGoTemplate(expr.left)
-        let left = this.renderConditionExpr(expr.left)
-        if (leftNeedsParens) {
-          left = `(${left})`
-        }
+        const leftResult = this.renderConditionExpr(expr.left)
+        const left = leftNeedsParens ? `(${leftResult.expr})` : leftResult.expr
 
         const rightNeedsParens = this.needsParensInGoTemplate(expr.right)
-        let right = this.renderConditionExpr(expr.right)
-        if (rightNeedsParens) {
-          right = `(${right})`
-        }
+        const rightResult = this.renderConditionExpr(expr.right)
+        const right = rightNeedsParens ? `(${rightResult.expr})` : rightResult.expr
 
+        const preamble = leftResult.preamble + rightResult.preamble
+
+        let result: string
         switch (expr.op) {
           case '===':
           case '==':
-            return `eq ${left} ${right}`
+            result = `eq ${left} ${right}`; break
           case '!==':
           case '!=':
-            return `ne ${left} ${right}`
+            result = `ne ${left} ${right}`; break
           case '>':
-            return `gt ${left} ${right}`
+            result = `gt ${left} ${right}`; break
           case '<':
-            return `lt ${left} ${right}`
+            result = `lt ${left} ${right}`; break
           case '>=':
-            return `ge ${left} ${right}`
+            result = `ge ${left} ${right}`; break
           case '<=':
-            return `le ${left} ${right}`
-          // Arithmetic in conditions
+            result = `le ${left} ${right}`; break
           case '+':
-            return `bf_add ${left} ${right}`
+            result = `bf_add ${left} ${right}`; break
           case '-':
-            return `bf_sub ${left} ${right}`
+            result = `bf_sub ${left} ${right}`; break
           case '*':
-            return `bf_mul ${left} ${right}`
+            result = `bf_mul ${left} ${right}`; break
           case '/':
-            return `bf_div ${left} ${right}`
+            result = `bf_div ${left} ${right}`; break
           default:
-            return `${left} ${expr.op} ${right}`
+            result = `${left} ${expr.op} ${right}`
         }
+        return { preamble, expr: result }
       }
 
       case 'unary': {
         const arg = this.renderConditionExpr(expr.argument)
-        if (expr.op === '!') {
-          return `not ${arg}`
-        }
-        if (expr.op === '-') {
-          return `bf_neg ${arg}`
-        }
+        if (expr.op === '!') return { preamble: arg.preamble, expr: `not ${arg.expr}` }
+        if (expr.op === '-') return { preamble: arg.preamble, expr: `bf_neg ${arg.expr}` }
         return arg
       }
 
       case 'logical': {
-        const left = this.renderConditionExpr(expr.left)
-        const right = this.renderConditionExpr(expr.right)
-        // Wrap in parentheses if needed
-        const wrapLeft = this.needsParens(expr.left) ? `(${left})` : left
-        const wrapRight = this.needsParens(expr.right) ? `(${right})` : right
-        if (expr.op === '&&') {
-          return `and ${wrapLeft} ${wrapRight}`
-        }
-        return `or ${wrapLeft} ${wrapRight}`
+        const leftResult = this.renderConditionExpr(expr.left)
+        const rightResult = this.renderConditionExpr(expr.right)
+        const preamble = leftResult.preamble + rightResult.preamble
+        const wrapLeft = this.needsParens(expr.left) ? `(${leftResult.expr})` : leftResult.expr
+        const wrapRight = this.needsParens(expr.right) ? `(${rightResult.expr})` : rightResult.expr
+        const result = expr.op === '&&'
+          ? `and ${wrapLeft} ${wrapRight}`
+          : `or ${wrapLeft} ${wrapRight}`
+        return { preamble, expr: result }
       }
 
       case 'conditional': {
-        // Ternary in condition: (cond ? a : b) is unusual but handle it
         const test = this.renderConditionExpr(expr.test)
-        return test // Just return the test part for condition context
+        return test
       }
 
       case 'template-literal':
-        // Template literals as conditions are unusual
-        return this.renderParsedExpr(expr)
+        return plain(this.renderParsedExpr(expr))
 
       case 'arrow-fn':
-        // Arrow functions shouldn't appear in conditions
-        return '[ARROW-FN]'
+        return plain('[ARROW-FN]')
 
-      case 'higher-order':
-        // Higher-order methods in conditions need special handling
-        return this.renderParsedExpr(expr)
+      case 'higher-order': {
+        const rendered = this.renderParsedExpr(expr)
+        const split = this.splitPreamble(rendered)
+        if (split) return split
+        return plain(rendered)
+      }
 
       case 'array-literal':
-        // Array literals in conditions have no Go template form —
-        // delegate to renderParsedExpr so the `arrayLiteral` BF101
-        // gate fires consistently with non-condition positions.
-        return this.renderParsedExpr(expr)
+        return plain(this.renderParsedExpr(expr))
 
       case 'array-method':
-        // Same delegation pattern — `arrayMethod` records the
-        // refusal diagnostic at one site rather than duplicating it
-        // for condition-position emission.
-        return this.renderParsedExpr(expr)
+        return plain(this.renderParsedExpr(expr))
 
       case 'unsupported':
-        return expr.raw
+        return plain(expr.raw)
     }
   }
 

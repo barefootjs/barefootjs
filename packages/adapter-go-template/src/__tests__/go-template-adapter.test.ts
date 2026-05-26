@@ -1055,7 +1055,7 @@ export function ItemFinder() {
 }
 `)
       expect(result.template).toContain('{{range')
-      expect(result.template).toContain('$bf_result')
+      expect(result.template).toContain('$bf_r')
       expect(result.template).not.toContain('{{break}}')
     })
 
@@ -1086,9 +1086,51 @@ export function ItemFinder() {
   return <div>{items().findLastIndex(t => t.price > 50 && t.active)}</div>
 }
 `)
-      expect(result.template).toContain('$bf_result := -1')
-      expect(result.template).toContain('$bf_result = $i')
+      const varMatch = result.template.match(/(\$bf_r\d+) := -1/)
+      expect(varMatch).not.toBeNull()
+      expect(result.template).toContain(`${varMatch![1]} = $i`)
       expect(result.template).not.toContain('{{break}}')
+    })
+
+    test('findLast() complex predicate in IR-level ternary works via preamble splitting', () => {
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Item = { price: number; category: string }
+
+export function ItemFinder() {
+  const [items, setItems] = createSignal<Item[]>([])
+  const [type, setType] = createSignal('')
+  return <div>{items().findLast(t => t.price > 100 && t.category === type()) ? 'yes' : 'no'}</div>
+}
+`, adapter)
+      const output = adapter.generate(ir)
+      expect(adapter.errors.filter(e => e.code === 'BF101')).toEqual([])
+      expect(output.template).toMatch(/\$bf_r\d+ := ""/)
+      expect(output.template).toContain('yes')
+    })
+
+    test('findLast() complex predicate in binary expression compiles via preamble hoisting', () => {
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Item = { price: number; category: string }
+
+export function ItemFinder() {
+  const [items, setItems] = createSignal<Item[]>([])
+  const [type, setType] = createSignal('')
+  return <div class={items().findLast(t => t.price > 100 && t.category === type()) === 'special' ? 'highlight' : 'normal'}>test</div>
+}
+`, adapter)
+      const output = adapter.generate(ir)
+      expect(adapter.errors.filter(e => e.code === 'BF101')).toEqual([])
+      expect(output.template).toMatch(/\$bf_r\d+ := ""/)
+      expect(output.template).toContain('eq')
+      expect(output.template).toContain('"special"')
     })
   })
 
