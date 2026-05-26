@@ -74,7 +74,9 @@ export function applyRestAttrs(
           el.setAttribute(c.attrName, String(value))
         }
       } else {
-        if (c.kind === 'property' && c.attrName === 'checked' && 'checked' in el) {
+        if (c.kind === 'property' && c.attrName === 'value' && 'value' in el) {
+          (el as HTMLInputElement).value = ''
+        } else if (c.kind === 'property' && c.attrName === 'checked' && 'checked' in el) {
           (el as HTMLInputElement).checked = false
         } else {
           el.removeAttribute(c.attrName)

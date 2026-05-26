@@ -28,6 +28,7 @@ export const BOOLEAN_ATTRS: ReadonlySet<string> = new Set([
   'open',
   'multiple',
   'novalidate',
+  'formnovalidate',
 ])
 
 /**
@@ -173,9 +174,11 @@ export function toHTMLAttrName(key: string): string {
 
 /**
  * Runtime variant of attribute name mapping that additionally applies
- * camelCase→kebab conversion for unknown attributes and preserves SVG XML
- * attribute casing. Used by runtime spread helpers where setAttribute is
- * called with the result.
+ * camelCase→kebab conversion for `data-*` and `aria-*` convenience
+ * props (e.g. `dataTestId` → `data-test-id`) and preserves SVG XML
+ * attribute casing. All other non-SVG keys pass through unchanged —
+ * standard HTML attributes like `tabIndex` and `autoFocus` must not
+ * be kebab-cased (`tab-index` / `auto-focus` are not valid attrs).
  */
 export function toHTMLAttrNameRuntime(key: string): string {
   if (key === 'className') return 'class'
@@ -183,7 +186,10 @@ export function toHTMLAttrNameRuntime(key: string): string {
   const svgKebab = SVG_CAMEL_TO_KEBAB[key]
   if (svgKebab !== undefined) return svgKebab
   if (SVG_XML_CAMEL_ATTRS.has(key)) return key
-  return key.replace(/([A-Z])/g, '-$1').toLowerCase()
+  if (key.startsWith('data') || key.startsWith('aria')) {
+    return key.replace(/([A-Z])/g, '-$1').toLowerCase()
+  }
+  return key
 }
 
 /**

@@ -49,6 +49,10 @@ describe('classifyDOMProp', () => {
     expect(classifyDOMProp('hidden').kind).toBe('boolean')
   })
 
+  test('formnovalidate → boolean', () => {
+    expect(classifyDOMProp('formnovalidate').kind).toBe('boolean')
+  })
+
   test('className → attr with attrName "class"', () => {
     expect(classifyDOMProp('className')).toEqual({ kind: 'attr', attrName: 'class' })
   })
@@ -125,14 +129,26 @@ describe('toHTMLAttrNameRuntime', () => {
     expect(toHTMLAttrNameRuntime('clipPathUnits')).toBe('clipPathUnits')
   })
 
-  test('generic camelCase → kebab-case', () => {
+  test('data-* camelCase → kebab-case', () => {
     expect(toHTMLAttrNameRuntime('dataTestId')).toBe('data-test-id')
+  })
+
+  test('aria-* camelCase → kebab-case', () => {
+    expect(toHTMLAttrNameRuntime('ariaLabel')).toBe('aria-label')
+  })
+
+  test('tabIndex passes through (no kebab)', () => {
+    expect(toHTMLAttrNameRuntime('tabIndex')).toBe('tabIndex')
+  })
+
+  test('autoFocus passes through (no kebab)', () => {
+    expect(toHTMLAttrNameRuntime('autoFocus')).toBe('autoFocus')
   })
 })
 
 describe('isBooleanAttr', () => {
   test('standard booleans', () => {
-    for (const attr of ['checked', 'disabled', 'readonly', 'selected', 'required', 'hidden', 'autofocus', 'autoplay', 'controls', 'loop', 'muted', 'open', 'multiple', 'novalidate']) {
+    for (const attr of ['checked', 'disabled', 'readonly', 'selected', 'required', 'hidden', 'autofocus', 'autoplay', 'controls', 'loop', 'muted', 'open', 'multiple', 'novalidate', 'formnovalidate']) {
       expect(isBooleanAttr(attr)).toBe(true)
     }
   })
