@@ -1333,6 +1333,24 @@ function transformExpressionInner(
   }
 
   // Scalar fallback — unchanged from pre-refactor.
+  // BF062: catch nested await inside scalar expressions (e.g. {foo(await bar)})
+  if (containsAwaitExpression(expr)) {
+    ctx.analyzer.errors.push(
+      createError(
+        ErrorCodes.STAGE_AWAIT_IN_TEMPLATE,
+        getSourceLocation(expr, ctx.sourceFile, ctx.filePath),
+      ),
+    )
+    return {
+      type: 'expression' as const,
+      expr: 'undefined',
+      typeInfo: null,
+      reactive: false,
+      slotId: null,
+      loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
+      origin: { phase: 'tick', scope: 'template', effect: 'pure', freeRefs: [] },
+    } satisfies IRExpression
+  }
   const exprText = ctx.getJS(expr)
   const freeRefs = resolveFreeRefs(expr, makeBindingEnv(ctx))
   const origin: OriginInfo = {
@@ -1680,6 +1698,12 @@ function containsJsxInExpression(node: ts.Node): boolean {
     return true
   }
   return ts.forEachChild(node, containsJsxInExpression) ?? false
+}
+
+function containsAwaitExpression(node: ts.Node): boolean {
+  if (ts.isAwaitExpression(node)) return true
+  if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) return false
+  return ts.forEachChild(node, containsAwaitExpression) ?? false
 }
 
 /**
@@ -3470,7 +3494,7 @@ function getAttributeValue(attr: ts.JsxAttribute, ctx: TransformContext): AttrVa
           getSourceLocation(expr, ctx.sourceFile, ctx.filePath),
         ),
       )
-      return AttrValueOf.literal('undefined')
+      return AttrValueOf.expression('undefined')
     }
 
     // Check for bare signal/memo identifier (BF044)

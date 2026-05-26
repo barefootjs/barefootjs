@@ -24,7 +24,7 @@ import { ErrorCodes } from '../../errors'
 import { recordStageDiagnostics } from '../../ir-to-client-js/compute-inlinability'
 import type { ConstantInfo, CompilerError } from '../../types'
 import type { RelocateDecision } from '../../relocate'
-import { compile } from './helpers'
+import { compile, expectValidJs } from './helpers'
 
 const dummyLoc = {
   file: 'Test.tsx',
@@ -671,8 +671,8 @@ describe('BF062: AwaitExpression in template scope', () => {
     expect(bf062).toBeDefined()
   })
 
-  test('emitted output remains parseable JS after BF062', () => {
-    const { errors, templateBody, initBody } = compile(`
+  test('emitted client JS remains parseable after BF062', () => {
+    const { errors, clientJs } = compile(`
       'use client'
 
       interface Props {}
@@ -684,8 +684,22 @@ describe('BF062: AwaitExpression in template scope', () => {
     `)
 
     expect(errors.find(e => e.startsWith('[BF062]'))).toBeDefined()
-    // The emitted template/init should not contain bare 'await'
-    expect(templateBody).not.toContain('await')
-    expect(initBody).not.toContain('await')
+    expectValidJs(clientJs)
+  })
+
+  test('nested await inside scalar expression emits BF062', () => {
+    const { errors, clientJs } = compile(`
+      'use client'
+
+      interface Props {}
+
+      export async function Foo(_props: Props) {
+        return <div>{String(await fetch('/api'))}</div>
+      }
+    `)
+
+    const bf062 = errors.find(e => e.startsWith('[BF062]'))
+    expect(bf062).toBeDefined()
+    expectValidJs(clientJs)
   })
 })
