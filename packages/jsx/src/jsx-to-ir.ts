@@ -2013,15 +2013,20 @@ function transformConditionalBranch(
     effect: 'pure',
     freeRefs: resolveFreeRefs(node, makeBindingEnv(ctx)),
   }
+  const callsReactive = exprCallsReactiveGetters(node, ctx)
+  const hasCalls = exprHasFunctionCalls(node)
+  const reactive = isReactiveExpression(exprText, ctx, node) || isReactiveOrigin(branchOrigin)
+  const needsSlot = reactive || callsReactive
+  const slotId = needsSlot ? generateSlotId(ctx) : null
   return {
     type: 'expression',
     expr: exprText,
     templateExpr: rewriteBarePropRefs(exprText, node, ctx),
     typeInfo: inferExpressionType(node, ctx),
-    reactive: isReactiveExpression(exprText, ctx, node) || isReactiveOrigin(branchOrigin),
-    slotId: null,
-    callsReactiveGetters: exprCallsReactiveGetters(node, ctx) || undefined,
-    hasFunctionCalls: exprHasFunctionCalls(node) || undefined,
+    reactive,
+    slotId,
+    callsReactiveGetters: callsReactive || undefined,
+    hasFunctionCalls: hasCalls || undefined,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
     origin: branchOrigin,
   }
