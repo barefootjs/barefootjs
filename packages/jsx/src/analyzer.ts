@@ -1872,6 +1872,8 @@ function extractMultiReturnJsxBranches(
             current = ifStmt.elseStatement
             continue
           }
+          // Final else block — chain is complete, return immediately
+          // to prevent subsequent statements from overwriting fallback.
           if (!isDirectReturnBlock(ifStmt.elseStatement)) return null
           const elseJsx = findJsxReturnInBlock(ifStmt.elseStatement)
           if (elseJsx) {
@@ -1879,6 +1881,8 @@ function extractMultiReturnJsxBranches(
           } else if (!findNullReturnInBlock(ifStmt.elseStatement)) {
             return null
           }
+          if (branches.length === 0) return null
+          return { branches, fallback }
         }
         break
       }
@@ -1898,6 +1902,11 @@ function extractMultiReturnJsxBranches(
       if (!ts.isIdentifier(stmt.expression) && !ts.isPropertyAccessExpression(stmt.expression)) {
         return null
       }
+
+      // Require an explicit default clause — without one, inlining
+      // adds an implicit `else null` that changes runtime behavior.
+      const hasDefault = stmt.caseBlock.clauses.some(c => ts.isDefaultClause(c))
+      if (!hasDefault) return null
 
       for (const clause of stmt.caseBlock.clauses) {
         const jsxReturn = findJsxReturnInCaseClause(clause)

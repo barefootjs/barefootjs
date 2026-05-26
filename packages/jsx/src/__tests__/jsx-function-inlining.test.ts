@@ -658,5 +658,48 @@ describe('JSX function inlining (#569)', () => {
       // Should NOT be registered because discriminant is a call expression
       expect(ctx.jsxMultiReturnFunctions.has('renderByValue')).toBe(false)
     })
+
+    test('switch without default clause is NOT inlined', () => {
+      const source = `
+        'use client'
+
+        export function App(props: { icon: string }) {
+          function renderIcon(name: string) {
+            switch (name) {
+              case 'home': return <span>🏠</span>
+              case 'star': return <span>⭐</span>
+            }
+          }
+
+          return <div>{renderIcon(props.icon)}</div>
+        }
+      `
+
+      const ctx = analyzeComponent(source, 'App.tsx')
+      expect(ctx.jsxMultiReturnFunctions.has('renderIcon')).toBe(false)
+    })
+
+    test('if/else with trailing return does not overwrite else fallback', () => {
+      const source = `
+        'use client'
+
+        export function App(props: { mode: string }) {
+          function renderMode(m: string) {
+            if (m === 'a') return <span>A</span>
+            else return <span>B</span>
+          }
+
+          return <div>{renderMode(props.mode)}</div>
+        }
+      `
+
+      const result = compileJSX(source, 'App.tsx', { adapter })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!.content
+      // The else fallback should be <span>B</span>, not overwritten
+      expect(template).toContain('A')
+      expect(template).toContain('B')
+    })
   })
 })
