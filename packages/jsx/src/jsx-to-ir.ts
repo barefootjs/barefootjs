@@ -2888,6 +2888,7 @@ function transformMapCall(
     // and ssr-hydration-contract assertions don't shift when loops are added.
     markerId: `l${ctx.loopMarkerCounter++}`,
     isStaticArray,
+    isPropDerivedArray: isDirectPropArray || undefined,
     callsReactiveGetters: callsReactive || undefined,
     hasFunctionCalls: hasCalls || undefined,
     bodyIsMultiRoot: bodyIsMultiRoot || undefined,

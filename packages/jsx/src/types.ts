@@ -424,6 +424,14 @@ export interface IRLoop {
   isStaticArray: boolean
 
   /**
+   * True when the array is a direct prop reference promoted to mapArray (#1586).
+   * Adapters use this to include the array in JSON serialization (bf-p)
+   * even though isStaticArray is false — the client's mapArray needs the
+   * initial data for hydration, unlike signal-backed arrays.
+   */
+  isPropDerivedArray?: boolean
+
+  /**
    * When true, array expression calls signal getters or memos (computed from AST).
    * Derived Phase 1 so debug tooling (#944) can classify the wrap decision
    * without re-deriving reactivity from the expression string.
