@@ -198,30 +198,21 @@ export const HONO_ADAPTER: AdapterTemplate = {
     '.gitignore': HONO_GITIGNORE,
   },
   scripts: {
-    // Run barefoot's component build, UnoCSS's class scanner, and the
-    // local Workers dev server side-by-side. `concurrently -k` makes
-    // Ctrl-C kill all three. `wrangler dev --live-reload` watches the
-    // worker + asset files and reloads the browser when they change,
-    // so we don't need a separate SSE-based reloader. `wrangler` lives
-    // behind the PM's dlx so its (large) dependency tree never lands
-    // in node_modules — the first run caches it via bunx / npx /
-    // pnpm dlx / yarn dlx.
     dev: (pm) =>
-      `concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "${commandsFor(pm).exec(
-        'wrangler dev --live-reload',
-      )}"`,
-    build: 'bf build && unocss',
-    deploy: (pm) => `bf build && unocss && ${commandsFor(pm).exec('wrangler deploy')}`,
+      `concurrently -k -n build,uno,server -c blue,magenta,green "${commandsFor(pm).exec(
+        '@barefootjs/cli build --watch',
+      )}" "unocss --watch" "${commandsFor(pm).exec('wrangler dev --live-reload')}"`,
+    build: (pm) => `${commandsFor(pm).exec('@barefootjs/cli build')} && unocss`,
+    deploy: (pm) =>
+      `${commandsFor(pm).exec('@barefootjs/cli build')} && unocss && ${commandsFor(pm).exec('wrangler deploy')}`,
   },
   deploy: {
     target: 'Cloudflare Workers',
     script: 'deploy',
   },
   dependencies: {
-    '@barefootjs/cli': 'latest',
     '@barefootjs/client': 'latest',
     '@barefootjs/hono': 'latest',
-    // Required transitively by @barefootjs/hono via the registry button.
     '@barefootjs/jsx': 'latest',
     '@barefootjs/shared': 'latest',
     hono: '^4.6.0',

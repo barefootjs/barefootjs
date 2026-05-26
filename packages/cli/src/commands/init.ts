@@ -306,13 +306,8 @@ async function scaffoldApp(
     type: 'module',
     scripts: {
       ...resolvedAdapterScripts,
-      // `watch` is the server-less twin of `dev`: rebuild components +
-      // UnoCSS on change, but don't spin up a server. Useful when the
-      // user is running their server through another tool (e.g. an
-      // existing `morbo`, `go run`, or an external dev container) and
-      // only needs the BarefootJS asset pipeline to keep pace.
       watch:
-        'concurrently -k -n build,uno -c blue,magenta "bf build --watch" "unocss --watch"',
+        `concurrently -k -n build,uno -c blue,magenta "${commandsFor(pm).exec('@barefootjs/cli build --watch')}" "unocss --watch"`,
       // `test` is wired to the runner that matches the user's package
       // manager — `bun test` for bun, `vitest run` for npm / pnpm /
       // yarn. The matching `bf gen component` / `bf gen test` output

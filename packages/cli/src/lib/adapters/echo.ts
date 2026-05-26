@@ -16,6 +16,7 @@
 
 import { execSync } from 'node:child_process'
 import type { AdapterTemplate } from '../templates'
+import { commandsFor } from '../pm'
 import {
   buildGitignore,
   SHARED_COUNTER_TSX,
@@ -537,23 +538,12 @@ export const ECHO_ADAPTER: AdapterTemplate = {
     '.gitignore': ECHO_GITIGNORE,
   },
   scripts: {
-    // `go mod tidy` resolves Echo's deps into go.sum on first run —
-    // subsequent runs are a fast no-op against the module cache. After
-    // that, build everything once (barefoot generates components.go +
-    // dist/templates/*.tmpl, unocss generates uno.css), then run the
-    // watchers and the Go server side-by-side. `concurrently -k` makes
-    // Ctrl-C kill all three. Go has no built-in hot reload — restart
-    // manually after main.go edits, or swap in `air` later.
-    // No APP_ENV here: env.go treats unset as dev, so `go run .`
-    // gets the template re-parse + /_bf/reload SSE automatically.
-    // Production launches (e.g. `bun run start` behind a process
-    // manager) should export `APP_ENV=production` to flip the gate.
-    dev: 'go mod tidy && bf build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "go run ."',
-    build: 'go mod tidy && bf build && unocss',
+    dev: (pm) =>
+      `go mod tidy && ${commandsFor(pm).exec('@barefootjs/cli build')} && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "${commandsFor(pm).exec('@barefootjs/cli build --watch')}" "unocss --watch" "go run ."`,
+    build: (pm) => `go mod tidy && ${commandsFor(pm).exec('@barefootjs/cli build')} && unocss`,
     start: 'go run .',
   },
   dependencies: {
-    '@barefootjs/cli': 'latest',
     '@barefootjs/client': 'latest',
     '@barefootjs/go-template': 'latest',
     '@barefootjs/jsx': 'latest',
