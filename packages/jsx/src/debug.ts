@@ -1351,7 +1351,6 @@ function describeFallbackReason(
 
 export function formatFallbackExplanations(
   componentName: string,
-  sourceFile: string,
   fallbacks: DomBinding[],
 ): string {
   const lines: string[] = []
