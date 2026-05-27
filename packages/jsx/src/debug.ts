@@ -1184,6 +1184,114 @@ export function formatSignalTrace(traces: SignalTrace[]): string {
 }
 
 // =============================================================================
+// Fallback explanation
+// =============================================================================
+
+export interface FallbackExplanation {
+  label: string
+  expression: string
+  reason: string
+  runtimeDeps: string
+  suggestion: string
+  loc?: { file: string; line: number }
+  isEventHandler: boolean
+}
+
+export function describeFallback(binding: DomBinding): FallbackExplanation {
+  const isEventHandler = binding.type === 'event' ||
+    (binding.type === 'attribute' && /^on[A-Z]/.test(binding.label.split('.').pop() ?? ''))
+
+  const reason = describeFallbackReason(binding.wrapReason, binding.type, isEventHandler)
+  const runtimeDeps = binding.deps.length > 0
+    ? binding.deps.join(', ')
+    : isEventHandler
+      ? 'likely none (event handler captures values, does not track reactively)'
+      : 'unknown — subscribes to whatever signals it reads at runtime'
+
+  const suggestion = isEventHandler
+    ? 'event handlers intentionally capture scope values; this fallback is typically safe to ignore'
+    : binding.wrapReason === 'fallback-function-calls'
+      ? 'inline the reactive source or wrap the result in createMemo so the compiler can prove the dependency'
+      : binding.wrapReason === 'fallback-getter-calls'
+        ? 'the call looks like a signal getter but is not a known signal; verify the function is pure or extract as createMemo'
+        : 'rewrite to use a known signal/memo reference so the compiler can statically prove reactivity'
+
+  return {
+    label: binding.label,
+    expression: binding.expression ?? '(expression not captured)',
+    reason,
+    runtimeDeps,
+    suggestion,
+    loc: binding.loc ? { file: binding.loc.file, line: binding.loc.start.line } : undefined,
+    isEventHandler,
+  }
+}
+
+function describeFallbackReason(
+  wrapReason: WrapReason | undefined,
+  bindingType: string,
+  isEventHandler: boolean,
+): string {
+  const context = bindingType === 'attribute'
+    ? 'an attribute expression'
+    : bindingType === 'text'
+      ? 'a text interpolation'
+      : bindingType === 'conditional'
+        ? 'a conditional expression'
+        : bindingType === 'loop'
+          ? 'a loop array expression'
+          : 'an expression'
+
+  switch (wrapReason) {
+    case 'fallback-function-calls':
+      return isEventHandler
+        ? `function call in ${context} (event handler prop)`
+        : `opaque function call in ${context} — the compiler cannot prove it is reactive or pure`
+    case 'fallback-getter-calls':
+      return `call pattern resembles a signal getter in ${context}, but is not a recognized signal`
+    case 'string-reactive':
+      return `string-level match found a signal/memo name in ${context}`
+    case 'props-access':
+      return `props.xxx reference in ${context} — reactive via prop forwarding`
+    case 'proven-reactive':
+      return `statically proven reactive in ${context}`
+    default:
+      return `unknown fallback trigger in ${context}`
+  }
+}
+
+export function formatFallbackExplanations(
+  componentName: string,
+  sourceFile: string,
+  fallbacks: DomBinding[],
+): string {
+  const lines: string[] = []
+
+  if (fallbacks.length === 0) {
+    lines.push(`${componentName} — no fallback-wrapped expressions.`)
+    return lines.join('\n')
+  }
+
+  lines.push(`${componentName} — ${fallbacks.length} fallback-wrapped expression(s)`)
+
+  for (const f of fallbacks) {
+    const ex = describeFallback(f)
+    lines.push('')
+    if (ex.loc) {
+      const locFile = ex.loc.file.split('/').pop() ?? ex.loc.file
+      lines.push(`  ${locFile}:${ex.loc.line}`)
+    }
+    lines.push(`  ${ex.label} fallback:`)
+    lines.push(`    expression: ${ex.expression}`)
+    lines.push(`    reason: ${ex.reason}`)
+    lines.push(`    runtime deps: ${ex.runtimeDeps}`)
+    lines.push(`    suggestion: ${ex.suggestion}`)
+  }
+
+  return lines.join('\n')
+}
+
+// =============================================================================
 // Helpers
 // =============================================================================
 
