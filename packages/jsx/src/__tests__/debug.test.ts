@@ -618,8 +618,6 @@ describe('DomBinding classification (#944)', () => {
   })
 
   test('formatComponentGraph marks fallback bindings with ~ prefix', () => {
-    // The visual marker is the primary UX for `bf debug graph`.
-    // Guard the prefix format so `why-wrap` output doesn't silently drift.
     const source = `
       'use client'
       import { createSignal } from '@barefootjs/client'
@@ -634,15 +632,113 @@ describe('DomBinding classification (#944)', () => {
     const graph = buildComponentGraph(source, 'Page.tsx')
     const output = formatComponentGraph(graph)
     // Fallback text binding for formatTitle(page) — marked with '~'.
-    expect(output).toMatch(/~ text "/)
-    // Reactive text binding for count() — marked with two leading spaces
-    // (no tilde). The exact prefix matters: it's the visual diff.
-    expect(output).toMatch(/dom bindings:[\s\S]*?text "/)
-    // No fallback marker on the reactive binding's line.
+    // New format uses JSX preview: `~ <h1>{formatTitle(page)}</h1>`
+    expect(output).toMatch(/~ .*formatTitle/)
+    // Reactive text binding for count() — no tilde prefix.
+    expect(output).toMatch(/dom bindings:[\s\S]*?count/)
     const lines = output.split('\n')
-    const countLine = lines.find(l => l.includes('count') && l.includes('text'))
+    const countLine = lines.find(l => l.includes('count()') && l.includes('<h1>'))
     expect(countLine).toBeDefined()
-    expect(countLine!).not.toMatch(/~ text/)
+    expect(countLine!).not.toMatch(/^.*~ /)
+  })
+})
+
+// =============================================================================
+// Source locations + JSX previews on DomBinding (#1611 TODO 2)
+// =============================================================================
+
+describe('DomBinding source locations and JSX previews', () => {
+  test('text bindings carry loc and parent-tag JSX preview', () => {
+    const graph = buildComponentGraph(counterSource, 'Counter.tsx')
+    const textBinding = graph.domBindings.find(d => d.type === 'text')
+    expect(textBinding).toBeDefined()
+    expect(textBinding!.loc).toBeDefined()
+    expect(textBinding!.loc!.start.line).toBeGreaterThan(0)
+    expect(textBinding!.jsxPreview).toContain('<button>')
+    expect(textBinding!.jsxPreview).toContain('count()')
+    expect(textBinding!.jsxPreview).toContain('</button>')
+  })
+
+  test('attribute bindings carry loc and element-tag JSX preview', () => {
+    const graph = buildComponentGraph(sliderLikeSource, 'RangeInput.tsx')
+    const styleBinding = graph.domBindings.find(d => d.label === 'style')
+    expect(styleBinding).toBeDefined()
+    expect(styleBinding!.loc).toBeDefined()
+    expect(styleBinding!.jsxPreview).toMatch(/<div style=\{/)
+  })
+
+  test('event bindings carry loc and JSX preview', () => {
+    const graph = buildComponentGraph(counterSource, 'Counter.tsx')
+    const eventBinding = graph.domBindings.find(d => d.type === 'event')
+    expect(eventBinding).toBeDefined()
+    expect(eventBinding!.loc).toBeDefined()
+    expect(eventBinding!.jsxPreview).toContain('<button')
+    expect(eventBinding!.jsxPreview).toContain('onClick')
+  })
+
+  test('loop bindings carry loc and JSX preview with param', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function List() {
+        const [items, setItems] = createSignal([1, 2, 3])
+        return <ul>{items().map(item => <li>{item}</li>)}</ul>
+      }
+    `
+    const graph = buildComponentGraph(source, 'List.tsx')
+    const loopBinding = graph.domBindings.find(d => d.type === 'loop')
+    expect(loopBinding).toBeDefined()
+    expect(loopBinding!.jsxPreview).toContain('.map(item')
+  })
+
+  test('conditional bindings carry loc and JSX preview', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function Toggle() {
+        const [show, setShow] = createSignal(true)
+        return <div>{show() ? <span>on</span> : <span>off</span>}</div>
+      }
+    `
+    const graph = buildComponentGraph(source, 'Toggle.tsx')
+    const condBinding = graph.domBindings.find(d => d.type === 'conditional')
+    expect(condBinding).toBeDefined()
+    expect(condBinding!.jsxPreview).toContain('show()')
+    expect(condBinding!.jsxPreview).toContain('? ... : ...')
+  })
+
+  test('component prop bindings carry loc and JSX preview', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Card } from './Card'
+
+      export function Page() {
+        const [title, setTitle] = createSignal('hello')
+        return <Card title={title()} />
+      }
+    `
+    const graph = buildComponentGraph(source, 'Page.tsx')
+    const propBinding = graph.domBindings.find(d => d.label === 'Card.title')
+    expect(propBinding).toBeDefined()
+    expect(propBinding!.jsxPreview).toContain('<Card title=')
+  })
+
+  test('formatComponentGraph includes source locations', () => {
+    const graph = buildComponentGraph(counterSource, 'Counter.tsx')
+    const output = formatComponentGraph(graph)
+    expect(output).toMatch(/at Counter\.tsx:\d+/)
+  })
+
+  test('graphToJSON includes loc and jsxPreview fields', () => {
+    const graph = buildComponentGraph(counterSource, 'Counter.tsx')
+    const json = graphToJSON(graph) as { domBindings: Array<{ loc?: object; jsxPreview?: string }> }
+    const binding = json.domBindings.find(d => (d as any).type === 'text')
+    expect(binding).toBeDefined()
+    expect(binding!.loc).toBeDefined()
+    expect(binding!.jsxPreview).toBeDefined()
   })
 })
 
