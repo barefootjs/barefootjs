@@ -21,6 +21,8 @@ import {
   formatSignalTrace,
   generateStaticTrace,
   graphToJSON,
+  describeFallback,
+  formatFallbackExplanations,
 } from '../debug'
 
 const counterSource = `
@@ -1234,5 +1236,102 @@ describe('formatWhyUpdate', () => {
     const output = formatWhyUpdate(result)
     expect(output).toContain('fallback-wrapped binding')
     expect(output).toContain('could not statically prove')
+  })
+})
+
+// =============================================================================
+// Fallback explanations (bf debug fallbacks improved, #1611 TODO 5)
+// =============================================================================
+
+describe('describeFallback', () => {
+  test('provides human-readable reason for opaque function call', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { formatTitle } from './format'
+
+      export function Page() {
+        const [, setFoo] = createSignal(0)
+        const page = 'home'
+        return <h1 onClick={() => setFoo(1)}>{formatTitle(page)}</h1>
+      }
+    `
+    const graph = buildComponentGraph(source, 'Page.tsx')
+    const fallback = graph.domBindings.find(d => d.classification === 'fallback' && d.type === 'text')
+    expect(fallback).toBeDefined()
+    const ex = describeFallback(fallback!)
+    expect(ex.reason).toContain('opaque function call')
+    expect(ex.reason).toContain('text interpolation')
+    expect(ex.suggestion).toContain('createMemo')
+    expect(ex.isEventHandler).toBe(false)
+  })
+
+  test('identifies event handler props as safe fallbacks', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Button } from './Button'
+
+      export function Counter() {
+        const [count, setCount] = createSignal(0)
+        return <Button onClick={() => setCount(0)}>Reset</Button>
+      }
+    `
+    const graph = buildComponentGraph(source, 'Counter.tsx')
+    const fallback = graph.domBindings.find(d =>
+      d.classification === 'fallback' && d.label.includes('onClick'),
+    )
+    expect(fallback).toBeDefined()
+    const ex = describeFallback(fallback!)
+    expect(ex.isEventHandler).toBe(true)
+    expect(ex.suggestion).toContain('safe to ignore')
+  })
+
+  test('includes source location', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { format } from './fmt'
+
+      export function Tag() {
+        const [, setFoo] = createSignal(0)
+        return <button class={format('x')} onClick={() => setFoo(1)}>x</button>
+      }
+    `
+    const graph = buildComponentGraph(source, 'Tag.tsx')
+    const fallback = graph.domBindings.find(d => d.classification === 'fallback' && d.type === 'attribute')
+    expect(fallback).toBeDefined()
+    const ex = describeFallback(fallback!)
+    expect(ex.loc).toBeDefined()
+    expect(ex.loc!.line).toBeGreaterThan(0)
+  })
+})
+
+describe('formatFallbackExplanations', () => {
+  test('produces detailed output with reason and suggestion', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { formatTitle } from './format'
+
+      export function Page() {
+        const [, setFoo] = createSignal(0)
+        const page = 'home'
+        return <h1 onClick={() => setFoo(1)}>{formatTitle(page)}</h1>
+      }
+    `
+    const graph = buildComponentGraph(source, 'Page.tsx')
+    const fallbacks = graph.domBindings.filter(d => d.classification === 'fallback')
+    const output = formatFallbackExplanations(graph.componentName, fallbacks)
+    expect(output).toContain('fallback:')
+    expect(output).toContain('expression:')
+    expect(output).toContain('reason:')
+    expect(output).toContain('suggestion:')
+    expect(output).toContain('runtime deps:')
+  })
+
+  test('returns clean message for zero fallbacks', () => {
+    const output = formatFallbackExplanations('Counter', [])
+    expect(output).toContain('no fallback-wrapped expressions')
   })
 })
