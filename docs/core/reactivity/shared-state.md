@@ -28,7 +28,6 @@ Player.client.js            →  createContext()  →  Symbol(#2)
 The simplest solution. If components are tightly coupled, put them in the same file:
 
 ```tsx
-// components/Playback.tsx
 "use client"
 import { createContext, useContext, createSignal, createEffect } from '@barefootjs/client'
 
@@ -91,8 +90,9 @@ export function TimelineBar(props: { duration: number }) {
 
 Use the browser's native event system. One component dispatches events, others listen. No shared module state needed.
 
+Player (`components/Player.tsx`):
+
 ```tsx
-// components/Player.tsx
 "use client"
 import { createSignal, createEffect, onCleanup } from '@barefootjs/client'
 
@@ -119,8 +119,9 @@ export function Player() {
 }
 ```
 
+TimelineBar (`components/TimelineBar.tsx`):
+
 ```tsx
-// components/TimelineBar.tsx
 "use client"
 import { onCleanup } from '@barefootjs/client'
 
@@ -161,8 +162,7 @@ export function TimelineBar(props: { duration: number }) {
 
 Define event types in a shared `src/` file to get type safety without sharing runtime state:
 
-```tsx
-// src/playback-events.ts
+```ts
 export interface PlaybackTimeUpdateDetail {
   elapsedMs: number
 }
@@ -187,8 +187,7 @@ export function dispatchSeek(el: Element, detail: PlaybackSeekDetail) {
 
 For state that originates on the server (database, session, URL params), pass it as props from the server route. No client-side sharing needed:
 
-```tsx
-// server.tsx
+```ts
 import { Player } from '@/components/Player'
 import { TimelineBar } from '@/components/TimelineBar'
 
