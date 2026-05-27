@@ -2,11 +2,13 @@
 //
 // Entry point: find previews, compile (CSR bundle), print serve instructions.
 
-import { resolve, relative } from 'node:path'
-import { writeFileSync } from 'node:fs'
+import { resolve, relative, dirname } from 'node:path'
+import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { compile } from './compile'
 
-const ROOT_DIR = resolve(import.meta.dir, '../../..')
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const ROOT_DIR = resolve(__dirname, '../../..')
 const UI_DIR = resolve(ROOT_DIR, 'ui/components/ui')
 const META_DIR = resolve(ROOT_DIR, 'ui/meta')
 
@@ -14,7 +16,7 @@ export async function runPreview(componentName: string) {
   const previewsPath = resolve(UI_DIR, componentName, 'index.preview.tsx')
 
   // 1. Auto-generate preview if file doesn't exist
-  if (!await Bun.file(previewsPath).exists()) {
+  if (!existsSync(previewsPath)) {
     const { loadComponent } = await import('../../cli/src/lib/meta-loader')
     const { generatePreview } = await import('../../cli/src/lib/preview-generate')
 
@@ -31,7 +33,7 @@ export async function runPreview(componentName: string) {
   }
 
   // 2. Extract export function names from source
-  const source = await Bun.file(previewsPath).text()
+  const source = readFileSync(previewsPath, 'utf-8')
   const previewNames = [...source.matchAll(/export function (\w+)/g)].map(m => m[1])
 
   if (previewNames.length === 0) {

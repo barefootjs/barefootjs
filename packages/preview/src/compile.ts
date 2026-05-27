@@ -1,20 +1,28 @@
 // Preview compiler pipeline (CSR mode)
 //
-// Bundles preview files for client-side rendering using Bun.build()
-// with a custom DOM-based JSX runtime. No Hono SSR at serve time.
+// Bundles preview files for client-side rendering using esbuild
+// with a custom DOM-based JSX runtime. Runtime-agnostic (no Bun APIs).
 
-import { mkdir, readdir } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, copyFile, access } from 'node:fs/promises'
+import { execSync } from 'node:child_process'
 import { resolve, relative, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { build, type Plugin } from 'esbuild'
 import {
   hasUseClientDirective,
   discoverComponentFiles,
 } from '../../cli/src/lib/build'
 
-const ROOT_DIR = resolve(import.meta.dir, '../../..')
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const ROOT_DIR = resolve(__dirname, '../../..')
 const UI_COMPONENTS_DIR = resolve(ROOT_DIR, 'ui/components')
 const DIST_DIR = resolve(ROOT_DIR, '.preview-dist')
 const DOM_PKG_DIR = resolve(ROOT_DIR, 'packages/client')
-const JSX_RUNTIME_PATH = resolve(import.meta.dir, 'jsx-runtime.ts')
+const JSX_RUNTIME_PATH = resolve(__dirname, 'jsx-runtime.ts')
+
+async function exists(path: string): Promise<boolean> {
+  return access(path).then(() => true, () => false)
+}
 
 export interface CompileOptions {
   previewsPath: string
@@ -31,14 +39,13 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
 
   await mkdir(DIST_DIR, { recursive: true })
 
-  // 1. Copy barefoot.js runtime (for future interactive component support)
+  // 1. Copy barefoot.js runtime
   const domDistFile = resolve(DOM_PKG_DIR, 'dist/runtime/standalone.js')
-  if (!await Bun.file(domDistFile).exists()) {
+  if (!await exists(domDistFile)) {
     console.log('Building @barefootjs/client...')
-    const proc = Bun.spawn(['bun', 'run', 'build'], { cwd: DOM_PKG_DIR })
-    await proc.exited
+    execSync('npm run build', { cwd: DOM_PKG_DIR, stdio: 'inherit' })
   }
-  await Bun.write(resolve(DIST_DIR, 'barefoot.js'), Bun.file(domDistFile))
+  await copyFile(domDistFile, resolve(DIST_DIR, 'barefoot.js'))
   console.log('Generated: .preview-dist/barefoot.js')
 
   // 2. Generate CSS from token JSON
@@ -49,55 +56,46 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   const uiTokens = await loadTokens(resolve(ROOT_DIR, 'site/ui/tokens.json'))
   const mergedTokens = mergeTokenSets(baseTokens, uiTokens)
   const tokensCSS = generateCSS(mergedTokens)
-  const globalsCSS = await Bun.file(resolve(ROOT_DIR, 'site/ui/styles/globals.css')).text()
-  await Bun.write(resolve(DIST_DIR, 'globals.css'), tokensCSS + '\n' + globalsCSS)
+  const globalsCSS = await readFile(resolve(ROOT_DIR, 'site/ui/styles/globals.css'), 'utf-8')
+  await writeFile(resolve(DIST_DIR, 'globals.css'), tokensCSS + '\n' + globalsCSS)
   console.log('Generated: .preview-dist/globals.css')
 
   // 3. Generate UnoCSS
   console.log('Generating UnoCSS...')
-  const unoProc = Bun.spawn(
-    ['bunx', 'unocss', '../../ui/components/**/*.tsx', './**/*.tsx', './dist/**/*.tsx',
-     '-o', resolve(DIST_DIR, 'uno.css')],
-    {
-      cwd: resolve(ROOT_DIR, 'site/ui'),
-      stdout: 'inherit',
-      stderr: 'inherit',
-    }
+  const unocssbin = resolve(__dirname, '../node_modules/.bin/unocss')
+  execSync(
+    `${unocssbin} '../../ui/components/**/*.tsx' './**/*.tsx' './dist/**/*.tsx' -o ${resolve(DIST_DIR, 'uno.css')}`,
+    { cwd: resolve(ROOT_DIR, 'site/ui'), stdio: 'inherit' },
   )
-  await unoProc.exited
   console.log('Generated: .preview-dist/uno.css')
 
   // 4. Generate browser entry point that imports previews and mounts them
   const entrySource = generateEntryScript(previewsPath, previewNames, componentName)
   const entryPath = resolve(DIST_DIR, '_entry.tsx')
-  await Bun.write(entryPath, entrySource)
+  await writeFile(entryPath, entrySource)
 
-  // 5. Bundle with Bun.build() using our DOM-based JSX runtime
+  // 5. Bundle with esbuild using our DOM-based JSX runtime
   console.log('Bundling for browser...')
-  const buildResult = await Bun.build({
-    entrypoints: [entryPath],
+  await build({
+    entryPoints: [entryPath],
     outdir: DIST_DIR,
-    target: 'browser',
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
     minify: false,
     sourcemap: 'inline',
+    jsx: 'automatic',
+    jsxImportSource: JSX_RUNTIME_PATH.replace(/\/jsx-runtime\.ts$/, ''),
     define: {
       'process.env.NODE_ENV': '"development"',
     },
     plugins: [jsxRuntimePlugin()],
   })
-
-  if (!buildResult.success) {
-    console.error('Bundle errors:')
-    for (const log of buildResult.logs) {
-      console.error(log)
-    }
-    throw new Error('Bundle failed')
-  }
   console.log('Generated: .preview-dist/_entry.js')
 
   // 6. Generate index.html
   const html = generateHTML(componentName, previewNames)
-  await Bun.write(resolve(DIST_DIR, 'index.html'), html)
+  await writeFile(resolve(DIST_DIR, 'index.html'), html)
   console.log('Generated: .preview-dist/index.html')
 
   return { distDir: DIST_DIR }
@@ -212,16 +210,14 @@ function generateHTML(componentName: string, previewNames: string[]): string {
 </html>`
 }
 
-// Bun plugin: rewrite JSX import source to our DOM runtime for all
-// component files (they have no pragma, so Bun uses the configured default).
-// Files with an explicit @jsxImportSource pragma are left alone, but
-// we strip "use client" directives since they're meaningless in CSR.
-function jsxRuntimePlugin(): import('bun').BunPlugin {
+// esbuild plugin: rewrite JSX import source to our DOM runtime for all
+// component .tsx files and strip "use client" directives.
+function jsxRuntimePlugin(): Plugin {
   return {
     name: 'preview-jsx',
     setup(build) {
       build.onLoad({ filter: /\.tsx$/ }, async (args) => {
-        let contents = await Bun.file(args.path).text()
+        let contents = await readFile(args.path, 'utf-8')
 
         // Strip "use client" directive
         contents = contents.replace(/^['"]use client['"];?\s*\n?/m, '')

@@ -5,12 +5,11 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": {
-      "bun": "./src/index.tsx"
-    }
+    ".": "./src/index.tsx"
   },
   "dependencies": {
-    "@barefootjs/jsx": "workspace:*"
+    "@barefootjs/jsx": "workspace:*",
+    "esbuild": "^0.25.0"
   },
   "devDependencies": {
     "@unocss/cli": "^66.0.0",
