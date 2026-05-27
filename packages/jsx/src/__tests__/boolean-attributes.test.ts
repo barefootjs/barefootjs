@@ -36,7 +36,7 @@ describe('boolean attributes', () => {
   })
 
   test('BOOLEAN_ATTRS contains all expected attributes', () => {
-    expect(BOOLEAN_ATTRS.size).toBe(14)
+    expect(BOOLEAN_ATTRS.size).toBe(15)
     expect(BOOLEAN_ATTRS.has('checked')).toBe(true)
     expect(BOOLEAN_ATTRS.has('disabled')).toBe(true)
   })
