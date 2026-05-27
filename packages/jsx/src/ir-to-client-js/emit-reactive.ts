@@ -62,27 +62,25 @@ export function rewriteDestructuredPropsInExpr(expr: string, ctx: ClientJsContex
   // are not replaced. Template literals like `foo ${x} bar` have static parts
   // ("foo ", " bar") that should never undergo prop substitution.
   const strings: string[] = []
+  const stash = (s: string): string => {
+    const idx = strings.length
+    strings.push(s)
+    return `__STRLIT_${idx}__`
+  }
   const protect = (s: string): string => {
-    // Protect single/double-quoted strings
-    s = s.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, (match) => {
-      const idx = strings.length
-      strings.push(match)
-      return `__STRLIT_${idx}__`
-    })
-    // Protect template-literal static segments (text outside ${...}).
-    // Match a backtick-enclosed template, then replace only the static parts.
+    // 1. Protect template-literal static segments first (text outside ${...}).
+    //    Interpolation contents are left in-place for prop substitution.
     s = s.replace(/`([^`]*)`/g, (_full, inner: string) => {
-      // Split on ${...} interpolations (preserving them)
-      const parts = inner.split(/(\$\{[^}]*\})/g)
+      const parts = splitTemplateInterpolations(inner)
       const mapped = parts.map(part => {
         if (part.startsWith('${')) return part
-        // Static segment — protect it
-        const idx = strings.length
-        strings.push(part)
-        return `__STRLIT_${idx}__`
+        return stash(part)
       })
       return '`' + mapped.join('') + '`'
     })
+    // 2. Protect remaining single/double-quoted strings (including those
+    //    inside ${...} interpolations that were kept above).
+    s = s.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, (match) => stash(match))
     return s
   }
   const restore = (s: string): string => {
@@ -104,6 +102,37 @@ export function rewriteDestructuredPropsInExpr(expr: string, ctx: ClientJsContex
   }
 
   return restore(result)
+}
+
+/**
+ * Split a template literal body into static segments and `${...}` interpolations,
+ * correctly handling nested braces (e.g. object literals inside interpolations).
+ */
+function splitTemplateInterpolations(inner: string): string[] {
+  const parts: string[] = []
+  let i = 0
+  let segStart = 0
+
+  while (i < inner.length) {
+    if (inner[i] === '$' && inner[i + 1] === '{') {
+      if (i > segStart) parts.push(inner.slice(segStart, i))
+      let depth = 1
+      let j = i + 2
+      while (j < inner.length && depth > 0) {
+        if (inner[j] === '{') depth++
+        else if (inner[j] === '}') depth--
+        if (depth > 0) j++
+      }
+      j++ // skip closing }
+      parts.push(inner.slice(i, j))
+      i = j
+      segStart = j
+    } else {
+      i++
+    }
+  }
+  if (segStart < inner.length) parts.push(inner.slice(segStart))
+  return parts
 }
 
 /** Emit createEffect blocks that update text nodes for reactive expressions. */
