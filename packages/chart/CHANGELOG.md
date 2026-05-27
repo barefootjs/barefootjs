@@ -1,12 +1,12 @@
 # @barefootjs/chart
 
-## 1.0.0
+## 0.2.0
 
 ### Patch Changes
 
 - Updated dependencies [2313724]
 - Updated dependencies [bac95e6]
-  - @barefootjs/client@1.0.0
+  - @barefootjs/client@0.2.0
 
 ## 0.1.3
 
