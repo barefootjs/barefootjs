@@ -11,11 +11,13 @@ import {
   buildEventSummary,
   buildComponentAnalysis,
   buildLoopSummary,
+  buildWhyUpdate,
   traceUpdatePath,
   formatComponentGraph,
   formatUpdatePath,
   formatEventSummary,
   formatLoopSummary,
+  formatWhyUpdate,
   formatSignalTrace,
   generateStaticTrace,
   graphToJSON,
@@ -1053,5 +1055,184 @@ describe('formatLoopSummary', () => {
     const loop = summary.loops[0]
     const textBindings = loop.bindings.filter(b => b.kind === 'text')
     expect(textBindings.length).toBeGreaterThan(0)
+  })
+})
+
+// =============================================================================
+// Why-update analysis (bf debug why-update)
+// =============================================================================
+
+describe('buildWhyUpdate', () => {
+  test('traces attribute binding back to signal and event handler', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function Panel() {
+        const [color, setColor] = createSignal('red')
+        return (
+          <div>
+            <div style={color()} />
+            <button onClick={() => setColor('blue')}>Change</button>
+          </div>
+        )
+      }
+    `
+    const result = buildWhyUpdate(source, 'Panel.tsx', 'style')
+    expect(result).not.toBeNull()
+    expect(result!.binding).toBe('style')
+    expect(result!.expression).toContain('color()')
+    expect(result!.deps).toHaveLength(1)
+    expect(result!.deps[0].name).toBe('color')
+    expect(result!.deps[0].kind).toBe('signal')
+    expect(result!.deps[0].changedBy.length).toBeGreaterThan(0)
+    expect(result!.deps[0].changedBy[0].setter).toBe('setColor')
+  })
+
+  test('traces through memo dependencies', () => {
+    const source = `
+      'use client'
+      import { createSignal, createMemo } from '@barefootjs/client'
+
+      export function Dashboard() {
+        const [count, setCount] = createSignal(0)
+        const doubled = createMemo(() => count() * 2)
+        return (
+          <div>
+            <span>{doubled()}</span>
+            <button onClick={() => setCount(n => n + 1)}>+</button>
+          </div>
+        )
+      }
+    `
+    const result = buildWhyUpdate(source, 'Dashboard.tsx', 's0')
+    expect(result).not.toBeNull()
+    const memoDep = result!.deps.find(d => d.kind === 'memo')
+    expect(memoDep).toBeDefined()
+    expect(memoDep!.name).toBe('doubled')
+    expect(memoDep!.dependsOn).toContain('count')
+    const signalDep = result!.deps.find(d => d.kind === 'signal')
+    expect(signalDep).toBeDefined()
+    expect(signalDep!.name).toBe('count')
+    expect(signalDep!.changedBy[0].setter).toBe('setCount')
+  })
+
+  test('returns null for unknown binding', () => {
+    const result = buildWhyUpdate(counterSource, 'Counter.tsx', 'nonExistent')
+    expect(result).toBeNull()
+  })
+
+  test('traces indirect setter via local function', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function App() {
+        const [items, setItems] = createSignal([])
+        function addItem(text: string) {
+          setItems(prev => [...prev, text])
+        }
+        return (
+          <div>
+            <span>{items().length}</span>
+            <button onClick={() => addItem('test')}>Add</button>
+          </div>
+        )
+      }
+    `
+    const result = buildWhyUpdate(source, 'App.tsx', 's0')
+    expect(result).not.toBeNull()
+    const signalDep = result!.deps.find(d => d.name === 'items')
+    expect(signalDep).toBeDefined()
+    expect(signalDep!.changedBy[0].via).toBe('addItem')
+  })
+
+  test('includes classification and wrapReason for fallback bindings', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { formatTitle } from './format'
+
+      export function Page() {
+        const [, setFoo] = createSignal(0)
+        const page = 'home'
+        return <h1 onClick={() => setFoo(1)}>{formatTitle(page)}</h1>
+      }
+    `
+    const graph = buildComponentGraph(source, 'Page.tsx')
+    const fallback = graph.domBindings.find(d => d.classification === 'fallback' && d.type === 'text')
+    expect(fallback).toBeDefined()
+    const result = buildWhyUpdate(source, 'Page.tsx', fallback!.slotId)
+    expect(result).not.toBeNull()
+    expect(result!.classification).toBe('fallback')
+    expect(result!.wrapReason).toBeDefined()
+    expect(result!.deps).toHaveLength(0)
+  })
+
+  test('returns ambiguous result when multiple bindings share the same label', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function TwoStyles() {
+        const [a, setA] = createSignal('red')
+        const [b, setB] = createSignal('blue')
+        return (
+          <div>
+            <div style={a()} />
+            <div style={b()} />
+            <button onClick={() => setA('green')}>A</button>
+          </div>
+        )
+      }
+    `
+    const result = buildWhyUpdate(source, 'TwoStyles.tsx', 'style')
+    expect(result).not.toBeNull()
+    expect(result!.ambiguous).toBeDefined()
+    expect(result!.ambiguous!.length).toBeGreaterThan(1)
+  })
+})
+
+describe('formatWhyUpdate', () => {
+  test('produces readable output', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function Panel() {
+        const [color, setColor] = createSignal('red')
+        return (
+          <div>
+            <div style={color()} />
+            <button onClick={() => setColor('blue')}>Change</button>
+          </div>
+        )
+      }
+    `
+    const result = buildWhyUpdate(source, 'Panel.tsx', 'style')!
+    const output = formatWhyUpdate(result)
+    expect(output).toContain('style updates because:')
+    expect(output).toContain('color changes from:')
+    expect(output).toContain('setColor')
+  })
+
+  test('shows fallback note when binding is fallback-wrapped', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { formatTitle } from './format'
+
+      export function Page() {
+        const [, setFoo] = createSignal(0)
+        return <h1 onClick={() => setFoo(1)}>{formatTitle('x')}</h1>
+      }
+    `
+    const graph = buildComponentGraph(source, 'Page.tsx')
+    const fallback = graph.domBindings.find(d => d.classification === 'fallback' && d.type === 'text')
+    expect(fallback).toBeDefined()
+    const result = buildWhyUpdate(source, 'Page.tsx', fallback!.slotId)!
+    const output = formatWhyUpdate(result)
+    expect(output).toContain('fallback-wrapped binding')
+    expect(output).toContain('could not statically prove')
   })
 })

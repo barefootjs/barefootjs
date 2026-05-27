@@ -175,6 +175,31 @@ export interface LoopSummary {
   loops: LoopInfo[]
 }
 
+// -- Why-update analysis types ------------------------------------------------
+
+export interface WhyUpdateResult {
+  binding: string
+  expression: string | null
+  deps: WhyUpdateDep[]
+  classification?: 'reactive' | 'fallback'
+  wrapReason?: WrapReason
+  ambiguous?: Array<{ label: string; slotId: string }>
+}
+
+export interface WhyUpdateDep {
+  name: string
+  kind: 'signal' | 'memo'
+  dependsOn: string[]
+  changedBy: WhyUpdateSource[]
+}
+
+export interface WhyUpdateSource {
+  handler: string
+  setter: string
+  elementContext: string
+  via?: string
+}
+
 // -- Component analysis (shared IR + graph) -----------------------------------
 
 export interface ComponentAnalysis {
@@ -891,6 +916,121 @@ function buildUpdateEntry(consumer: string, graph: ComponentGraph, visited: Set<
   }
 
   return { name: consumer, kind: 'effect', label: consumer, children: [] }
+}
+
+// =============================================================================
+// Analysis: Why-Update (binding → reason)
+// =============================================================================
+
+export function buildWhyUpdate(
+  source: string,
+  filePath: string,
+  bindingLabel: string,
+  componentName?: string,
+): WhyUpdateResult | null {
+  const { graph, ir } = buildComponentAnalysis(source, filePath, componentName)
+
+  const matches = graph.domBindings.filter(d =>
+    d.label === bindingLabel ||
+    d.slotId === bindingLabel,
+  )
+  if (matches.length === 0) return null
+  if (matches.length > 1) {
+    return {
+      binding: bindingLabel,
+      expression: null,
+      deps: [],
+      ambiguous: matches.map(d => ({ label: d.label, slotId: d.slotId })),
+    }
+  }
+  const binding = matches[0]
+
+  const setterToSignal = new Map<string, string>()
+  for (const s of ir.metadata.signals) {
+    if (s.setter) setterToSignal.set(s.setter, s.getter)
+  }
+  const fnSetters = buildLocalFunctionSetterMap(ir.metadata, setterToSignal)
+  const events = collectEventBindings(ir.root, setterToSignal, fnSetters)
+
+  const deps: WhyUpdateDep[] = []
+  const visited = new Set<string>()
+
+  function traceDep(name: string): void {
+    if (visited.has(name)) return
+    visited.add(name)
+
+    const signal = graph.signals.find(s => s.name === name)
+    if (signal) {
+      const changedBy: WhyUpdateSource[] = []
+      for (const ev of events) {
+        for (const sc of ev.setterCalls) {
+          if (sc.signal === name) {
+            changedBy.push({
+              handler: ev.eventName,
+              setter: sc.setter,
+              elementContext: ev.elementContext,
+              via: sc.via,
+            })
+          }
+        }
+      }
+      deps.push({ name, kind: 'signal', dependsOn: [], changedBy })
+      return
+    }
+
+    const memo = graph.memos.find(m => m.name === name)
+    if (memo) {
+      deps.push({ name, kind: 'memo', dependsOn: memo.deps, changedBy: [] })
+      for (const dep of memo.deps) traceDep(dep)
+    }
+  }
+
+  for (const dep of binding.deps) traceDep(dep)
+
+  const stableId = binding.type === 'attribute' ? binding.label : binding.slotId
+  return {
+    binding: stableId,
+    expression: binding.expression ?? null,
+    deps,
+    ...(binding.classification === 'fallback' && { classification: binding.classification as 'fallback' }),
+    ...(binding.wrapReason && { wrapReason: binding.wrapReason }),
+  }
+}
+
+export function formatWhyUpdate(result: WhyUpdateResult): string {
+  const lines: string[] = []
+
+  lines.push(`${result.binding} updates because:`)
+  if (result.expression) {
+    lines.push(`  ${result.expression}`)
+  }
+
+  if (result.classification === 'fallback') {
+    lines.push('')
+    lines.push(`note: this is a fallback-wrapped binding (${result.wrapReason ?? 'unknown'})`)
+    lines.push('  the compiler could not statically prove reactivity — deps are determined at runtime')
+  }
+
+  for (const dep of result.deps) {
+    lines.push('')
+    if (dep.kind === 'memo') {
+      lines.push(`${dep.name} depends on:`)
+      for (const d of dep.dependsOn) lines.push(`  ${d}`)
+    } else {
+      lines.push(`${dep.name} changes from:`)
+      if (dep.changedBy.length === 0) {
+        lines.push('  (no event handlers found)')
+      }
+      for (const src of dep.changedBy) {
+        const chain = src.via
+          ? `${src.elementContext} ${src.handler} -> ${src.via} -> ${src.setter}`
+          : `${src.elementContext} ${src.handler} -> ${src.setter}`
+        lines.push(`  ${chain}`)
+      }
+    }
+  }
+
+  return lines.join('\n')
 }
 
 // =============================================================================
