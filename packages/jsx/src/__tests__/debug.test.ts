@@ -8,9 +8,12 @@
 import { describe, test, expect } from 'bun:test'
 import {
   buildComponentGraph,
+  buildEventSummary,
+  buildComponentAnalysis,
   traceUpdatePath,
   formatComponentGraph,
   formatUpdatePath,
+  formatEventSummary,
   formatSignalTrace,
   generateStaticTrace,
   graphToJSON,
@@ -640,5 +643,185 @@ describe('DomBinding classification (#944)', () => {
     const countLine = lines.find(l => l.includes('count') && l.includes('text'))
     expect(countLine).toBeDefined()
     expect(countLine!).not.toMatch(/~ text/)
+  })
+})
+
+// =============================================================================
+// Event analysis (bf debug events)
+// =============================================================================
+
+describe('buildEventSummary', () => {
+  test('extracts direct setter calls from event handlers', () => {
+    const summary = buildEventSummary(counterSource, 'Counter.tsx')
+    expect(summary.componentName).toBe('Counter')
+    expect(summary.events.length).toBeGreaterThanOrEqual(1)
+    const clickEvent = summary.events.find(e => e.eventName === 'onClick')
+    expect(clickEvent).toBeDefined()
+    expect(clickEvent!.elementTag).toBe('button')
+    expect(clickEvent!.setterCalls.some(s => s.setter === 'setCount')).toBe(true)
+  })
+
+  test('extracts events from a component with multiple handlers', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function SearchPanel() {
+        const [query, setQuery] = createSignal('')
+        const [category, setCategory] = createSignal('all')
+        return (
+          <div>
+            <input type="search" onInput={(e) => setQuery(e.target.value)} />
+            <select name="category" onChange={(e) => setCategory(e.target.value)}>
+              <option value="all">All</option>
+            </select>
+            <p>{query()}</p>
+          </div>
+        )
+      }
+    `
+    const summary = buildEventSummary(source, 'SearchPanel.tsx')
+    expect(summary.events).toHaveLength(2)
+    const inputEvent = summary.events.find(e => e.elementTag === 'input')
+    expect(inputEvent).toBeDefined()
+    expect(inputEvent!.elementContext).toBe('input search')
+    expect(inputEvent!.setterCalls[0].setter).toBe('setQuery')
+    expect(inputEvent!.setterCalls[0].signal).toBe('query')
+
+    const selectEvent = summary.events.find(e => e.elementTag === 'select')
+    expect(selectEvent).toBeDefined()
+    expect(selectEvent!.elementContext).toBe('select category')
+    expect(selectEvent!.setterCalls[0].setter).toBe('setCategory')
+  })
+
+  test('resolves setters through local functions', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function TodoApp() {
+        const [todos, setTodos] = createSignal([])
+
+        function addTodo(text: string) {
+          setTodos(prev => [...prev, { text, done: false }])
+        }
+
+        return (
+          <button onClick={() => addTodo('new')}>Add</button>
+        )
+      }
+    `
+    const summary = buildEventSummary(source, 'TodoApp.tsx')
+    expect(summary.events).toHaveLength(1)
+    const click = summary.events[0]
+    expect(click.setterCalls).toHaveLength(1)
+    expect(click.setterCalls[0].setter).toBe('setTodos')
+    expect(click.setterCalls[0].signal).toBe('todos')
+    expect(click.setterCalls[0].via).toBe('addTodo')
+  })
+
+  test('includes component prop events (Button.onClick)', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Button } from './Button'
+
+      export function ResetPanel() {
+        const [count, setCount] = createSignal(0)
+        return (
+          <div>
+            <p>{count()}</p>
+            <Button onClick={() => setCount(0)}>Reset</Button>
+          </div>
+        )
+      }
+    `
+    const summary = buildEventSummary(source, 'ResetPanel.tsx')
+    const btnEvent = summary.events.find(e => e.isComponentProp)
+    expect(btnEvent).toBeDefined()
+    expect(btnEvent!.elementTag).toBe('Button')
+    expect(btnEvent!.elementContext).toBe('Reset Button')
+    expect(btnEvent!.setterCalls[0].setter).toBe('setCount')
+  })
+
+  test('returns empty events for stateless component', () => {
+    const source = `
+      export function Card(props: { title: string }) {
+        return <div>{props.title}</div>
+      }
+    `
+    const summary = buildEventSummary(source, 'Card.tsx')
+    expect(summary.events).toHaveLength(0)
+  })
+
+  test('includes source location on events', () => {
+    const summary = buildEventSummary(counterSource, 'Counter.tsx')
+    expect(summary.events.length).toBeGreaterThan(0)
+    const event = summary.events[0]
+    expect(event.loc).toBeDefined()
+    expect(event.loc.start.line).toBeGreaterThan(0)
+  })
+})
+
+describe('formatEventSummary', () => {
+  test('produces readable output with setter and update info', () => {
+    const source = `
+      'use client'
+      import { createSignal, createMemo } from '@barefootjs/client'
+
+      export function Counter() {
+        const [count, setCount] = createSignal(0)
+        const doubled = createMemo(() => count() * 2)
+        return (
+          <div>
+            <button onClick={() => setCount(n => n + 1)}>+</button>
+            <span>{count()}</span>
+            <span>{doubled()}</span>
+          </div>
+        )
+      }
+    `
+    const summary = buildEventSummary(source, 'Counter.tsx')
+    const graph = buildComponentGraph(source, 'Counter.tsx')
+    const output = formatEventSummary(summary, graph)
+
+    expect(output).toContain('Counter')
+    expect(output).toContain('onClick')
+    expect(output).toContain('setCount')
+    expect(output).toContain('updates:')
+  })
+
+  test('shows indirect setter resolution via local functions', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function App() {
+        const [items, setItems] = createSignal([])
+        function addItem(text: string) {
+          setItems(prev => [...prev, text])
+        }
+        return (
+          <div>
+            <button onClick={() => addItem('test')}>Add</button>
+            <ul>{items().map(i => <li>{i}</li>)}</ul>
+          </div>
+        )
+      }
+    `
+    const summary = buildEventSummary(source, 'App.tsx')
+    const graph = buildComponentGraph(source, 'App.tsx')
+    const output = formatEventSummary(summary, graph)
+
+    expect(output).toContain('addItem -> setItems')
+  })
+})
+
+describe('buildComponentAnalysis', () => {
+  test('returns both graph and IR', () => {
+    const analysis = buildComponentAnalysis(counterSource, 'Counter.tsx')
+    expect(analysis.graph.componentName).toBe('Counter')
+    expect(analysis.ir.root).toBeDefined()
+    expect(analysis.ir.metadata.signals).toHaveLength(1)
   })
 })
