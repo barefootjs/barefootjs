@@ -36,6 +36,62 @@ export function createStringProtector(): {
   return { protect, restore }
 }
 
+/**
+ * Split a template literal body into static segments and `${...}` interpolations,
+ * correctly handling nested braces (e.g. object literals inside interpolations).
+ */
+export function splitTemplateInterpolations(inner: string): string[] {
+  const parts: string[] = []
+  let i = 0
+  let segStart = 0
+  while (i < inner.length) {
+    if (inner[i] === '$' && inner[i + 1] === '{') {
+      if (i > segStart) parts.push(inner.slice(segStart, i))
+      let depth = 1
+      let j = i + 2
+      while (j < inner.length && depth > 0) {
+        if (inner[j] === '{') depth++
+        else if (inner[j] === '}') depth--
+        if (depth > 0) j++
+      }
+      j++
+      parts.push(inner.slice(i, j))
+      i = j
+      segStart = j
+    } else {
+      i++
+    }
+  }
+  if (segStart < inner.length) parts.push(inner.slice(segStart))
+  return parts
+}
+
+/**
+ * Protect both template-literal static segments AND quoted string literals
+ * from regex-based prop substitution. Used by prop-rewrite.ts (Phase 1)
+ * and emit-reactive.ts (Phase 2) to avoid corrupting CSS selectors and
+ * class values during prop name replacement.
+ */
+export function createTemplateAwareStringProtector(): {
+  protect: (s: string) => string
+  restore: (s: string) => string
+} {
+  const stash: string[] = []
+  const save = (s: string) => { const i = stash.length; stash.push(s); return `__STRLIT_${i}__` }
+  const protect = (s: string): string => {
+    s = s.replace(/`([^`]*)`/g, (_full, inner: string) => {
+      const parts = splitTemplateInterpolations(inner)
+      return '`' + parts.map(p => p.startsWith('${') ? p : save(p)).join('') + '`'
+    })
+    s = s.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, m => save(m))
+    return s
+  }
+  const restore = (s: string): string => {
+    return s.replace(/__STRLIT_(\d+)__/g, (_, i) => stash[Number(i)])
+  }
+  return { protect, restore }
+}
+
 const VOID_ELEMENTS = new Set([
   'area', 'base', 'br', 'col', 'embed', 'hr', 'img',
   'input', 'link', 'meta', 'param', 'source', 'track', 'wbr',

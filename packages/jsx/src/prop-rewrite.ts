@@ -8,6 +8,7 @@
 
 import ts from 'typescript'
 import { PROPS_PARAM } from './ir-to-client-js/utils'
+import { createTemplateAwareStringProtector } from './ir-to-client-js/html-template'
 
 /**
  * Walk an AST node for destructured-prop value references and add
@@ -47,7 +48,9 @@ export function applyRegexPropRefRewrite(
   text: string,
   propRefs: Iterable<string>,
 ): string {
-  let result = text
+  const { protect, restore } = createTemplateAwareStringProtector()
+  let result = protect(text)
+
   for (const propName of propRefs) {
     const pattern = new RegExp(`(?<!${PROPS_PARAM}\\.)(?<!['"\\w.-])\\b${propName}\\b(?![a-zA-Z0-9_$])`, 'g')
     result = result.replace(pattern, (match, offset, str) => {
@@ -60,7 +63,8 @@ export function applyRegexPropRefRewrite(
       return `${PROPS_PARAM}.${propName}`
     })
   }
-  return result
+
+  return restore(result)
 }
 
 /**

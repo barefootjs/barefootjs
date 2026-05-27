@@ -8,6 +8,7 @@ import type { AttrMeta } from '../types'
 import { isBooleanAttr } from '../html-constants'
 import type { ClientJsContext } from './types'
 import { toHtmlAttrName, varSlotId, PROPS_PARAM } from './utils'
+import { createTemplateAwareStringProtector } from './html-template'
 
 /**
  * Generate JS statements to update a DOM attribute reactively.
@@ -53,10 +54,11 @@ export function emitAttrUpdate(target: string, attrName: string, expression: str
  * Only applies when the component uses destructured props (not props.xxx style).
  */
 export function rewriteDestructuredPropsInExpr(expr: string, ctx: ClientJsContext): string {
-  // Skip if the component already uses props object access (not destructuring)
   if (ctx.propsObjectName) return expr
 
-  let result = expr
+  const { protect, restore } = createTemplateAwareStringProtector()
+  let result = protect(expr)
+
   for (const prop of ctx.propsParams) {
     if (prop.name === 'children') continue
     const pattern = new RegExp(`(?<![-.])\\b${prop.name}\\b`, 'g')
@@ -69,7 +71,7 @@ export function rewriteDestructuredPropsInExpr(expr: string, ctx: ClientJsContex
     result = result.replace(new RegExp(`(?<![-.])\\b${prop.name}\\b`, 'g'), replacement)
   }
 
-  return result
+  return restore(result)
 }
 
 /** Emit createEffect blocks that update text nodes for reactive expressions. */
@@ -152,8 +154,6 @@ export function emitReactiveAttributeUpdates(lines: string[], ctx: ClientJsConte
       lines.push(`  createEffect(() => {`)
       lines.push(`    if (_${v}) {`)
       for (const attr of attrs) {
-        // Rewrite destructured prop references to props.xxx for live reactivity.
-        // Destructured props are const-captured once; effects must read from props object.
         const expression = rewriteDestructuredPropsInExpr(attr.expression, ctx)
         for (const stmt of emitAttrUpdate(`_${v}`, attr.attrName, expression, attr)) {
           lines.push(`      ${stmt}`)
