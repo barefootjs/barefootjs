@@ -1,6 +1,6 @@
 # @barefootjs/jsx
 
-## 1.0.0
+## 0.2.0
 
 ### Minor Changes
 
@@ -14,8 +14,8 @@
 - 31ce089: Fix prop name substitution corrupting string literals in client JS (e.g. `"size-9"` → `"(_p.size ?? 'default')-9"`)
 - Updated dependencies [2313724]
 - Updated dependencies [bac95e6]
-  - @barefootjs/shared@1.0.0
-  - @barefootjs/client@1.0.0
+  - @barefootjs/shared@0.2.0
+  - @barefootjs/client@0.2.0
 
 ## 0.1.3
 
