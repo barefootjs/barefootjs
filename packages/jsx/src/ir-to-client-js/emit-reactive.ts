@@ -8,6 +8,7 @@ import type { AttrMeta } from '../types'
 import { isBooleanAttr } from '../html-constants'
 import type { ClientJsContext } from './types'
 import { toHtmlAttrName, varSlotId, PROPS_PARAM } from './utils'
+import { createTemplateAwareStringProtector } from './html-template'
 
 /**
  * Generate JS statements to update a DOM attribute reactively.
@@ -55,28 +56,7 @@ export function emitAttrUpdate(target: string, attrName: string, expression: str
 export function rewriteDestructuredPropsInExpr(expr: string, ctx: ClientJsContext): string {
   if (ctx.propsObjectName) return expr
 
-  const strings: string[] = []
-  const stash = (s: string): string => {
-    const idx = strings.length
-    strings.push(s)
-    return `__STRLIT_${idx}__`
-  }
-  const protect = (s: string): string => {
-    s = s.replace(/`([^`]*)`/g, (_full, inner: string) => {
-      const parts = splitTemplateInterpolations(inner)
-      const mapped = parts.map(part => {
-        if (part.startsWith('${')) return part
-        return stash(part)
-      })
-      return '`' + mapped.join('') + '`'
-    })
-    s = s.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, (match) => stash(match))
-    return s
-  }
-  const restore = (s: string): string => {
-    return s.replace(/__STRLIT_(\d+)__/g, (_, idx) => strings[Number(idx)])
-  }
-
+  const { protect, restore } = createTemplateAwareStringProtector()
   let result = protect(expr)
 
   for (const prop of ctx.propsParams) {
@@ -92,33 +72,6 @@ export function rewriteDestructuredPropsInExpr(expr: string, ctx: ClientJsContex
   }
 
   return restore(result)
-}
-
-function splitTemplateInterpolations(inner: string): string[] {
-  const parts: string[] = []
-  let i = 0
-  let segStart = 0
-
-  while (i < inner.length) {
-    if (inner[i] === '$' && inner[i + 1] === '{') {
-      if (i > segStart) parts.push(inner.slice(segStart, i))
-      let depth = 1
-      let j = i + 2
-      while (j < inner.length && depth > 0) {
-        if (inner[j] === '{') depth++
-        else if (inner[j] === '}') depth--
-        if (depth > 0) j++
-      }
-      j++
-      parts.push(inner.slice(i, j))
-      i = j
-      segStart = j
-    } else {
-      i++
-    }
-  }
-  if (segStart < inner.length) parts.push(inner.slice(segStart))
-  return parts
 }
 
 /** Emit createEffect blocks that update text nodes for reactive expressions. */
