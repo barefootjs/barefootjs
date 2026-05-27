@@ -246,15 +246,18 @@ export type { LoopChainInputs } from './loop-chain'
 // Debug analysis
 export {
   buildComponentGraph,
+  buildComponentAnalysis,
   buildGraphFromIR,
+  buildEventSummary,
   traceUpdatePath,
   formatComponentGraph,
   formatUpdatePath,
+  formatEventSummary,
   formatSignalTrace,
   generateStaticTrace,
   graphToJSON,
 } from './debug'
-export type { ComponentGraph, SignalNode, MemoNode, EffectNode, DomBinding, UpdatePath, SignalTrace } from './debug'
+export type { ComponentGraph, ComponentAnalysis, SignalNode, MemoNode, EffectNode, DomBinding, UpdatePath, SignalTrace, EventBinding, SetterRef, EventSummary } from './debug'
 export type { WrapReason } from './ir-to-client-js/reactivity'
 
 // HTML constants

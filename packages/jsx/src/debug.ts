@@ -12,10 +12,14 @@ import type {
   IRConditional,
   IRElement,
   IRLoop,
+  IRComponent,
+  IRText,
+  IRMetadata,
   AttrValue,
   SignalInfo,
   MemoInfo,
   EffectInfo,
+  SourceLocation,
 } from './types'
 import { analyzeComponent, listComponentFunctions } from './analyzer'
 import { jsxToIR } from './jsx-to-ir'
@@ -116,6 +120,38 @@ export interface UpdatePathEntry {
   label: string
   /** Transitive dependents — memos/effects that depend on this entry */
   children: UpdatePathEntry[]
+}
+
+// -- Event analysis types -----------------------------------------------------
+
+export interface EventBinding {
+  elementTag: string
+  elementContext: string
+  eventName: string
+  handler: string
+  setterCalls: SetterRef[]
+  loc: SourceLocation
+  isComponentProp: boolean
+}
+
+export interface SetterRef {
+  setter: string
+  signal: string | null
+  via?: string
+}
+
+export interface EventSummary {
+  componentName: string
+  sourceFile: string
+  events: EventBinding[]
+  graph: ComponentGraph
+}
+
+// -- Component analysis (shared IR + graph) -----------------------------------
+
+export interface ComponentAnalysis {
+  graph: ComponentGraph
+  ir: ComponentIR
 }
 
 // =============================================================================
@@ -260,6 +296,295 @@ export function buildGraphFromIR(ir: ComponentIR): ComponentGraph {
     effects,
     domBindings,
   }
+}
+
+/**
+ * Build both the ComponentIR and the reactive dependency graph in one pass.
+ * Callers that need the raw IR tree (events, loops, why-update) use this
+ * instead of `buildComponentGraph` to avoid a redundant analysis round.
+ */
+export function buildComponentAnalysis(source: string, filePath: string, componentName?: string): ComponentAnalysis {
+  const ctx = analyzeComponent(source, filePath, componentName)
+  const emptyIR: ComponentIR = {
+    version: '0.1',
+    metadata: buildMetadata(ctx),
+    root: { type: 'fragment', children: [], loc: { file: filePath, start: { line: 1, column: 0 }, end: { line: 1, column: 0 } } },
+    errors: [],
+  }
+
+  if (!ctx.jsxReturn) {
+    return { graph: buildGraphFromIR(emptyIR), ir: emptyIR }
+  }
+
+  const root = jsxToIR(ctx)
+  if (!root) {
+    return { graph: buildGraphFromIR(emptyIR), ir: emptyIR }
+  }
+
+  const ir: ComponentIR = { version: '0.1', metadata: buildMetadata(ctx), root, errors: [] }
+  return { graph: buildGraphFromIR(ir), ir }
+}
+
+// =============================================================================
+// Analysis: Event Bindings
+// =============================================================================
+
+/**
+ * Build a complete event summary for a component, including setter resolution
+ * and downstream update paths.
+ */
+export function buildEventSummary(source: string, filePath: string, componentName?: string): EventSummary {
+  const { graph, ir } = buildComponentAnalysis(source, filePath, componentName)
+  const setterToSignal = new Map<string, string>()
+  for (const s of ir.metadata.signals) {
+    if (s.setter) setterToSignal.set(s.setter, s.getter)
+  }
+
+  const fnSetters = buildLocalFunctionSetterMap(ir.metadata, setterToSignal)
+  const events = collectEventBindings(ir.root, setterToSignal, fnSetters)
+
+  return {
+    componentName: graph.componentName,
+    sourceFile: graph.sourceFile,
+    events,
+    graph,
+  }
+}
+
+function escapeForIdBoundary(name: string): string {
+  return name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function makeIdCallRegex(name: string): RegExp {
+  return new RegExp(`(?:^|[^\\w$])${escapeForIdBoundary(name)}\\s*\\(`)
+}
+
+function makeIdRefRegex(name: string): RegExp {
+  return new RegExp(`(?:^|[^\\w$])${escapeForIdBoundary(name)}(?:[^\\w$]|$)`)
+}
+
+function buildLocalFunctionSetterMap(
+  meta: IRMetadata,
+  setterToSignal: Map<string, string>,
+): Map<string, string[]> {
+  const setterPatterns = [...setterToSignal.keys()].map(s => ({ name: s, re: makeIdCallRegex(s) }))
+  const result = new Map<string, string[]>()
+  for (const fn of meta.localFunctions) {
+    const setters: string[] = []
+    for (const { name, re } of setterPatterns) {
+      if (re.test(fn.body)) setters.push(name)
+    }
+    if (setters.length > 0) result.set(fn.name, setters)
+  }
+  return result
+}
+
+function collectEventBindings(
+  node: IRNode,
+  setterToSignal: Map<string, string>,
+  fnSetters: Map<string, string[]>,
+): EventBinding[] {
+  const events: EventBinding[] = []
+  walkForEvents(node, events, setterToSignal, fnSetters)
+  return events
+}
+
+function walkForEvents(
+  node: IRNode,
+  events: EventBinding[],
+  setterToSignal: Map<string, string>,
+  fnSetters: Map<string, string[]>,
+): void {
+  switch (node.type) {
+    case 'element': {
+      for (const event of node.events) {
+        events.push({
+          elementTag: node.tag,
+          elementContext: describeElement(node),
+          eventName: event.originalAttr ?? `on${event.name[0].toUpperCase()}${event.name.slice(1)}`,
+          handler: event.handler,
+          setterCalls: resolveSetters(event.handler, setterToSignal, fnSetters),
+          loc: event.loc,
+          isComponentProp: false,
+        })
+      }
+      for (const child of node.children) {
+        walkForEvents(child, events, setterToSignal, fnSetters)
+      }
+      break
+    }
+    case 'component': {
+      for (const prop of node.props) {
+        if (!/^on[A-Z]/.test(prop.name)) continue
+        const handler = prop.value.kind === 'expression' ? prop.value.expr : null
+        if (!handler) continue
+        events.push({
+          elementTag: node.name,
+          elementContext: describeComponent(node),
+          eventName: prop.name,
+          handler,
+          setterCalls: resolveSetters(handler, setterToSignal, fnSetters),
+          loc: prop.loc,
+          isComponentProp: true,
+        })
+      }
+      for (const child of node.children) {
+        walkForEvents(child, events, setterToSignal, fnSetters)
+      }
+      break
+    }
+    case 'fragment':
+    case 'provider': {
+      for (const child of node.children) {
+        walkForEvents(child, events, setterToSignal, fnSetters)
+      }
+      break
+    }
+    case 'conditional': {
+      walkForEvents(node.whenTrue, events, setterToSignal, fnSetters)
+      walkForEvents(node.whenFalse, events, setterToSignal, fnSetters)
+      break
+    }
+    case 'loop': {
+      for (const child of node.children) {
+        walkForEvents(child, events, setterToSignal, fnSetters)
+      }
+      break
+    }
+    case 'if-statement': {
+      walkForEvents(node.consequent, events, setterToSignal, fnSetters)
+      if (node.alternate) walkForEvents(node.alternate, events, setterToSignal, fnSetters)
+      break
+    }
+    case 'async': {
+      walkForEvents(node.fallback, events, setterToSignal, fnSetters)
+      for (const child of node.children) {
+        walkForEvents(child, events, setterToSignal, fnSetters)
+      }
+      break
+    }
+  }
+}
+
+function resolveSetters(
+  handler: string,
+  setterToSignal: Map<string, string>,
+  fnSetters: Map<string, string[]>,
+): SetterRef[] {
+  const refs: SetterRef[] = []
+  const seen = new Set<string>()
+  const trimmed = handler.trim()
+
+  for (const [setter, signal] of setterToSignal) {
+    if (trimmed === setter || makeIdCallRegex(setter).test(handler)) {
+      if (!seen.has(setter)) {
+        refs.push({ setter, signal })
+        seen.add(setter)
+      }
+    }
+  }
+
+  for (const [fnName, setters] of fnSetters) {
+    if (trimmed === fnName || makeIdCallRegex(fnName).test(handler)) {
+      for (const setter of setters) {
+        if (!seen.has(setter)) {
+          refs.push({ setter, signal: setterToSignal.get(setter) ?? null, via: fnName })
+          seen.add(setter)
+        }
+      }
+    }
+  }
+
+  return refs
+}
+
+function describeElement(node: IRElement): string {
+  for (const attr of node.attrs) {
+    if (['type', 'name', 'placeholder', 'id'].includes(attr.name) && attr.value.kind === 'literal') {
+      return `${node.tag} ${attr.value.value}`
+    }
+  }
+  const textChild = node.children.find((c): c is IRText => c.type === 'text')
+  if (textChild && textChild.value.trim()) {
+    return `${textChild.value.trim()} ${node.tag}`
+  }
+  return node.tag
+}
+
+function describeComponent(node: IRComponent): string {
+  const textChild = node.children.find((c): c is IRText => c.type === 'text')
+  if (textChild && textChild.value.trim()) {
+    return `${textChild.value.trim()} ${node.name}`
+  }
+  return node.name
+}
+
+/**
+ * Format an event summary as a human-readable string for `bf debug events`.
+ * Uses the graph to trace downstream updates for each setter.
+ */
+export function formatEventSummary(summary: EventSummary, graph: ComponentGraph): string {
+  const lines: string[] = []
+  lines.push(`${summary.componentName} — ${summary.events.length} event handler(s)`)
+
+  if (summary.events.length === 0) return lines.join('\n')
+
+  for (const event of summary.events) {
+    lines.push('')
+    lines.push(`  ${event.elementContext}`)
+
+    const setterParts = event.setterCalls.map(s => {
+      const chain = s.via ? `${s.via} -> ${s.setter}` : s.setter
+      return chain
+    })
+
+    const setterStr = setterParts.length > 0 ? setterParts.join(', ') : event.handler
+    lines.push(`    ${event.eventName} -> ${setterStr}`)
+
+    const updatedSignals = new Set<string>()
+    for (const sc of event.setterCalls) {
+      if (sc.signal) updatedSignals.add(sc.signal)
+    }
+
+    if (updatedSignals.size > 0) {
+      const targets: string[] = []
+      for (const sig of updatedSignals) {
+        const path = traceUpdatePath(graph, sig)
+        if (path && path.dependents.length > 0) {
+          const downstream = flattenUpdateTargets(path.dependents)
+          targets.push(`${sig} -> ${downstream.join(', ')}`)
+        }
+      }
+      if (targets.length > 0) {
+        lines.push(`    updates: ${targets.join('; ')}`)
+      }
+    }
+
+    const loc = event.loc
+    if (loc.file) {
+      const locFile = loc.file.split('/').pop() ?? loc.file
+      lines.push(`    at ${locFile}:${loc.start.line}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
+function flattenUpdateTargets(entries: UpdatePathEntry[]): string[] {
+  const targets: string[] = []
+  for (const entry of entries) {
+    if (entry.kind === 'dom') {
+      targets.push(entry.label)
+    } else if (entry.kind === 'memo') {
+      targets.push(entry.name)
+      if (entry.children.length > 0) {
+        targets.push(...flattenUpdateTargets(entry.children))
+      }
+    } else if (entry.kind === 'effect') {
+      targets.push(`effect ${entry.name}`)
+    }
+  }
+  return targets
 }
 
 // =============================================================================

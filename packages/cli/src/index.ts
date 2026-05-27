@@ -44,6 +44,7 @@ Tokens:
 Debug:
   debug graph <component>                     Show signal dependency graph
   debug trace <component> <signal>            Trace update propagation for a signal/memo
+  debug events <component>                    Show event handlers and their update paths
   debug fallbacks <component>                 Show wrap-by-default fallback bindings (#937)
   debug signals <component>                   Show signal initialization trace
 
@@ -150,8 +151,11 @@ switch (command) {
     } else if (sub === 'signals') {
       const { run } = await import('./commands/debug-signals')
       await run(rest, ctx)
+    } else if (sub === 'events') {
+      const { run } = await import('./commands/debug-events')
+      await run(rest, ctx)
     } else {
-      console.error('Usage: bf debug <graph|trace|fallbacks|signals> ...')
+      console.error('Usage: bf debug <graph|trace|fallbacks|signals|events> ...')
       process.exit(1)
     }
     break
