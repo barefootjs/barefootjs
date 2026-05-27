@@ -7,7 +7,6 @@
 
 import { execSync } from 'node:child_process'
 import type { AdapterTemplate } from '../templates'
-import { commandsFor } from '../pm'
 import {
   buildGitignore,
   COMPONENTS_MANIFEST_SEED,
@@ -198,9 +197,8 @@ export const MOJO_ADAPTER: AdapterTemplate = {
     // the whole `&&` sequence so morbo never started — is no longer
     // a concern now that the adapter lowers that expression
     // natively.)
-    dev: (pm) =>
-      `concurrently -k -n build,uno,server -c blue,magenta,green "${commandsFor(pm).exec('@barefootjs/cli build --watch')}" "unocss --watch" "morbo app.pl -l http://*:3002"`,
-    build: (pm) => `${commandsFor(pm).exec('@barefootjs/cli build')} && unocss`,
+    dev: 'concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "morbo app.pl -l http://*:3002"',
+    build: 'bf build && unocss',
     start: 'perl app.pl daemon -l http://*:3002',
   },
   dependencies: {
@@ -211,6 +209,7 @@ export const MOJO_ADAPTER: AdapterTemplate = {
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/cli': 'latest',
     '@barefootjs/test': 'latest',
     concurrently: '^9.0.0',
     typescript: '^5.6.0',

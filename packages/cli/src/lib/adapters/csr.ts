@@ -8,7 +8,6 @@
 
 import { execSync } from 'node:child_process'
 import type { AdapterTemplate } from '../templates'
-import { commandsFor } from '../pm'
 import {
   buildGitignore,
   SHARED_COUNTER_TSX,
@@ -185,9 +184,8 @@ export const CSR_ADAPTER: AdapterTemplate = {
     '.gitignore': CSR_GITIGNORE,
   },
   scripts: {
-    dev: (pm) =>
-      `${commandsFor(pm).exec('@barefootjs/cli build')} && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "${commandsFor(pm).exec('@barefootjs/cli build --watch')}" "unocss --watch" "bun --watch server.ts"`,
-    build: (pm) => `${commandsFor(pm).exec('@barefootjs/cli build')} && unocss`,
+    dev: 'bf build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "bun --watch server.ts"',
+    build: 'bf build && unocss',
     start: 'bun server.ts',
   },
   dependencies: {
@@ -197,6 +195,7 @@ export const CSR_ADAPTER: AdapterTemplate = {
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/cli': 'latest',
     '@barefootjs/test': 'latest',
     '@types/bun': '^1.1.0',
     concurrently: '^9.0.0',

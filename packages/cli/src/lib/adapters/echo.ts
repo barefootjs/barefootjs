@@ -16,7 +16,6 @@
 
 import { execSync } from 'node:child_process'
 import type { AdapterTemplate } from '../templates'
-import { commandsFor } from '../pm'
 import {
   buildGitignore,
   SHARED_COUNTER_TSX,
@@ -538,9 +537,8 @@ export const ECHO_ADAPTER: AdapterTemplate = {
     '.gitignore': ECHO_GITIGNORE,
   },
   scripts: {
-    dev: (pm) =>
-      `go mod tidy && ${commandsFor(pm).exec('@barefootjs/cli build')} && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "${commandsFor(pm).exec('@barefootjs/cli build --watch')}" "unocss --watch" "go run ."`,
-    build: (pm) => `go mod tidy && ${commandsFor(pm).exec('@barefootjs/cli build')} && unocss`,
+    dev: 'go mod tidy && bf build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "go run ."',
+    build: 'go mod tidy && bf build && unocss',
     start: 'go run .',
   },
   dependencies: {
@@ -551,6 +549,7 @@ export const ECHO_ADAPTER: AdapterTemplate = {
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/cli': 'latest',
     '@barefootjs/test': 'latest',
     concurrently: '^9.0.0',
     typescript: '^5.6.0',

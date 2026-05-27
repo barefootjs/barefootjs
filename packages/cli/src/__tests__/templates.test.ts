@@ -1,9 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { ADAPTERS, DEFAULT_ADAPTER, CSS_LIBRARIES, DEFAULT_CSS_LIBRARY, type AdapterScriptValue } from '../lib/templates'
-
-function resolveScript(v: AdapterScriptValue): string {
-  return typeof v === 'function' ? v('npm') : v
-}
+import { ADAPTERS, DEFAULT_ADAPTER, CSS_LIBRARIES, DEFAULT_CSS_LIBRARY } from '../lib/templates'
 
 describe('adapter registry', () => {
   test('default adapter is registered', () => {
@@ -96,8 +92,8 @@ describe('adapter registry', () => {
       expect(bfRender).not.toContain('BAREFOOT_DEV')
       // Dev script doesn't need to export anything — unset APP_ENV
       // = dev by default.
-      expect(resolveScript(ADAPTERS.echo.scripts.dev)).not.toContain('BAREFOOT_DEV')
-      expect(resolveScript(ADAPTERS.echo.scripts.dev)).not.toContain('APP_ENV=')
+      expect(ADAPTERS.echo.scripts.dev).not.toContain('BAREFOOT_DEV')
+      expect(ADAPTERS.echo.scripts.dev).not.toContain('APP_ENV=')
     })
 
     test('echo re-parses templates per request in dev', () => {
@@ -157,7 +153,7 @@ describe('adapter registry', () => {
       // dev script must launch via morbo (which auto-enables dev
       // mode). Plain `perl app.pl daemon` would default to
       // production and re-introduce the cache.
-      expect(resolveScript(ADAPTERS.mojo.scripts.dev)).toMatch(/morbo app\.pl/)
+      expect(ADAPTERS.mojo.scripts.dev).toMatch(/morbo app\.pl/)
     })
   })
 

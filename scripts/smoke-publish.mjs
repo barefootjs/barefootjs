@@ -187,14 +187,6 @@ function rewriteSection(section) {
 rewriteSection('dependencies')
 rewriteSection('devDependencies')
 
-// The scaffold no longer lists @barefootjs/cli as a direct dependency
-// (scripts use bunx/npx), but the smoke commands below need `bf` in
-// node_modules/.bin/. Pin it to the local tarball as a devDependency.
-if (!appPkg.dependencies?.['@barefootjs/cli'] && !appPkg.devDependencies?.['@barefootjs/cli']) {
-  appPkg.devDependencies = appPkg.devDependencies || {}
-  appPkg.devDependencies['@barefootjs/cli'] = `file:${tarballs['@barefootjs/cli']}`
-}
-
 // Overrides cover transitive deps (e.g. `@barefootjs/hono` is a peer of
 // `@barefootjs/client`) so every workspace package collapses to the
 // same tarball at install time. Skip `create-barefootjs` — it's only

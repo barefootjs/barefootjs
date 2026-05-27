@@ -9,7 +9,6 @@
 // owned by factory.ts, so re-routing is a 1-line edit.
 
 import type { AdapterTemplate } from '../templates'
-import { commandsFor } from '../pm'
 import {
   buildGitignore,
   COMPONENTS_MANIFEST_SEED,
@@ -261,9 +260,8 @@ export const HONO_NODE_ADAPTER: AdapterTemplate = {
     '.gitignore': HONO_NODE_GITIGNORE,
   },
   scripts: {
-    dev: (pm) =>
-      `${commandsFor(pm).exec('@barefootjs/cli build')} && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "${commandsFor(pm).exec('@barefootjs/cli build --watch')}" "unocss --watch" "tsx watch server.tsx"`,
-    build: (pm) => `${commandsFor(pm).exec('@barefootjs/cli build')} && unocss`,
+    dev: 'bf build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "tsx watch server.tsx"',
+    build: 'bf build && unocss',
     start: 'tsx server.tsx',
   },
   dependencies: {
@@ -276,6 +274,7 @@ export const HONO_NODE_ADAPTER: AdapterTemplate = {
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/cli': 'latest',
     '@barefootjs/test': 'latest',
     '@types/node': '^22.0.0',
     concurrently: '^9.0.0',

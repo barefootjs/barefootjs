@@ -199,12 +199,11 @@ export const HONO_ADAPTER: AdapterTemplate = {
   },
   scripts: {
     dev: (pm) =>
-      `concurrently -k -n build,uno,server -c blue,magenta,green "${commandsFor(pm).exec(
-        '@barefootjs/cli build --watch',
-      )}" "unocss --watch" "${commandsFor(pm).exec('wrangler dev --live-reload')}"`,
-    build: (pm) => `${commandsFor(pm).exec('@barefootjs/cli build')} && unocss`,
-    deploy: (pm) =>
-      `${commandsFor(pm).exec('@barefootjs/cli build')} && unocss && ${commandsFor(pm).exec('wrangler deploy')}`,
+      `concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "${commandsFor(pm).exec(
+        'wrangler dev --live-reload',
+      )}"`,
+    build: 'bf build && unocss',
+    deploy: (pm) => `bf build && unocss && ${commandsFor(pm).exec('wrangler deploy')}`,
   },
   deploy: {
     target: 'Cloudflare Workers',
@@ -219,6 +218,7 @@ export const HONO_ADAPTER: AdapterTemplate = {
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/cli': 'latest',
     '@cloudflare/workers-types': '^4.20250101.0',
     // `@barefootjs/test` powers `renderToTest()` — the canonical
     // millisecond IR test the docs (and `bf gen test`) point new users

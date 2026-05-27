@@ -307,7 +307,7 @@ async function scaffoldApp(
     scripts: {
       ...resolvedAdapterScripts,
       watch:
-        `concurrently -k -n build,uno -c blue,magenta "${commandsFor(pm).exec('@barefootjs/cli build --watch')}" "unocss --watch"`,
+        'concurrently -k -n build,uno -c blue,magenta "bf build --watch" "unocss --watch"',
       // `test` is wired to the runner that matches the user's package
       // manager — `bun test` for bun, `vitest run` for npm / pnpm /
       // yarn. The matching `bf gen component` / `bf gen test` output
