@@ -34,6 +34,7 @@ import { createContext, useContext, createSignal, createEffect } from '@barefoot
 
 interface PlaybackContextValue {
   elapsedMs: () => number
+  playing: () => boolean
   seek: (ms: number) => void
   toggle: () => void
 }
@@ -48,7 +49,7 @@ export function PlaybackProvider(props: { children?: unknown }) {
   const toggle = () => setPlaying(p => !p)
 
   return (
-    <PlaybackContext.Provider value={{ elapsedMs, seek, toggle }}>
+    <PlaybackContext.Provider value={{ elapsedMs, playing, seek, toggle }}>
       {props.children}
     </PlaybackContext.Provider>
   )
@@ -93,7 +94,7 @@ Use the browser's native event system. One component dispatches events, others l
 ```tsx
 // components/Player.tsx
 "use client"
-import { createSignal, createEffect, onMount, onCleanup } from '@barefootjs/client'
+import { createSignal, createEffect, onCleanup } from '@barefootjs/client'
 
 export function Player() {
   const [elapsedMs, setElapsedMs] = createSignal(0)
@@ -106,9 +107,12 @@ export function Player() {
       }))
     })
 
-    el.addEventListener('playback:seek', ((e: CustomEvent) => {
+    const onSeek = ((e: CustomEvent) => {
       setElapsedMs(e.detail.ms)
-    }) as EventListener)
+    }) as EventListener
+
+    document.addEventListener('playback:seek', onSeek)
+    onCleanup(() => document.removeEventListener('playback:seek', onSeek))
   }
 
   return <div ref={handleMount} />
@@ -118,7 +122,7 @@ export function Player() {
 ```tsx
 // components/TimelineBar.tsx
 "use client"
-import { onMount, onCleanup } from '@barefootjs/client'
+import { onCleanup } from '@barefootjs/client'
 
 export function TimelineBar(props: { duration: number }) {
   const handleMount = (el: HTMLElement) => {

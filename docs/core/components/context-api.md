@@ -309,7 +309,7 @@ import { usePlayback } from './context'
 // → different Symbol id → useContext returns undefined
 ```
 
-Fix: put the provider and all consumers in the **same file**, or use [custom events / module-level signals](../reactivity/shared-state.md) for cross-file communication.
+Fix: put the provider and all consumers in the **same file**, or use [custom events](../reactivity/shared-state.md) for cross-file communication.
 
 ### Cross-file `src/` utility with `useContext`
 

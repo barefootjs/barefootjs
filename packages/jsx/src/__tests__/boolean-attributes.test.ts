@@ -39,6 +39,7 @@ describe('boolean attributes', () => {
     expect(BOOLEAN_ATTRS.size).toBe(15)
     expect(BOOLEAN_ATTRS.has('checked')).toBe(true)
     expect(BOOLEAN_ATTRS.has('disabled')).toBe(true)
+    expect(BOOLEAN_ATTRS.has('formnovalidate')).toBe(true)
   })
 
   test('compiles dynamic boolean attribute using DOM property', () => {
