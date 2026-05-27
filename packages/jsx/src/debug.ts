@@ -707,10 +707,13 @@ export function formatComponentGraph(graph: ComponentGraph): string {
         }
         continue
       }
-      const arrow = d.type === 'event' ? ' ->' : ' <-'
       const depStr = d.deps.join(', ')
       if (d.jsxPreview) {
-        lines.push(`    ${marker}${depStr} -> ${d.jsxPreview}${locSuffix}`)
+        if (d.type === 'event') {
+          lines.push(`    ${marker}${d.jsxPreview} -> ${depStr}${locSuffix}`)
+        } else {
+          lines.push(`    ${marker}${depStr} -> ${d.jsxPreview}${locSuffix}`)
+        }
       } else {
         lines.push(`    ${marker}${d.type} ${id}${arrow} ${depStr}${locSuffix}`)
       }
@@ -950,7 +953,9 @@ function collectDomBindings(
             expression: expr,
             wrapReason,
             loc: attr.loc,
-            jsxPreview: `<${node.tag} ${attr.name}={${truncateExpr(expr)}}>`,
+            jsxPreview: attr.value.kind === 'spread'
+              ? `<${node.tag} {...${truncateExpr(expr)}}>`
+              : `<${node.tag} ${attr.name}={${truncateExpr(expr)}}>`,
           })
         }
       }
@@ -1051,7 +1056,7 @@ function collectDomBindings(
             expression: node.array,
             wrapReason,
             loc: node.loc,
-            jsxPreview: `{${truncateExpr(node.array)}.map(${node.param} => ...)}`,
+            jsxPreview: `{${truncateExpr(node.array)}.${node.method === 'flatMap' ? 'flatMap' : 'map'}(${node.param} => ...)}`,
           })
         }
       }
@@ -1082,7 +1087,9 @@ function collectDomBindings(
             expression: propValue,
             wrapReason,
             loc: prop.loc,
-            jsxPreview: `<${node.name} ${prop.name}={${truncateExpr(propValue)}}>`,
+            jsxPreview: prop.value.kind === 'spread'
+              ? `<${node.name} {...${truncateExpr(propValue)}}>`
+              : `<${node.name} ${prop.name}={${truncateExpr(propValue)}}>`,
           })
         }
       }
