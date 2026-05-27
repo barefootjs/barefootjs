@@ -37,12 +37,53 @@ function inferVariantPropName(typeName: string, props: PropMeta[]): string | nul
  */
 function findExternalTags(code: string, knownNames: Set<string>): string[] {
   const external: string[] = []
-  for (const m of code.matchAll(/<([A-Z][a-zA-Z]*)/g)) {
+  for (const m of code.matchAll(/<([A-Z][a-zA-Z0-9]*)/g)) {
     if (!knownNames.has(m[1]) && !external.includes(m[1])) {
       external.push(m[1])
     }
   }
   return external
+}
+
+/**
+ * Resolve the import path for an external tag.
+ * Icon components (e.g. SearchIcon) → '../icon'.
+ * Tags starting with the parent component's PascalCase name → same module.
+ * Others → kebab-cased relative path.
+ */
+function resolveExternalTagImport(
+  tag: string,
+  parentModuleName: string,
+  parentPascalName: string,
+): { from: string; name: string } {
+  if (tag.endsWith('Icon')) {
+    return { from: '../icon', name: tag }
+  }
+  if (tag.startsWith(parentPascalName)) {
+    return { from: `../${parentModuleName}`, name: tag }
+  }
+  return { from: `../${toKebabCase(tag)}`, name: tag }
+}
+
+/**
+ * Emit a JSX return block, wrapping in Fragment if there are multiple root elements.
+ */
+function emitJsxReturn(lines: string[], jsx: string, indent: string = '  '): void {
+  const jsxLines = jsx.split('\n')
+  const rootElements = jsxLines.filter(l => /^\s*<[A-Z]/.test(l) || /^\s*<[a-z]/.test(l))
+  const needsFragment = rootElements.length > 1 && !jsx.trim().startsWith('<>')
+
+  if (jsxLines.length === 1 && !needsFragment) {
+    lines.push(`${indent}return ${jsx}`)
+  } else {
+    lines.push(`${indent}return (`)
+    if (needsFragment) lines.push(`${indent}  <>`)
+    for (const l of jsxLines) {
+      lines.push(`${indent}  ${needsFragment ? '  ' : ''}${l}`)
+    }
+    if (needsFragment) lines.push(`${indent}  </>`)
+    lines.push(`${indent})`)
+  }
 }
 
 /**
@@ -122,14 +163,22 @@ export function generatePreview(
       subNames.push(sub.name)
     }
   }
-  lines.push(`import { ${componentImports.join(', ')} } from '../${meta.name}'`)
+  // Collect external tags from example code and group imports by source
+  const importsBySource = new Map<string, string[]>()
+  importsBySource.set(`../${meta.name}`, [...componentImports])
 
-  // Add imports for external component tags found in example code
   if (hasSubComponents && exampleCode) {
     const knownNames = new Set([pascalName, ...subNames])
     for (const tag of findExternalTags(exampleCode, knownNames)) {
-      lines.push(`import { ${tag} } from '../${toKebabCase(tag)}'`)
+      const resolved = resolveExternalTagImport(tag, meta.name, pascalName)
+      const list = importsBySource.get(resolved.from) ?? []
+      if (!list.includes(resolved.name)) list.push(resolved.name)
+      importsBySource.set(resolved.from, list)
     }
+  }
+
+  for (const [from, names] of importsBySource) {
+    lines.push(`import { ${names.join(', ')} } from '${from}'`)
   }
 
   lines.push('')
@@ -207,16 +256,7 @@ function generateStatelessSimple(
   const simpleExample = meta.examples.find(e => isSimpleJsx(e.code))
 
   if (simpleExample) {
-    const jsxLines = simpleExample.code.split('\n')
-    if (jsxLines.length === 1) {
-      lines.push(`  return ${simpleExample.code}`)
-    } else {
-      lines.push('  return (')
-      for (const l of jsxLines) {
-        lines.push(`    ${l}`)
-      }
-      lines.push('  )')
-    }
+    emitJsxReturn(lines, simpleExample.code)
   } else {
     const hasChildren = meta.props.some(p => p.name === 'children')
     if (hasChildren) {
@@ -341,16 +381,7 @@ function generateMultiComponent(
       lines.push('')
     }
 
-    const jsxLines = jsx.split('\n')
-    if (jsxLines.length === 1) {
-      lines.push(`  return ${jsx}`)
-    } else {
-      lines.push('  return (')
-      for (const l of jsxLines) {
-        lines.push(`    ${l}`)
-      }
-      lines.push('  )')
-    }
+    emitJsxReturn(lines, jsx)
 
     lines.push('}')
   } else {
