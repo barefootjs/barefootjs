@@ -236,38 +236,8 @@ const theme = useContext(ThemeContext)
 Use for optional contexts with a sensible fallback.
 
 
-## Common Mistakes
+## Cross-File Context Does Not Work
 
-### Missing `"use client"`
+`createContext()` and all components that use it must be in the **same file**. Importing a context from another file does not work — the compiler does not currently support cross-file context sharing.
 
-`useContext` requires `"use client"` — without it, the compiler does not rewrite the import to the runtime implementation, and the SSR shim throws:
-
-```ts
-// ❌ Missing "use client" — the compiler doesn't rewrite the import
-export function Player(props: PlayerProps) {
-  const ctx = useContext(MyContext)  // throws: "useContext() is a browser-only API"
-  // ...
-}
-```
-
-Fix: add `"use client"` as the first line.
-
-### Cross-file context
-
-Context providers and consumers must be in the **same file**. Each `.client.js` bundle gets its own `createContext()` call, producing a different `Symbol` id — so a consumer in one bundle can never find a provider from another:
-
-```ts
-// ❌ context.tsx — a separate compilation unit
-"use client"
-export const PlaybackContext = createContext<PlaybackValue>()
-export const usePlayback = () => useContext(PlaybackContext)
-
-// ❌ player.tsx — different bundle, different Symbol id
-"use client"
-import { usePlayback } from './context'
-// useContext returns undefined — the context ids don't match
-```
-
-The same problem applies to `src/` utilities that call `createContext` — the compiler inlines them into each bundle, creating separate context objects.
-
-Fix: keep context within a single file (this is why Accordion, Dialog, Select define all sub-components together), or use [custom events](../reactivity/shared-state.md) for cross-file communication.
+This is why compound components (Accordion, Dialog, Select, Tabs) define all sub-components in a single file. For sharing state across components in separate files, see [Shared State Patterns](../reactivity/shared-state.md).
