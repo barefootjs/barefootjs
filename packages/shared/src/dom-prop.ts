@@ -13,7 +13,7 @@
 // Static tables
 // ---------------------------------------------------------------------------
 
-const BOOLEAN_ATTR_LIST = [
+export const BOOLEAN_ATTRS: ReadonlySet<string> = new Set([
   'checked',
   'disabled',
   'readonly',
@@ -29,11 +29,7 @@ const BOOLEAN_ATTR_LIST = [
   'multiple',
   'novalidate',
   'formnovalidate',
-] as const
-
-const BOOLEAN_ATTRS_SET: ReadonlySet<string> = new Set(BOOLEAN_ATTR_LIST)
-
-export const BOOLEAN_ATTRS: readonly string[] = Object.freeze([...BOOLEAN_ATTR_LIST])
+])
 
 /**
  * SVG presentation attributes written camelCase in JSX that MUST be emitted
@@ -146,7 +142,7 @@ export function classifyDOMProp(key: string): DOMPropClassification {
   if (attrName === 'style')   return { kind: 'style', attrName }
   if (attrName === 'value')   return { kind: 'property', attrName }
   if (attrName === 'checked') return { kind: 'property', attrName }
-  if (BOOLEAN_ATTRS_SET.has(attrName.toLowerCase())) return { kind: 'boolean', attrName }
+  if (BOOLEAN_ATTRS.has(attrName.toLowerCase())) return { kind: 'boolean', attrName }
 
   return { kind: 'attr', attrName }
 }
@@ -200,7 +196,7 @@ export function toHTMLAttrNameRuntime(key: string): string {
  * Check if an attribute name (HTML-level, not JSX-level) is a boolean attribute.
  */
 export function isBooleanAttr(name: string): boolean {
-  return BOOLEAN_ATTRS_SET.has(name.toLowerCase())
+  return BOOLEAN_ATTRS.has(name.toLowerCase())
 }
 
 /**

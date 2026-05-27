@@ -196,13 +196,12 @@ describe('isEventProp', () => {
 })
 
 describe('BOOLEAN_ATTRS', () => {
-  test('is a frozen array', () => {
-    expect(Array.isArray(BOOLEAN_ATTRS)).toBe(true)
-    expect(Object.isFrozen(BOOLEAN_ATTRS)).toBe(true)
+  test('is a ReadonlySet', () => {
+    expect(BOOLEAN_ATTRS).toBeInstanceOf(Set)
   })
 
   test('contains expected entries', () => {
-    expect(BOOLEAN_ATTRS).toContain('disabled')
-    expect(BOOLEAN_ATTRS).toContain('formnovalidate')
+    expect(BOOLEAN_ATTRS.has('disabled')).toBe(true)
+    expect(BOOLEAN_ATTRS.has('formnovalidate')).toBe(true)
   })
 })

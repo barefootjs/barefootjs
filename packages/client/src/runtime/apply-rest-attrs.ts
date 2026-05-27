@@ -70,8 +70,8 @@ export function applyRestAttrs(
           if ((el as HTMLInputElement).value !== strVal) (el as HTMLInputElement).value = strVal
         } else if (c.kind === 'property' && c.attrName === 'checked' && 'checked' in el) {
           (el as HTMLInputElement).checked = !!value
-        } else if (c.kind === 'boolean' && c.attrName in el) {
-          (el as unknown as Record<string, unknown>)[c.attrName] = true
+        } else if (c.kind === 'boolean') {
+          el.setAttribute(c.attrName, '')
         } else if (c.kind === 'style') {
           const css = styleToCss(value)
           if (css == null) el.removeAttribute('style')
@@ -84,8 +84,8 @@ export function applyRestAttrs(
           (el as HTMLInputElement).value = ''
         } else if (c.kind === 'property' && c.attrName === 'checked' && 'checked' in el) {
           (el as HTMLInputElement).checked = false
-        } else if (c.kind === 'boolean' && c.attrName in el) {
-          (el as unknown as Record<string, unknown>)[c.attrName] = false
+        } else if (c.kind === 'boolean') {
+          el.removeAttribute(c.attrName)
         } else {
           el.removeAttribute(c.attrName)
         }
