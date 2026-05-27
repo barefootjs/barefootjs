@@ -1347,7 +1347,7 @@ describe('buildComponentSummary', () => {
     const summary = buildComponentSummary(dashboardSource, 'Dashboard.tsx')
     expect(summary.componentName).toBe('Dashboard')
     expect(summary.hydrated).toBe(true)
-    expect(summary.clientBundle).toBe('components/Dashboard.client.js')
+    expect(summary.clientBundle).toBe('Dashboard.client.js')
     expect(summary.signals).toBe(1)
     expect(summary.memos).toBe(1)
     expect(summary.effects).toBe(1)

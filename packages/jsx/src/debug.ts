@@ -1404,8 +1404,9 @@ export function formatFallbackExplanations(
 export function buildComponentSummary(source: string, filePath: string, componentName?: string): ComponentSummary {
   const { graph, ir } = buildComponentAnalysis(source, filePath, componentName)
   const meta = ir.metadata
-  const isClient = meta.isClientComponent
-  const baseName = meta.componentName
+  const clientNeeds = analyzeClientNeeds(ir)
+  const hasReactiveState = meta.signals.length > 0 || meta.memos.length > 0 || meta.effects.length > 0
+  const needsClient = clientNeeds.needsInit && hasReactiveState
 
   let loopCount = 0
   countNodeType(ir.root, 'loop', () => { loopCount++ })
@@ -1418,11 +1419,17 @@ export function buildComponentSummary(source: string, filePath: string, componen
   const attrBindings = graph.domBindings.filter(d => d.type === 'attribute').length
   const fallbacks = graph.domBindings.filter(d => d.classification === 'fallback').length
 
+  let clientBundle: string | null = null
+  if (needsClient) {
+    const base = filePath.replace(/\.[^.]+$/, '').split('/').pop() ?? meta.componentName
+    clientBundle = `${base}.client.js`
+  }
+
   return {
     componentName: graph.componentName,
     sourceFile: graph.sourceFile,
-    hydrated: isClient,
-    clientBundle: isClient ? `components/${baseName}.client.js` : null,
+    hydrated: needsClient,
+    clientBundle,
     signals: graph.signals.length,
     memos: graph.memos.length,
     effects: graph.effects.length,
@@ -1456,6 +1463,10 @@ function countNodeType(node: IRNode, targetType: string, cb: () => void): void {
     case 'if-statement':
       countNodeType(node.consequent, targetType, cb)
       if (node.alternate) countNodeType(node.alternate, targetType, cb)
+      break
+    case 'async':
+      countNodeType(node.fallback, targetType, cb)
+      for (const child of node.children) countNodeType(child, targetType, cb)
       break
   }
 }
