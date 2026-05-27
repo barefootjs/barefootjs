@@ -60,7 +60,7 @@ function toDOM(vnode: unknown): Node | null {
     ? document.createElementNS('http://www.w3.org/2000/svg', tag)
     : document.createElement(tag)
 
-  const { children, className, dangerouslySetInnerHTML, ...rest } = props
+  const { children, className, dangerouslySetInnerHTML, ref, ...rest } = props
   if (className) el.setAttribute('class', String(className))
   if (dangerouslySetInnerHTML && typeof dangerouslySetInnerHTML === 'object') {
     el.innerHTML = (dangerouslySetInnerHTML as { __html: string }).__html ?? ''
@@ -76,6 +76,7 @@ function toDOM(vnode: unknown): Node | null {
   }
 
   if (!dangerouslySetInnerHTML) appendChildren(el, children)
+  if (typeof ref === 'function') (ref as (el: Element) => void)(el)
   return el
 }
 

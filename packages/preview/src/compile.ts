@@ -1,28 +1,18 @@
 // Preview compiler pipeline (CSR mode)
 //
 // Bundles preview files for client-side rendering using esbuild
-// with a custom DOM-based JSX runtime. Runtime-agnostic (no Bun APIs).
+// with a custom DOM-based JSX runtime.
 
-import { mkdir, readFile, writeFile, copyFile, access } from 'node:fs/promises'
-import { execSync } from 'node:child_process'
-import { resolve, relative, dirname } from 'node:path'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build, type Plugin } from 'esbuild'
-import {
-  hasUseClientDirective,
-  discoverComponentFiles,
-} from '../../cli/src/lib/build'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = resolve(__dirname, '../../..')
-const UI_COMPONENTS_DIR = resolve(ROOT_DIR, 'ui/components')
 const DIST_DIR = resolve(ROOT_DIR, '.preview-dist')
-const DOM_PKG_DIR = resolve(ROOT_DIR, 'packages/client')
-const JSX_RUNTIME_PATH = resolve(__dirname, 'jsx-runtime.ts')
-
-async function exists(path: string): Promise<boolean> {
-  return access(path).then(() => true, () => false)
-}
+const JSX_RUNTIME_DIR = __dirname
 
 export interface CompileOptions {
   previewsPath: string
@@ -39,16 +29,7 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
 
   await mkdir(DIST_DIR, { recursive: true })
 
-  // 1. Copy barefoot.js runtime
-  const domDistFile = resolve(DOM_PKG_DIR, 'dist/runtime/standalone.js')
-  if (!await exists(domDistFile)) {
-    console.log('Building @barefootjs/client...')
-    execSync('npm run build', { cwd: DOM_PKG_DIR, stdio: 'inherit' })
-  }
-  await copyFile(domDistFile, resolve(DIST_DIR, 'barefoot.js'))
-  console.log('Generated: .preview-dist/barefoot.js')
-
-  // 2. Generate CSS from token JSON
+  // 1. Generate CSS from token JSON
   const { loadTokens, mergeTokenSets, generateCSS } = await import(
     resolve(ROOT_DIR, 'site/shared/tokens/index')
   )
@@ -60,21 +41,21 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   await writeFile(resolve(DIST_DIR, 'globals.css'), tokensCSS + '\n' + globalsCSS)
   console.log('Generated: .preview-dist/globals.css')
 
-  // 3. Generate UnoCSS
+  // 2. Generate UnoCSS
   console.log('Generating UnoCSS...')
   const unocssbin = resolve(__dirname, '../node_modules/.bin/unocss')
-  execSync(
-    `${unocssbin} '../../ui/components/**/*.tsx' './**/*.tsx' './dist/**/*.tsx' -o ${resolve(DIST_DIR, 'uno.css')}`,
-    { cwd: resolve(ROOT_DIR, 'site/ui'), stdio: 'inherit' },
-  )
+  execFileSync(unocssbin, [
+    '../../ui/components/**/*.tsx', './**/*.tsx', './dist/**/*.tsx',
+    '-o', resolve(DIST_DIR, 'uno.css'),
+  ], { cwd: resolve(ROOT_DIR, 'site/ui'), stdio: 'inherit' })
   console.log('Generated: .preview-dist/uno.css')
 
-  // 4. Generate browser entry point that imports previews and mounts them
-  const entrySource = generateEntryScript(previewsPath, previewNames, componentName)
+  // 3. Generate browser entry point that imports previews and mounts them
+  const entrySource = generateEntryScript(previewsPath, previewNames)
   const entryPath = resolve(DIST_DIR, '_entry.tsx')
   await writeFile(entryPath, entrySource)
 
-  // 5. Bundle with esbuild using our DOM-based JSX runtime
+  // 4. Bundle with esbuild using our DOM-based JSX runtime
   console.log('Bundling for browser...')
   await build({
     entryPoints: [entryPath],
@@ -85,7 +66,7 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
     minify: false,
     sourcemap: 'inline',
     jsx: 'automatic',
-    jsxImportSource: JSX_RUNTIME_PATH.replace(/\/jsx-runtime\.ts$/, ''),
+    jsxImportSource: JSX_RUNTIME_DIR,
     define: {
       'process.env.NODE_ENV': '"development"',
     },
@@ -93,24 +74,20 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   })
   console.log('Generated: .preview-dist/_entry.js')
 
-  // 6. Generate index.html
-  const html = generateHTML(componentName, previewNames)
+  // 5. Generate index.html
+  const html = generateHTML(componentName)
   await writeFile(resolve(DIST_DIR, 'index.html'), html)
   console.log('Generated: .preview-dist/index.html')
 
   return { distDir: DIST_DIR }
 }
 
-function generateEntryScript(
-  previewsPath: string,
-  previewNames: string[],
-  componentName: string,
-): string {
-  const importPath = previewsPath
+function generateEntryScript(previewsPath: string, previewNames: string[]): string {
+  const jsxRuntimePath = resolve(JSX_RUNTIME_DIR, 'jsx-runtime.ts')
   const names = previewNames.join(', ')
   return `
-import { mount } from '${JSX_RUNTIME_PATH}'
-import { ${names} } from '${importPath}'
+import { mount } from '${jsxRuntimePath}'
+import { ${names} } from '${previewsPath}'
 
 const previews = { ${names} }
 const app = document.getElementById('preview-root')!
@@ -134,7 +111,7 @@ for (const [name, Preview] of Object.entries(previews)) {
 `
 }
 
-function generateHTML(componentName: string, previewNames: string[]): string {
+function generateHTML(componentName: string): string {
   const displayName = componentName.charAt(0).toUpperCase() + componentName.slice(1)
   return `<!DOCTYPE html>
 <html lang="en">
@@ -210,24 +187,15 @@ function generateHTML(componentName: string, previewNames: string[]): string {
 </html>`
 }
 
-// esbuild plugin: rewrite JSX import source to our DOM runtime for all
-// component .tsx files and strip "use client" directives.
 function jsxRuntimePlugin(): Plugin {
   return {
     name: 'preview-jsx',
     setup(build) {
       build.onLoad({ filter: /\.tsx$/ }, async (args) => {
         let contents = await readFile(args.path, 'utf-8')
-
-        // Strip "use client" directive
         contents = contents.replace(/^['"]use client['"];?\s*\n?/m, '')
-
-        // Strip existing @jsxImportSource pragmas
         contents = contents.replace(/\/\*\*?\s*@jsxImportSource\s+[^\s*]+\s*\*\//g, '')
-
-        // Add our JSX runtime pragma
-        contents = `/** @jsxImportSource ${JSX_RUNTIME_PATH.replace(/\/jsx-runtime\.ts$/, '')} */\n${contents}`
-
+        contents = `/** @jsxImportSource ${JSX_RUNTIME_DIR} */\n${contents}`
         return { contents, loader: 'tsx' }
       })
     },

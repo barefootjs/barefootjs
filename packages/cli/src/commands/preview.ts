@@ -1,9 +1,9 @@
 // bf preview — start preview dev server for visual check.
 //
 // `preview` is not shipped in the npm distribution of `@barefootjs/cli`.
-// The preview package uses Bun-specific APIs (Bun.build, Bun.file) for
-// CSR bundling and is a monorepo-internal dev tool. A publish-ready
-// rewrite is tracked in
+// The preview package uses esbuild for CSR bundling and monorepo-
+// internal paths (tokens, UnoCSS config). A publish-ready rewrite
+// is tracked in
 // https://github.com/piconic-ai/barefootjs/issues/885.
 //
 // When the CLI is run from inside the barefootjs monorepo (source tree
