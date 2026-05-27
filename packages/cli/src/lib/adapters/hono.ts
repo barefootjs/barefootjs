@@ -198,14 +198,6 @@ export const HONO_ADAPTER: AdapterTemplate = {
     '.gitignore': HONO_GITIGNORE,
   },
   scripts: {
-    // Run barefoot's component build, UnoCSS's class scanner, and the
-    // local Workers dev server side-by-side. `concurrently -k` makes
-    // Ctrl-C kill all three. `wrangler dev --live-reload` watches the
-    // worker + asset files and reloads the browser when they change,
-    // so we don't need a separate SSE-based reloader. `wrangler` lives
-    // behind the PM's dlx so its (large) dependency tree never lands
-    // in node_modules — the first run caches it via bunx / npx /
-    // pnpm dlx / yarn dlx.
     dev: (pm) =>
       `concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "${commandsFor(pm).exec(
         'wrangler dev --live-reload',
@@ -218,16 +210,15 @@ export const HONO_ADAPTER: AdapterTemplate = {
     script: 'deploy',
   },
   dependencies: {
-    '@barefootjs/cli': 'latest',
     '@barefootjs/client': 'latest',
     '@barefootjs/hono': 'latest',
-    // Required transitively by @barefootjs/hono via the registry button.
     '@barefootjs/jsx': 'latest',
     '@barefootjs/shared': 'latest',
     hono: '^4.6.0',
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/cli': 'latest',
     '@cloudflare/workers-types': '^4.20250101.0',
     // `@barefootjs/test` powers `renderToTest()` — the canonical
     // millisecond IR test the docs (and `bf gen test`) point new users

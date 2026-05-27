@@ -260,19 +260,13 @@ export const HONO_NODE_ADAPTER: AdapterTemplate = {
     '.gitignore': HONO_NODE_GITIGNORE,
   },
   scripts: {
-    // Run barefoot's watch-build, UnoCSS's class scanner, and the
-    // Node server side-by-side. `concurrently -k` makes Ctrl-C kill
-    // all three. The server reloads itself via `tsx watch`; the
-    // browser auto-reloads via the SSE endpoint wired up in factory.ts.
     dev: 'bf build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "tsx watch server.tsx"',
     build: 'bf build && unocss',
     start: 'tsx server.tsx',
   },
   dependencies: {
-    '@barefootjs/cli': 'latest',
     '@barefootjs/client': 'latest',
     '@barefootjs/hono': 'latest',
-    // Required transitively by @barefootjs/hono via the registry button.
     '@barefootjs/jsx': 'latest',
     '@barefootjs/shared': 'latest',
     '@hono/node-server': '^1.13.0',
@@ -280,6 +274,7 @@ export const HONO_NODE_ADAPTER: AdapterTemplate = {
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/cli': 'latest',
     '@barefootjs/test': 'latest',
     '@types/node': '^22.0.0',
     concurrently: '^9.0.0',

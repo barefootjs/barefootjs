@@ -184,20 +184,18 @@ export const CSR_ADAPTER: AdapterTemplate = {
     '.gitignore': CSR_GITIGNORE,
   },
   scripts: {
-    // Build everything once, then run barefoot's watch-build, UnoCSS's
-    // class scanner, and `bun --watch server.ts` side-by-side.
     dev: 'bf build && unocss && concurrently -k -n build,uno,server -c blue,magenta,green "bf build --watch" "unocss --watch" "bun --watch server.ts"',
     build: 'bf build && unocss',
     start: 'bun server.ts',
   },
   dependencies: {
-    '@barefootjs/cli': 'latest',
     '@barefootjs/client': 'latest',
     '@barefootjs/jsx': 'latest',
     '@barefootjs/shared': 'latest',
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/cli': 'latest',
     '@barefootjs/test': 'latest',
     '@types/bun': '^1.1.0',
     concurrently: '^9.0.0',

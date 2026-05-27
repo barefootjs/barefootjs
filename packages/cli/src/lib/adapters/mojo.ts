@@ -202,7 +202,6 @@ export const MOJO_ADAPTER: AdapterTemplate = {
     start: 'perl app.pl daemon -l http://*:3002',
   },
   dependencies: {
-    '@barefootjs/cli': 'latest',
     '@barefootjs/client': 'latest',
     '@barefootjs/mojolicious': 'latest',
     '@barefootjs/jsx': 'latest',
@@ -210,6 +209,7 @@ export const MOJO_ADAPTER: AdapterTemplate = {
   },
   devDependencies: {
     ...UNOCSS_DEV_DEPENDENCIES,
+    '@barefootjs/cli': 'latest',
     '@barefootjs/test': 'latest',
     concurrently: '^9.0.0',
     typescript: '^5.6.0',
