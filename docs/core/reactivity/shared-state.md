@@ -187,7 +187,7 @@ export function dispatchSeek(el: Element, detail: PlaybackSeekDetail) {
 
 For state that originates on the server (database, session, URL params), pass it as props from the server route. No client-side sharing needed:
 
-```ts
+```tsx
 import { Player } from '@/components/Player'
 import { TimelineBar } from '@/components/TimelineBar'
 

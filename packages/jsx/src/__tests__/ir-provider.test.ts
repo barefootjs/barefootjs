@@ -459,6 +459,7 @@ describe('Context API constraints (#1607)', () => {
     `
 
     const result = compileJSX(source, 'Consumer.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
     const clientJs = result.files.find(f => f.type === 'clientJs')!
     expect(clientJs).toBeDefined()
     expect(clientJs.content).toContain("from '@barefootjs/client/runtime'")
@@ -493,7 +494,10 @@ describe('Context API constraints (#1607)', () => {
     expect(result.errors).toHaveLength(0)
 
     const clientJs = result.files.find(f => f.type === 'clientJs')!
-    expect(clientJs.content).toContain('provideContext(ThemeContext')
-    expect(clientJs.content).toContain('useContext(ThemeContext')
+    const provideIdx = clientJs.content.indexOf('provideContext(ThemeContext')
+    const useIdx = clientJs.content.indexOf('useContext(ThemeContext')
+    expect(provideIdx).toBeGreaterThan(-1)
+    expect(useIdx).toBeGreaterThan(-1)
+    expect(provideIdx).toBeLessThan(useIdx)
   })
 })
