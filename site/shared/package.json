@@ -8,6 +8,7 @@
   "exports": {
     "./styles/*": "./styles/*",
     "./components/*": "./components/*",
+    "./components/docs-tabs": "./components/docs-tabs.tsx",
     "./lib/*": "./lib/*",
     "./lib/theme-init": "./lib/theme-init.ts",
     "./lib/docs-tabs-init": "./lib/docs-tabs-init.ts",
