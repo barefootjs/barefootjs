@@ -31,7 +31,6 @@
     "typescript": "^5.0.0"
   },
   "devDependencies": {
-    "@barefootjs/jsx": "workspace:*",
     "@types/node": "^22.0.0"
   }
 }
