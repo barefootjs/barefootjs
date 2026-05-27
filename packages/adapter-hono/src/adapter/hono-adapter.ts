@@ -822,17 +822,32 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     // for both SSR (runtime-eval) and CSR (template fallback).
     // `.toSorted` (non-mutating) preserves shared prop arrays across
     // renders — `.sort()` here would reorder `_p.items` in place.
-    const chainedArray = applyHonoLoopChain(loop)
+    let chainedArray = applyHonoLoopChain(loop)
     const iterMethod = loop.method ?? 'map'
+
+    // Re-emit `.entries()` / `.keys()` / `.values()` for Hono's runtime
+    // JS evaluation. The IR stripped the iterator call and synthesised
+    // param/index, so we reconstruct proper JS: `[...arr.entries()]`
+    // (spread into an array so `.map()` works).
+    let callbackParam: string
+    if (loop.iterationShape === 'entries' && loop.index) {
+      chainedArray = `[...${chainedArray}.entries()]`
+      callbackParam = `([${loop.index}${indexAnnotation}, ${loop.param}${paramAnnotation}])`
+    } else if (loop.iterationShape === 'keys') {
+      chainedArray = `[...${chainedArray}.keys()]`
+      callbackParam = `(${loop.param}${paramAnnotation})`
+    } else {
+      callbackParam = `(${loop.param}${paramAnnotation}${indexParam})`
+    }
 
     if (loop.flatMapCallback) {
       // Complex flatMap: use the original raw callback body (preserves JSX
       // for Hono's runtime JSX evaluation).
       mapExpr = `{${chainedArray}.flatMap(${loop.flatMapCallback.params} => ${loop.flatMapCallback.rawBody})}`
     } else if (preamble) {
-      mapExpr = `{${chainedArray}.${iterMethod}((${loop.param}${paramAnnotation}${indexParam}) => { ${preamble} return ${safeChildren} })}`
+      mapExpr = `{${chainedArray}.${iterMethod}(${callbackParam} => { ${preamble} return ${safeChildren} })}`
     } else {
-      mapExpr = `{${chainedArray}.${iterMethod}((${loop.param}${paramAnnotation}${indexParam}) => ${safeChildren})}`
+      mapExpr = `{${chainedArray}.${iterMethod}(${callbackParam} => ${safeChildren})}`
     }
     // Wrap with loop boundary markers so reconciliation doesn't affect siblings.
     // bfComment('loop:<id>') → <!--bf-loop:<id>-->. The marker id is unique

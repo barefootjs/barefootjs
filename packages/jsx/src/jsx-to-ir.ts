@@ -2082,6 +2082,23 @@ function isSortCall(node: ts.Expression): { array: ts.Expression; callback: ts.E
   }
 }
 
+/**
+ * Check if a node is an `.entries()`, `.keys()`, or `.values()` call
+ * (zero-arg, property-access form). Returns the underlying array expression
+ * and the iteration shape so `transformMapCall` can strip the iterator
+ * method and record it on the IRLoop.
+ */
+function isIteratorShapeCall(
+  node: ts.Expression,
+): { array: ts.LeftHandSideExpression; shape: 'entries' | 'keys' | 'values' } | null {
+  if (!ts.isCallExpression(node)) return null
+  if (!ts.isPropertyAccessExpression(node.expression)) return null
+  if (node.arguments.length !== 0) return null
+  const name = node.expression.name.text
+  if (name !== 'entries' && name !== 'keys' && name !== 'values') return null
+  return { array: node.expression.expression, shape: name }
+}
+
 type SortExtractionResult = {
   result: SortComparator | null
   unsupportedReason?: string
@@ -2677,6 +2694,7 @@ function transformMapCall(
   // 2. filter().map()
   // 3. filter().sort().map()  (outermost = sort, inner = filter)
   // 4. sort().filter().map()  (outermost = filter, inner = sort)
+  // 5. entries().map() / keys().map() / values().map()
 
   let array: string = ''
   let templateArray: string | undefined
@@ -2691,6 +2709,7 @@ function transformMapCall(
   let mapPreamble: string | undefined
   let templateMapPreamble: string | undefined
   let typedMapPreamble: string | undefined
+  let iterationShape: 'entries' | 'keys' | undefined
 
   // Helper to set both array and templateArray
   const setArray = (node: ts.Expression) => {
@@ -2699,8 +2718,26 @@ function transformMapCall(
     arrayExpr = node
   }
 
-  const filterInfo = isFilterCall(mapSource)
-  const sortInfo = isSortCall(mapSource)
+  // Detect `.entries()`, `.keys()`, `.values()` as the outermost wrapper
+  // on the map source. Strip the iterator method and record the shape so
+  // adapters emit the right loop variable bindings. `.values()` is a
+  // no-op (same as plain `.map()`) so it's stripped but not recorded.
+  // The inner expression (after stripping) feeds into the standard
+  // filter/sort chain detection below.
+  let chainSource = mapSource
+  const iteratorInfo = isIteratorShapeCall(mapSource)
+  if (iteratorInfo) {
+    chainSource = iteratorInfo.array
+    if (iteratorInfo.shape === 'entries') {
+      iterationShape = 'entries'
+    } else if (iteratorInfo.shape === 'keys') {
+      iterationShape = 'keys'
+    }
+    // 'values' is a no-op — same as plain .map()
+  }
+
+  const filterInfo = isFilterCall(chainSource)
+  const sortInfo = isSortCall(chainSource)
 
   if (sortInfo) {
     // Outermost is sort: could be sort().map() or filter().sort().map()
@@ -2815,8 +2852,8 @@ function transformMapCall(
       }
     }
   } else {
-    array = ctx.getJS(mapSource)
-    arrayExpr = mapSource
+    array = ctx.getJS(chainSource)
+    arrayExpr = chainSource
   }
 
   // Get callback function
@@ -2844,18 +2881,50 @@ function transformMapCall(
       // residual-object / `.slice(n)` accessor at each reference. Only
       // computed property keys remain unsupported — those raise `BF025`
       // and the emitter falls back to the #950 body-entry unwrap.
-      const bindingResult = extractLoopParamBindings(firstParam.name)
-      if (bindingResult && !Array.isArray(bindingResult)) {
-        ctx.analyzer.errors.push(
-          createError(ErrorCodes.UNSUPPORTED_DESTRUCTURE_REST,
-            getSourceLocation(firstParam, ctx.sourceFile, ctx.filePath),
-          )
+      // `.entries()` synthesises `[index, value]` — when the callback
+      // destructures exactly two array elements, extract the names into
+      // `index` and `param` so the loop renders with proper bindings and
+      // the BF104 destructure-param refusal doesn't fire.
+      if (iterationShape === 'entries' && ts.isArrayBindingPattern(firstParam.name)) {
+        const elements = firstParam.name.elements.filter(
+          el => !ts.isOmittedExpression(el),
         )
-      } else if (Array.isArray(bindingResult)) {
-        paramBindings = bindingResult
+        if (elements.length === 2 &&
+            ts.isBindingElement(elements[0]) && ts.isIdentifier(elements[0].name) &&
+            ts.isBindingElement(elements[1]) && ts.isIdentifier(elements[1].name)) {
+          index = elements[0].name.text
+          param = elements[1].name.text
+          // Don't populate paramBindings — the destructure is fully
+          // resolved into index + param by the iteration shape.
+        } else {
+          // Non-2-element destructure with .entries() — fall through to
+          // standard destructure handling (will trigger BF104 on
+          // template adapters).
+          const bindingResult = extractLoopParamBindings(firstParam.name)
+          if (bindingResult && !Array.isArray(bindingResult)) {
+            ctx.analyzer.errors.push(
+              createError(ErrorCodes.UNSUPPORTED_DESTRUCTURE_REST,
+                getSourceLocation(firstParam, ctx.sourceFile, ctx.filePath),
+              )
+            )
+          } else if (Array.isArray(bindingResult)) {
+            paramBindings = bindingResult
+          }
+        }
+      } else {
+        const bindingResult = extractLoopParamBindings(firstParam.name)
+        if (bindingResult && !Array.isArray(bindingResult)) {
+          ctx.analyzer.errors.push(
+            createError(ErrorCodes.UNSUPPORTED_DESTRUCTURE_REST,
+              getSourceLocation(firstParam, ctx.sourceFile, ctx.filePath),
+            )
+          )
+        } else if (Array.isArray(bindingResult)) {
+          paramBindings = bindingResult
+        }
       }
     }
-    if (callback.parameters.length > 1) {
+    if (callback.parameters.length > 1 && iterationShape !== 'entries') {
       const secondParam = callback.parameters[1]
       index = secondParam.name.getText(ctx.sourceFile)
       if (secondParam.type) {
@@ -3070,6 +3139,7 @@ function transformMapCall(
     filterPredicate,
     sortComparator,
     chainOrder,
+    iterationShape,
     clientOnly: isClientOnly || undefined,
     mapPreamble,
     templateMapPreamble,

@@ -299,6 +299,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   private options: Required<GoTemplateAdapterOptions>
   private inLoop: boolean = false
   private loopParamStack: string[] = []
+  private loopVarRefCount: Map<string, number> = new Map()
   private errors: CompilerError[] = []
   private propsObjectName: string | null = null
   /**
@@ -2474,6 +2475,9 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   // ===========================================================================
 
   identifier(name: string): string {
+    const currentLoopParam = this.loopParamStack[this.loopParamStack.length - 1]
+    if (currentLoopParam && name === currentLoopParam) return '.'
+    if (this.loopVarRefCount.has(name)) return `$${name}`
     return `.${this.capitalizeFieldName(name)}`
   }
 
@@ -3745,6 +3749,9 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
           if (currentLoopParam && expr.name === currentLoopParam) {
             return plain('.')
           }
+          if (this.loopVarRefCount.has(expr.name)) {
+            return plain(`$${expr.name}`)
+          }
         }
         return plain(`.${this.capitalizeFieldName(expr.name)}`)
 
@@ -3916,7 +3923,17 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
 
     let goArray = this.convertExpressionToGo(loop.array)
     const param = loop.param
-    const index = loop.index || '_'
+    let index = loop.index || '_'
+
+    // `.keys().map(k => ...)` — the callback param is the *index*, not
+    // the value. Swap into the Go range's first binding slot so
+    // `{{range $k, $_ := .Arr}}` makes `$k` the 0-based index.
+    let rangeIndex = index
+    let rangeValue = param
+    if (loop.iterationShape === 'keys') {
+      rangeIndex = param
+      rangeValue = '_'
+    }
 
     // Check if the loop contains a component child
     // If so, use .{ComponentName}s which has ScopeID for each item
@@ -3927,8 +3944,36 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     }
 
     this.inLoop = true
-    this.loopParamStack.push(param)
+    // Track Go template loop variables. The range *value* variable
+    // is the dot context (`.`) and goes on `loopParamStack`; the
+    // range *index* variable needs `$name` notation and goes on
+    // `loopVarRefCount`. For `.keys()`, the user's param IS the index
+    // (in the `$k, $_` position), so it needs `$name` — don't push
+    // it to loopParamStack (`.` would resolve to the value, not key).
+    // Push `''` instead — falsy, so the `currentLoopParam &&` guard
+    // in `identifier()` / `renderConditionExpr` short-circuits and
+    // no name ever matches the empty string.
+    // Uses ref-counting (not a flat Set) so nested loops with the
+    // same index var name don't clobber the outer loop's entry on
+    // cleanup.
+    const addedLoopVars: string[] = []
+    if (loop.iterationShape === 'keys') {
+      this.loopParamStack.push('')
+      this.loopVarRefCount.set(param, (this.loopVarRefCount.get(param) ?? 0) + 1)
+      addedLoopVars.push(param)
+    } else {
+      this.loopParamStack.push(param)
+      if (rangeIndex !== '_') {
+        this.loopVarRefCount.set(rangeIndex, (this.loopVarRefCount.get(rangeIndex) ?? 0) + 1)
+        addedLoopVars.push(rangeIndex)
+      }
+    }
     const children = this.renderChildren(loop.children)
+    for (const v of addedLoopVars) {
+      const rc = (this.loopVarRefCount.get(v) ?? 1) - 1
+      if (rc <= 0) this.loopVarRefCount.delete(v)
+      else this.loopVarRefCount.set(v, rc)
+    }
     this.loopParamStack.pop()
     this.inLoop = false
 
@@ -3963,11 +4008,11 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
 
       // Per-item start marker for multi-root Fragment items (#1212).
       const itemMarker = loop.bodyIsMultiRoot ? `{{bfComment "bf-loop-i"}}` : ''
-      return `{{bfComment "loop:${loop.markerId}"}}{{range $${index}, $${param} := ${goArray}}}{{if ${filterCond}}}${itemMarker}${children}{{end}}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
+      return `{{bfComment "loop:${loop.markerId}"}}{{range $${rangeIndex}, $${rangeValue} := ${goArray}}}{{if ${filterCond}}}${itemMarker}${children}{{end}}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
     }
 
     const itemMarker = loop.bodyIsMultiRoot ? `{{bfComment "bf-loop-i"}}` : ''
-    return `{{bfComment "loop:${loop.markerId}"}}{{range $${index}, $${param} := ${goArray}}}${itemMarker}${children}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
+    return `{{bfComment "loop:${loop.markerId}"}}{{range $${rangeIndex}, $${rangeValue} := ${goArray}}}${itemMarker}${children}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
   }
 
   /**

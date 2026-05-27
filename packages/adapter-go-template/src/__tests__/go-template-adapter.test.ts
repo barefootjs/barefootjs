@@ -1771,6 +1771,32 @@ export { A }`)
       expect(result.template).toContain('bf_join (bf_concat .Left .Right) " "')
     })
   })
+
+  describe('.entries() / .keys() / .values() iteration shapes (#1448 Tier B)', () => {
+    test('.entries().map(([i, v]) => ...) emits {{range $i, $v := .Items}}', () => {
+      const result = compileAndGenerate(`function A({ items }: { items: string[] }) {
+  return <ul>{items.entries().map(([i, v]) => <li key={i}>{i}: {v}</li>)}</ul>
+}
+export { A }`)
+      expect(result.template).toContain('{{range $i, $v := .Items}}')
+    })
+
+    test('.keys().map(k => ...) emits {{range $k, $_ := .Items}}', () => {
+      const result = compileAndGenerate(`function A({ items }: { items: string[] }) {
+  return <ul>{items.keys().map(k => <li key={k}>{k}</li>)}</ul>
+}
+export { A }`)
+      expect(result.template).toContain('{{range $k, $_ := .Items}}')
+    })
+
+    test('.values().map(v => ...) emits standard {{range $_, $v := .Items}}', () => {
+      const result = compileAndGenerate(`function A({ items }: { items: string[] }) {
+  return <ul>{items.values().map(v => <li key={v}>{v}</li>)}</ul>
+}
+export { A }`)
+      expect(result.template).toContain('{{range $_, $v := .Items}}')
+    })
+  })
 })
 
 // =============================================================================
@@ -1808,6 +1834,10 @@ import { fixture as arraySortFieldDescFixture } from '../../../adapter-tests/fix
 import { fixture as arraySortPrimitiveFixture } from '../../../adapter-tests/fixtures/methods/array-sort-primitive'
 import { fixture as arraySortLocaleFixture } from '../../../adapter-tests/fixtures/methods/array-sort-locale'
 import { fixture as arrayToSortedFixture } from '../../../adapter-tests/fixtures/methods/array-toSorted'
+// #1448 Tier B — .entries / .keys / .values iteration shapes.
+import { fixture as arrayEntriesFixture } from '../../../adapter-tests/fixtures/methods/array-entries'
+import { fixture as arrayKeysFixture } from '../../../adapter-tests/fixtures/methods/array-keys'
+import { fixture as arrayValuesFixture } from '../../../adapter-tests/fixtures/methods/array-values'
 
 describe('GoTemplateAdapter - #1448 Tier A/B fixture-driven lowering pins', () => {
   const cases = [
@@ -1838,6 +1868,11 @@ describe('GoTemplateAdapter - #1448 Tier A/B fixture-driven lowering pins', () =
     { fixture: arraySortPrimitiveFixture, expect: 'bf_sort .Nums "self" "" "numeric" "asc"' },
     { fixture: arraySortLocaleFixture,    expect: 'bf_sort .Names "self" "" "string" "asc"' },
     { fixture: arrayToSortedFixture,      expect: 'bf_sort .Nums "self" "" "numeric" "asc"' },
+    // #1448 Tier B — iteration shapes. These are loop-level
+    // patterns (range binding order), not helper function calls.
+    { fixture: arrayEntriesFixture,       expect: '{{range $i, $v := .Items}}' },
+    { fixture: arrayKeysFixture,          expect: '{{range $k, $_ := .Items}}' },
+    { fixture: arrayValuesFixture,        expect: '{{range $_, $v := .Items}}' },
   ]
 
   for (const { fixture, expect: expectedHelper } of cases) {

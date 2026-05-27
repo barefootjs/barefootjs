@@ -67,6 +67,31 @@ function applyLoopChain(loop: import('../types').IRLoop, base: string = loop.arr
   })
 }
 
+/**
+ * Wrap an array expression with the iterator shape and build the
+ * `.map()` callback parameter for `entries` / `keys` iteration.
+ * Returns the (possibly wrapped) array and the callback param string.
+ */
+function applyIterationShape(
+  node: import('../types').IRLoop,
+  arrayExpr: string,
+  indexParam: string,
+): { array: string; callbackParam: string } {
+  if (node.iterationShape === 'entries' && node.index) {
+    return {
+      array: `[...${arrayExpr}.entries()]`,
+      callbackParam: `([${node.index}, ${node.param}])`,
+    }
+  }
+  if (node.iterationShape === 'keys') {
+    return {
+      array: `[...${arrayExpr}.keys()]`,
+      callbackParam: `(${node.param})`,
+    }
+  }
+  return { array: arrayExpr, callbackParam: `(${node.param}${indexParam})` }
+}
+
 function childrenPropEntry(
   children: IRNode[],
   recurse: (n: IRNode) => string,
@@ -488,7 +513,9 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
       // where the template is the only source of truth. The chain
       // mirrors `buildChainedArrayExpr` so reconcileList sees the
       // same array shape this template emits.
-      const wrappedArray = wrapExpr(applyLoopChain(node))
+      const rawChainedArray = applyLoopChain(node)
+      const { array: iterArray, callbackParam } = applyIterationShape(node, rawChainedArray, indexParam)
+      const wrappedArray = wrapExpr(iterArray)
       const iterMethod = node.method ?? 'map'
       let mapExpr: string
 
@@ -501,9 +528,9 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
         }
         mapExpr = `\${${wrappedArray}.flatMap(${node.flatMapCallback.params} => ${body}).join('')}`
       } else if (node.mapPreamble) {
-        mapExpr = `\${${wrappedArray}.${iterMethod}((${node.param}${indexParam}) => { ${node.mapPreamble} return \`${childTemplate}\` }).join('')}`
+        mapExpr = `\${${wrappedArray}.${iterMethod}(${callbackParam} => { ${node.mapPreamble} return \`${childTemplate}\` }).join('')}`
       } else {
-        mapExpr = `\${${wrappedArray}.${iterMethod}((${node.param}${indexParam}) => \`${childTemplate}\`).join('')}`
+        mapExpr = `\${${wrappedArray}.${iterMethod}(${callbackParam} => \`${childTemplate}\`).join('')}`
       }
       // Wrap with loop boundary markers so reconciliation doesn't affect siblings
       return `<!--${loopStartMarker(node.markerId)}-->${mapExpr}<!--${loopEndMarker(node.markerId)}-->`
@@ -600,7 +627,9 @@ export function irToPlaceholderTemplate(node: IRNode, restSpreadNames?: Set<stri
       const indexParam = node.index ? `, ${node.index}` : ''
       // Apply sort / filter chain (#1448 Tier B) — same shape as the
       // `irToHtmlTemplate` loop case above.
-      const wrappedArray = wrapExpr(applyLoopChain(node))
+      const rawChainedArray = applyLoopChain(node)
+      const { array: iterArray, callbackParam } = applyIterationShape(node, rawChainedArray, indexParam)
+      const wrappedArray = wrapExpr(iterArray)
       const iterMethod = node.method ?? 'map'
       let mapExpr: string
       if (node.flatMapCallback) {
@@ -611,9 +640,9 @@ export function irToPlaceholderTemplate(node: IRNode, restSpreadNames?: Set<stri
         }
         mapExpr = `\${${wrappedArray}.flatMap(${node.flatMapCallback.params} => ${body}).join('')}`
       } else if (node.mapPreamble) {
-        mapExpr = `\${${wrappedArray}.${iterMethod}((${node.param}${indexParam}) => { ${node.mapPreamble} return \`${childTemplate}\` }).join('')}`
+        mapExpr = `\${${wrappedArray}.${iterMethod}(${callbackParam} => { ${node.mapPreamble} return \`${childTemplate}\` }).join('')}`
       } else {
-        mapExpr = `\${${wrappedArray}.${iterMethod}((${node.param}${indexParam}) => \`${childTemplate}\`).join('')}`
+        mapExpr = `\${${wrappedArray}.${iterMethod}(${callbackParam} => \`${childTemplate}\`).join('')}`
       }
       return `<!--${loopStartMarker(node.markerId)}-->${mapExpr}<!--${loopEndMarker(node.markerId)}-->`
     }
@@ -1417,8 +1446,9 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
       const chainedTemplateArray = node.sortComparator || node.filterPredicate
         ? applyLoopChain(node, node.templateArray)
         : node.templateArray
-      const arrayExpr = transformExpr(node.array, chainedTemplateArray)
-      const safeArrayExpr = arrayExpr === UNSAFE_TEMPLATE_EXPR ? '[]' : arrayExpr
+      const rawArrayExpr = transformExpr(node.array, chainedTemplateArray)
+      const safeRawArrayExpr = rawArrayExpr === UNSAFE_TEMPLATE_EXPR ? '[]' : rawArrayExpr
+      const { array: iterArrayExpr, callbackParam } = applyIterationShape(node, safeRawArrayExpr, indexParam)
       const iterMethod = node.method ?? 'map'
       let mapExpr: string
       if (node.flatMapCallback) {
@@ -1428,13 +1458,13 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
           body = body.replace(frag.placeholder, `\`${renderedIr}\``)
         }
         body = applyPropsRewrite(body, propsObjectName ?? null)
-        mapExpr = `\${${safeArrayExpr}.flatMap(${node.flatMapCallback.params} => ${body}).join('')}`
+        mapExpr = `\${${iterArrayExpr}.flatMap(${node.flatMapCallback.params} => ${body}).join('')}`
       } else if (node.mapPreamble) {
         const rawPreamble = node.templateMapPreamble ?? node.mapPreamble
         const preamble = applyPropsRewrite(rawPreamble, propsObjectName ?? null)
-        mapExpr = `\${${safeArrayExpr}.${iterMethod}((${node.param}${indexParam}) => { ${preamble} return \`${childTemplate}\` }).join('')}`
+        mapExpr = `\${${iterArrayExpr}.${iterMethod}(${callbackParam} => { ${preamble} return \`${childTemplate}\` }).join('')}`
       } else {
-        mapExpr = `\${${safeArrayExpr}.${iterMethod}((${node.param}${indexParam}) => \`${childTemplate}\`).join('')}`
+        mapExpr = `\${${iterArrayExpr}.${iterMethod}(${callbackParam} => \`${childTemplate}\`).join('')}`
       }
       return `<!--${loopStartMarker(node.markerId)}-->${mapExpr}<!--${loopEndMarker(node.markerId)}-->`
     }
