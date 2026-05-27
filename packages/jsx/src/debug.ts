@@ -759,7 +759,8 @@ function collectLoopChildBindings(
           if (!propValue) continue
           const deps = collectLoopDeps(propValue, signalGetters, memoNames, paramNames)
           if (deps.length > 0) {
-            bindings.push({ elementContext: ctx, kind: 'attribute', name: prop.name, deps, loc: prop.loc })
+            const isEvent = /^on[A-Z]/.test(prop.name)
+            bindings.push({ elementContext: ctx, kind: isEvent ? 'event' : 'attribute', name: prop.name, deps, loc: prop.loc })
           }
         }
         for (const c of child.children) {
@@ -778,9 +779,6 @@ function collectLoopChildBindings(
         break
       }
       case 'loop': {
-        for (const c of child.children) {
-          collectLoopChildBindings([c], bindings, signalGetters, memoNames, paramNames)
-        }
         break
       }
       case 'if-statement': {
