@@ -97,6 +97,8 @@ export interface DomBinding {
    * bindings; omitted for event handlers (not subject to the wrap gate).
    */
   wrapReason?: WrapReason
+  loc?: SourceLocation
+  jsxPreview?: string
 }
 
 export interface ComponentGraph {
@@ -671,6 +673,7 @@ export function formatComponentGraph(graph: ComponentGraph): string {
       // For attribute bindings use the attr name; for others use slotId
       const id = d.type === 'attribute' ? `"${d.label}"` : `"${d.slotId}"`
       const marker = d.classification === 'fallback' ? '~ ' : '  '
+      const locSuffix = formatBindingLoc(d)
       // No tracked deps ⇒ drop the arrow entirely instead of emitting
       // a dangling `<- ` (trailing space). Fallback-wrapped attribute
       // handlers like `<Button onClick={() => setCount(0)}>` legitimately
@@ -678,12 +681,20 @@ export function formatComponentGraph(graph: ComponentGraph): string {
       // it explicitly so the reader doesn't wonder if the analyzer
       // dropped data.
       if (d.deps.length === 0) {
-        lines.push(`    ${marker}${d.type} ${id} (no tracked deps)`)
+        if (d.jsxPreview) {
+          lines.push(`    ${marker}${d.jsxPreview} (no tracked deps)${locSuffix}`)
+        } else {
+          lines.push(`    ${marker}${d.type} ${id} (no tracked deps)${locSuffix}`)
+        }
         continue
       }
       const arrow = d.type === 'event' ? ' ->' : ' <-'
       const depStr = d.deps.join(', ')
-      lines.push(`    ${marker}${d.type} ${id}${arrow} ${depStr}`)
+      if (d.jsxPreview) {
+        lines.push(`    ${marker}${depStr} -> ${d.jsxPreview}${locSuffix}`)
+      } else {
+        lines.push(`    ${marker}${d.type} ${id}${arrow} ${depStr}${locSuffix}`)
+      }
     }
   }
 
@@ -716,6 +727,12 @@ export function formatUpdatePath(path: UpdatePath): string {
   }
 
   return lines.join('\n')
+}
+
+function formatBindingLoc(d: DomBinding): string {
+  if (!d.loc) return ''
+  const file = d.loc.file.split('/').pop() ?? d.loc.file
+  return ` at ${file}:${d.loc.start.line}`
 }
 
 function formatEntry(entry: UpdatePathEntry, lines: string[], indent: string): void {
@@ -758,6 +775,8 @@ export function graphToJSON(graph: ComponentGraph): object {
       type: d.type,
       classification: d.classification,
       ...(d.expression !== undefined && { expression: d.expression }),
+      ...(d.loc && { loc: { file: d.loc.file, line: d.loc.start.line } }),
+      ...(d.jsxPreview && { jsxPreview: d.jsxPreview }),
     })),
   }
 }
@@ -884,6 +903,7 @@ function collectDomBindings(
   bindings: DomBinding[],
   signalGetters: Set<string>,
   memoNames: Set<string>,
+  parentTag?: string,
 ): void {
   switch (node.type) {
     case 'element': {
@@ -910,6 +930,8 @@ function collectDomBindings(
             classification: isReactive ? 'reactive' : 'fallback',
             expression: expr,
             wrapReason,
+            loc: attr.loc,
+            jsxPreview: `<${node.tag} ${attr.name}={${truncateExpr(expr)}}>`,
           })
         }
       }
@@ -923,11 +945,13 @@ function collectDomBindings(
           deps: extractSetterRefs(event.handler, signalGetters),
           type: 'event',
           classification: 'reactive',
+          loc: event.loc,
+          jsxPreview: `<${node.tag} ${event.originalAttr ?? `on${event.name[0].toUpperCase()}${event.name.slice(1)}`}={...}>`,
         })
       }
-      // Recurse
+      // Recurse — pass element tag as parent context for text bindings
       for (const child of node.children) {
-        collectDomBindings(child, bindings, signalGetters, memoNames)
+        collectDomBindings(child, bindings, signalGetters, memoNames, node.tag)
       }
       break
     }
@@ -937,6 +961,9 @@ function collectDomBindings(
       const decision = decideWrapFromAstFlags(node)
       if (decision.wrap && node.slotId) {
         const deps = extractReactiveDeps(node.expr, signalGetters, memoNames)
+        const preview = parentTag
+          ? `<${parentTag}>{${truncateExpr(node.expr)}}</${parentTag}>`
+          : `{${truncateExpr(node.expr)}}`
         bindings.push({
           kind: 'dom',
           label: `text "${node.slotId}"`,
@@ -946,6 +973,8 @@ function collectDomBindings(
           classification: decision.reason === 'proven-reactive' ? 'reactive' : 'fallback',
           expression: node.expr,
           wrapReason: decision.reason,
+          loc: node.loc,
+          jsxPreview: preview,
         })
       }
       break
@@ -963,10 +992,12 @@ function collectDomBindings(
           classification: decision.reason === 'proven-reactive' ? 'reactive' : 'fallback',
           expression: node.condition,
           wrapReason: decision.reason,
+          loc: node.loc,
+          jsxPreview: `{${truncateExpr(node.condition)} ? ... : ...}`,
         })
       }
-      collectDomBindings(node.whenTrue, bindings, signalGetters, memoNames)
-      collectDomBindings(node.whenFalse, bindings, signalGetters, memoNames)
+      collectDomBindings(node.whenTrue, bindings, signalGetters, memoNames, parentTag)
+      collectDomBindings(node.whenFalse, bindings, signalGetters, memoNames, parentTag)
       break
     }
     case 'loop': {
@@ -1000,37 +1031,20 @@ function collectDomBindings(
             classification: isReactive ? 'reactive' : 'fallback',
             expression: node.array,
             wrapReason,
+            loc: node.loc,
+            jsxPreview: `{${truncateExpr(node.array)}.map(${node.param} => ...)}`,
           })
         }
       }
       for (const child of node.children) {
-        collectDomBindings(child, bindings, signalGetters, memoNames)
+        collectDomBindings(child, bindings, signalGetters, memoNames, parentTag)
       }
       break
     }
     case 'component': {
       // Child-component prop bindings (#942 DRY-consolidated in #952).
-      // Emitter gate in collect-elements.ts:442 is
-      // `hasPropsRef || needsEffectWrapper(expandedValue) || prop.callsReactiveGetters || prop.hasFunctionCalls`.
-      // `deps.length > 0` + `prop.value.includes('props.')` together
-      // approximate the first two branches (statically-proven reactive);
-      // the AST flags cover the fallback case.
-      //
-      // Before #944 this case fell through silently, so fallback-wrapped
-      // child props like `<Card title={formatTitle(page)} />` — the exact
-      // motivating example for #942 — never reached `why-wrap`'s output.
-      // The switch now iterates props and recurses into children, mirroring
-      // the `case 'element'` structure.
-      //
-      // Label uses `"ComponentName.propName"` so output distinguishes
-      // native-element attributes from child-component props without
-      // introducing a new `DomBinding.type` variant (keeps the existing
-      // type union stable for consumers).
       for (const prop of node.props) {
         if (prop.name === '...' || prop.name.startsWith('...')) continue
-        // Only `expression` / `template` / `spread` carry a runtime expression
-        // worth probing for reactive deps. `jsx-children` is handled via child
-        // traversal below; literal / boolean produce no reactive bindings.
         if (prop.value.kind !== 'expression' && prop.value.kind !== 'template' && prop.value.kind !== 'spread') continue
         const propValue = attrValueToString(prop.value) ?? ''
         if (!propValue) continue
@@ -1048,29 +1062,36 @@ function collectDomBindings(
             classification: isReactive ? 'reactive' : 'fallback',
             expression: propValue,
             wrapReason,
+            loc: prop.loc,
+            jsxPreview: `<${node.name} ${prop.name}={${truncateExpr(propValue)}}>`,
           })
         }
       }
       for (const child of node.children) {
-        collectDomBindings(child, bindings, signalGetters, memoNames)
+        collectDomBindings(child, bindings, signalGetters, memoNames, parentTag)
       }
       break
     }
     case 'fragment':
     case 'provider': {
       for (const child of node.children) {
-        collectDomBindings(child, bindings, signalGetters, memoNames)
+        collectDomBindings(child, bindings, signalGetters, memoNames, parentTag)
       }
       break
     }
     case 'if-statement': {
-      collectDomBindings(node.consequent, bindings, signalGetters, memoNames)
+      collectDomBindings(node.consequent, bindings, signalGetters, memoNames, parentTag)
       if (node.alternate) {
-        collectDomBindings(node.alternate, bindings, signalGetters, memoNames)
+        collectDomBindings(node.alternate, bindings, signalGetters, memoNames, parentTag)
       }
       break
     }
   }
+}
+
+function truncateExpr(expr: string, max: number = 40): string {
+  const s = expr.replace(/\s+/g, ' ').trim()
+  return s.length > max ? s.slice(0, max - 1) + '…' : s
 }
 
 /** Convert an `AttrValue` to a flat string for reactive dep extraction. */
