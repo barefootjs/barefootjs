@@ -10,10 +10,12 @@ import {
   buildComponentGraph,
   buildEventSummary,
   buildComponentAnalysis,
+  buildLoopSummary,
   traceUpdatePath,
   formatComponentGraph,
   formatUpdatePath,
   formatEventSummary,
+  formatLoopSummary,
   formatSignalTrace,
   generateStaticTrace,
   graphToJSON,
@@ -919,5 +921,91 @@ describe('buildComponentAnalysis', () => {
     expect(analysis.graph.componentName).toBe('Counter')
     expect(analysis.ir.root).toBeDefined()
     expect(analysis.ir.metadata.signals).toHaveLength(1)
+  })
+})
+
+// =============================================================================
+// Loop analysis (bf debug loops)
+// =============================================================================
+
+describe('buildLoopSummary', () => {
+  test('extracts loop with key, bindings, and handlers', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function ItemList() {
+        const [items, setItems] = createSignal([{ id: 1, name: 'A' }])
+        const [selectedId, setSelectedId] = createSignal(0)
+        return (
+          <ul>
+            {items().map(item => (
+              <li key={item.id} class={selectedId() === item.id ? 'active' : ''}>
+                <span>{item.name}</span>
+                <button onClick={() => setSelectedId(item.id)}>Select</button>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const summary = buildLoopSummary(source, 'ItemList.tsx')
+    expect(summary.loops).toHaveLength(1)
+    const loop = summary.loops[0]
+    expect(loop.array).toContain('items()')
+    expect(loop.param).toBe('item')
+    expect(loop.key).toBe('item.id')
+
+    const classBinding = loop.bindings.find(b => b.name === 'class')
+    expect(classBinding).toBeDefined()
+    expect(classBinding!.deps).toContain('selectedId')
+    expect(classBinding!.deps).toContain('item')
+
+    const textBinding = loop.bindings.find(b => b.kind === 'text')
+    expect(textBinding).toBeDefined()
+    expect(textBinding!.deps).toContain('item')
+
+    const clickEvent = loop.bindings.find(b => b.kind === 'event')
+    expect(clickEvent).toBeDefined()
+    expect(clickEvent!.deps).toContain('item')
+  })
+
+  test('returns empty for component without loops', () => {
+    const summary = buildLoopSummary(counterSource, 'Counter.tsx')
+    expect(summary.loops).toHaveLength(0)
+  })
+
+  test('includes source location', () => {
+    const summary = buildLoopSummary(todoSource, 'TodoList.tsx')
+    expect(summary.loops.length).toBeGreaterThan(0)
+    expect(summary.loops[0].loc.start.line).toBeGreaterThan(0)
+  })
+})
+
+describe('formatLoopSummary', () => {
+  test('produces readable output', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function List() {
+        const [items, setItems] = createSignal([{ id: 1, text: 'hello' }])
+        return (
+          <ul>
+            {items().map(item => (
+              <li key={item.id}>
+                <span>{item.text}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const summary = buildLoopSummary(source, 'List.tsx')
+    const output = formatLoopSummary(summary)
+    expect(output).toContain('1 loop(s)')
+    expect(output).toContain('.map(item)')
+    expect(output).toContain('key: item.id')
+    expect(output).toContain('item')
   })
 })
