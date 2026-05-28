@@ -797,7 +797,7 @@ describe('processExternals', () => {
         m.includes('mixed-pkg') && m.includes('import/main entry')
       )
       expect(warningMsg).toBeDefined()
-      // Only the un-resolved import is reported, not @barefootjs/client.
+      // Only the unresolved import is reported, not @barefootjs/client.
       expect(warningMsg).toContain('lib0/observable')
       expect(warningMsg).not.toContain('@barefootjs/client')
     } finally {
