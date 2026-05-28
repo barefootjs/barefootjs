@@ -2,7 +2,7 @@
 
 import { compileJSX, combineParentChildClientJs, createProgramForCorpus, formatError, REACTIVE_PRIMITIVES, BROWSER_ONLY_CLIENT_APIS } from '@barefootjs/jsx'
 import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec, BundleEntry } from '@barefootjs/jsx'
-import type ts from 'typescript'
+import ts from 'typescript'
 import { mkdir, readdir, stat, unlink } from 'node:fs/promises'
 import { resolve, basename, relative, dirname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -1002,24 +1002,18 @@ const BF_CLIENT_DEDUP_KEYS = [
 ]
 
 /**
- * Extract bare (non-relative, non-absolute, non-URL) module specifiers from
- * `import`/`export … from` statements, side-effect imports, and dynamic
- * `import()` calls in a source file.
+ * Extract bare (non-relative, non-absolute, non-URL) module specifiers from a
+ * source file. Uses TypeScript's lightweight file preprocessor (the same
+ * scanner the compiler uses for dependency discovery), so specifiers inside
+ * comments and string literals are ignored and `import` / `export … from` /
+ * dynamic `import()` / `require()` are all handled without bespoke regexes.
  */
 export function extractBareImports(code: string): string[] {
+  const { importedFiles } = ts.preProcessFile(code, true, true)
   const specifiers = new Set<string>()
-  const patterns = [
-    /(?:^|[^.\w$])(?:import|export)\b[^'";]*?\bfrom\s*['"]([^'"]+)['"]/g,
-    /(?:^|[^.\w$])import\s*['"]([^'"]+)['"]/g,
-    /(?:^|[^.\w$])import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-  ]
-  for (const re of patterns) {
-    let m: RegExpExecArray | null
-    while ((m = re.exec(code)) !== null) {
-      const spec = m[1]
-      if (!spec.startsWith('.') && !spec.startsWith('/') && !spec.includes('://')) {
-        specifiers.add(spec)
-      }
+  for (const { fileName } of importedFiles) {
+    if (!fileName.startsWith('.') && !fileName.startsWith('/') && !fileName.includes('://')) {
+      specifiers.add(fileName)
     }
   }
   return [...specifiers]

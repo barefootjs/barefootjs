@@ -7,6 +7,7 @@ import {
   resolveBuildConfigFromTs,
   collectRelativeImportDeps,
   vendorChunkFilename,
+  extractBareImports,
   processExternals,
   processBundleEntries,
   computeGlobalHash,
@@ -395,6 +396,52 @@ describe('resolveBuildConfigFromTs with externals', () => {
     const config = resolveBuildConfigFromTs(projectDir, { adapter: mockAdapter })
     expect(config.externals).toBeUndefined()
     expect(config.externalsBasePath).toBeUndefined()
+  })
+})
+
+// ── extractBareImports ───────────────────────────────────────────────────
+
+describe('extractBareImports', () => {
+  test('collects static, side-effect, re-export, and dynamic specifiers', () => {
+    const code = [
+      `import { a } from '@barefootjs/client'`,
+      `import 'side-effect-pkg'`,
+      `export { b } from 'lib0/observable'`,
+      `const m = await import('dynamic-pkg')`,
+    ].join('\n')
+    expect(extractBareImports(code).sort()).toEqual(
+      ['@barefootjs/client', 'dynamic-pkg', 'lib0/observable', 'side-effect-pkg'].sort()
+    )
+  })
+
+  test('excludes relative, absolute, and URL specifiers', () => {
+    const code = [
+      `import a from './local'`,
+      `import b from '../sibling'`,
+      `import c from '/abs/path'`,
+      `import d from 'https://esm.sh/zod'`,
+      `import e from 'bare-pkg'`,
+    ].join('\n')
+    expect(extractBareImports(code)).toEqual(['bare-pkg'])
+  })
+
+  test('ignores specifiers inside comments and string literals (regex would false-positive)', () => {
+    const code = [
+      `// import { x } from 'commented-out-pkg'`,
+      `/* import y from 'block-comment-pkg' */`,
+      `const s = "import z from 'string-literal-pkg'"`,
+      `const t = \`import w from 'template-pkg'\``,
+      `import { real } from 'real-pkg'`,
+    ].join('\n')
+    expect(extractBareImports(code)).toEqual(['real-pkg'])
+  })
+
+  test('dedupes repeated specifiers', () => {
+    const code = [
+      `import { a } from '@barefootjs/client'`,
+      `import { b } from '@barefootjs/client'`,
+    ].join('\n')
+    expect(extractBareImports(code)).toEqual(['@barefootjs/client'])
   })
 })
 
