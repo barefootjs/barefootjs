@@ -144,8 +144,13 @@ export function BfImportMap(props: BfImportMapProps): HtmlEscapedString | Promis
   const json = JSON.stringify({ imports })
 
   const preloads = props.preload === false ? [] : props.externals?.preloads ?? []
+  // `crossorigin` is required so a cross-origin (CDN) preload's request
+  // matches the actual module `import` (always a CORS fetch); without it
+  // the browser discards the preload and re-fetches. It's harmless for
+  // same-origin module preloads, which use the same credentials mode
+  // whether or not the attribute is present. See issue #1648.
   const links = preloads
-    .map((href) => `<link rel="modulepreload" href="${escapeAttr(href)}">`)
+    .map((href) => `<link rel="modulepreload" href="${escapeAttr(href)}" crossorigin>`)
     .join('')
 
   return html`<script type="importmap">${raw(json)}</script>${raw(links)}`

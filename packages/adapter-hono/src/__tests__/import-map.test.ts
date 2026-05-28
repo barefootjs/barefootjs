@@ -63,8 +63,17 @@ describe('BfImportMap', () => {
       preloads: ['/components/form.js', 'https://esm.sh/zod@4.4.3'],
     }
     const html = String(BfImportMap({ base: '/components', externals }))
-    expect(html).toContain('<link rel="modulepreload" href="/components/form.js">')
-    expect(html).toContain('<link rel="modulepreload" href="https://esm.sh/zod@4.4.3">')
+    expect(html).toContain('<link rel="modulepreload" href="/components/form.js" crossorigin>')
+    expect(html).toContain('<link rel="modulepreload" href="https://esm.sh/zod@4.4.3" crossorigin>')
+  })
+
+  test('emits crossorigin on modulepreload so cross-origin CDN preloads are reused', () => {
+    const externals: BarefootExternalsManifest = {
+      preloads: ['https://esm.sh/zod@4.4.3'],
+    }
+    const html = String(BfImportMap({ base: '/components', externals }))
+    const match = html.match(/<link rel="modulepreload"[^>]*>/)
+    expect(match?.[0]).toContain('crossorigin')
   })
 
   test('preload=false suppresses modulepreload links', () => {
