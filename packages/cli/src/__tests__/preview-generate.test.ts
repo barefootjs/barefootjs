@@ -1,4 +1,7 @@
 import { describe, test, expect } from 'bun:test'
+import { readdirSync } from 'fs'
+import path from 'path'
+import { loadComponent } from '../lib/meta-loader'
 import { generatePreview } from '../lib/preview-generate'
 import type { ComponentMeta } from '../lib/types'
 
@@ -57,6 +60,16 @@ describe('generatePreview', () => {
       })
       const result = generatePreview(meta)
       expect(result.code).toContain('<>')
+    })
+
+    test('closing tags do not count as extra roots', () => {
+      const meta = makeMeta({
+        name: 'wrapper',
+        subComponents: [{ name: 'WrapperChild', description: '', props: [] }],
+        examples: [{ title: 'Single', code: '<Wrapper>content</Wrapper>' }],
+      })
+      const result = generatePreview(meta)
+      expect(result.code).not.toContain('<>')
     })
   })
 
@@ -137,5 +150,22 @@ describe('generatePreview', () => {
       expect(result.code).toContain('variant="default"')
       expect(result.code).toContain('variant="secondary"')
     })
+  })
+
+  describe('smoke test: all real components', () => {
+    const metaDir = path.resolve(import.meta.dir, '../../../../ui/meta')
+    const allComponents = readdirSync(metaDir)
+      .filter(f => f.endsWith('.json') && f !== 'index.json')
+      .map(f => f.replace('.json', ''))
+
+    for (const name of allComponents) {
+      test(`${name}: no crash, valid output`, () => {
+        const meta = loadComponent(metaDir, name)
+        const result = generatePreview(meta)
+        expect(result.code).toBeTruthy()
+        expect(result.previewNames.length).toBeGreaterThanOrEqual(1)
+        expect(result.filePath).toBe(`ui/components/ui/${name}/index.preview.tsx`)
+      })
+    }
   })
 })

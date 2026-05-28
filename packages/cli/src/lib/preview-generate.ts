@@ -72,13 +72,18 @@ function emitJsxReturn(lines: string[], jsx: string, indent: string = '  '): voi
   const jsxLines = jsx.split('\n')
   // Count root-level elements by finding the minimum indentation
   const tagLines = jsxLines.filter(l => /^\s*<[A-Za-z]/.test(l))
+  if (tagLines.length === 0) {
+    lines.push(`${indent}return ${jsx}`)
+    return
+  }
   const minIndent = Math.min(...tagLines.map(l => l.match(/^(\s*)/)?.[1].length ?? 0))
   const rootElements = tagLines.filter(l => (l.match(/^(\s*)/)?.[1].length ?? 0) === minIndent)
   const needsFragment = rootElements.length > 1 && !jsx.trim().startsWith('<>')
 
   if (jsxLines.length === 1 && !needsFragment) {
     // Single line may still have multiple root elements: <A /><B />
-    const singleLineRoots = (jsx.match(/<[A-Za-z]/g) ?? []).length
+    // Use negative lookbehind to exclude closing tags (</Foo>)
+    const singleLineRoots = (jsx.match(/<(?![/])[A-Za-z]/g) ?? []).length
     if (singleLineRoots > 1) {
       lines.push(`${indent}return (<>${jsx}</>)`)
     } else {
