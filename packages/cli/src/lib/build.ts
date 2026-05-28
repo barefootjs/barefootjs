@@ -2,7 +2,7 @@
 
 import { compileJSX, combineParentChildClientJs, createProgramForCorpus, formatError, REACTIVE_PRIMITIVES, BROWSER_ONLY_CLIENT_APIS } from '@barefootjs/jsx'
 import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec, BundleEntry } from '@barefootjs/jsx'
-import type ts from 'typescript'
+import ts from 'typescript'
 import { mkdir, readdir, stat, unlink } from 'node:fs/promises'
 import { resolve, basename, relative, dirname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -1002,6 +1002,56 @@ const BF_CLIENT_DEDUP_KEYS = [
 ]
 
 /**
+ * Extract bare (non-relative, non-absolute, non-URL) module specifiers from a
+ * source file. Uses TypeScript's lightweight file preprocessor (the same
+ * scanner the compiler uses for dependency discovery), so specifiers inside
+ * comments and string literals are ignored and `import` / `export … from` /
+ * dynamic `import()` / `require()` are all handled without bespoke regexes.
+ */
+export function extractBareImports(code: string): string[] {
+  const { importedFiles } = ts.preProcessFile(code, true, true)
+  const specifiers = new Set<string>()
+  for (const { fileName } of importedFiles) {
+    if (!fileName.startsWith('.') && !fileName.startsWith('/') && !fileName.includes('://')) {
+      specifiers.add(fileName)
+    }
+  }
+  return [...specifiers]
+}
+
+/**
+ * Bare imports in `code` that the emitted importmap cannot resolve. A specifier
+ * is resolvable when it matches an importmap key exactly, or a trailing-slash
+ * key is a prefix of it. The keys are every configured external plus the
+ * always-emitted `@barefootjs/client*` dedup keys (#1646).
+ */
+function unresolvedBareImports(code: string, externals: Record<string, ExternalSpec>): string[] {
+  const keys = new Set<string>([...Object.keys(externals), ...BF_CLIENT_DEDUP_KEYS])
+  const isResolved = (spec: string) =>
+    keys.has(spec) || [...keys].some(k => k.endsWith('/') && spec.startsWith(k))
+  return extractBareImports(code).filter(spec => !isResolved(spec))
+}
+
+/**
+ * Packages to keep `external` when rebundling a chunk with esbuild: every other
+ * configured external plus the always-importmap-resolved `@barefootjs/client*`
+ * dedup keys. The three exact dedup keys cover the listed subpaths, and the
+ * `@barefootjs/client/*` wildcard keeps any other `@barefootjs/client` subpath
+ * a chunk might import external too (esbuild only matches `external` entries
+ * exactly unless they contain `*`). The chunk's own package is bundled (that is
+ * the point of rebundle), so it is excluded. Without this, esbuild inlines the
+ * shared reactive runtime into the chunk and bindings silently stop updating
+ * (#1646).
+ */
+function rebundleExternalsFor(pkgName: string, externals: Record<string, ExternalSpec>): string[] {
+  return [...new Set<string>([
+    ...Object.keys(externals).filter(k => k !== pkgName),
+    ...BF_CLIENT_DEDUP_KEYS,
+    '@barefootjs/client/*',
+  ])]
+}
+
+/**
  * Derive the output filename for a vendored chunk from its package name.
  * `@barefootjs/xyflow` → `xyflow.js`, `yjs` → `yjs.js`.
  */
@@ -1272,17 +1322,6 @@ export async function processExternals(
 
       const wantRebundle = typeof spec === 'object' && !('url' in spec) && spec.rebundle === true
 
-      // Warn when the resolved file came from an import/main fallback and rebundle is not set.
-      // These files may contain bare external imports (e.g. "lib0/observable") that the browser
-      // cannot resolve without a bundler or importmap. Set rebundle: true to inline them.
-      if (!entry.isBrowserReady && !wantRebundle) {
-        console.warn(
-          `Warning: externals — "${pkgName}" resolved via import/main entry (no umd/unpkg/jsdelivr found). ` +
-          `The copied file may contain external imports that are not browser-ready. ` +
-          `Set rebundle: true to re-bundle it into a self-contained ESM file.`
-        )
-      }
-
       const srcFile = entry.path
       const filename = vendorChunkFilename(pkgName)
       const destPath = resolve(runtimeOutDir, filename)
@@ -1294,13 +1333,33 @@ export async function processExternals(
           format: 'esm',
           bundle: true,
           minify: config.minify ?? false,
+          external: rebundleExternalsFor(pkgName, config.externals),
         })
         anyChanged = true
         console.log(`Generated (bundled): ${runtimeSubdir}/${filename}`)
       } else {
-        let content: string | Uint8Array = await readBytes(srcFile)
+        const bytes = await readBytes(srcFile)
+        const text = new TextDecoder().decode(bytes)
+
+        // Warn only about bare imports the importmap can't resolve. The resolved
+        // file came from an import/main fallback (no umd/unpkg/jsdelivr), but a
+        // chunk whose only externals are the always-importmap-resolved
+        // @barefootjs/client* dedup keys is browser-ready in a BarefootJS app —
+        // a warning here is a false positive (#1646).
+        if (!entry.isBrowserReady) {
+          const unresolved = unresolvedBareImports(text, config.externals)
+          if (unresolved.length > 0) {
+            console.warn(
+              `Warning: externals — "${pkgName}" resolved via import/main entry (no umd/unpkg/jsdelivr found) ` +
+              `and imports packages not in the importmap: ${unresolved.join(', ')}. ` +
+              `These are not browser-ready. Set rebundle: true to re-bundle it into a self-contained ESM file.`
+            )
+          }
+        }
+
+        let content: string | Uint8Array = bytes
         if (config.minify) {
-          content = transpile(content instanceof Uint8Array ? new TextDecoder().decode(content) : content, { loader: 'js', minify: true })
+          content = transpile(text, { loader: 'js', minify: true })
         }
         if (await writeIfChanged(destPath, content)) {
           anyChanged = true
