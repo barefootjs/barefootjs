@@ -51,8 +51,6 @@
     "@xyflow/system": "^0.0.76"
   },
   "devDependencies": {
-    "@barefootjs/jsx": "workspace:*",
-    "@barefootjs/test": "workspace:*",
     "typescript": "^5.0.0"
   }
 }
