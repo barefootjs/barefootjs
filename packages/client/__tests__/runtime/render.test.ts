@@ -1,8 +1,10 @@
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { render } from '../../src/runtime/render'
-import { createComponent } from '../../src/runtime/component'
+import { createComponent, renderChild } from '../../src/runtime/component'
+import { $c } from '../../src/runtime/query'
 import { registerComponent } from '../../src/runtime/registry'
 import { registerTemplate } from '../../src/runtime/template'
+import { hydrate, flushHydration } from '../../src/runtime/hydrate'
 import { hydratedScopes } from '../../src/runtime/hydration-state'
 import type { ComponentDef } from '../../src/runtime/types'
 import type { InitFn } from '../../src/runtime/types'
@@ -113,6 +115,84 @@ describe('render', () => {
 
     const element = container.firstElementChild!
     expect(hydratedScopes.has(element)).toBe(true)
+  })
+})
+
+describe('render multi-root (fragment) templates', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  test('appends every root element, not just the first', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+
+    registerTestComponent(
+      'RenderTest_MultiRoot',
+      () => {},
+      () => `<h1>one</h1><h2>two</h2><h3>three</h3>`
+    )
+
+    render(container, 'RenderTest_MultiRoot')
+
+    const headings = container.querySelectorAll('h1, h2, h3')
+    expect(headings.length).toBe(3)
+    expect(container.textContent).toBe('onetwothree')
+  })
+
+  test('resolves sibling child scopes via the comment-scope range', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+
+    registerTestComponent('FragLeafA', () => {}, (p) => `<h1 data-slot="a">${p.children}</h1>`)
+    registerTestComponent('FragLeafB', () => {}, (p) => `<h2 data-slot="b">${p.children}</h2>`)
+
+    const resolved: (Element | null)[] = []
+    registerTestComponent(
+      'RenderTest_Frag',
+      (scope) => {
+        const [s0, s1] = $c(scope, 's0', 's1')
+        resolved.push(s0, s1)
+      },
+      () =>
+        `${renderChild('FragLeafA', { children: 'one' }, undefined, 's0')}` +
+        `${renderChild('FragLeafB', { children: 'two' }, undefined, 's1')}`
+    )
+
+    render(container, 'RenderTest_Frag', {})
+
+    // Both roots mounted (regression: previously only the first sibling).
+    expect(container.querySelector('[data-slot="a"]')?.textContent).toBe('one')
+    expect(container.querySelector('[data-slot="b"]')?.textContent).toBe('two')
+    // $c() from init resolved the *second* sibling, not just s0.
+    expect(resolved[0]?.getAttribute('data-slot')).toBe('a')
+    expect(resolved[1]?.getAttribute('data-slot')).toBe('b')
+  })
+
+  test('does not re-init the fragment when the hydration walker runs', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+
+    let initCount = 0
+    // Register through hydrate() (the real preview/app path) so the async
+    // document-order walker is scheduled — registerTestComponent bypasses it.
+    // Name must be a single token: the walker derives the component name as
+    // the substring before the first `_` in the scope id.
+    hydrate('RenderFragHydrate', {
+      init: () => {
+        initCount++
+      },
+      template: () => `<h1>a</h1><h2>b</h2>`,
+      comment: true,
+    })
+
+    render(container, 'RenderFragHydrate', {})
+    expect(initCount).toBe(1) // render() initialized it once, synchronously
+
+    // Run the walker synchronously: it visits the bf-scope comment render()
+    // created. Without honouring hydratedScopes it would init a second time.
+    flushHydration()
+    expect(initCount).toBe(1)
   })
 })
 
