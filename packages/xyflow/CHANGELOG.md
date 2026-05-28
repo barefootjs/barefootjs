@@ -1,5 +1,11 @@
 # @barefootjs/xyflow
 
+## 0.3.0
+
+### Patch Changes
+
+- b136f8d: Remove internal @barefootjs/\* from published devDependencies to avoid npm registry dependency graph pollution
+
 ## 0.2.0
 
 ### Patch Changes
