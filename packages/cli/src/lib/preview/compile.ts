@@ -1,0 +1,319 @@
+// Preview compiler pipeline (CSR mode)
+//
+// Compiles the preview file and its component dependencies to client JS
+// via the barefoot compiler, then bundles for the browser. Components are
+// rendered client-side with the runtime's render() — full reactivity, no
+// SSR server. Uses CSRAdapter (no Hono dependency).
+
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { resolve, relative } from 'node:path'
+import { build } from 'esbuild'
+import {
+  compileJSX,
+  combineParentChildClientJs,
+  formatError,
+  BaseAdapter,
+  type AdapterOutput,
+} from '@barefootjs/jsx'
+import { resolveDependenciesFromSource } from '../dependency-resolver'
+import type { PreviewAssets } from './assets'
+
+// Minimal CSR adapter. compileJSX needs a concrete TemplateAdapter, but
+// preview only consumes the client JS output (the marked template is
+// discarded), so every render method is a no-op. Defined inline — rather
+// than importing CSRAdapter from `@barefootjs/client/build` — so the CLI
+// bundles from `@barefootjs/jsx` source alone and does not require
+// `@barefootjs/client`'s dist to be built first. `acceptsTemplateCall`
+// returns true so the analyzer keeps calls at template scope (matches
+// the published CSRAdapter contract).
+const EMPTY_OUTPUT: AdapterOutput = Object.freeze({
+  template: '',
+  sections: Object.freeze({ imports: '', types: '', component: '', defaultExport: '' }),
+  extension: '.tsx',
+})
+
+class PreviewCsrAdapter extends BaseAdapter {
+  name = 'csr'
+  extension = '.tsx'
+  acceptsTemplateCall = (): boolean => true
+  generate(): AdapterOutput { return EMPTY_OUTPUT }
+  renderNode(): string { return '' }
+  renderElement(): string { return '' }
+  renderExpression(): string { return '' }
+  renderConditional(): string { return '' }
+  renderLoop(): string { return '' }
+  renderComponent(): string { return '' }
+  renderScopeMarker(): string { return '' }
+  renderSlotMarker(): string { return '' }
+  renderCondMarker(): string { return '' }
+}
+
+export interface CompileOptions {
+  /** Resolved tokens/globals/UnoCSS/runtime/component locations. */
+  assets: PreviewAssets
+  previewsPath: string
+  previewNames: string[]
+  componentName: string
+  /** Inject a poll-based live-reload script into the page (watch mode). */
+  liveReload?: boolean
+}
+
+export interface CompileResult {
+  distDir: string
+}
+
+export async function compile(options: CompileOptions): Promise<CompileResult> {
+  const { assets, previewsPath, previewNames, componentName, liveReload } = options
+  const { rootDir, srcComponentsDir, tokensCss, globalsCss, runtimeStandalone, uno } = assets
+
+  const DIST_DIR = resolve(rootDir, '.preview-dist')
+  const MODULES_DIR = resolve(DIST_DIR, '_modules')
+
+  await mkdir(MODULES_DIR, { recursive: true })
+
+  // 1. Write the design-token CSS + globals (already resolved: user →
+  //    monorepo → bundled default).
+  console.log('Generating CSS...')
+  await writeFile(resolve(DIST_DIR, 'globals.css'), tokensCss + '\n' + globalsCss)
+  console.log('Generated: .preview-dist/globals.css')
+
+  // 2. Generate UnoCSS from the resolved bin/config/globs. The bundled
+  //    default config does `import 'unocss'`, which only resolves from a
+  //    tree that has unocss installed — so copy it into .preview-dist
+  //    (inside the user's project) before pointing UnoCSS at it.
+  console.log('Generating UnoCSS...')
+  let unoConfigPath = uno.configPath
+  if (uno.configIsBundled) {
+    unoConfigPath = resolve(DIST_DIR, 'uno.config.ts')
+    await writeFile(unoConfigPath, await readFile(uno.configPath, 'utf-8'))
+  }
+  execFileSync(uno.bin, [
+    ...uno.globs,
+    '--config', unoConfigPath,
+    '-o', resolve(DIST_DIR, 'uno.css'),
+  ], { cwd: uno.cwd, stdio: 'inherit' })
+  console.log('Generated: .preview-dist/uno.css')
+
+  // 3. Compile the preview + only the components it transitively uses.
+  //    Seed from the previewed component plus any sibling components the
+  //    preview file imports directly, then follow `../sibling` imports
+  //    (the same closure `bf add` ships). Compiling the whole registry
+  //    on every run was the bulk of preview build time.
+  const previewSource = await readFile(previewsPath, 'utf-8')
+  const previewSiblings = [
+    ...previewSource.matchAll(/from\s*['"]\.\.\/([a-z][a-z0-9-]*)(?:\/[^'"]*)?['"]/g),
+  ].map(m => m[1])
+  const componentFiles = resolveDependenciesFromSource(
+    [componentName, ...previewSiblings],
+    srcComponentsDir,
+  )
+    .map(name => resolve(srcComponentsDir, name, 'index.tsx'))
+    .filter(existsSync)
+  console.log(`Compiling ${componentFiles.length + 1} files...`)
+  const allFiles = [...componentFiles, previewsPath]
+  const adapter = new PreviewCsrAdapter()
+
+  // Map<unique key, clientJs> for combineParentChildClientJs.
+  // Track the preview file's own compile result so we can fail loudly
+  // if it didn't produce a registerable module (otherwise the page
+  // would silently throw "Component not registered" at runtime).
+  const previewKey = relative(rootDir, previewsPath).replace(/\.tsx$/, '')
+  const clientJsByKey = new Map<string, string>()
+  let previewProducedClientJs = false
+  for (const filePath of allFiles) {
+    const source = await readFile(filePath, 'utf-8')
+    const isPreview = filePath === previewsPath
+    const result = compileJSX(source, filePath, { adapter })
+    const errors = result.errors.filter(e => e.severity === 'error')
+    const warnings = result.errors.filter(e => e.severity === 'warning')
+    for (const w of warnings) console.warn(formatError(w, source, { projectDir: rootDir }))
+    if (errors.length > 0) {
+      for (const e of errors) console.error(formatError(e, source, { projectDir: rootDir }))
+      if (isPreview) {
+        throw new Error(`Preview compilation failed for ${previewKey} (see errors above).`)
+      }
+      continue
+    }
+    const clientJs = result.files.find(f => f.type === 'clientJs')?.content
+    if (!clientJs) continue
+    const key = relative(rootDir, filePath).replace(/\.tsx$/, '')
+    clientJsByKey.set(key, clientJs)
+    if (isPreview) previewProducedClientJs = true
+  }
+
+  if (!previewProducedClientJs) {
+    throw new Error(
+      `Preview ${previewKey} produced no client JS. Each preview function must ` +
+      `return a single root element (wrap multiple roots in <>...</>).`,
+    )
+  }
+
+  // 4. Inline parent-child client JS (resolves @bf-child markers).
+  //    combineParentChildClientJs only returns entries that changed
+  //    (those with @bf-child placeholders), so merge it over the full
+  //    set: combined entries win, leaf/childless modules are retained.
+  const combined = combineParentChildClientJs(clientJsByKey)
+  const allModules = new Map([...clientJsByKey, ...combined])
+
+  // 5. Write every module as an importable JS file.
+  for (const [key, content] of allModules) {
+    const safeName = key.replace(/[/\\]/g, '__') + '.js'
+    await writeFile(resolve(MODULES_DIR, safeName), content)
+  }
+  // The preview module transitively inlines its @bf-child dependencies,
+  // so importing it alone registers everything the previews render —
+  // no need to bundle the other (heavily overlapping) modules.
+  const previewModuleFile = previewKey.replace(/[/\\]/g, '__') + '.js'
+
+  // 6. Generate browser entry: register the preview module, render each preview
+  const entrySource = generateEntryScript(previewModuleFile, previewNames)
+  const entryPath = resolve(DIST_DIR, '_entry.js')
+  await writeFile(entryPath, entrySource)
+
+  // 7. Bundle with esbuild. Alias the runtime to the self-contained
+  //    standalone bundle (resolved in assets) so it resolves to a single
+  //    shared instance.
+  console.log('Bundling for browser...')
+  await build({
+    entryPoints: [entryPath],
+    outfile: resolve(DIST_DIR, '_bundle.js'),
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    minify: false,
+    sourcemap: 'inline',
+    absWorkingDir: rootDir,
+    alias: { '@barefootjs/client/runtime': runtimeStandalone },
+    define: { 'process.env.NODE_ENV': '"development"' },
+  })
+  console.log('Generated: .preview-dist/_bundle.js')
+
+  // 8. Generate index.html
+  await writeFile(resolve(DIST_DIR, 'index.html'), generateHTML(componentName, liveReload))
+  console.log('Generated: .preview-dist/index.html')
+
+  return { distDir: DIST_DIR }
+}
+
+function generateEntryScript(
+  previewModuleFile: string,
+  previewNames: string[],
+): string {
+  // Side-effect import: running the preview module executes its hydrate()
+  // calls, registering the preview functions and their inlined deps.
+  const namesJson = JSON.stringify(previewNames)
+  return `import { render } from '@barefootjs/client/runtime'
+import './_modules/${previewModuleFile}'
+
+const previews = ${namesJson}
+const app = document.getElementById('preview-root')
+
+for (const name of previews) {
+  const section = document.createElement('div')
+  section.className = 'preview-section'
+  section.dataset.preview = name
+
+  const title = document.createElement('div')
+  title.className = 'preview-title'
+  title.textContent = name.replace(/([a-z])([A-Z])/g, '$1 $2')
+  section.appendChild(title)
+
+  const content = document.createElement('div')
+  section.appendChild(content)
+  app.appendChild(section)
+
+  try {
+    render(content, name, {})
+  } catch (err) {
+    content.textContent = 'Render error: ' + (err && err.message || err)
+    console.error('[preview]', name, err)
+  }
+}
+`
+}
+
+// Poll-based live reload (watch mode only). The dev server bumps the
+// token at /__preview_reload after each rebuild; the page reloads when
+// it changes. Poll-based to avoid a websocket dependency.
+const LIVE_RELOAD_SCRIPT = `<script>
+(function(){var seen;function poll(){fetch('/__preview_reload').then(function(r){return r.text()}).then(function(v){if(seen!==undefined&&v!==seen){location.reload();return}seen=v}).catch(function(){}).then(function(){setTimeout(poll,1000)})}poll()})()
+</script>`
+
+function generateHTML(componentName: string, liveReload = false): string {
+  const displayName = componentName.charAt(0).toUpperCase() + componentName.slice(1)
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${displayName} — Preview</title>
+  <link rel="stylesheet" href="/globals.css" />
+  <link rel="stylesheet" href="/uno.css" />
+  <style>
+    body {
+      padding: 2rem;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .preview-section {
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .preview-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+    #bf-theme-toggle {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      z-index: 9999;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--foreground);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    }
+    #bf-theme-toggle:hover { background: var(--accent); }
+    #bf-theme-toggle .sun { display: none; }
+    #bf-theme-toggle .moon { display: block; }
+    .dark #bf-theme-toggle .sun { display: block; }
+    .dark #bf-theme-toggle .moon { display: none; }
+  </style>
+</head>
+<body>
+  <h1>${displayName}</h1>
+  <div id="preview-root"></div>
+  <button id="bf-theme-toggle" type="button" aria-label="Toggle dark mode"
+    onclick="var r=document.documentElement;r.classList.add('theme-transition');r.classList.toggle('dark');setTimeout(function(){r.classList.remove('theme-transition')},300)">
+    <svg class="sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"></circle>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+    </svg>
+    <svg class="moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    </svg>
+  </button>
+  <script type="module" src="/_bundle.js"></script>
+  ${liveReload ? LIVE_RELOAD_SCRIPT : ''}
+</body>
+</html>`
+}
