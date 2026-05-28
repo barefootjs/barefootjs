@@ -1,5 +1,19 @@
 # @barefootjs/jsx
 
+## 0.3.0
+
+### Minor Changes
+
+- 0111b70: Add source locations/JSX previews to DOM bindings, `bf debug loops`, `bf debug why-update`, `bf debug summary` commands, and improved `bf debug fallbacks` output
+- 210563a: Resolve event handler setters transitively through helper-function call chains. BREAKING: SetterRef.via and WhyUpdateSource.via are now string[] (the call chain) instead of string.
+
+### Patch Changes
+
+- 52a511d: Resolve event handler setters through arrow-function consts (not just function declarations) in setter analysis
+- ea37bfc: Auto-defer reactive brand-package bindings (e.g. `@barefootjs/form` field accessors) referenced from template positions instead of raising BF061. `value={field.value()}`, `disabled={form.isSubmitting()}`, and `{field.error() && …}` now compile without a manual `/* @client */` on each binding.
+- d64f94b: Add EventHandler wiring to TestNode: onClick, onInput, onChange, onSubmit shorthands and on() fallback
+  - @barefootjs/shared@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

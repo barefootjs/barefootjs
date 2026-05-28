@@ -1,5 +1,21 @@
 # @barefootjs/test
 
+## 0.3.0
+
+### Minor Changes
+
+- d811ca3: Resolve event-handler wiring on component props (e.g. `<Button onClick={...}>`, `<Switch onCheckedChange={...}>`), matching the `bf debug events` CLI. Component callback props are keyed by the DOM-style event name (onClick → click, onCheckedChange → checkedChange).
+- d64f94b: Add EventHandler wiring to TestNode: onClick, onInput, onChange, onSubmit shorthands and on() fallback
+
+### Patch Changes
+
+- Updated dependencies [52a511d]
+- Updated dependencies [ea37bfc]
+- Updated dependencies [0111b70]
+- Updated dependencies [d64f94b]
+- Updated dependencies [210563a]
+  - @barefootjs/jsx@0.3.0
+
 ## 0.2.0
 
 ### Patch Changes
