@@ -1323,7 +1323,10 @@ function transformExpressionInner(
     // IRLoop handles `isClientOnly` internally via `transformMapCall`; other
     // shapes (IRElement / IRFragment / IRLoop / IRComponent from inline JSX
     // helpers) are unchanged. Mirror that exactly here.
-    if (isClientOnly && ir.type === 'conditional') {
+    // A reactive brand-package condition (e.g. `form.field('x').error() &&
+    // …`) can't be SSR-evaluated, so defer the whole conditional rather
+    // than raising BF061 — same routing as a manual `/* @client */` (#1638).
+    if ((isClientOnly || shouldAutoDeferReactiveBrand(expr, ctx)) && ir.type === 'conditional') {
       ir.clientOnly = true
       if (!ir.slotId) {
         ir.slotId = generateSlotId(ctx)
@@ -3510,7 +3513,12 @@ function processAttributes(
       // Downstream routing: collect-elements wires this into
       // `reactiveAttrs` for elements; html-template strips it from
       // the SSR template (and from `renderChild` for components).
-      if (hasLeadingClientDirective(attr.initializer.expression, ctx.sourceFile)) {
+      //
+      // Reactive brand-package reads (`value={form.field('x').value()}`)
+      // are auto-deferred the same way: the SSR lambda can't evaluate the
+      // init-scope form state, so defer instead of raising BF061 (#1638).
+      if (hasLeadingClientDirective(attr.initializer.expression, ctx.sourceFile)
+        || shouldAutoDeferReactiveBrand(attr.initializer.expression, ctx)) {
         clientOnly = true
       }
     }
@@ -4227,6 +4235,35 @@ function isReactiveExpression(expr: string, ctx: TransformContext, astNode?: ts.
   }
 
   return false
+}
+
+/**
+ * Decide whether a JSX expression should be auto-deferred to the client
+ * (treated as if it carried `/* @client *​/`) because it reads reactive
+ * brand-package state the SSR template lambda cannot evaluate (#1638).
+ *
+ * The motivating case is `@barefootjs/form`: `const form = createForm(...)`
+ * is per-instance init-scope state, so `form.field('x').value()` /
+ * `form.isSubmitting()` resolve to an init-local with no compiler-derivable
+ * SSR value. Referencing them from a template position (element attribute,
+ * conditional condition) otherwise raises BF061 and forces a manual
+ * `/* @client *​/` on every binding.
+ *
+ * Gated tightly so it never demotes server-renderable reads:
+ *  - Requires the TypeChecker AND a `Reactive<T>` brand on the expression
+ *    (`containsReactiveExpression`), so plain values are untouched.
+ *  - Excludes native `createSignal` / `createMemo` getters (and their
+ *    chained-const aliases): they carry the same brand but DO have a
+ *    derivable initial value, so they must keep rendering server-side.
+ */
+function shouldAutoDeferReactiveBrand(expr: ts.Expression, ctx: TransformContext): boolean {
+  const checker = ctx.analyzer.checker
+  if (!checker) return false
+  if (!containsReactiveExpression(expr, checker)) return false
+  // Native signals/memos (incl. chained-const aliases) are SSR-derivable —
+  // leave them to the normal template path so their initial value renders.
+  if (isSignalOrMemoReference(ctx.getJS(expr), ctx)) return false
+  return true
 }
 
 /**
