@@ -8,20 +8,15 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { resolve, dirname, relative } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { resolve, relative } from 'node:path'
 import { build } from 'esbuild'
 import { compileJSX, combineParentChildClientJs, formatError } from '@barefootjs/jsx'
 import { CSRAdapter } from '@barefootjs/client/build'
-import { discoverComponentFiles } from '../../cli/src/lib/build'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const ROOT_DIR = resolve(__dirname, '../../..')
-const UI_COMPONENTS_DIR = resolve(ROOT_DIR, 'ui/components')
-const DIST_DIR = resolve(ROOT_DIR, '.preview-dist')
-const MODULES_DIR = resolve(DIST_DIR, '_modules')
+import { discoverComponentFiles } from '../build'
 
 export interface CompileOptions {
+  /** Repo/project root (absolute). */
+  rootDir: string
   previewsPath: string
   previewNames: string[]
   componentName: string
@@ -32,36 +27,40 @@ export interface CompileResult {
 }
 
 export async function compile(options: CompileOptions): Promise<CompileResult> {
-  const { previewsPath, previewNames, componentName } = options
+  const { rootDir, previewsPath, previewNames, componentName } = options
+
+  const UI_COMPONENTS_DIR = resolve(rootDir, 'ui/components')
+  const DIST_DIR = resolve(rootDir, '.preview-dist')
+  const MODULES_DIR = resolve(DIST_DIR, '_modules')
 
   await mkdir(MODULES_DIR, { recursive: true })
 
   // 1. Generate CSS from token JSON
   const { loadTokens, mergeTokenSets, generateCSS } = await import(
-    resolve(ROOT_DIR, 'site/shared/tokens/index')
+    resolve(rootDir, 'site/shared/tokens/index')
   )
-  const baseTokens = await loadTokens(resolve(ROOT_DIR, 'site/shared/tokens/tokens.json'))
-  const uiTokens = await loadTokens(resolve(ROOT_DIR, 'site/ui/tokens.json'))
+  const baseTokens = await loadTokens(resolve(rootDir, 'site/shared/tokens/tokens.json'))
+  const uiTokens = await loadTokens(resolve(rootDir, 'site/ui/tokens.json'))
   const mergedTokens = mergeTokenSets(baseTokens, uiTokens)
   const tokensCSS = generateCSS(mergedTokens)
-  const globalsCSS = await readFile(resolve(ROOT_DIR, 'site/ui/styles/globals.css'), 'utf-8')
+  const globalsCSS = await readFile(resolve(rootDir, 'site/ui/styles/globals.css'), 'utf-8')
   await writeFile(resolve(DIST_DIR, 'globals.css'), tokensCSS + '\n' + globalsCSS)
   console.log('Generated: .preview-dist/globals.css')
 
-  // 2. Generate UnoCSS. Resolve the bin from the preview package first,
-  //    falling back to the workspace root (deps may be hoisted there).
+  // 2. Generate UnoCSS. Resolve the bin from site/ui (the workspace that
+  //    declares unocss + holds uno.config.ts), falling back to root.
   console.log('Generating UnoCSS...')
   const unocssbin = [
-    resolve(__dirname, '../node_modules/.bin/unocss'),
-    resolve(ROOT_DIR, 'node_modules/.bin/unocss'),
+    resolve(rootDir, 'site/ui/node_modules/.bin/unocss'),
+    resolve(rootDir, 'node_modules/.bin/unocss'),
   ].find(existsSync)
   if (!unocssbin) {
-    throw new Error('unocss CLI not found in preview or root node_modules — run `bun install`')
+    throw new Error('unocss CLI not found in site/ui or root node_modules — run `bun install`')
   }
   execFileSync(unocssbin, [
     '../../ui/components/**/*.tsx', './**/*.tsx', './dist/**/*.tsx',
     '-o', resolve(DIST_DIR, 'uno.css'),
-  ], { cwd: resolve(ROOT_DIR, 'site/ui'), stdio: 'inherit' })
+  ], { cwd: resolve(rootDir, 'site/ui'), stdio: 'inherit' })
   console.log('Generated: .preview-dist/uno.css')
 
   // 3. Compile preview file + all component dependencies to client JS
@@ -76,7 +75,7 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   // Track the preview file's own compile result so we can fail loudly
   // if it didn't produce a registerable module (otherwise the page
   // would silently throw "Component not registered" at runtime).
-  const previewKey = relative(ROOT_DIR, previewsPath).replace(/\.tsx$/, '')
+  const previewKey = relative(rootDir, previewsPath).replace(/\.tsx$/, '')
   const clientJsByKey = new Map<string, string>()
   let previewProducedClientJs = false
   for (const filePath of allFiles) {
@@ -85,9 +84,9 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
     const result = compileJSX(source, filePath, { adapter })
     const errors = result.errors.filter(e => e.severity === 'error')
     const warnings = result.errors.filter(e => e.severity === 'warning')
-    for (const w of warnings) console.warn(formatError(w, source, { projectDir: ROOT_DIR }))
+    for (const w of warnings) console.warn(formatError(w, source, { projectDir: rootDir }))
     if (errors.length > 0) {
-      for (const e of errors) console.error(formatError(e, source, { projectDir: ROOT_DIR }))
+      for (const e of errors) console.error(formatError(e, source, { projectDir: rootDir }))
       if (isPreview) {
         throw new Error(`Preview compilation failed for ${previewKey} (see errors above).`)
       }
@@ -95,7 +94,7 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
     }
     const clientJs = result.files.find(f => f.type === 'clientJs')?.content
     if (!clientJs) continue
-    const key = relative(ROOT_DIR, filePath).replace(/\.tsx$/, '')
+    const key = relative(rootDir, filePath).replace(/\.tsx$/, '')
     clientJsByKey.set(key, clientJs)
     if (isPreview) previewProducedClientJs = true
   }
@@ -132,11 +131,11 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   // 7. Bundle with esbuild. Alias the runtime to the self-contained
   //    standalone bundle so it resolves to a single shared instance.
   console.log('Bundling for browser...')
-  const runtimeStandalone = resolve(ROOT_DIR, 'packages/client/dist/runtime/standalone.js')
+  const runtimeStandalone = resolve(rootDir, 'packages/client/dist/runtime/standalone.js')
   if (!existsSync(runtimeStandalone)) {
     console.log('Building @barefootjs/client runtime...')
     execFileSync('bun', ['run', 'build'], {
-      cwd: resolve(ROOT_DIR, 'packages/client'),
+      cwd: resolve(rootDir, 'packages/client'),
       stdio: 'inherit',
     })
   }
@@ -148,7 +147,7 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
     platform: 'browser',
     minify: false,
     sourcemap: 'inline',
-    absWorkingDir: ROOT_DIR,
+    absWorkingDir: rootDir,
     alias: { '@barefootjs/client/runtime': runtimeStandalone },
     define: { 'process.env.NODE_ENV': '"development"' },
   })

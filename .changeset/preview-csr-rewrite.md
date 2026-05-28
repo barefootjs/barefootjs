@@ -1,5 +1,5 @@
 ---
-"@barefootjs/preview": minor
+"@barefootjs/cli": minor
 ---
 
-Rewrite preview to compiler-based CSR. Components are compiled to client JS and rendered in the browser via `@barefootjs/client`'s `render()`, giving full reactivity for stateful components. Removes the Hono runtime server; output is static files served with `npx serve`. Uses CSRAdapter (no Hono dependency).
+Move the preview tool into `@barefootjs/cli` and rewrite it as a compiler-based CSR build. `bf preview <component>` compiles the component (and its deps) to client JS and bundles a browser preview that renders via `@barefootjs/client`'s `render()` — full reactivity for stateful components, no SSR server. Output is static files served with `npx serve`. The standalone `@barefootjs/preview` package is removed; preview now ships with the CLI (no Hono, no separate install).
