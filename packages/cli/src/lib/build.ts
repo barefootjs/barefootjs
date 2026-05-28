@@ -1,7 +1,7 @@
 // Core build module: shared pipeline for `bf build`.
 
-import { compileJSX, combineParentChildClientJs, createProgramForCorpus, formatError, REACTIVE_PRIMITIVES, BROWSER_ONLY_CLIENT_APIS } from '@barefootjs/jsx'
-import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec, BundleEntry } from '@barefootjs/jsx'
+import { compileJSX, combineParentChildClientJs, createProgramForCorpus, formatError, renderImportMapHtml, REACTIVE_PRIMITIVES, BROWSER_ONLY_CLIENT_APIS } from '@barefootjs/jsx'
+import type { TemplateAdapter, OutputLayout, PostBuildContext, ExternalSpec, BundleEntry, ExternalsManifest } from '@barefootjs/jsx'
 import ts from 'typescript'
 import { mkdir, readdir, stat, unlink } from 'node:fs/promises'
 import { resolve, basename, relative, dirname, isAbsolute } from 'node:path'
@@ -1294,14 +1294,9 @@ async function resolvePkgBrowserEntry(pkgDir: string): Promise<PkgBrowserEntry |
   return null
 }
 
-export interface ExternalsManifest {
-  /** Entries for `<script type="importmap">` */
-  importmap: { imports: Record<string, string> }
-  /** URLs to emit as `<link rel="modulepreload">` */
-  preloads: string[]
-  /** Package names to pass as `--external` to bun build */
-  externals: string[]
-}
+// The `ExternalsManifest` shape (the `barefoot-externals.json` contract) now
+// lives in `@barefootjs/jsx` so adapters and the CLI share one definition.
+export type { ExternalsManifest } from '@barefootjs/jsx'
 
 /**
  * Process the `externals` config: copy vendor chunks to outDir, build the
@@ -1417,6 +1412,18 @@ export async function processExternals(
   if (await writeIfChanged(manifestPath, JSON.stringify(manifest, null, 2))) {
     anyChanged = true
     console.log('Generated: barefoot-externals.json')
+  }
+
+  // Template-string adapters (Go html/template, Mojolicious EP) have no
+  // component layer like Hono's `BfImportMap`, so emit a ready-to-include
+  // importmap snippet they can `{{ template }}` / `%= include` into <head>
+  // (#1644). Component adapters inject the importmap at render time instead.
+  if (config.adapter.importMapInjection === 'html-snippet') {
+    const snippetPath = resolve(config.outDir, 'barefoot-importmap.html')
+    if (await writeIfChanged(snippetPath, renderImportMapHtml(manifest))) {
+      anyChanged = true
+      console.log('Generated: barefoot-importmap.html')
+    }
   }
 
   return { changed: anyChanged, allExternals }

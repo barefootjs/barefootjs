@@ -239,6 +239,9 @@ const GO_TEMPLATE_PRIMITIVES: Record<string, PrimitiveSpec> = {
 export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter, IRNodeEmitter<GoRenderCtx> {
   name = 'go-template'
   extension = '.tmpl'
+  // Template-string target with no component layer: `bf build` emits a static
+  // `barefoot-importmap.html` to `{{ template }}` into the page <head> (#1644).
+  importMapInjection = 'html-snippet' as const
 
   // Recursion-scoped state for `renderFilterExpr`. `filterExprDepth`
   // tracks nesting so the outer call resets `filterExprUnsupported`

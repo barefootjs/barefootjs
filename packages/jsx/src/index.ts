@@ -87,6 +87,10 @@ export type { SourceMapV3 } from './ir-to-client-js/source-map'
 // Client JS Combiner (for build scripts)
 export { combineParentChildClientJs } from './combine-client-js'
 
+// Externals manifest + importmap snippet renderer (shared by adapters and CLI)
+export { renderImportMapHtml } from './import-map'
+export type { ExternalsManifest } from './import-map'
+
 // Build options (shared by adapters and CLI)
 export interface OutputLayout {
   /** Subdirectory for marked templates (default: 'components') */
