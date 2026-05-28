@@ -534,6 +534,48 @@ describe('processExternals', () => {
     }
   })
 
+  test('html-snippet adapter emits barefoot-importmap.html from the manifest', async () => {
+    const outDir = makeTmpDir()
+    try {
+      const config = makeConfig(outDir, outDir, {
+        adapter: { name: 'mock-go', extension: '.tmpl', importMapInjection: 'html-snippet' },
+        externals: { lodash: { url: 'https://esm.sh/lodash@4.17.21', preload: true } },
+        externalsBasePath: '/static/components/',
+      })
+      await processExternals(config, 'components', outDir)
+
+      const snippetPath = resolve(outDir, 'barefoot-importmap.html')
+      expect(require('fs').existsSync(snippetPath)).toBe(true)
+      const html = require('fs').readFileSync(snippetPath, 'utf8')
+      // The snippet is generated from the same manifest the build writes.
+      const imports = JSON.parse(html.match(/<script type="importmap">(.*?)<\/script>/s)[1]).imports
+      expect(imports.lodash).toBe('https://esm.sh/lodash@4.17.21')
+      expect(imports['@barefootjs/client']).toBe('/static/components/barefoot.js')
+      expect(html).toContain('<link rel="modulepreload" href="https://esm.sh/lodash@4.17.21">')
+    } finally {
+      rmSync(outDir, { recursive: true, force: true })
+    }
+  })
+
+  test('component adapter does NOT emit barefoot-importmap.html', async () => {
+    const outDir = makeTmpDir()
+    try {
+      // mockAdapter has no importMapInjection (and a 'component' adapter would
+      // also skip): the snippet is only for template-string adapters.
+      const config = makeConfig(outDir, outDir, {
+        adapter: { name: 'mock-hono', extension: '.tsx', importMapInjection: 'component' },
+        externals: { lodash: { url: 'https://esm.sh/lodash' } },
+      })
+      await processExternals(config, 'components', outDir)
+      // Manifest is still written for the component to consume…
+      expect(require('fs').existsSync(resolve(outDir, 'barefoot-externals.json'))).toBe(true)
+      // …but no static snippet.
+      expect(require('fs').existsSync(resolve(outDir, 'barefoot-importmap.html'))).toBe(false)
+    } finally {
+      rmSync(outDir, { recursive: true, force: true })
+    }
+  })
+
   test('externals array includes all packages + dedup keys', async () => {
     const outDir = makeTmpDir()
     try {

@@ -113,6 +113,31 @@ export const renderer = jsxRenderer(({ children }) => (
 ))
 ```
 
+## Template-string adapters (Go, Mojolicious)
+
+Go html/template and Mojolicious are template-string adapters — you hand-write the HTML `<head>`, and there is no component like Hono's `BfImportMap` to read the manifest at render time. For these adapters `bf build` also emits a ready-to-include **`barefoot-importmap.html`** snippet next to `barefoot-externals.json`, generated from the same manifest:
+
+```html
+<!-- dist/barefoot-importmap.html -->
+<script type="importmap">{"imports":{"@barefootjs/client":"/static/components/barefoot.js","yjs":"/static/components/yjs.js","lodash":"https://esm.sh/lodash@4.17.21"}}</script>
+<link rel="modulepreload" href="/static/components/yjs.js">
+<link rel="modulepreload" href="https://esm.sh/lodash@4.17.21">
+```
+
+Include it in your page `<head>`:
+
+```go
+{{/* Go html/template */}}
+{{ template "barefoot-importmap.html" . }}
+```
+
+```perl
+%# Mojolicious EP
+%= include 'barefoot-importmap'
+```
+
+Wire the build's output directory into your template search path so the snippet is resolvable. Whether an adapter injects via a component or this snippet is declared by `TemplateAdapter.importMapInjection` and enforced by the cross-adapter importmap-injection contract in `@barefootjs/adapter-tests`.
+
 ## Using the externals list in your own bun build
 
 The `externals` array in `barefoot-externals.json` lists every package that the browser will load via the importmap. Pass these as `--external` flags when bundling your app entries:

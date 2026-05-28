@@ -103,6 +103,9 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
   name = 'hono'
   extension = '.tsx'
   clientShimSource = '@barefootjs/hono/client-shim'
+  // Importmap is injected at render time by the `BfImportMap` component
+  // (reads `barefoot-externals.json`), so `bf build` emits no static snippet.
+  importMapInjection = 'component' as const
 
   // The Hono SSR runtime is JavaScript (Node / Bun / CF Workers), so any
   // synchronous JS call the user writes can be rendered as-is at template
