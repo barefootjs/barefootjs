@@ -21,6 +21,16 @@ import { createFixture } from '../src/types'
  * spread props on a child component's root — see the `jsx-spread-*`
  * entries in csr-conformance's skip set) so the regression it guards
  * (children materialization) is the only thing under test.
+ *
+ * Adapter coverage: Hono SSR, Go SSR and the CSR template path all
+ * render this fixture. The Mojo adapter skips it (`skipJsx` in
+ * `mojo-adapter.test.ts`) because `render_child` doesn't plumb the
+ * destructured rest bag (`{ children, ...props }`) into the child
+ * template scope, so the emitted `$bf->spread_attrs($props)` dies on
+ * an undeclared `$props`. Go plumbs the same bag via its
+ * `Spread_0`/`Extras map[string]any` Input field. Mojo render_child
+ * spread-bag plumbing is tracked as a separate follow-up; #1633 is a
+ * CSR-layer bug, so CSR + Hono + Go coverage is sufficient here.
  */
 export const fixture = createFixture({
   id: 'native-select-spread-children',
