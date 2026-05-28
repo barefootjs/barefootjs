@@ -45,6 +45,18 @@ describe('NativeSelect', () => {
     expect(icon!.props['data-slot']).toBe('native-select-icon')
     expect(icon!.props['className']).toContain('pointer-events-none')
   })
+
+  // #1633: children must be placed explicitly inside the <select> so the
+  // CSR path materializes the <option>s. A self-closing `<select {...props} />`
+  // (children only forwarded via the rest spread) renders a childless select
+  // in CSR. Guard against regressing back to the self-closing form.
+  test('forwards children into <select>', () => {
+    const select = result.find({ tag: 'select' })!
+    const childrenSlot = select.children.find(
+      (c) => c.type === 'expression' && c.text === 'children',
+    )
+    expect(childrenSlot).toBeDefined()
+  })
 })
 
 describe('NativeSelectOption', () => {
@@ -59,6 +71,15 @@ describe('NativeSelectOption', () => {
     expect(option).not.toBeNull()
     expect(option!.props['data-slot']).toBe('native-select-option')
   })
+
+  // #1633: option label text arrives as children — must be placed explicitly.
+  test('forwards children into <option>', () => {
+    const option = result.find({ tag: 'option' })!
+    const childrenSlot = option.children.find(
+      (c) => c.type === 'expression' && c.text === 'children',
+    )
+    expect(childrenSlot).toBeDefined()
+  })
 })
 
 describe('NativeSelectOptGroup', () => {
@@ -72,5 +93,14 @@ describe('NativeSelectOptGroup', () => {
     const optgroup = result.find({ tag: 'optgroup' })
     expect(optgroup).not.toBeNull()
     expect(optgroup!.props['data-slot']).toBe('native-select-optgroup')
+  })
+
+  // #1633: nested options arrive as children — must be placed explicitly.
+  test('forwards children into <optgroup>', () => {
+    const optgroup = result.find({ tag: 'optgroup' })!
+    const childrenSlot = optgroup.children.find(
+      (c) => c.type === 'expression' && c.text === 'children',
+    )
+    expect(childrenSlot).toBeDefined()
   })
 })

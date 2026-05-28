@@ -74,6 +74,7 @@ import { fixture as returnMap } from './return-map'
 // Priority 7: Multi-file composition
 import { fixture as childComponent } from './child-component'
 import { fixture as componentWithJsxChildren } from './component-with-jsx-children'
+import { fixture as nativeSelectSpreadChildren } from './native-select-spread-children'
 import { fixture as multipleInstances } from './multiple-instances'
 import { fixture as staticArrayChildren } from './static-array-children'
 import { fixture as staticArrayFromProps } from './static-array-from-props'
@@ -231,6 +232,7 @@ export const jsxFixtures: JSXFixture[] = [
   // Priority 7: Multi-file composition
   childComponent,
   componentWithJsxChildren,
+  nativeSelectSpreadChildren,
   multipleInstances,
   staticArrayChildren,
   staticArrayFromProps,

@@ -59,7 +59,7 @@ interface NativeSelectProps extends Omit<SelectHTMLAttributes, 'size'> {
 /**
  * NativeSelect — styled native HTML select element.
  */
-function NativeSelect({ className = '', size = 'default', ...props }: NativeSelectProps) {
+function NativeSelect({ className = '', size = 'default', children, ...props }: NativeSelectProps) {
   return (
     <div
       className="group/native-select relative w-fit has-[select:disabled]:opacity-50"
@@ -69,7 +69,9 @@ function NativeSelect({ className = '', size = 'default', ...props }: NativeSele
         data-slot="native-select"
         className={`${baseClasses} ${sizeClasses[size]} ${focusClasses} ${errorClasses} ${className}`}
         {...props}
-      />
+      >
+        {children}
+      </select>
       <ChevronDownIcon
         className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted-foreground opacity-50 select-none"
         data-slot="native-select-icon"
@@ -81,20 +83,22 @@ function NativeSelect({ className = '', size = 'default', ...props }: NativeSele
 /**
  * NativeSelectOption — an option within a NativeSelect.
  */
-function NativeSelectOption({ ...props }: OptionHTMLAttributes) {
-  return <option data-slot="native-select-option" {...props} />
+function NativeSelectOption({ children, ...props }: OptionHTMLAttributes) {
+  return <option data-slot="native-select-option" {...props}>{children}</option>
 }
 
 /**
  * NativeSelectOptGroup — a group of options within a NativeSelect.
  */
-function NativeSelectOptGroup({ className = '', ...props }: OptGroupHTMLAttributes) {
+function NativeSelectOptGroup({ className = '', children, ...props }: OptGroupHTMLAttributes) {
   return (
     <optgroup
       data-slot="native-select-optgroup"
       className={className}
       {...props}
-    />
+    >
+      {children}
+    </optgroup>
   )
 }
 

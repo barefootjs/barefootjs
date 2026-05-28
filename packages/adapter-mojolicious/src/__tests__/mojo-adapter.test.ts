@@ -69,6 +69,21 @@ runAdapterConformanceTests({
     'toggle-shared',
     'reactive-props',
     'props-reactivity-comparison',
+    // #1633: child component forwards a destructured rest bag
+    // (`function NativeSelect({ children, ...props })`) onto its
+    // element via `{...props}`. The Mojo child template references
+    // `$props` (`<%== $bf->spread_attrs($props) %>`), but
+    // `render_child` doesn't plumb the rest-spread bag into the child
+    // template's scope, so rendering dies with `Global symbol "$props"
+    // requires explicit package name`. The Go adapter plumbs the same
+    // bag via the `Spread_0`/`Extras map[string]any` Input field, so it
+    // renders fine; Mojo needs the equivalent render_child plumbing.
+    // The fixture exists to pin the CSR layer of #1633 (children
+    // materialization), which Hono / Go / CSR all verify — Mojo's
+    // spread-bag-in-child gap is orthogonal. Same class of spread-bag
+    // limitation that keeps `jsx-spread-rest-prop` /
+    // `jsx-spread-props-object` off the CSR conformance path.
+    'native-select-spread-children',
   ],
   // Per-fixture build-time contracts for shapes the Mojo adapter
   // intentionally refuses to lower. Owned by this adapter test file
