@@ -2,4 +2,4 @@
 "@barefootjs/client": patch
 ---
 
-Fix mapArray hydration not removing excess SSR nodes and CSR-created child components lacking event handlers
+mapArray: remove orphaned SSR nodes during hydration when the client signal has fewer items than the server rendered (#1627 bug 1).
