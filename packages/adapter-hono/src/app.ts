@@ -88,25 +88,72 @@ export function relPathFromComponentsBase(p: string): string {
 
 // ── JSX components ─────────────────────────────────────────────────────────
 
+/**
+ * Shape of `barefoot-externals.json`, written by `bf build` when
+ * `externals` / `bundleEntries` are configured. Only the fields
+ * `BfImportMap` consumes are typed here; the build also emits an
+ * `externals` array (the `--external` list) which the importmap
+ * doesn't need. Fields are optional so a partial/hand-written
+ * manifest still type-checks. See issue #1639.
+ */
+export interface BarefootExternalsManifest {
+  /** Entries for the `<script type="importmap">`. */
+  importmap?: { imports?: Record<string, string> }
+  /** URLs to emit as `<link rel="modulepreload">`. */
+  preloads?: string[]
+}
+
 export interface BfImportMapProps {
   /** Base URL where the runtime + component bundles are served. */
   base: string
+  /**
+   * Contents of `barefoot-externals.json` (import it and pass it
+   * through). Its `importmap.imports` are merged on top of the
+   * built-in `@barefootjs/client*` mappings so islands importing
+   * configured externals (e.g. `zod`, `@barefootjs/form`) resolve in
+   * the browser. When omitted, only the `@barefootjs/client*`
+   * mappings are emitted — the pre-#1639 behavior.
+   */
+  externals?: BarefootExternalsManifest
+  /**
+   * Whether to also emit `<link rel="modulepreload">` for the
+   * manifest's `preloads`. Defaults to `true`; set `false` to emit
+   * the importmap only.
+   */
+  preload?: boolean
 }
 
 /**
  * Emits the `<script type="importmap">` that maps the bare
  * `@barefootjs/client` / `@barefootjs/client/runtime` specifiers to
- * the runtime bundle. Place in `<head>`.
+ * the runtime bundle, plus any externals from `barefoot-externals.json`
+ * passed via the `externals` prop. Also emits `<link rel="modulepreload">`
+ * for the manifest's `preloads` unless `preload` is `false`. Place in
+ * `<head>`.
  */
 export function BfImportMap(props: BfImportMapProps): HtmlEscapedString | Promise<HtmlEscapedString> {
   const base = props.base.replace(/\/$/, '')
-  const json = JSON.stringify({
-    imports: {
-      '@barefootjs/client': `${base}/barefoot.js`,
-      '@barefootjs/client/runtime': `${base}/barefoot.js`,
-    },
-  })
-  return html`<script type="importmap">${raw(json)}</script>`
+  // Built-in defaults first, then manifest imports so a configured
+  // `@barefootjs/client` mapping (emitted by `bf build` against the
+  // build's `externalsBasePath`) wins over the prop-derived one.
+  const imports: Record<string, string> = {
+    '@barefootjs/client': `${base}/barefoot.js`,
+    '@barefootjs/client/runtime': `${base}/barefoot.js`,
+    ...(props.externals?.importmap?.imports ?? {}),
+  }
+  const json = JSON.stringify({ imports })
+
+  const preloads = props.preload === false ? [] : props.externals?.preloads ?? []
+  const links = preloads
+    .map((href) => `<link rel="modulepreload" href="${escapeAttr(href)}">`)
+    .join('')
+
+  return html`<script type="importmap">${raw(json)}</script>${raw(links)}`
+}
+
+/** Minimal double-quoted-attribute escaping for config-derived URLs. */
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 }
 
 export interface BfScriptsProps {
