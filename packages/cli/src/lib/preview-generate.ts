@@ -70,7 +70,10 @@ function resolveExternalTagImport(
  */
 function emitJsxReturn(lines: string[], jsx: string, indent: string = '  '): void {
   const jsxLines = jsx.split('\n')
-  const rootElements = jsxLines.filter(l => /^\s*<[A-Z]/.test(l) || /^\s*<[a-z]/.test(l))
+  // Count root-level elements by finding the minimum indentation
+  const tagLines = jsxLines.filter(l => /^\s*<[A-Za-z]/.test(l))
+  const minIndent = Math.min(...tagLines.map(l => l.match(/^(\s*)/)?.[1].length ?? 0))
+  const rootElements = tagLines.filter(l => (l.match(/^(\s*)/)?.[1].length ?? 0) === minIndent)
   const needsFragment = rootElements.length > 1 && !jsx.trim().startsWith('<>')
 
   if (jsxLines.length === 1 && !needsFragment) {
@@ -155,26 +158,37 @@ export function generatePreview(
     lines.push("import { createSignal } from '@barefootjs/client'")
   }
 
-  const componentImports = [pascalName]
   const subNames: string[] = []
   if (hasSubComponents) {
     for (const sub of meta.subComponents!) {
-      componentImports.push(sub.name)
       subNames.push(sub.name)
     }
   }
-  // Collect external tags from example code and group imports by source
+
+  // Build import map: group names by source module.
+  // Start with known component + sub-component names from this module.
   const importsBySource = new Map<string, string[]>()
-  importsBySource.set(`../${meta.name}`, [...componentImports])
+  const moduleNames = [pascalName, ...subNames]
 
   if (hasSubComponents && exampleCode) {
-    const knownNames = new Set([pascalName, ...subNames])
+    // For multi-component, derive imports from tags actually used in the example
+    const allTags = [...exampleCode.matchAll(/<([A-Z][a-zA-Z0-9]*)/g)].map(m => m[1])
+    const usedFromModule = [...new Set(allTags.filter(t => moduleNames.includes(t)))]
+    if (usedFromModule.length > 0) {
+      importsBySource.set(`../${meta.name}`, usedFromModule)
+    }
+    // External tags not in the module
+    const knownNames = new Set(moduleNames)
     for (const tag of findExternalTags(exampleCode, knownNames)) {
       const resolved = resolveExternalTagImport(tag, meta.name, pascalName)
+      // May resolve to the same module (e.g. TypographyH1 → ../typography)
       const list = importsBySource.get(resolved.from) ?? []
       if (!list.includes(resolved.name)) list.push(resolved.name)
       importsBySource.set(resolved.from, list)
     }
+  } else {
+    // Non-multi-component or no examples: import root + sub-components
+    importsBySource.set(`../${meta.name}`, moduleNames)
   }
 
   for (const [from, names] of importsBySource) {
