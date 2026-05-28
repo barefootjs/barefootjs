@@ -36,9 +36,10 @@ function escapeHtmlAttr(value: string): string {
  * snippet from a parsed externals manifest. Fields are read defensively so a
  * partial or hand-written manifest still produces valid output.
  *
- * `<` is escaped to `<` inside the importmap JSON so a URL containing
- * `</script>` cannot break out of the script element — the JSON parser decodes
- * the escape back to `<`, keeping the mapping value-identical.
+ * Inside the importmap JSON, each `<` is replaced with its JSON unicode escape
+ * for code point U+003C so a URL containing `</script>` cannot break out of the
+ * script element — the JSON parser decodes that escape back to `<`, keeping the
+ * mapping value-identical.
  */
 export function renderImportMapHtml(manifest: {
   importmap?: { imports?: Record<string, string> }
