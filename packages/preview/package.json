@@ -8,6 +8,8 @@
     ".": "./src/index.tsx"
   },
   "dependencies": {
+    "@barefootjs/client": "workspace:*",
+    "@barefootjs/jsx": "workspace:*",
     "esbuild": "^0.25.0"
   },
   "devDependencies": {

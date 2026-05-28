@@ -1,18 +1,24 @@
 // Preview compiler pipeline (CSR mode)
 //
-// Bundles preview files for client-side rendering using esbuild
-// with a custom DOM-based JSX runtime.
+// Compiles the preview file and its component dependencies to client JS
+// via the barefoot compiler, then bundles for the browser. Components are
+// rendered client-side with the runtime's render() — full reactivity, no
+// SSR server. Uses CSRAdapter (no Hono dependency).
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
-import { resolve, dirname } from 'node:path'
+import { resolve, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { build, type Plugin } from 'esbuild'
+import { build } from 'esbuild'
+import { compileJSX, combineParentChildClientJs, formatError } from '@barefootjs/jsx'
+import { CSRAdapter } from '@barefootjs/client/build'
+import { hasUseClientDirective, discoverComponentFiles } from '../../cli/src/lib/build'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = resolve(__dirname, '../../..')
+const UI_COMPONENTS_DIR = resolve(ROOT_DIR, 'ui/components')
 const DIST_DIR = resolve(ROOT_DIR, '.preview-dist')
-const JSX_RUNTIME_DIR = __dirname
+const MODULES_DIR = resolve(DIST_DIR, '_modules')
 
 export interface CompileOptions {
   previewsPath: string
@@ -27,7 +33,7 @@ export interface CompileResult {
 export async function compile(options: CompileOptions): Promise<CompileResult> {
   const { previewsPath, previewNames, componentName } = options
 
-  await mkdir(DIST_DIR, { recursive: true })
+  await mkdir(MODULES_DIR, { recursive: true })
 
   // 1. Generate CSS from token JSON
   const { loadTokens, mergeTokenSets, generateCSS } = await import(
@@ -50,49 +56,89 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   ], { cwd: resolve(ROOT_DIR, 'site/ui'), stdio: 'inherit' })
   console.log('Generated: .preview-dist/uno.css')
 
-  // 3. Generate browser entry point that imports previews and mounts them
-  const entrySource = generateEntryScript(previewsPath, previewNames)
-  const entryPath = resolve(DIST_DIR, '_entry.tsx')
+  // 3. Compile preview file + all component dependencies to client JS
+  console.log('Compiling components...')
+  const componentFiles = await discoverComponentFiles(UI_COMPONENTS_DIR, {
+    skipDirs: ['__previews__', '__tests__', 'shared'],
+  })
+  const allFiles = [...componentFiles, previewsPath]
+  const adapter = new CSRAdapter()
+
+  // Map<unique key, clientJs> for combineParentChildClientJs
+  const clientJsByKey = new Map<string, string>()
+  for (const filePath of allFiles) {
+    const source = await readFile(filePath, 'utf-8')
+    const result = compileJSX(source, filePath, { adapter })
+    const errors = result.errors.filter(e => e.severity === 'error')
+    if (errors.length > 0) {
+      for (const e of errors) console.error(formatError(e, source, { projectDir: ROOT_DIR }))
+      continue
+    }
+    const clientJs = result.files.find(f => f.type === 'clientJs')?.content
+    if (!clientJs) continue
+    const key = relative(ROOT_DIR, filePath).replace(/\.tsx$/, '')
+    clientJsByKey.set(key, clientJs)
+  }
+
+  // 4. Inline parent-child client JS (resolves @bf-child markers)
+  const combined = combineParentChildClientJs(clientJsByKey)
+
+  // 5. Write each combined module as an importable JS file
+  const previewKey = relative(ROOT_DIR, previewsPath).replace(/\.tsx$/, '')
+  const moduleFiles: string[] = []
+  for (const [key, content] of combined) {
+    const safeName = key.replace(/[/\\]/g, '__') + '.js'
+    await writeFile(resolve(MODULES_DIR, safeName), content)
+    moduleFiles.push(safeName)
+  }
+  const previewModuleFile = previewKey.replace(/[/\\]/g, '__') + '.js'
+
+  // 6. Generate browser entry: register all modules, render each preview
+  const entrySource = generateEntryScript(moduleFiles, previewModuleFile, previewNames)
+  const entryPath = resolve(DIST_DIR, '_entry.js')
   await writeFile(entryPath, entrySource)
 
-  // 4. Bundle with esbuild using our DOM-based JSX runtime
+  // 7. Bundle with esbuild. Alias the runtime to the self-contained
+  //    standalone bundle so it resolves to a single shared instance.
   console.log('Bundling for browser...')
+  const runtimeStandalone = resolve(ROOT_DIR, 'packages/client/dist/runtime/standalone.js')
   await build({
     entryPoints: [entryPath],
-    outdir: DIST_DIR,
+    outfile: resolve(DIST_DIR, '_bundle.js'),
     bundle: true,
     format: 'esm',
     platform: 'browser',
     minify: false,
     sourcemap: 'inline',
-    jsx: 'automatic',
-    jsxImportSource: JSX_RUNTIME_DIR,
-    define: {
-      'process.env.NODE_ENV': '"development"',
-    },
-    plugins: [jsxRuntimePlugin()],
+    absWorkingDir: ROOT_DIR,
+    alias: { '@barefootjs/client/runtime': runtimeStandalone },
+    define: { 'process.env.NODE_ENV': '"development"' },
   })
-  console.log('Generated: .preview-dist/_entry.js')
+  console.log('Generated: .preview-dist/_bundle.js')
 
-  // 5. Generate index.html
-  const html = generateHTML(componentName)
-  await writeFile(resolve(DIST_DIR, 'index.html'), html)
+  // 8. Generate index.html
+  await writeFile(resolve(DIST_DIR, 'index.html'), generateHTML(componentName))
   console.log('Generated: .preview-dist/index.html')
 
   return { distDir: DIST_DIR }
 }
 
-function generateEntryScript(previewsPath: string, previewNames: string[]): string {
-  const jsxRuntimePath = resolve(JSX_RUNTIME_DIR, 'jsx-runtime.ts')
-  const names = previewNames.join(', ')
-  return `
-import { mount } from '${jsxRuntimePath}'
-import { ${names} } from '${previewsPath}'
+function generateEntryScript(
+  moduleFiles: string[],
+  previewModuleFile: string,
+  previewNames: string[],
+): string {
+  // Import all component modules first (side-effect: hydrate registration),
+  // ensuring the preview module is imported (it registers the preview fns).
+  const imports = moduleFiles.map(f => `import './_modules/${f}'`).join('\n')
+  const namesJson = JSON.stringify(previewNames)
+  return `import { render } from '@barefootjs/client/runtime'
+${imports}
 
-const previews = { ${names} }
-const app = document.getElementById('preview-root')!
+const previews = ${namesJson}
+const app = document.getElementById('preview-root')
 
-for (const [name, Preview] of Object.entries(previews)) {
+for (const name of previews) {
   const section = document.createElement('div')
   section.className = 'preview-section'
   section.dataset.preview = name
@@ -103,11 +149,18 @@ for (const [name, Preview] of Object.entries(previews)) {
   section.appendChild(title)
 
   const content = document.createElement('div')
-  mount((Preview as Function)(), content)
   section.appendChild(content)
-
   app.appendChild(section)
+
+  try {
+    render(content, name, {})
+  } catch (err) {
+    content.textContent = 'Render error: ' + (err && err.message || err)
+    console.error('[preview]', name, err)
+  }
 }
+// referenced so esbuild keeps the preview module's registrations
+void '${previewModuleFile}'
 `
 }
 
@@ -182,22 +235,7 @@ function generateHTML(componentName: string): string {
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
     </svg>
   </button>
-  <script type="module" src="/_entry.js"></script>
+  <script type="module" src="/_bundle.js"></script>
 </body>
 </html>`
-}
-
-function jsxRuntimePlugin(): Plugin {
-  return {
-    name: 'preview-jsx',
-    setup(build) {
-      build.onLoad({ filter: /\.tsx$/ }, async (args) => {
-        let contents = await readFile(args.path, 'utf-8')
-        contents = contents.replace(/^['"]use client['"];?\s*\n?/m, '')
-        contents = contents.replace(/\/\*\*?\s*@jsxImportSource\s+[^\s*]+\s*\*\//g, '')
-        contents = `/** @jsxImportSource ${JSX_RUNTIME_DIR} */\n${contents}`
-        return { contents, loader: 'tsx' }
-      })
-    },
-  }
 }
