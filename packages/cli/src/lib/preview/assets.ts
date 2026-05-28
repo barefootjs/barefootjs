@@ -109,7 +109,8 @@ export async function resolvePreviewAssets(ctx: CliContext): Promise<PreviewAsse
   if (!unoBin) {
     throw new PreviewError(
       'UnoCSS CLI not found. Install it in your project to generate preview styles:\n' +
-      '  npm install -D unocss @unocss/cli',
+      '  npm install -D unocss@^66 @unocss/cli@^66\n' +
+      "(v66 matches the bundled config's presetWind4; older majors won't generate the same utilities.)",
     )
   }
 
