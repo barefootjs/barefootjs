@@ -21,6 +21,11 @@ equivalent of Hono's `BfImportMap` component, so a project configuring
   adapter declares how it exposes the importmap. Hono is `'component'` (no
   snippet emitted); Go/Mojo are `'html-snippet'`.
 - New `renderImportMapHtml` + `ExternalsManifest` exports from `@barefootjs/jsx`
-  are the single source of truth for the snippet HTML.
+  (and a zero-dependency `@barefootjs/jsx/import-map` subpath) are the single
+  source of truth for the snippet HTML. Hono's `BfImportMap` now delegates to it
+  so the component and snippet paths cannot drift — the snippet inherits Hono's
+  `crossorigin` modulepreload fix (#1648) and the `<`-escaped importmap JSON.
 - New cross-adapter `assertImportMapInjectionContract` in `@barefootjs/adapter-tests`
-  fails if a new adapter ships without an importmap injection point.
+  fails if a new adapter ships without an importmap injection point, and now also
+  asserts parity: the external must resolve *through* the importmap and every
+  `modulepreload` hint must carry `crossorigin`.

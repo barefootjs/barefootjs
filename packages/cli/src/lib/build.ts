@@ -1418,7 +1418,7 @@ export async function processExternals(
   // component layer like Hono's `BfImportMap`, so emit a ready-to-include
   // importmap snippet they can `{{ template }}` / `%= include` into <head>
   // (#1644). Component adapters inject the importmap at render time instead.
-  if (config.adapter?.importMapInjection === 'html-snippet') {
+  if (config.adapter.importMapInjection === 'html-snippet') {
     const snippetPath = resolve(config.outDir, 'barefoot-importmap.html')
     if (await writeIfChanged(snippetPath, renderImportMapHtml(manifest))) {
       anyChanged = true

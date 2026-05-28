@@ -551,7 +551,7 @@ describe('processExternals', () => {
       const imports = JSON.parse(html.match(/<script type="importmap">(.*?)<\/script>/s)[1]).imports
       expect(imports.lodash).toBe('https://esm.sh/lodash@4.17.21')
       expect(imports['@barefootjs/client']).toBe('/static/components/barefoot.js')
-      expect(html).toContain('<link rel="modulepreload" href="https://esm.sh/lodash@4.17.21">')
+      expect(html).toContain('<link rel="modulepreload" href="https://esm.sh/lodash@4.17.21" crossorigin>')
     } finally {
       rmSync(outDir, { recursive: true, force: true })
     }

@@ -48,7 +48,12 @@ export function renderImportMapHtml(manifest: {
   const json = JSON.stringify({ imports }).replace(/</g, '\\u003c')
   const lines = [`<script type="importmap">${json}</script>`]
   for (const href of manifest.preloads ?? []) {
-    lines.push(`<link rel="modulepreload" href="${escapeHtmlAttr(href)}">`)
+    // `crossorigin` is required so a cross-origin (CDN) preload's request
+    // matches the actual module `import` (always a CORS fetch); without it
+    // the browser discards the preload and re-fetches. Harmless for
+    // same-origin preloads, which use the same credentials mode either way.
+    // See issue #1648.
+    lines.push(`<link rel="modulepreload" href="${escapeHtmlAttr(href)}" crossorigin>`)
   }
   return lines.join('\n') + '\n'
 }

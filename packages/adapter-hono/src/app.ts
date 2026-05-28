@@ -30,6 +30,9 @@ import type { MiddlewareHandler } from 'hono'
 import { html, raw } from 'hono/html'
 import type { HtmlEscapedString } from 'hono/utils/html'
 import { useRequestContext } from 'hono/jsx-renderer'
+// Zero-dependency subpath — keeps the compiler (and its `typescript` dep) out
+// of this runtime/Workers-bundled module while sharing one importmap renderer.
+import { renderImportMapHtml } from '@barefootjs/jsx/import-map'
 import { createDevReloader } from './dev-worker'
 
 const DEV_RELOAD_ENDPOINT_KEY = 'bfDevReloadEndpoint'
@@ -130,6 +133,15 @@ export interface BfImportMapProps {
  * passed via the `externals` prop. Also emits `<link rel="modulepreload">`
  * for the manifest's `preloads` unless `preload` is `false`. Place in
  * `<head>`.
+ *
+ * The merge of the `@barefootjs/client*` defaults (synthesized from `base`
+ * for prop-less / hand-written manifests) is Hono-specific; the actual HTML
+ * rendering — importmap JSON escaping, `<link rel="modulepreload">`
+ * emission with `crossorigin` (#1648) — is delegated to the shared
+ * `renderImportMapHtml` so this path can never drift from the static
+ * `barefoot-importmap.html` snippet `bf build` emits for template-string
+ * adapters (#1644). Imported from the `@barefootjs/jsx/import-map` subpath,
+ * a zero-dependency module, to keep this runtime file free of the compiler.
  */
 export function BfImportMap(props: BfImportMapProps): HtmlEscapedString | Promise<HtmlEscapedString> {
   const base = props.base.replace(/\/$/, '')
@@ -141,24 +153,9 @@ export function BfImportMap(props: BfImportMapProps): HtmlEscapedString | Promis
     '@barefootjs/client/runtime': `${base}/barefoot.js`,
     ...(props.externals?.importmap?.imports ?? {}),
   }
-  const json = JSON.stringify({ imports })
-
   const preloads = props.preload === false ? [] : props.externals?.preloads ?? []
-  // `crossorigin` is required so a cross-origin (CDN) preload's request
-  // matches the actual module `import` (always a CORS fetch); without it
-  // the browser discards the preload and re-fetches. It's harmless for
-  // same-origin module preloads, which use the same credentials mode
-  // whether or not the attribute is present. See issue #1648.
-  const links = preloads
-    .map((href) => `<link rel="modulepreload" href="${escapeAttr(href)}" crossorigin>`)
-    .join('')
 
-  return html`<script type="importmap">${raw(json)}</script>${raw(links)}`
-}
-
-/** Minimal double-quoted-attribute escaping for config-derived URLs. */
-function escapeAttr(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+  return html`${raw(renderImportMapHtml({ importmap: { imports }, preloads }))}`
 }
 
 export interface BfScriptsProps {

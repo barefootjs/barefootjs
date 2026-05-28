@@ -40,18 +40,35 @@ export interface ImportMapInjectionFacts {
    */
   renderedImportMap: string
   /**
-   * A bare specifier from the sample manifest's externals (e.g. `zod`) that the
-   * rendered importmap MUST resolve. Proves the adapter actually consumes the
-   * manifest rather than hardcoding only the `@barefootjs/client*` defaults —
-   * the exact regression behind #1639.
+   * The URL a sample external (e.g. `zod`) resolves to in the manifest. The
+   * contract requires this to appear as a *value inside the importmap's
+   * `imports`* — not merely somewhere in the markup — proving the adapter
+   * actually consumes the manifest rather than hardcoding only the
+   * `@barefootjs/client*` defaults (the regression behind #1639). Pass a URL
+   * that the sample manifest also lists in `preloads` so the `crossorigin`
+   * parity check below is exercised too.
    */
   externalSpecifier: string
+}
+
+/** Extract the parsed `imports` object from a `<script type="importmap">`. */
+function parseImportMap(markup: string): Record<string, string> {
+  const match = markup.match(/<script type="importmap">(.*?)<\/script>/s)
+  if (!match) throw new Error('no <script type="importmap"> in injected markup')
+  return JSON.parse(match[1]).imports ?? {}
 }
 
 /**
  * Assert that an adapter satisfies the importmap-injection contract. Call from
  * a per-adapter (or the shared) test after extracting the facts from that
  * adapter's machinery.
+ *
+ * Beyond presence checks, this asserts the parity properties that keep the
+ * component path (Hono's `BfImportMap`) and the html-snippet path
+ * (`renderImportMapHtml`) from drifting: the external must resolve *through
+ * the importmap*, and every `modulepreload` hint must carry `crossorigin`
+ * (#1648). A weaker "substring somewhere in the markup" check let both the
+ * #1648 omission and an empty-importmap-with-matching-preload slip through.
  */
 export function assertImportMapInjectionContract(facts: ImportMapInjectionFacts): void {
   expect(
@@ -64,8 +81,21 @@ export function assertImportMapInjectionContract(facts: ImportMapInjectionFacts)
     `${facts.adapterName}: injected markup is missing <script type="importmap">`,
   ).toBe(true)
 
+  // The external must be resolved BY the importmap (a value in `imports`),
+  // not just present anywhere in the markup (e.g. only in a preload <link>).
+  const importValues = Object.values(parseImportMap(facts.renderedImportMap))
   expect(
-    facts.renderedImportMap.includes(facts.externalSpecifier),
-    `${facts.adapterName}: injected importmap does not resolve external "${facts.externalSpecifier}" — the manifest is being ignored (#1639)`,
+    importValues.includes(facts.externalSpecifier),
+    `${facts.adapterName}: importmap does not resolve external "${facts.externalSpecifier}" — the manifest is being ignored (#1639)`,
   ).toBe(true)
+
+  // Every modulepreload hint must carry `crossorigin` so cross-origin (CDN)
+  // preloads match the actual CORS module fetch and are not discarded (#1648).
+  const preloadLinks = facts.renderedImportMap.match(/<link\b[^>]*\brel="modulepreload"[^>]*>/g) ?? []
+  for (const link of preloadLinks) {
+    expect(
+      /\bcrossorigin\b/.test(link),
+      `${facts.adapterName}: modulepreload hint missing crossorigin (#1648): ${link}`,
+    ).toBe(true)
+  }
 }

@@ -36,13 +36,13 @@ describe('renderImportMapHtml', () => {
     expect(html).not.toContain('modulepreload')
   })
 
-  test('emits modulepreload links for manifest preloads', () => {
+  test('emits modulepreload links with crossorigin for manifest preloads (#1648)', () => {
     const html = renderImportMapHtml({
       importmap: { imports: {} },
       preloads: ['/components/form.js', 'https://esm.sh/zod@4.4.3'],
     })
-    expect(html).toContain('<link rel="modulepreload" href="/components/form.js">')
-    expect(html).toContain('<link rel="modulepreload" href="https://esm.sh/zod@4.4.3">')
+    expect(html).toContain('<link rel="modulepreload" href="/components/form.js" crossorigin>')
+    expect(html).toContain('<link rel="modulepreload" href="https://esm.sh/zod@4.4.3" crossorigin>')
   })
 
   test('reads defensively from a partial manifest', () => {
