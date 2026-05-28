@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { render } from '../../src/runtime/render'
-import { createComponent } from '../../src/runtime/component'
+import { createComponent, renderChild } from '../../src/runtime/component'
+import { $c } from '../../src/runtime/query'
 import { registerComponent } from '../../src/runtime/registry'
 import { registerTemplate } from '../../src/runtime/template'
 import { hydratedScopes } from '../../src/runtime/hydration-state'
@@ -113,6 +114,58 @@ describe('render', () => {
 
     const element = container.firstElementChild!
     expect(hydratedScopes.has(element)).toBe(true)
+  })
+})
+
+describe('render multi-root (fragment) templates', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  test('appends every root element, not just the first', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+
+    registerTestComponent(
+      'RenderTest_MultiRoot',
+      () => {},
+      () => `<h1>one</h1><h2>two</h2><h3>three</h3>`
+    )
+
+    render(container, 'RenderTest_MultiRoot')
+
+    const headings = container.querySelectorAll('h1, h2, h3')
+    expect(headings.length).toBe(3)
+    expect(container.textContent).toBe('onetwothree')
+  })
+
+  test('resolves sibling child scopes via the comment-scope range', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+
+    registerTestComponent('FragLeafA', () => {}, (p) => `<h1 data-slot="a">${p.children}</h1>`)
+    registerTestComponent('FragLeafB', () => {}, (p) => `<h2 data-slot="b">${p.children}</h2>`)
+
+    const resolved: (Element | null)[] = []
+    registerTestComponent(
+      'RenderTest_Frag',
+      (scope) => {
+        const [s0, s1] = $c(scope, 's0', 's1')
+        resolved.push(s0, s1)
+      },
+      () =>
+        `${renderChild('FragLeafA', { children: 'one' }, undefined, 's0')}` +
+        `${renderChild('FragLeafB', { children: 'two' }, undefined, 's1')}`
+    )
+
+    render(container, 'RenderTest_Frag', {})
+
+    // Both roots mounted (regression: previously only the first sibling).
+    expect(container.querySelector('[data-slot="a"]')?.textContent).toBe('one')
+    expect(container.querySelector('[data-slot="b"]')?.textContent).toBe('two')
+    // $c() from init resolved the *second* sibling, not just s0.
+    expect(resolved[0]?.getAttribute('data-slot')).toBe('a')
+    expect(resolved[1]?.getAttribute('data-slot')).toBe('b')
   })
 })
 

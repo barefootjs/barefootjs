@@ -6,10 +6,11 @@
  * never import this module.
  */
 
-import { BF_SCOPE } from '@barefootjs/shared'
+import { BF_SCOPE, BF_SCOPE_COMMENT_PREFIX } from '@barefootjs/shared'
 import { setParentScopeId } from './component'
 import { hydratedScopes } from './hydration-state'
 import { getComponentInit } from './registry'
+import { commentScopeRegistry } from './scope'
 import { getTemplate, type TemplateFn } from './template'
 import type { ComponentDef, InitFn } from './types'
 
@@ -86,20 +87,41 @@ export function render(
 
   const tpl = document.createElement('template')
   tpl.innerHTML = html
-  const element = tpl.content.firstChild as HTMLElement
 
-  if (!element) {
+  const rootElements = Array.from(tpl.content.childNodes).filter(
+    (n): n is HTMLElement => n.nodeType === Node.ELEMENT_NODE
+  )
+
+  if (rootElements.length === 0) {
     throw new Error('[BarefootJS] render(): template returned empty HTML')
   }
 
-  if (!element.getAttribute(BF_SCOPE)) {
-    element.setAttribute(BF_SCOPE, scopeId)
+  container.innerHTML = ''
+
+  if (rootElements.length === 1) {
+    const element = rootElements[0]
+    if (!element.getAttribute(BF_SCOPE)) {
+      element.setAttribute(BF_SCOPE, scopeId)
+    }
+    container.appendChild(element)
+    init(element, props)
+    hydratedScopes.add(element)
+    return
   }
 
-  container.innerHTML = ''
-  container.appendChild(element)
+  // Multi-root (fragment) template: the child scopes are siblings, not
+  // descendants of one root, so $c() can't resolve them by subtree walk.
+  // Recreate the SSR fragment layout — a `bf-scope:` comment marker followed
+  // by the sibling roots — and register it so candidatesInScope() walks the
+  // comment range. Without this only the first root would hydrate.
+  const commentNode = document.createComment(`${BF_SCOPE_COMMENT_PREFIX}${scopeId}`)
+  container.appendChild(commentNode)
+  for (const node of Array.from(tpl.content.childNodes)) {
+    container.appendChild(node)
+  }
 
-  init(element, props)
-
-  hydratedScopes.add(element)
+  const proxyEl = rootElements[0]
+  commentScopeRegistry.set(proxyEl, { commentNode, scopeId })
+  init(proxyEl, props)
+  hydratedScopes.add(proxyEl)
 }
