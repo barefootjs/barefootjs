@@ -77,7 +77,13 @@ function emitJsxReturn(lines: string[], jsx: string, indent: string = '  '): voi
   const needsFragment = rootElements.length > 1 && !jsx.trim().startsWith('<>')
 
   if (jsxLines.length === 1 && !needsFragment) {
-    lines.push(`${indent}return ${jsx}`)
+    // Single line may still have multiple root elements: <A /><B />
+    const singleLineRoots = (jsx.match(/<[A-Za-z]/g) ?? []).length
+    if (singleLineRoots > 1) {
+      lines.push(`${indent}return (<>${jsx}</>)`)
+    } else {
+      lines.push(`${indent}return ${jsx}`)
+    }
   } else {
     lines.push(`${indent}return (`)
     if (needsFragment) lines.push(`${indent}  <>`)
