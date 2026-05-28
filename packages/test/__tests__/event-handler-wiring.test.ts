@@ -197,4 +197,63 @@ describe('EventHandler wiring on TestNode', () => {
     expect(th!.onClick).toBeDefined()
     expect(th!.onClick!.setters).toHaveLength(0)
   })
+
+  test('resolves event handler on a component prop (onClick)', () => {
+    // The parent IR sees `<Button onClick={...}>` as a prop, not a DOM event.
+    // It should still resolve the wiring on the component TestNode.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Button } from './Button'
+
+      export function Panel() {
+        const [count, setCount] = createSignal(0)
+        return <Button onClick={() => setCount(0)}>Reset</Button>
+      }
+    `
+    const result = renderToTest(source, 'Panel.tsx')
+    const btn = result.find({ componentName: 'Button' })
+    expect(btn).not.toBeNull()
+    expect(btn!.events).toContain('click')
+    expect(btn!.onClick).toBeDefined()
+    expect(btn!.onClick!.setters).toContain('setCount')
+  })
+
+  test('resolves custom callback props (onCheckedChange) via on()', () => {
+    // Component callback props are not DOM events; keyed by the prop name with
+    // `on` stripped and first char lowercased: onCheckedChange -> checkedChange.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Switch } from './Switch'
+
+      export function Form() {
+        const [enabled, setEnabled] = createSignal(false)
+        return <Switch onCheckedChange={(v) => setEnabled(v)} />
+      }
+    `
+    const result = renderToTest(source, 'Form.tsx')
+    const sw = result.find({ componentName: 'Switch' })
+    expect(sw!.events).toContain('checkedChange')
+    expect(sw!.on('checkedChange')).not.toBeNull()
+    expect(sw!.on('checkedChange')!.setters).toContain('setEnabled')
+  })
+
+  test('resolves component prop handler through a local function (via chain)', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      import { Button } from './Button'
+
+      export function Panel() {
+        const [items, setItems] = createSignal([])
+        const reset = () => setItems([])
+        return <Button onClick={reset}>Clear</Button>
+      }
+    `
+    const result = renderToTest(source, 'Panel.tsx')
+    const btn = result.find({ componentName: 'Button' })
+    expect(btn!.onClick!.setters).toContain('setItems')
+    expect(btn!.onClick!.via).toContain('reset')
+  })
 })

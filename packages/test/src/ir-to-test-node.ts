@@ -253,6 +253,8 @@ function convertLoop(node: IRLoop, ctx: ConvertContext): TestNode {
 
 function convertComponent(node: IRComponent, ctx: ConvertContext): TestNode {
   const props: Record<string, string | boolean | null> = {}
+  const events: string[] = []
+  const handlers: Record<string, EventHandler> = {}
   for (const prop of node.props) {
     switch (prop.value.kind) {
       case 'literal':
@@ -273,6 +275,19 @@ function convertComponent(node: IRComponent, ctx: ConvertContext): TestNode {
         props[prop.name] = null
         break
     }
+
+    // Component callback props that look like event handlers
+    // (`<Button onClick={...}>`). The parent IR sees these as props, but for
+    // wiring they behave like events: when the callback fires, which setters
+    // run. Keyed by the DOM-style event name (`onClick` -> `click`) so the
+    // shorthand getters and `on()` work the same as for native elements.
+    if (/^on[A-Z]/.test(prop.name) && prop.value.kind === 'expression') {
+      const eventName = prop.name.charAt(2).toLowerCase() + prop.name.slice(3)
+      events.push(eventName)
+      handlers[eventName] = refsToHandler(
+        resolveSetters(prop.value.expr, ctx.setterToSignal, ctx.fnSetters),
+      )
+    }
   }
 
   const children = node.children.map(c => convert(c, ctx))
@@ -287,8 +302,8 @@ function convertComponent(node: IRComponent, ctx: ConvertContext): TestNode {
     role: null,
     aria: {},
     dataState: null,
-    events: [],
-    handlers: {},
+    events,
+    handlers,
     reactive: false,
     componentName: node.name,
   })
