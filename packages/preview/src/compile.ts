@@ -5,14 +5,15 @@
 // rendered client-side with the runtime's render() — full reactivity, no
 // SSR server. Uses CSRAdapter (no Hono dependency).
 
-import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { resolve, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { compileJSX, combineParentChildClientJs, formatError } from '@barefootjs/jsx'
 import { CSRAdapter } from '@barefootjs/client/build'
-import { hasUseClientDirective, discoverComponentFiles } from '../../cli/src/lib/build'
+import { discoverComponentFiles } from '../../cli/src/lib/build'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = resolve(__dirname, '../../..')
@@ -47,9 +48,16 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   await writeFile(resolve(DIST_DIR, 'globals.css'), tokensCSS + '\n' + globalsCSS)
   console.log('Generated: .preview-dist/globals.css')
 
-  // 2. Generate UnoCSS
+  // 2. Generate UnoCSS. Resolve the bin from the preview package first,
+  //    falling back to the workspace root (deps may be hoisted there).
   console.log('Generating UnoCSS...')
-  const unocssbin = resolve(__dirname, '../node_modules/.bin/unocss')
+  const unocssbin = [
+    resolve(__dirname, '../node_modules/.bin/unocss'),
+    resolve(ROOT_DIR, 'node_modules/.bin/unocss'),
+  ].find(existsSync)
+  if (!unocssbin) {
+    throw new Error('unocss CLI not found in preview or root node_modules — run `bun install`')
+  }
   execFileSync(unocssbin, [
     '../../ui/components/**/*.tsx', './**/*.tsx', './dist/**/*.tsx',
     '-o', resolve(DIST_DIR, 'uno.css'),
@@ -64,37 +72,60 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   const allFiles = [...componentFiles, previewsPath]
   const adapter = new CSRAdapter()
 
-  // Map<unique key, clientJs> for combineParentChildClientJs
+  // Map<unique key, clientJs> for combineParentChildClientJs.
+  // Track the preview file's own compile result so we can fail loudly
+  // if it didn't produce a registerable module (otherwise the page
+  // would silently throw "Component not registered" at runtime).
+  const previewKey = relative(ROOT_DIR, previewsPath).replace(/\.tsx$/, '')
   const clientJsByKey = new Map<string, string>()
+  let previewProducedClientJs = false
   for (const filePath of allFiles) {
     const source = await readFile(filePath, 'utf-8')
+    const isPreview = filePath === previewsPath
     const result = compileJSX(source, filePath, { adapter })
     const errors = result.errors.filter(e => e.severity === 'error')
+    const warnings = result.errors.filter(e => e.severity === 'warning')
+    for (const w of warnings) console.warn(formatError(w, source, { projectDir: ROOT_DIR }))
     if (errors.length > 0) {
       for (const e of errors) console.error(formatError(e, source, { projectDir: ROOT_DIR }))
+      if (isPreview) {
+        throw new Error(`Preview compilation failed for ${previewKey} (see errors above).`)
+      }
       continue
     }
     const clientJs = result.files.find(f => f.type === 'clientJs')?.content
     if (!clientJs) continue
     const key = relative(ROOT_DIR, filePath).replace(/\.tsx$/, '')
     clientJsByKey.set(key, clientJs)
+    if (isPreview) previewProducedClientJs = true
   }
 
-  // 4. Inline parent-child client JS (resolves @bf-child markers)
-  const combined = combineParentChildClientJs(clientJsByKey)
+  if (!previewProducedClientJs) {
+    throw new Error(
+      `Preview ${previewKey} produced no client JS. Each preview function must ` +
+      `return a single root element (wrap multiple roots in <>...</>).`,
+    )
+  }
 
-  // 5. Write each combined module as an importable JS file
-  const previewKey = relative(ROOT_DIR, previewsPath).replace(/\.tsx$/, '')
-  const moduleFiles: string[] = []
-  for (const [key, content] of combined) {
+  // 4. Inline parent-child client JS (resolves @bf-child markers).
+  //    combineParentChildClientJs only returns entries that changed
+  //    (those with @bf-child placeholders), so merge it over the full
+  //    set: combined entries win, leaf/childless modules are retained.
+  const combined = combineParentChildClientJs(clientJsByKey)
+  const allModules = new Map([...clientJsByKey, ...combined])
+
+  // 5. Write every module as an importable JS file.
+  for (const [key, content] of allModules) {
     const safeName = key.replace(/[/\\]/g, '__') + '.js'
     await writeFile(resolve(MODULES_DIR, safeName), content)
-    moduleFiles.push(safeName)
   }
+  // The preview module transitively inlines its @bf-child dependencies,
+  // so importing it alone registers everything the previews render —
+  // no need to bundle the other (heavily overlapping) modules.
   const previewModuleFile = previewKey.replace(/[/\\]/g, '__') + '.js'
 
-  // 6. Generate browser entry: register all modules, render each preview
-  const entrySource = generateEntryScript(moduleFiles, previewModuleFile, previewNames)
+  // 6. Generate browser entry: register the preview module, render each preview
+  const entrySource = generateEntryScript(previewModuleFile, previewNames)
   const entryPath = resolve(DIST_DIR, '_entry.js')
   await writeFile(entryPath, entrySource)
 
@@ -102,6 +133,13 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   //    standalone bundle so it resolves to a single shared instance.
   console.log('Bundling for browser...')
   const runtimeStandalone = resolve(ROOT_DIR, 'packages/client/dist/runtime/standalone.js')
+  if (!existsSync(runtimeStandalone)) {
+    console.log('Building @barefootjs/client runtime...')
+    execFileSync('bun', ['run', 'build'], {
+      cwd: resolve(ROOT_DIR, 'packages/client'),
+      stdio: 'inherit',
+    })
+  }
   await build({
     entryPoints: [entryPath],
     outfile: resolve(DIST_DIR, '_bundle.js'),
@@ -124,16 +162,14 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
 }
 
 function generateEntryScript(
-  moduleFiles: string[],
   previewModuleFile: string,
   previewNames: string[],
 ): string {
-  // Import all component modules first (side-effect: hydrate registration),
-  // ensuring the preview module is imported (it registers the preview fns).
-  const imports = moduleFiles.map(f => `import './_modules/${f}'`).join('\n')
+  // Side-effect import: running the preview module executes its hydrate()
+  // calls, registering the preview functions and their inlined deps.
   const namesJson = JSON.stringify(previewNames)
   return `import { render } from '@barefootjs/client/runtime'
-${imports}
+import './_modules/${previewModuleFile}'
 
 const previews = ${namesJson}
 const app = document.getElementById('preview-root')
@@ -159,8 +195,6 @@ for (const name of previews) {
     console.error('[preview]', name, err)
   }
 }
-// referenced so esbuild keeps the preview module's registrations
-void '${previewModuleFile}'
 `
 }
 

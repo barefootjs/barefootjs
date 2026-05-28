@@ -32,9 +32,13 @@ export async function runPreview(componentName: string) {
     }
   }
 
-  // 2. Extract export function names from source
+  // 2. Extract export names from source (function declarations and
+  //    const/arrow exports; async modifier optional).
   const source = readFileSync(previewsPath, 'utf-8')
-  const previewNames = [...source.matchAll(/export function (\w+)/g)].map(m => m[1])
+  const previewNames = [
+    ...source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)/g),
+    ...source.matchAll(/export\s+const\s+(\w+)\s*=/g),
+  ].map(m => m[1])
 
   if (previewNames.length === 0) {
     console.error('Error: No exported functions found in previews file.')
