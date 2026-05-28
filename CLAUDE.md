@@ -23,7 +23,7 @@ See `spec/testing.md` for full testing specification with APIs, patterns, and ex
 | Layer | Verifies | Location | Speed |
 |-------|----------|----------|-------|
 | Compiler unit | Transformation rules, error codes, analysis | `packages/jsx/src/__tests__/` | ms |
-| Component IR | Structure, a11y, signals, classes | `ui/components/ui/*/index.test.tsx` | ms |
+| Component IR | Structure, a11y, signals, classes, event wiring | `ui/components/ui/*/index.test.tsx` | ms |
 | Adapter conformance | IR → HTML output per adapter | `packages/adapter-tests/fixtures/` | ms |
 | CSR conformance | Client JS → correct DOM output | `packages/adapter-tests/src/__tests__/csr-conformance.test.ts` | ms |
 | Runtime unit | Signals, DOM ops, hydration primitives | `packages/client/__tests__/` | ms |
@@ -35,6 +35,7 @@ Quick decision guide:
 - **Template HTML output** → Adapter conformance fixture
 - **Client JS behavior** → CSR conformance fixture
 - **Click/keyboard behavior** → E2E test
+- **Which handler calls which setter** (event→setter wiring) → Component IR test via `renderToTest().find(...).onClick`. This verifies the compiler-built dependency *path*, not the runtime value — assert the path here, assert the displayed value in E2E.
 - **Static attribute / class / ARIA changes** → Component IR test. Do NOT add an E2E test for static-only changes; that's an anti-pattern (see `spec/testing.md`).
 - **Hydration correctness** is a compiler invariant. Fix in `packages/jsx/`, verify with E2E.
 

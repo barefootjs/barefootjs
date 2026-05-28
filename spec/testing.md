@@ -128,6 +128,7 @@ Verify that a component's JSX produces the correct IR structure — tags, attrib
 - ARIA attributes (`role`, `aria-checked`, `aria-expanded`, etc.)
 - `data-state` attributes
 - Event handlers are present
+- Event-handler wiring (which handler calls which signal setter)
 - Reactive vs static nodes
 - Signal and memo declarations exist
 - Child component composition
@@ -136,7 +137,9 @@ Verify that a component's JSX produces the correct IR structure — tags, attrib
 
 - Adapter-specific HTML output → use Adapter Conformance
 - Client JS code generation → use Compiler Unit
-- Interactive behavior (click → state change) → use E2E
+- Interactive behavior — the runtime *value* after a click (e.g. "count shows 2") → use E2E.
+  Note the boundary: the wiring layer proves the handler *reaches* `setCount` (the path);
+  E2E proves the displayed value is correct.
 
 ### API Reference
 
@@ -167,6 +170,11 @@ interface TestNodeQuery {
   componentName?: string // e.g., 'CheckboxIndicator'
 }
 
+interface EventHandler {
+  setters: string[]      // signal setters the handler ends up calling
+  via: string[]          // helper-function call chain to reach those setters
+}
+
 interface TestNode {
   tag: string | null
   type: 'element' | 'text' | 'expression' | 'conditional' | 'loop' | 'component' | 'fragment'
@@ -177,11 +185,42 @@ interface TestNode {
   role: string | null
   aria: Record<string, string>
   dataState: string | null
-  events: string[]
+  events: string[]                              // event names, e.g. ['click']
+  handlers: Partial<Record<string, EventHandler>> // event name → wiring
   reactive: boolean
   componentName: string | null
+
+  // Event-handler wiring shorthands (resolve to handlers[name]):
+  onClick?: EventHandler
+  onInput?: EventHandler
+  onChange?: EventHandler
+  onSubmit?: EventHandler
+  on(event: string): EventHandler | null        // any other event, e.g. on('keydown')
 }
 ```
+
+### Event-handler wiring
+
+`renderToTest` resolves, statically, which signal setters each event handler
+ends up calling — including through helper functions. This is the
+**component-wiring** layer: it verifies the dependency *path* the compiler
+built (handler → setter), not the runtime *value* (E2E's job).
+
+```typescript
+// <button onClick={() => setCount(n => n + 1)}>
+const btn = result.find({ role: 'button' })
+expect(btn!.onClick!.setters).toContain('setCount')
+
+// Transitive: <div onPointerDown={handlePointerDown}> where
+// handlePointerDown → setValue → setInternalValue
+const root = result.find({ tag: 'div' })
+expect(root!.on('pointerdown')!.via).toContain('setValue')        // call chain
+expect(root!.on('pointerdown')!.setters).toContain('setInternalValue')
+```
+
+Assert the *path*, not the value. "Clicking + shows 2" is an E2E concern; the
+wiring layer only proves "onClick reaches setCount". A handler with no setter
+call (e.g. `onClick={() => console.log(x)}`) resolves to empty `setters`.
 
 ### Pattern
 
@@ -214,6 +253,13 @@ describe('Checkbox', () => {
   test('has click event handler', () => {
     const button = result.find({ role: 'checkbox' })
     expect(button!.events).toContain('click')
+  })
+
+  test('click handler wires to the checked setter', () => {
+    const button = result.find({ role: 'checkbox' })
+    // handleClick → setInternalChecked / setControlledChecked
+    expect(button!.onClick!.via).toContain('handleClick')
+    expect(button!.onClick!.setters).toContain('setInternalChecked')
   })
 })
 ```
