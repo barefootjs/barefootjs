@@ -6,11 +6,48 @@
 // it work against an arbitrary user project is tracked in
 // https://github.com/piconic-ai/barefootjs/issues/885.
 
-import { existsSync, readdirSync } from 'fs'
+import { existsSync, readdirSync, watch as fsWatch } from 'fs'
 import path from 'path'
 import type { CliContext } from '../context'
 import { resolveScaffoldLayout } from '../lib/scaffold-layout'
-import { runPreview } from '../lib/preview/run'
+import { runPreview, PreviewError } from '../lib/preview/run'
+import { startPreviewServer } from '../lib/preview/serve'
+
+const DEFAULT_PORT = 4321
+
+const HELP = `Usage: bf preview [component] [options]
+
+  bf preview                 List previewable components
+  bf preview <component>     Build a static preview into .preview-dist/
+
+Options:
+  --serve            Serve the build on a local server and print its URL
+  --watch            Rebuild on source changes and live-reload (implies --serve)
+  --port <number>    Server port for --serve/--watch (default ${DEFAULT_PORT})
+  -h, --help         Show this help`
+
+interface PreviewArgs {
+  component?: string
+  serve: boolean
+  watch: boolean
+  help: boolean
+  port: number
+}
+
+function parseArgs(args: string[]): PreviewArgs {
+  const out: PreviewArgs = { serve: false, watch: false, help: false, port: DEFAULT_PORT }
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]
+    if (a === '-h' || a === '--help') out.help = true
+    else if (a === '--serve') out.serve = true
+    else if (a === '--watch') out.watch = true
+    else if (a === '--port') out.port = parseInt(args[++i] ?? '', 10)
+    else if (a.startsWith('--port=')) out.port = parseInt(a.slice('--port='.length), 10)
+    else if (!a.startsWith('-') && out.component === undefined) out.component = a
+  }
+  if (out.watch) out.serve = true
+  return out
+}
 
 function listPreviewableComponents(ctx: CliContext): string[] {
   // Mirror `bf gen preview`'s write location so the lister and the
@@ -27,8 +64,14 @@ function listPreviewableComponents(ctx: CliContext): string[] {
 }
 
 export async function run(args: string[], ctx: CliContext): Promise<void> {
-  const component = args[0]
-  if (!component) {
+  const opts = parseArgs(args)
+
+  if (opts.help) {
+    console.log(HELP)
+    return
+  }
+
+  if (!opts.component) {
     const available = listPreviewableComponents(ctx)
     if (ctx.jsonFlag) {
       console.log(JSON.stringify({ previewable: available }, null, 2))
@@ -46,6 +89,11 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
     return
   }
 
+  if (!Number.isInteger(opts.port) || opts.port < 1 || opts.port > 65535) {
+    console.error(`Invalid --port: must be an integer between 1 and 65535.`)
+    process.exit(1)
+  }
+
   // Preview compilation needs the monorepo's UI registry + design tokens.
   if (ctx.config !== null) {
     console.error('bf preview currently runs only inside the barefootjs monorepo.')
@@ -53,9 +101,87 @@ export async function run(args: string[], ctx: CliContext): Promise<void> {
     process.exit(1)
   }
 
-  await runPreview(component, {
-    rootDir: ctx.root,
-    uiDir: path.join(ctx.root, 'ui/components/ui'),
-    metaDir: ctx.metaDir,
-  })
+  const component = opts.component
+  const uiDir = path.join(ctx.root, 'ui/components/ui')
+  const runOpts = { rootDir: ctx.root, uiDir, metaDir: ctx.metaDir, liveReload: opts.watch }
+
+  let result
+  try {
+    result = await runPreview(component, runOpts)
+  } catch (err) {
+    if (err instanceof PreviewError) {
+      console.error(`Error: ${err.message}`)
+      process.exit(1)
+    }
+    throw err
+  }
+
+  const relDir = path.relative(process.cwd(), result.distDir)
+  console.log(`\n✓ Preview built → ${relDir}/`)
+
+  if (!opts.serve) {
+    console.log(`\n  npx serve ${relDir}`)
+    return
+  }
+
+  const server = startPreviewServer(result.distDir, opts.port)
+  console.log(`\n  Serving ${server.url}`)
+
+  if (!opts.watch) {
+    console.log('  Press Ctrl+C to stop.')
+    await new Promise<void>(resolve => process.on('SIGINT', resolve))
+    server.close()
+    return
+  }
+
+  // Watch mode: rebuild the scoped closure on source changes, then bump
+  // the reload token so open pages refresh.
+  console.log('  Watching for changes — edit a component and save. Press Ctrl+C to stop.')
+
+  let rebuilding = false
+  let pending = false
+  let timer: NodeJS.Timeout | undefined
+
+  const rebuild = async () => {
+    if (rebuilding) {
+      pending = true
+      return
+    }
+    rebuilding = true
+    console.log('\nChange detected — rebuilding...')
+    try {
+      await runPreview(component, runOpts)
+      server.bumpReload()
+      console.log('✓ Rebuilt')
+    } catch (err) {
+      const msg = err instanceof PreviewError ? err.message : (err as Error).message
+      console.error(`✗ Rebuild failed: ${msg}`)
+    } finally {
+      rebuilding = false
+      if (pending) {
+        pending = false
+        void rebuild()
+      }
+    }
+  }
+
+  const schedule = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => void rebuild(), 150)
+  }
+
+  const watchTargets = [
+    uiDir,
+    path.join(ctx.root, 'site/ui/styles'),
+    path.join(ctx.root, 'site/ui/tokens.json'),
+    path.join(ctx.root, 'site/shared/tokens'),
+  ].filter(existsSync)
+
+  const watchers = watchTargets.map(target =>
+    fsWatch(target, { recursive: true }, schedule),
+  )
+
+  await new Promise<void>(resolve => process.on('SIGINT', resolve))
+  for (const w of watchers) w.close()
+  server.close()
 }

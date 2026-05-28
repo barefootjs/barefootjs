@@ -17,7 +17,7 @@ import {
   BaseAdapter,
   type AdapterOutput,
 } from '@barefootjs/jsx'
-import { discoverComponentFiles } from '../build'
+import { resolveDependenciesFromSource } from '../dependency-resolver'
 
 // Minimal CSR adapter. compileJSX needs a concrete TemplateAdapter, but
 // preview only consumes the client JS output (the marked template is
@@ -55,6 +55,8 @@ export interface CompileOptions {
   previewsPath: string
   previewNames: string[]
   componentName: string
+  /** Inject a poll-based live-reload script into the page (watch mode). */
+  liveReload?: boolean
 }
 
 export interface CompileResult {
@@ -62,15 +64,15 @@ export interface CompileResult {
 }
 
 export async function compile(options: CompileOptions): Promise<CompileResult> {
-  const { rootDir, previewsPath, previewNames, componentName } = options
+  const { rootDir, previewsPath, previewNames, componentName, liveReload } = options
 
-  const UI_COMPONENTS_DIR = resolve(rootDir, 'ui/components')
   const DIST_DIR = resolve(rootDir, '.preview-dist')
   const MODULES_DIR = resolve(DIST_DIR, '_modules')
 
   await mkdir(MODULES_DIR, { recursive: true })
 
   // 1. Generate CSS from token JSON
+  console.log('Generating CSS...')
   const { loadTokens, mergeTokenSets, generateCSS } = await import(
     resolve(rootDir, 'site/shared/tokens/index')
   )
@@ -84,13 +86,21 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
 
   // 2. Generate UnoCSS. Resolve the bin from site/ui (the workspace that
   //    declares unocss + holds uno.config.ts), falling back to root.
+  //    `.cmd`/`.CMD` shims cover the Windows package-manager layouts.
   console.log('Generating UnoCSS...')
-  const unocssbin = [
-    resolve(rootDir, 'site/ui/node_modules/.bin/unocss'),
-    resolve(rootDir, 'node_modules/.bin/unocss'),
-  ].find(existsSync)
+  const binDirs = [
+    resolve(rootDir, 'site/ui/node_modules/.bin'),
+    resolve(rootDir, 'node_modules/.bin'),
+  ]
+  const binNames = ['unocss', 'unocss.cmd', 'unocss.CMD']
+  const unocssbin = binDirs
+    .flatMap(dir => binNames.map(name => resolve(dir, name)))
+    .find(existsSync)
   if (!unocssbin) {
-    throw new Error('unocss CLI not found in site/ui or root node_modules — run `bun install`')
+    throw new Error(
+      'unocss CLI not found in site/ui or root node_modules. ' +
+      'Install workspace dependencies (e.g. `bun install`) so the unocss bin is present.',
+    )
   }
   execFileSync(unocssbin, [
     '../../ui/components/**/*.tsx', './**/*.tsx', './dist/**/*.tsx',
@@ -98,11 +108,23 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   ], { cwd: resolve(rootDir, 'site/ui'), stdio: 'inherit' })
   console.log('Generated: .preview-dist/uno.css')
 
-  // 3. Compile preview file + all component dependencies to client JS
-  console.log('Compiling components...')
-  const componentFiles = await discoverComponentFiles(UI_COMPONENTS_DIR, {
-    skipDirs: ['__previews__', '__tests__', 'shared'],
-  })
+  // 3. Compile the preview + only the components it transitively uses.
+  //    Seed from the previewed component plus any sibling components the
+  //    preview file imports directly, then follow `../sibling` imports
+  //    (the same closure `bf add` ships). Compiling the whole registry
+  //    on every run was the bulk of preview build time.
+  const srcComponentsDir = resolve(rootDir, 'ui/components/ui')
+  const previewSource = await readFile(previewsPath, 'utf-8')
+  const previewSiblings = [
+    ...previewSource.matchAll(/from\s*['"]\.\.\/([a-z][a-z0-9-]*)(?:\/[^'"]*)?['"]/g),
+  ].map(m => m[1])
+  const componentFiles = resolveDependenciesFromSource(
+    [componentName, ...previewSiblings],
+    srcComponentsDir,
+  )
+    .map(name => resolve(srcComponentsDir, name, 'index.tsx'))
+    .filter(existsSync)
+  console.log(`Compiling ${componentFiles.length + 1} files...`)
   const allFiles = [...componentFiles, previewsPath]
   const adapter = new PreviewCsrAdapter()
 
@@ -169,10 +191,20 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   const runtimeStandalone = resolve(rootDir, 'packages/client/dist/runtime/standalone.js')
   if (!existsSync(runtimeStandalone)) {
     console.log('Building @barefootjs/client runtime...')
-    execFileSync('bun', ['run', 'build'], {
-      cwd: resolve(rootDir, 'packages/client'),
-      stdio: 'inherit',
-    })
+    try {
+      execFileSync('bun', ['run', 'build'], {
+        cwd: resolve(rootDir, 'packages/client'),
+        stdio: 'inherit',
+      })
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+        throw new Error(
+          'The @barefootjs/client runtime is not built and `bun` was not found on PATH ' +
+          'to build it. Install Bun (https://bun.sh) or run `bun run --filter @barefootjs/client build` first.',
+        )
+      }
+      throw err
+    }
   }
   await build({
     entryPoints: [entryPath],
@@ -189,7 +221,7 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
   console.log('Generated: .preview-dist/_bundle.js')
 
   // 8. Generate index.html
-  await writeFile(resolve(DIST_DIR, 'index.html'), generateHTML(componentName))
+  await writeFile(resolve(DIST_DIR, 'index.html'), generateHTML(componentName, liveReload))
   console.log('Generated: .preview-dist/index.html')
 
   return { distDir: DIST_DIR }
@@ -232,7 +264,14 @@ for (const name of previews) {
 `
 }
 
-function generateHTML(componentName: string): string {
+// Poll-based live reload (watch mode only). The dev server bumps the
+// token at /__preview_reload after each rebuild; the page reloads when
+// it changes. Poll-based to avoid a websocket dependency.
+const LIVE_RELOAD_SCRIPT = `<script>
+(function(){var seen;function poll(){fetch('/__preview_reload').then(function(r){return r.text()}).then(function(v){if(seen!==undefined&&v!==seen){location.reload();return}seen=v}).catch(function(){}).then(function(){setTimeout(poll,1000)})}poll()})()
+</script>`
+
+function generateHTML(componentName: string, liveReload = false): string {
   const displayName = componentName.charAt(0).toUpperCase() + componentName.slice(1)
   return `<!DOCTYPE html>
 <html lang="en">
@@ -304,6 +343,7 @@ function generateHTML(componentName: string): string {
     </svg>
   </button>
   <script type="module" src="/_bundle.js"></script>
+  ${liveReload ? LIVE_RELOAD_SCRIPT : ''}
 </body>
 </html>`
 }

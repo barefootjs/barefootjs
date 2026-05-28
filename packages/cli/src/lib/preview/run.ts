@@ -1,10 +1,10 @@
-// bf preview — compile a component's previews to a CSR bundle and
-// print serve instructions. Lives inside the CLI so it ships with
-// @barefootjs/cli (no separate package, no cross-package source imports).
+// bf preview — compile a component's previews to a CSR bundle. Lives
+// inside the CLI so it ships with @barefootjs/cli (no separate package,
+// no cross-package source imports).
 
 import { resolve, relative } from 'node:path'
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { compile } from './compile'
+import { compile, type CompileResult } from './compile'
 import { loadComponent } from '../meta-loader'
 import { generatePreview } from '../preview-generate'
 
@@ -15,10 +15,16 @@ export interface RunPreviewOptions {
   uiDir: string
   /** Directory containing component meta JSON (absolute). */
   metaDir: string
+  /** Inject a live-reload script into the page (watch mode). */
+  liveReload?: boolean
 }
 
-export async function runPreview(componentName: string, opts: RunPreviewOptions): Promise<void> {
-  const { rootDir, uiDir, metaDir } = opts
+// Thrown for expected, user-actionable failures so callers can decide
+// whether to exit (one-shot) or log and keep watching.
+export class PreviewError extends Error {}
+
+export async function runPreview(componentName: string, opts: RunPreviewOptions): Promise<CompileResult> {
+  const { rootDir, uiDir, metaDir, liveReload } = opts
   const previewsPath = resolve(uiDir, componentName, 'index.preview.tsx')
 
   // 1. Auto-generate preview if file doesn't exist
@@ -29,9 +35,10 @@ export async function runPreview(componentName: string, opts: RunPreviewOptions)
       writeFileSync(previewsPath, result.code)
       console.log(`Auto-generated preview: ${relative(rootDir, previewsPath)}`)
     } catch {
-      console.error(`Error: Preview file not found and auto-generation failed for "${componentName}".`)
-      console.error(`Run: bf gen preview ${componentName}`)
-      process.exit(1)
+      throw new PreviewError(
+        `Preview file not found and auto-generation failed for "${componentName}".\n` +
+        `Run: bf gen preview ${componentName}`,
+      )
     }
   }
 
@@ -43,18 +50,11 @@ export async function runPreview(componentName: string, opts: RunPreviewOptions)
   ].map(m => m[1])
 
   if (previewNames.length === 0) {
-    console.error('Error: No exported preview functions found in the preview file.')
-    process.exit(1)
+    throw new PreviewError('No exported preview functions found in the preview file.')
   }
 
   console.log(`Found ${previewNames.length} previews: ${previewNames.join(', ')}`)
 
   // 3. Compile (CSR bundle)
-  console.log('\nCompiling...')
-  const result = await compile({ rootDir, previewsPath, previewNames, componentName })
-
-  // 4. Print serve instructions
-  const relDir = relative(process.cwd(), result.distDir)
-  console.log(`\n✓ Preview built → ${relDir}/\n`)
-  console.log(`  npx serve ${relDir}`)
+  return compile({ rootDir, previewsPath, previewNames, componentName, liveReload })
 }
