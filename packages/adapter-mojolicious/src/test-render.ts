@@ -339,7 +339,8 @@ function buildChildRenderers(
     // `_derive_stash_from_defaults` `isRestProps` branch, which plumbs
     // the equivalent of Go's `Spread_0`/`Extras` Input field.
     if (childIR.metadata.restPropsName) {
-      lines.push(`    $child_props->{${childIR.metadata.restPropsName}} = {} unless defined $child_props->{${childIR.metadata.restPropsName}};`)
+      const rest = childIR.metadata.restPropsName
+      lines.push(`    $child_props->{${rest}} = {} unless defined $child_props->{${rest}};`)
     }
     lines.push(`    ${slotIdsPerl}`)
     lines.push(`    my $child_bf = BarefootJS->new($c, {});`)
