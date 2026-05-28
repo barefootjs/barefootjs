@@ -1035,9 +1035,13 @@ function unresolvedBareImports(code: string, externals: Record<string, ExternalS
 /**
  * Packages to keep `external` when rebundling a chunk with esbuild: every other
  * configured external plus the always-importmap-resolved `@barefootjs/client*`
- * dedup keys. The chunk's own package is bundled (that is the point of
- * rebundle), so it is excluded. Without this, esbuild inlines the shared
- * reactive runtime into the chunk and bindings silently stop updating (#1646).
+ * dedup keys. The three exact dedup keys cover the listed subpaths, and the
+ * `@barefootjs/client/*` wildcard keeps any other `@barefootjs/client` subpath
+ * a chunk might import external too (esbuild only matches `external` entries
+ * exactly unless they contain `*`). The chunk's own package is bundled (that is
+ * the point of rebundle), so it is excluded. Without this, esbuild inlines the
+ * shared reactive runtime into the chunk and bindings silently stop updating
+ * (#1646).
  */
 function rebundleExternalsFor(pkgName: string, externals: Record<string, ExternalSpec>): string[] {
   return [...new Set<string>([
@@ -1341,7 +1345,7 @@ export async function processExternals(
         // file came from an import/main fallback (no umd/unpkg/jsdelivr), but a
         // chunk whose only externals are the always-importmap-resolved
         // @barefootjs/client* dedup keys is browser-ready in a BarefootJS app —
-        // warning there is a false positive (#1646).
+        // a warning here is a false positive (#1646).
         if (!entry.isBrowserReady) {
           const unresolved = unresolvedBareImports(text, config.externals)
           if (unresolved.length > 0) {
