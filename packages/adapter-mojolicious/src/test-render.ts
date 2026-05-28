@@ -305,7 +305,7 @@ function buildChildRenderers(
   const lines: string[] = []
   lines.push(`# Register child component renderers`)
 
-  for (const [componentName] of childTemplates) {
+  for (const [componentName, { ir: childIR }] of childTemplates) {
     const snakeName = toSnakeCase(componentName)
     const childTemplatePath = resolve(tempDir, `${snakeName}.html.ep`)
 
@@ -326,6 +326,22 @@ function buildChildRenderers(
 
     lines.push(`  $bf->register_child_renderer('${snakeName}', sub {`)
     lines.push(`    my ($child_props) = @_;`)
+    // (#1652) A child that destructures a rest-spread bag
+    // (`function NativeSelect({ children, ...props })`) emits a
+    // template referencing `$<restPropsName>`
+    // (`<%== bf->spread_attrs($props) %>`). The parent's render_child
+    // call only forwards the props it explicitly passed (here just
+    // `children`), so the rest bag never reaches the child stash and
+    // Perl strict mode aborts with `Global symbol "$props" requires
+    // explicit package name`. Seed it with an empty hashref when the
+    // caller didn't supply one — mirroring the top-level harness path
+    // (`buildPerlProps`) and the production runtime's
+    // `_derive_stash_from_defaults` `isRestProps` branch, which plumbs
+    // the equivalent of Go's `Spread_0`/`Extras` Input field.
+    if (childIR.metadata.restPropsName) {
+      const rest = childIR.metadata.restPropsName
+      lines.push(`    $child_props->{${rest}} = {} unless defined $child_props->{${rest}};`)
+    }
     lines.push(`    ${slotIdsPerl}`)
     lines.push(`    my $child_bf = BarefootJS->new($c, {});`)
     lines.push(`    $child_bf->_scope_id("test_$sid");`)
