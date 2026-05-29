@@ -75,6 +75,27 @@ describe('.map() with logical / JSX-helper-call body (#1665)', () => {
     expect(clientJs).toContain('<span')
   })
 
+  test('`??` JSX-helper fallback in a map body is inlined', () => {
+    const source = `
+      'use client'
+      const THEMES = [{ id: 'piconic' }, { id: 'hono' }]
+      function themeLogo(id: string) { return <span>{id}</span> }
+      export function Header(props: { current?: string }) {
+        return <div>{THEMES.map(t => props.current ?? themeLogo(t.id))}</div>
+      }
+    `
+    const result = compileJSX(source, 'Header.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find((f) => f.type === 'clientJs')!.content
+
+    // `transformJsxExpression` now routes a `||`/`??` whose right operand
+    // renders JSX via a tracked helper through the nullish transformer, so
+    // the helper is inlined rather than left as a verbatim call.
+    expect(clientJs).not.toMatch(/themeLogo\s*\(/)
+    expect(clientJs).toContain('<span')
+  })
+
   test('bare JSX-helper call body keeps its #546 reactive-text behaviour', () => {
     // Boundary guard: the narrowed fix must NOT re-route a bare call body
     // into the conditional path — that remains #546 territory. A local

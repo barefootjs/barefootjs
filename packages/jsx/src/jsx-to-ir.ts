@@ -1920,7 +1920,7 @@ function transformJsxExpression(
       if (
         (node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ||
           node.operatorToken.kind === ts.SyntaxKind.BarBarToken) &&
-        containsJsxInExpression(node.right)
+        (containsJsxInExpression(node.right) || callsJsxHelper(node.right, ctx))
       ) {
         return transformNullishCoalescing(node, ctx)
       }
