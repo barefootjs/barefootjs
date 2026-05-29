@@ -1703,6 +1703,33 @@ function containsJsxInExpression(node: ts.Node): boolean {
   return ts.forEachChild(node, containsJsxInExpression) ?? false
 }
 
+/**
+ * Check if an expression calls a module/local JSX-returning helper (one
+ * tracked in `jsxFunctions` / `jsxMultiReturnFunctions` for IR-level
+ * inlining). Used alongside `containsJsxInExpression` so a map callback
+ * body like `cond && themeLogo(t.id)` is recognised as renderable JSX
+ * control flow even though it has no inline JSX literal (#1665).
+ */
+function callsJsxHelper(node: ts.Node, ctx: TransformContext): boolean {
+  let found = false
+  const visit = (n: ts.Node): void => {
+    if (found) return
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
+      const name = n.expression.text
+      if (
+        ctx.analyzer.jsxFunctions.has(name) ||
+        ctx.analyzer.jsxMultiReturnFunctions.has(name)
+      ) {
+        found = true
+        return
+      }
+    }
+    ts.forEachChild(n, visit)
+  }
+  visit(node)
+  return found
+}
+
 function containsAwaitExpression(node: ts.Node): boolean {
   if (ts.isAwaitExpression(node)) return true
   if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) return false
@@ -2947,6 +2974,24 @@ function transformMapCall(
     }
     if (index) ctx.loopParams.add(index)
 
+    // Logical control flow (`cond && <X/>`, `a ?? <X/>`) or a direct
+    // JSX-returning helper call (`themeLogo(t.id)`) as the map body.
+    // These are not JSX literals, ternaries, or blocks, so without this
+    // the dispatch below leaves `children` empty and the whole `.map(...)`
+    // falls through to the reactive-text path — emitting the callback
+    // verbatim. That left inline JSX uncompiled and module-level JSX
+    // helpers undeclared (ReferenceError at hydration, #1665). Route them
+    // through the shared JSX expression transformer, which lowers logical
+    // control flow into an IRConditional and inlines JSX helpers, exactly
+    // like the ternary form. Gated on actually rendering JSX (inline or
+    // via a helper) so scalar bodies (`t.active && t.label`) keep their
+    // existing reactive-text behaviour.
+    const tryTransformRenderableBody = (expr: ts.Expression): void => {
+      if (!containsJsxInExpression(expr) && !callsJsxHelper(expr, ctx)) return
+      const transformed = transformJsxExpression(expr, ctx, isClientOnly)
+      if (transformed) children = [transformed]
+    }
+
     // Transform callback body
     const body = callback.body
     if (ts.isJsxElement(body) || ts.isJsxSelfClosingElement(body) || ts.isJsxFragment(body)) {
@@ -2973,6 +3018,8 @@ function transformMapCall(
       } else if (method === 'flatMap' && ts.isArrayLiteralExpression(inner)) {
         // flatMap arrow with array literal: items.flatMap(item => ([<A/>, <B/>]))
         children = transformArrayLiteralChildren(inner, ctx)
+      } else {
+        tryTransformRenderableBody(inner)
       }
     } else if (method === 'flatMap' && ts.isArrayLiteralExpression(body)) {
       // flatMap arrow with array literal: items.flatMap(item => [<A/>, <B/>])
@@ -3025,6 +3072,8 @@ function transformMapCall(
       if (method === 'flatMap' && children.length === 0) {
         flatMapCallback = buildFlatMapCallback(callback, body, ctx)
       }
+    } else {
+      tryTransformRenderableBody(body)
     }
 
     // Unregister loop params
