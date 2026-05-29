@@ -64,9 +64,19 @@ return <div>...</div>
 {items().filter(x => x.active).sort((a, b) => a.name.localeCompare(b.name)).map(item => (
   <Item key={item.id} item={item} />
 ))}
+
+// ✅ Multi-key: sort by price, break ties by name
+{items().sort((a, b) => a.price - b.price || a.name.localeCompare(b.name)).map(item => (
+  <Item key={item.id} item={item} />
+))}
+
+// ✅ Relational ternary
+{items().toSorted((a, b) => a.price > b.price ? 1 : -1).map(item => (
+  <Item key={item.id} item={item} />
+))}
 ```
 
-Supported comparator shapes: `(a, b) => a - b`, `(a, b) => a.field - b.field`, `(a, b) => a.localeCompare(b)`, `(a, b) => a.field.localeCompare(b.field)` (reverse the operands for descending order). Other shapes — block bodies, ternary returns, custom helpers — produce a compile error; use `/* @client */` in that case.
+Supported comparator shapes: `(a, b) => a - b`, `(a, b) => a.field - b.field`, `(a, b) => a.localeCompare(b)`, `(a, b) => a.field.localeCompare(b.field)`, relational-ternary returns (`(a, b) => a.field > b.field ? 1 : -1`, including the 3-way `a < b ? -1 : a > b ? 1 : 0` form), and any of these `||`-chained for multi-key tie-breaks. A single-`return` block body (`(a, b) => { return a.field - b.field }`) works too. Reverse the operands (or the ternary sign) for descending order. Other shapes — function references (`sort(myCmp)`), multi-statement block bodies, and `localeCompare(b, locale, opts)` — produce a compile error; use `/* @client */` in that case.
 
 
 ## Event Handling
@@ -97,7 +107,7 @@ Some JavaScript expressions cannot be translated into marked template syntax. Wh
 | `.filter()` with `function` keyword callback | works | **BF101** |
 | `.reduce()`, `.forEach()`, `.flatMap()` | works | **BF101** |
 | Nested higher-order in filter predicate (`x => x.tags.filter(...).length > 0`) | works | **BF101** |
-| Sort comparator with a block body, ternary return, or other unsupported shape | **BF021** (all adapters) | **BF021** |
+| Sort comparator that's a function reference, multi-statement block body, or `localeCompare(b, locale, opts)` | **BF021** (all adapters) | **BF021** |
 | `typeof` in a filter predicate | **BF021** (all adapters) | **BF021** |
 
 `BF021` is raised at the IR layer and applies to every adapter. `BF101` is raised by adapters that can't lower the expression to their template language. Either way, add [`/* @client */`](./client-directive.md) to opt into client-only evaluation and suppress the error.
@@ -146,16 +156,16 @@ Some JavaScript expressions cannot be translated into marked template syntax. Wh
 
 ### Patterns that error on all adapters
 
-**Unsupported sort comparators** (block bodies, ternary returns):
+**Unsupported sort comparators** (multi-statement block bodies, function references):
 
 ```tsx
 // ❌ BF021 (all adapters)
-{items().sort((a, b) => a.name > b.name ? 1 : -1).map(item => (
+{items().sort((a, b) => { const an = a.name; return an > b.name ? 1 : -1 }).map(item => (
   <Item key={item.id} item={item} />
 ))}
 
 // ✅ Use /* @client */
-{/* @client */ items().sort((a, b) => a.name > b.name ? 1 : -1).map(item => (
+{/* @client */ items().sort((a, b) => { const an = a.name; return an > b.name ? 1 : -1 }).map(item => (
   <Item key={item.id} item={item} />
 ))}
 ```
