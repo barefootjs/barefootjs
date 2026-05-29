@@ -7,7 +7,12 @@ import ts from 'typescript'
 import type { AttrValue, IRTemplatePart, LoopParamBinding, FreeReference, IRNode } from '../types'
 import type { TopLevelLoop, BranchLoop } from './types'
 import { buildLoopChainExpr } from '../loop-chain'
-import { replaceInExprContexts } from '../scanner/js-scanner'
+import {
+  iterateJsTokens,
+  isIdentifierLikeToken,
+  isTriviaKind,
+  replaceInExprContexts,
+} from '../scanner/js-scanner'
 import {
   BF_KEY as DATA_KEY,
   BF_KEY_PREFIX as DATA_KEY_PREFIX,
@@ -376,124 +381,33 @@ export function tokenContainsIdent(expr: string, ident: string): boolean {
   return scanForIdentifiers(expr, (token) => token === ident)
 }
 
-const IDENT_START_RE = /[A-Za-z_$]/
-const IDENT_PART_RE = /[A-Za-z0-9_$]/
-
 /**
- * Single-pass scanner over a JS-like expression string. Walks character by
- * character through a small state machine and invokes `predicate` on every
- * identifier-like token it finds in a position where bare identifiers are
- * semantically possible (i.e. not inside a string/comment, not the property
- * name in a member-access expression). Returns true on the first hit.
+ * Walk a JS-like expression string via the shared `ts.createScanner`-based
+ * lexer and invoke `predicate` on every identifier-like token found in a
+ * position where bare identifiers are semantically possible — i.e. not
+ * inside a string / template-string body / comment / regex literal, and
+ * not the property name of a member-access expression. Returns true on the
+ * first hit.
+ *
+ * Delegating to `iterateJsTokens` (rather than a hand-rolled char-by-char
+ * state machine) means regex literals are recognised: `/it's/.test(foo)`
+ * no longer reads the apostrophe as a string opener, and an identifier
+ * inside a regex body (`/className/`) is correctly treated as opaque (#1370).
  */
 function scanForIdentifiers(expr: string, predicate: (token: string) => boolean): boolean {
-  const n = expr.length
-  let i = 0
-  // 0 = code, 1 = single-quote string, 2 = double-quote string,
-  // 3 = template literal text, 4 = template literal expression,
-  // 5 = line comment, 6 = block comment.
-  type State = 0 | 1 | 2 | 3 | 4 | 5 | 6
-  let state: State = 0
-  // For nested template expressions: stack of brace depths at each `${` push.
-  const tmplExprStack: number[] = []
-  // Brace depth tracked only inside template-expression state to detect when
-  // we close back to the surrounding template-literal text.
-  let braceDepth = 0
-
-  while (i < n) {
-    const ch = expr[i]
-
-    switch (state) {
-      case 0: // code
-      case 4: { // template expression — same lexing rules as code
-        // String / template literal openers
-        if (ch === "'") { state = 1; i++; continue }
-        if (ch === '"') { state = 2; i++; continue }
-        if (ch === '`') { state = 3; i++; continue }
-        // Comment openers
-        if (ch === '/' && i + 1 < n) {
-          const next = expr[i + 1]
-          if (next === '/') { state = 5; i += 2; continue }
-          if (next === '*') { state = 6; i += 2; continue }
-        }
-        // Track braces only inside template-expression state, so we know when
-        // we leave `${ ... }` back to the surrounding template text.
-        if (state === 4) {
-          if (ch === '{') { braceDepth++; i++; continue }
-          if (ch === '}') {
-            if (braceDepth === 0) {
-              // Closing `}` of `${ ... }` — pop back to enclosing tmpl state.
-              const restored = tmplExprStack.pop()
-              braceDepth = restored ?? 0
-              state = 3
-              i++
-              continue
-            }
-            braceDepth--
-            i++
-            continue
-          }
-        }
-        // Identifier start
-        if (IDENT_START_RE.test(ch)) {
-          let j = i + 1
-          while (j < n && IDENT_PART_RE.test(expr[j])) j++
-          const token = expr.slice(i, j)
-          // Skip member-access tail: identifier preceded by `.` (ignoring
-          // whitespace).
-          let prev = i - 1
-          while (prev >= 0 && (expr[prev] === ' ' || expr[prev] === '\t' || expr[prev] === '\n' || expr[prev] === '\r')) prev--
-          const isMemberTail = prev >= 0 && expr[prev] === '.' && (prev === 0 || expr[prev - 1] !== '.') // not `..` (spread)
-          if (!isMemberTail && predicate(token)) return true
-          i = j
-          continue
-        }
-        i++
-        continue
-      }
-      case 1: { // single-quote string
-        if (ch === '\\' && i + 1 < n) { i += 2; continue }
-        if (ch === "'") { state = 0; i++; continue }
-        i++
-        continue
-      }
-      case 2: { // double-quote string
-        if (ch === '\\' && i + 1 < n) { i += 2; continue }
-        if (ch === '"') { state = 0; i++; continue }
-        i++
-        continue
-      }
-      case 3: { // template literal text
-        if (ch === '\\' && i + 1 < n) { i += 2; continue }
-        if (ch === '`') {
-          // Closing the template literal; return to whatever code state we
-          // came from (either top-level code or an outer template expression).
-          state = tmplExprStack.length > 0 ? 4 : 0
-          i++
-          continue
-        }
-        if (ch === '$' && i + 1 < n && expr[i + 1] === '{') {
-          // Entering `${ ... }`: save current outer brace depth, reset for new.
-          tmplExprStack.push(braceDepth)
-          braceDepth = 0
-          state = 4
-          i += 2
-          continue
-        }
-        i++
-        continue
-      }
-      case 5: { // line comment
-        if (ch === '\n' || ch === '\r') { state = 0; i++; continue }
-        i++
-        continue
-      }
-      case 6: { // block comment
-        if (ch === '*' && i + 1 < n && expr[i + 1] === '/') { state = 0; i += 2; continue }
-        i++
-        continue
-      }
+  // Previous *significant* (non-trivia) token kind, used to skip the tail
+  // of a member access (`a.foo`, `a?.foo`) while still treating the head
+  // (`foo.bar`) and spread targets (`...foo`) as real references.
+  let prevSignificant: ts.SyntaxKind | undefined
+  for (const tok of iterateJsTokens(expr)) {
+    if (isTriviaKind(tok.kind)) continue
+    if (isIdentifierLikeToken(tok.kind)) {
+      const isMemberTail =
+        prevSignificant === ts.SyntaxKind.DotToken
+        || prevSignificant === ts.SyntaxKind.QuestionDotToken
+      if (!isMemberTail && predicate(expr.slice(tok.pos, tok.end))) return true
     }
+    prevSignificant = tok.kind
   }
   return false
 }
