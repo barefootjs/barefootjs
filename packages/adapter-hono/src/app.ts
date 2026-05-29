@@ -32,7 +32,7 @@ import type { HtmlEscapedString } from 'hono/utils/html'
 import { useRequestContext } from 'hono/jsx-renderer'
 // Zero-dependency subpath — keeps the compiler (and its `typescript` dep) out
 // of this runtime/Workers-bundled module while sharing one importmap renderer.
-import { renderImportMapHtml } from '@barefootjs/jsx/import-map'
+import { renderImportMapHtml, type ImportMapManifest } from '@barefootjs/jsx/import-map'
 import { createDevReloader } from './dev-worker'
 
 const DEV_RELOAD_ENDPOINT_KEY = 'bfDevReloadEndpoint'
@@ -92,19 +92,15 @@ export function relPathFromComponentsBase(p: string): string {
 // ── JSX components ─────────────────────────────────────────────────────────
 
 /**
- * Shape of `barefoot-externals.json`, written by `bf build` when
- * `externals` / `bundleEntries` are configured. Only the fields
- * `BfImportMap` consumes are typed here; the build also emits an
- * `externals` array (the `--external` list) which the importmap
- * doesn't need. Fields are optional so a partial/hand-written
- * manifest still type-checks. See issue #1639.
+ * Shape of `barefoot-externals.json` (the subset `BfImportMap` consumes):
+ * `importmap.imports` plus `preloads`; fields are optional so a partial /
+ * hand-written manifest still type-checks. See issues #1639 / #1644.
+ *
+ * Alias for the shared {@link ImportMapManifest} from `@barefootjs/jsx` so the
+ * component and the `bf build` snippet path describe the manifest with one
+ * type. Retained as a named export for back-compat.
  */
-export interface BarefootExternalsManifest {
-  /** Entries for the `<script type="importmap">`. */
-  importmap?: { imports?: Record<string, string> }
-  /** URLs to emit as `<link rel="modulepreload">`. */
-  preloads?: string[]
-}
+export type BarefootExternalsManifest = ImportMapManifest
 
 export interface BfImportMapProps {
   /** Base URL where the runtime + component bundles are served. */
