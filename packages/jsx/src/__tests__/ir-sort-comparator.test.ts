@@ -283,6 +283,73 @@ describe('sort().map() / toSorted().map()', () => {
     }
   })
 
+  test('leading-equality 3-way ternary (a.f === b.f ? 0 : …) lowers to an auto key', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function ProductList() {
+        const [products, setProducts] = createSignal<any[]>([])
+        return (
+          <ul>
+            {products().toSorted((a, b) => a.rank === b.rank ? 0 : a.rank > b.rank ? 1 : -1).map(p => (
+              <li>{p.name}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+
+    const ctx = analyzeComponent(source, 'ProductList.tsx')
+    const ir = jsxToIR(ctx)
+
+    expect(ir).not.toBeNull()
+    if (ir!.type === 'element') {
+      const loop = ir!.children.find(c => c.type === 'loop')
+      if (loop?.type === 'loop') {
+        expect(loop.sortComparator).toBeDefined()
+        // The `=== ? 0` arm is a tie; direction comes from the inner
+        // relational ternary (a.rank > b.rank ? 1 : -1 → ascending).
+        expect(loop.sortComparator!.keys).toEqual([
+          { key: { kind: 'field', field: 'rank' }, type: 'auto', direction: 'asc' },
+        ])
+      }
+    }
+  })
+
+  test('multi-key mixing a numeric leaf and an auto (ternary) leaf', () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function ProductList() {
+        const [products, setProducts] = createSignal<any[]>([])
+        return (
+          <ul>
+            {products().sort((a, b) => a.price - b.price || (a.rank > b.rank ? 1 : -1)).map(p => (
+              <li>{p.name}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+
+    const ctx = analyzeComponent(source, 'ProductList.tsx')
+    const ir = jsxToIR(ctx)
+
+    expect(ir).not.toBeNull()
+    if (ir!.type === 'element') {
+      const loop = ir!.children.find(c => c.type === 'loop')
+      if (loop?.type === 'loop') {
+        expect(loop.sortComparator).toBeDefined()
+        expect(loop.sortComparator!.keys).toEqual([
+          { key: { kind: 'field', field: 'price' }, type: 'numeric', direction: 'asc' },
+          { key: { kind: 'field', field: 'rank' }, type: 'auto', direction: 'asc' },
+        ])
+      }
+    }
+  })
+
   test('complex sort comparator with @client keeps sort in array', () => {
     const source = `
       'use client'

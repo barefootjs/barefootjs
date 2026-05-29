@@ -189,6 +189,33 @@ describe('Unsupported Sort Comparator (BF021)', () => {
     expect(bf021).toHaveLength(0)
   })
 
+  test('emits BF021 for localeCompare with a locale/options argument', () => {
+    // The zero-arg `a.f.localeCompare(b.f)` form lowers, but the
+    // locale/options form needs per-adapter collation plumbing and
+    // stays refused (deferred #1448 Tier B follow-up).
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function TodoList() {
+        const [items, setItems] = createSignal<any[]>([])
+        return (
+          <ul>
+            {items().sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true })).map(t => (
+              <li>{t.name}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+
+    const { errors } = compileToIR(source)
+    const bf021 = errors.filter(e => e.code === ErrorCodes.UNSUPPORTED_JSX_PATTERN)
+
+    expect(bf021).toHaveLength(1)
+    expect(bf021[0].message).toContain('not a supported shape')
+  })
+
   test('emits BF021 error for multi-statement block-body sort comparator', () => {
     // Single-`return` block bodies now lower (#1448 Tier B follow-up),
     // but multi-statement / local-var bodies stay refused — generalising
