@@ -110,7 +110,7 @@ export function* iterateJsTokens(
   }
 }
 
-function isTriviaKind(kind: ts.SyntaxKind): boolean {
+export function isTriviaKind(kind: ts.SyntaxKind): boolean {
   return (
     kind === ts.SyntaxKind.WhitespaceTrivia
     || kind === ts.SyntaxKind.NewLineTrivia
@@ -163,6 +163,21 @@ function canRegexStartHere(prev: ts.SyntaxKind | undefined): boolean {
 
 // ---------------------------------------------------------------------------
 // Token classification helpers used by the consumers below.
+
+/**
+ * Whether `kind` is an identifier-like token — a plain identifier or any
+ * reserved/contextual keyword. Keywords lex to their own token kinds but
+ * still match the `[A-Za-z_$][\w$]*` shape the previous hand-rolled
+ * scanners treated as candidate identifier tokens, so consumers that want
+ * "every bare word in code context" (e.g. `tokenContainsIdent`) include
+ * them and compare the slice text themselves.
+ */
+export function isIdentifierLikeToken(kind: ts.SyntaxKind): boolean {
+  return (
+    kind === ts.SyntaxKind.Identifier
+    || (kind >= ts.SyntaxKind.FirstKeyword && kind <= ts.SyntaxKind.LastKeyword)
+  )
+}
 
 /** A token whose textual content is a non-code region (string body, regex, comment). */
 function isOpaqueContentKind(kind: ts.SyntaxKind): boolean {
