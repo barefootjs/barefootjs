@@ -129,6 +129,33 @@ describe('tokenContainsIdent', () => {
     })
   })
 
+  // Regex literals were invisible to the previous hand-rolled char scanner:
+  // a lone quote inside the regex flipped it into string state (swallowing
+  // real references), and an identifier inside the regex body was counted as
+  // a reference. The shared ts.createScanner-based lexer recognises regex
+  // literals, so both cases are now correct (#1370).
+  describe('regex literals', () => {
+    test('reference after a regex literal containing an apostrophe', () => {
+      expect(tokenContainsIdent("/it's/.test(className)", 'className')).toBe(true)
+    })
+
+    test('reference after a regex literal containing a quote', () => {
+      expect(tokenContainsIdent('/a"b/.test(className)', 'className')).toBe(true)
+    })
+
+    test('identifier inside a regex body is not a reference', () => {
+      expect(tokenContainsIdent('/className/.test(x)', 'className')).toBe(false)
+    })
+
+    test('regex with escaped slash does not leak into following code', () => {
+      expect(tokenContainsIdent('/a\\/b/.test(className)', 'className')).toBe(true)
+    })
+
+    test('division is not mistaken for a regex literal', () => {
+      expect(tokenContainsIdent('total / className', 'className')).toBe(true)
+    })
+  })
+
   describe('non-matches', () => {
     test('substring is not a match (word boundary)', () => {
       expect(tokenContainsIdent('myClassName', 'className')).toBe(false)
