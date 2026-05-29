@@ -91,17 +91,6 @@ export function relPathFromComponentsBase(p: string): string {
 
 // ── JSX components ─────────────────────────────────────────────────────────
 
-/**
- * Shape of `barefoot-externals.json` (the subset `BfImportMap` consumes):
- * `importmap.imports` plus `preloads`; fields are optional so a partial /
- * hand-written manifest still type-checks. See issues #1639 / #1644.
- *
- * Alias for the shared {@link ImportMapManifest} from `@barefootjs/jsx` so the
- * component and the `bf build` snippet path describe the manifest with one
- * type. Retained as a named export for back-compat.
- */
-export type BarefootExternalsManifest = ImportMapManifest
-
 export interface BfImportMapProps {
   /** Base URL where the runtime + component bundles are served. */
   base: string
@@ -112,8 +101,12 @@ export interface BfImportMapProps {
    * configured externals (e.g. `zod`, `@barefootjs/form`) resolve in
    * the browser. When omitted, only the `@barefootjs/client*`
    * mappings are emitted — the pre-#1639 behavior.
+   *
+   * Typed with the shared {@link ImportMapManifest} from `@barefootjs/jsx`,
+   * so the component and the `bf build` snippet path describe the manifest
+   * with one type.
    */
-  externals?: BarefootExternalsManifest
+  externals?: ImportMapManifest
   /**
    * Whether to also emit `<link rel="modulepreload">` for the
    * manifest's `preloads`. Defaults to `true`; set `false` to emit
