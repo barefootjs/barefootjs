@@ -2974,19 +2974,31 @@ function transformMapCall(
     }
     if (index) ctx.loopParams.add(index)
 
-    // Logical control flow (`cond && <X/>`, `a ?? <X/>`) or a direct
-    // JSX-returning helper call (`themeLogo(t.id)`) as the map body.
-    // These are not JSX literals, ternaries, or blocks, so without this
+    // Logical control flow (`cond && <X/>`, `a ?? themeLogo()`) as the map
+    // body. This is not a JSX literal, ternary, or block, so without this
     // the dispatch below leaves `children` empty and the whole `.map(...)`
     // falls through to the reactive-text path — emitting the callback
     // verbatim. That left inline JSX uncompiled and module-level JSX
-    // helpers undeclared (ReferenceError at hydration, #1665). Route them
-    // through the shared JSX expression transformer, which lowers logical
-    // control flow into an IRConditional and inlines JSX helpers, exactly
-    // like the ternary form. Gated on actually rendering JSX (inline or
-    // via a helper) so scalar bodies (`t.active && t.label`) keep their
-    // existing reactive-text behaviour.
+    // helpers undeclared (ReferenceError at hydration, #1665). Route the
+    // logical body through the shared JSX expression transformer, which
+    // lowers it into an IRConditional and inlines any JSX helper, exactly
+    // like the ternary form.
+    //
+    // Scoped deliberately to logical operators that actually render JSX
+    // (inline literal or a tracked helper call): a bare call body
+    // (`map(t => renderItem(t))`) stays on the existing reactive-text path
+    // that #546 owns, and a scalar logical body (`t.active && t.label`)
+    // keeps rendering its value.
     const tryTransformRenderableBody = (expr: ts.Expression): void => {
+      if (!ts.isBinaryExpression(expr)) return
+      const op = expr.operatorToken.kind
+      if (
+        op !== ts.SyntaxKind.AmpersandAmpersandToken &&
+        op !== ts.SyntaxKind.BarBarToken &&
+        op !== ts.SyntaxKind.QuestionQuestionToken
+      ) {
+        return
+      }
       if (!containsJsxInExpression(expr) && !callsJsxHelper(expr, ctx)) return
       const transformed = transformJsxExpression(expr, ctx, isClientOnly)
       if (transformed) children = [transformed]

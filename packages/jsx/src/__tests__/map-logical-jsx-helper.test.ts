@@ -1,6 +1,6 @@
 /**
  * BarefootJS Compiler — `.map()` callback whose body is a logical
- * expression (`&&` / `||` / `??`) or a direct JSX-returning helper call.
+ * expression (`&&` / `||` / `??`) that renders JSX.
  *
  * Regression for #1665: calling a module-level JSX helper from inside a
  * reactive `.map()` child (`THEMES.map(t => sel === t.id && themeLogo(t.id))`)
@@ -13,10 +13,12 @@
  * never compiled and the JSX helper was never inlined nor declared,
  * producing a ReferenceError.
  *
- * The fix routes logical / JSX-helper-call callback bodies through the
- * shared JSX expression transformer, which lowers them into an
- * IRConditional and inlines the helper (the same path the ternary form
- * already used).
+ * The fix routes a JSX-rendering logical callback body through the shared
+ * JSX expression transformer, which lowers it into an IRConditional and
+ * inlines any JSX helper (the same path the ternary form already used).
+ * The routing is scoped to logical operators so the bare-call body
+ * (`map(t => renderItem(t))`, owned by #546) and scalar logical bodies
+ * (`t.active && t.label`) keep their existing reactive-text behaviour.
  */
 
 import { describe, test, expect } from 'bun:test'
@@ -54,13 +56,13 @@ describe('.map() with logical / JSX-helper-call body (#1665)', () => {
     expect(clientJs).toContain('piconic')
   })
 
-  test('direct JSX-helper call as the map body is inlined', () => {
+  test('parenthesized `&&` with a single-return JSX helper is inlined', () => {
     const source = `
       'use client'
       const THEMES = [{ id: 'piconic' }, { id: 'hono' }]
       function themeLogo(id: string) { return <span>{id}</span> }
-      export function Header() {
-        return <div>{THEMES.map(t => themeLogo(t.id))}</div>
+      export function Header(props: { sel: string }) {
+        return <div>{THEMES.map(t => (props.sel === t.id && themeLogo(t.id)))}</div>
       }
     `
     const result = compileJSX(source, 'Header.tsx', { adapter })
@@ -70,7 +72,27 @@ describe('.map() with logical / JSX-helper-call body (#1665)', () => {
 
     expect(clientJs).not.toMatch(/themeLogo\s*\(/)
     expect(clientJs).toContain('<!--bf-loop')
-    expect(clientJs).toContain('<span>')
+    expect(clientJs).toContain('<span')
+  })
+
+  test('bare JSX-helper call body keeps its #546 reactive-text behaviour', () => {
+    // Boundary guard: the narrowed fix must NOT re-route a bare call body
+    // into the conditional path — that remains #546 territory. A local
+    // arrow helper is declared in init scope, so the call survives.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function List() {
+        const [items, _set] = createSignal([{ id: '1' }])
+        const renderItem = (item: any) => <li>{item.id}</li>
+        return <ul>{items().map(item => renderItem(item))}</ul>
+      }
+    `
+    const result = compileJSX(source, 'List.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+    const clientJs = result.files.find((f) => f.type === 'clientJs')!.content
+    // The bare call is preserved (not inlined into a conditional loop).
+    expect(clientJs).toMatch(/renderItem\s*\(/)
   })
 
   test('inline JSX in a `&&` map body compiles instead of emitting raw JSX verbatim', () => {
