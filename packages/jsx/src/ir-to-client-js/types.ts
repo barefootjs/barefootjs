@@ -201,6 +201,13 @@ export interface LoopCore {
    */
   bodyIsMultiRoot?: boolean
   /**
+   * True when the loop body is a single whole-item conditional whose at
+   * least one branch renders no element (#1665). Routes the loop through
+   * the anchored emission path (`mapArrayAnchored` + per-item
+   * `<!--bf-loop-i:KEY-->` anchors) so 0-or-1-element items reconcile.
+   */
+  bodyIsItemConditional?: boolean
+  /**
    * Pre-computed free identifiers referenced by the `array` expression
    * (#1267). Populated during IR build from the originating AST node so
    * downstream callers can ask `arrayFreeIdentifiers.has(name)` instead of

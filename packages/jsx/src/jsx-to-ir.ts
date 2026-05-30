@@ -2722,6 +2722,61 @@ function loopBodyIsMultiRoot(children: IRNode[]): boolean {
   return loopBodyIsMultiRoot(only.children)
 }
 
+/**
+ * True when a conditional branch renders no DOM element — the empty side of
+ * a whole-item conditional (`cond && <li/>` → false branch is `null`;
+ * `cond ? <li/> : null`). Such a branch makes the loop item render 0 elements
+ * in that state, which the element-tracking `mapArray` cannot represent.
+ */
+function branchRendersNothing(node: IRNode): boolean {
+  if (node.type === 'expression') {
+    const e = node.expr.trim()
+    return e === 'null' || e === 'undefined' || e === 'false' || e === "''" || e === '""'
+  }
+  if (node.type === 'text') {
+    return typeof node.value !== 'string' || !node.value.trim()
+  }
+  if (node.type === 'fragment') {
+    return node.children.every((c) => branchRendersNothing(c))
+  }
+  return false
+}
+
+/**
+ * When the loop body is a single whole-item conditional with an empty branch
+ * (the #1665 shape), return that conditional so the caller can route the loop
+ * through anchored emission. Returns `null` for single-element bodies and for
+ * both-branch-element ternaries (which always render exactly one element and
+ * stay on the legacy `mapArray` path).
+ */
+function loopBodyItemConditional(children: IRNode[]): IRConditional | null {
+  const real = children.filter(
+    (c) => !(c.type === 'text' && typeof c.value === 'string' && !c.value.trim())
+  )
+  if (real.length !== 1) return null
+  const only = real[0]
+  if (only.type !== 'conditional') return null
+  if (branchRendersNothing(only.whenTrue) || branchRendersNothing(only.whenFalse)) {
+    return only
+  }
+  return null
+}
+
+/**
+ * Hoist a key expression out of a whole-item conditional for `mapArray`'s
+ * keyFn. Ignores empty branches (they carry no element and thus no key) and
+ * requires the rendering branch(es) to agree on the key expression. Returns
+ * `null` when no key can be determined.
+ */
+function extractItemConditionalKey(cond: IRConditional): string | null {
+  const a = branchRendersNothing(cond.whenTrue) ? null : extractLoopKey(cond.whenTrue)
+  const b = branchRendersNothing(cond.whenFalse) ? null : extractLoopKey(cond.whenFalse)
+  if (a !== null && b !== null) {
+    return normalizeKeyExpr(a) === normalizeKeyExpr(b) ? a : null
+  }
+  return a ?? b
+}
+
 function transformMapCall(
   node: ts.CallExpression,
   ctx: TransformContext,
@@ -3132,7 +3187,15 @@ function transformMapCall(
   // same `key={EXPR}`, that EXPR is lifted out to mapArray's keyFn so a
   // shape change (e.g. `<polygon>` ↔ `<circle>`) replaces the DOM node
   // instead of mutating attributes on the wrong tag.
-  const key = children.length > 0 ? extractLoopKey(children[0]) : null
+  // Whole-item conditional bodies (#1665): the loop item is a single
+  // conditional whose at-least-one branch renders nothing, so an item shows
+  // 0-or-1 element. The key lives inside the rendering branch, so hoist it
+  // from there; a flag routes the loop through anchored emission downstream.
+  const itemConditional = children.length > 0 ? loopBodyItemConditional(children) : null
+  const bodyIsItemConditional = itemConditional !== null
+  const key = bodyIsItemConditional
+    ? extractItemConditionalKey(itemConditional!)
+    : (children.length > 0 ? extractLoopKey(children[0]) : null)
 
   // Extract childComponent info if the loop body is a single component
   // This enables createComponent-based rendering with proper prop passing
@@ -3214,6 +3277,7 @@ function transformMapCall(
     callsReactiveGetters: callsReactive || undefined,
     hasFunctionCalls: hasCalls || undefined,
     bodyIsMultiRoot: bodyIsMultiRoot || undefined,
+    bodyIsItemConditional: bodyIsItemConditional || undefined,
     childComponent,
     nestedComponents,
     filterPredicate,

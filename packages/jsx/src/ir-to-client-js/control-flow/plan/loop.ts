@@ -95,6 +95,20 @@ interface PlainLoopVariant extends DynamicLoopCommon {
    * `<!--bf-loop-i-->` marker emission, and `qsaItem` slot lookups (#1212).
    */
   bodyIsMultiRoot: boolean
+  /**
+   * True when the loop body is a whole-item conditional (#1665). Switches
+   * emission to `mapArrayAnchored`: the renderItem returns a fragment headed
+   * by a `<!--bf-loop-i:KEY-->` anchor and seeded with the conditional's
+   * markers, and `insert(anchor, …)` (not `insert(__el, …)`) owns the
+   * possibly-empty content.
+   */
+  anchored: boolean
+  /**
+   * Key expression wrapped as a loop-param accessor (`t().id`), used to bake
+   * the per-item `bf-loop-i:KEY` anchor value inside the anchored renderItem.
+   * Empty when the loop has no key (only meaningful when `anchored`).
+   */
+  anchorKeyExpr: string
 }
 
 /**

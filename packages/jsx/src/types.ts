@@ -533,6 +533,18 @@ export interface IRLoop {
   bodyIsMultiRoot?: boolean
 
   /**
+   * True when the loop body is a single whole-item conditional whose at
+   * least one branch renders no element (`arr.map(t => cond && <li/>)` or
+   * `cond ? <li/> : null`), so an item renders 0-or-1 element per pass
+   * (#1665). Drives anchored emission: per-item `<!--bf-loop-i:KEY-->`
+   * anchors in the template and a `mapArrayAnchored` call whose renderItem
+   * lets `insert()` own the (possibly empty) content. Single-element bodies
+   * and both-branch-element ternaries set this false and keep the legacy
+   * `mapArray` emission.
+   */
+  bodyIsItemConditional?: boolean
+
+  /**
    * Raw JS of pre-return statements in block body .map() callback.
    * Example: `items.map(item => { const label = item.name.toUpperCase(); return <li>{label}</li> })`
    * stores "const label = item.name.toUpperCase();" as mapPreamble.

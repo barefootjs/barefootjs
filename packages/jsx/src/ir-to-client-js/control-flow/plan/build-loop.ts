@@ -92,6 +92,8 @@ export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
     reactiveEffects: hasReactive ? buildLoopReactiveEffectsPlan(elem) : null,
     childRefs: buildChildRefBindings(elem.bindings.refs, elem.param, elem.paramBindings),
     bodyIsMultiRoot: elem.bodyIsMultiRoot ?? false,
+    anchored: elem.bodyIsItemConditional ?? false,
+    anchorKeyExpr: elem.key ? wrap(elem.key) : '',
   }
 }
 

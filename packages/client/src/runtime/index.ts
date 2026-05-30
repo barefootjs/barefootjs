@@ -56,7 +56,7 @@ export {
 export { reconcileList, type RenderItemFn } from './list'
 export { reconcileElements, getLoopChildren, getLoopNodes } from './reconcile-elements'
 export { qsaItem, upsertChildItem } from './qsa-item'
-export { mapArray } from './map-array'
+export { mapArray, mapArrayAnchored } from './map-array'
 
 // Template registry
 export { registerTemplate, getTemplate, hasTemplate, type TemplateFn } from './template'
