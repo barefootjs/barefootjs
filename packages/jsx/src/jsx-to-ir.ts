@@ -2723,31 +2723,39 @@ function loopBodyIsMultiRoot(children: IRNode[]): boolean {
 }
 
 /**
- * True when a conditional branch renders no DOM element — the empty side of
- * a whole-item conditional (`cond && <li/>` → false branch is `null`;
- * `cond ? <li/> : null`). Such a branch makes the loop item render 0 elements
- * in that state, which the element-tracking `mapArray` cannot represent.
+ * True when a conditional branch does NOT render exactly one root element —
+ * the element-less side of a whole-item conditional. Covers the empty branch
+ * of `cond && <li/>` (`null`) and `cond ? <li/> : null`, and the scalar side
+ * of `expr || <li/>` / `expr ?? <li/>` (the left operand renders as text or
+ * nothing, never a tracked element). Any such branch makes the loop item
+ * render 0-or-1 element across states, which the element-tracking `mapArray`
+ * cannot represent — the loop must use anchored emission instead.
+ *
+ * Element / component branches return `false`; a fragment is element-like
+ * only when it flattens to exactly one element child.
  */
-function branchRendersNothing(node: IRNode): boolean {
-  if (node.type === 'expression') {
-    const e = node.expr.trim()
-    return e === 'null' || e === 'undefined' || e === 'false' || e === "''" || e === '""'
-  }
-  if (node.type === 'text') {
-    return typeof node.value !== 'string' || !node.value.trim()
+function branchHasNoElement(node: IRNode): boolean {
+  if (node.type === 'element' || node.type === 'component') return false
+  if (node.type === 'conditional') {
+    return branchHasNoElement(node.whenTrue) || branchHasNoElement(node.whenFalse)
   }
   if (node.type === 'fragment') {
-    return node.children.every((c) => branchRendersNothing(c))
+    const real = node.children.filter(
+      (c) => !(c.type === 'text' && typeof c.value === 'string' && !c.value.trim())
+    )
+    return real.length !== 1 || branchHasNoElement(real[0])
   }
-  return false
+  // expression, text, and everything else: not a single tracked element.
+  return true
 }
 
 /**
- * When the loop body is a single whole-item conditional with an empty branch
- * (the #1665 shape), return that conditional so the caller can route the loop
- * through anchored emission. Returns `null` for single-element bodies and for
- * both-branch-element ternaries (which always render exactly one element and
- * stay on the legacy `mapArray` path).
+ * When the loop body is a single whole-item conditional with an element-less
+ * branch (the #1665 shapes: `&&`, `|| <jsx>`, `?? <jsx>`, `? <jsx> : null`),
+ * return that conditional so the caller can route the loop through anchored
+ * emission. Returns `null` for single-element bodies and for both-branch-
+ * element ternaries (which always render exactly one element and stay on the
+ * legacy `mapArray` path).
  */
 function loopBodyItemConditional(children: IRNode[]): IRConditional | null {
   const real = children.filter(
@@ -2756,7 +2764,7 @@ function loopBodyItemConditional(children: IRNode[]): IRConditional | null {
   if (real.length !== 1) return null
   const only = real[0]
   if (only.type !== 'conditional') return null
-  if (branchRendersNothing(only.whenTrue) || branchRendersNothing(only.whenFalse)) {
+  if (branchHasNoElement(only.whenTrue) || branchHasNoElement(only.whenFalse)) {
     return only
   }
   return null
@@ -2764,13 +2772,13 @@ function loopBodyItemConditional(children: IRNode[]): IRConditional | null {
 
 /**
  * Hoist a key expression out of a whole-item conditional for `mapArray`'s
- * keyFn. Ignores empty branches (they carry no element and thus no key) and
- * requires the rendering branch(es) to agree on the key expression. Returns
- * `null` when no key can be determined.
+ * keyFn. Ignores element-less branches (they carry no element and thus no
+ * key) and requires the rendering branch(es) to agree on the key expression.
+ * Returns `null` when no key can be determined.
  */
 function extractItemConditionalKey(cond: IRConditional): string | null {
-  const a = branchRendersNothing(cond.whenTrue) ? null : extractLoopKey(cond.whenTrue)
-  const b = branchRendersNothing(cond.whenFalse) ? null : extractLoopKey(cond.whenFalse)
+  const a = branchHasNoElement(cond.whenTrue) ? null : extractLoopKey(cond.whenTrue)
+  const b = branchHasNoElement(cond.whenFalse) ? null : extractLoopKey(cond.whenFalse)
   if (a !== null && b !== null) {
     return normalizeKeyExpr(a) === normalizeKeyExpr(b) ? a : null
   }

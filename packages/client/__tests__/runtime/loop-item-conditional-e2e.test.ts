@@ -72,6 +72,63 @@ describe('#1665 — whole-item loop conditional toggles per item', () => {
     expect(texts(el)).toEqual(['b'])
   })
 
+  test('ternary-with-null body (cond ? <li> : null) toggles per item', async () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function TernList() {
+        const [items] = createSignal([{ id: 'a' }, { id: 'b' }, { id: 'c' }])
+        const [sel, setSel] = createSignal('a')
+        return (
+          <div>
+            <button onClick={() => setSel('c')}>toC</button>
+            <ul>{items().map(t => sel() === t.id ? <li key={t.id}>{t.id}</li> : null)}</ul>
+          </div>
+        )
+      }
+    `
+    const el = await mount(source, 'TernList.tsx', 'TernList')
+    expect(texts(el)).toEqual(['a'])
+    el.querySelector('button')!.dispatchEvent(new window.Event('click', { bubbles: true }))
+    expect(texts(el)).toEqual(['c'])
+  })
+
+  test('logical-or body (expr || <li>) renders the element when left is falsy', async () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function OrList() {
+        const [items] = createSignal([{ id: 'a', hidden: false }, { id: 'b', hidden: true }, { id: 'c', hidden: false }])
+        return <ul>{items().map(t => t.hidden || <li key={t.id}>{t.id}</li>)}</ul>
+      }
+    `
+    const el = await mount(source, 'OrList.tsx', 'OrList')
+    // 'b' is hidden (left truthy) → renders nothing; 'a' and 'c' render.
+    expect(texts(el)).toEqual(['a', 'c'])
+  })
+
+  test('array add / remove keeps per-item conditionals correct', async () => {
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+      export function GrowList() {
+        const [items, setItems] = createSignal([{ id: 'a' }, { id: 'b' }])
+        const [sel] = createSignal('b')
+        return (
+          <div>
+            <button onClick={() => setItems([{ id: 'a' }, { id: 'b' }, { id: 'c' }])}>add</button>
+            <ul>{items().map(t => sel() === t.id && <li key={t.id}>{t.id}</li>)}</ul>
+          </div>
+        )
+      }
+    `
+    const el = await mount(source, 'GrowList.tsx', 'GrowList')
+    expect(texts(el)).toEqual(['b'])
+    el.querySelector('button')!.dispatchEvent(new window.Event('click', { bubbles: true }))
+    // Adding 'c' must not disturb 'b' still being the only rendered <li>.
+    expect(texts(el)).toEqual(['b'])
+  })
+
   test('static const array: same body shape behaves identically', async () => {
     const source = `
       'use client'
