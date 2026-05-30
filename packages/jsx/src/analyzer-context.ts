@@ -20,6 +20,7 @@ import type {
   CompilerError,
   SourceLocation,
   ParamInfo,
+  PropertyInfo,
   ReactiveFactoryInfo,
 } from './types'
 import { type ExcludeRange, collectAllTypeRanges, reconstructWithoutTypes } from './strip-types'
@@ -301,6 +302,46 @@ export function getSourceLocation(
 // Type Helpers
 // =============================================================================
 
+/**
+ * Extract structured {@link PropertyInfo} entries from the members of an object
+ * type literal or interface declaration. Shared so the type-literal branch of
+ * {@link typeNodeToTypeInfo} and interface-definition collection produce
+ * identical field shapes.
+ */
+export function membersToProperties(
+  members: ts.NodeArray<ts.TypeElement>,
+  sourceFile: ts.SourceFile
+): PropertyInfo[] {
+  return members
+    .filter(ts.isPropertySignature)
+    .map((member) => ({
+      name: propertyNameText(member.name, sourceFile),
+      type: typeNodeToTypeInfo(member.type, sourceFile) ?? {
+        kind: 'unknown' as const,
+        raw: 'unknown',
+      },
+      optional: !!member.questionToken,
+      readonly: !!member.modifiers?.some(
+        (m) => m.kind === ts.SyntaxKind.ReadonlyKeyword
+      ),
+    }))
+}
+
+/**
+ * The source-level name of an object/interface member. String- and numeric-
+ * literal keys are returned unquoted (`{ "id": ... }` → `id`), so consumers see
+ * the same name whether the key was written as an identifier or a string —
+ * `getText()` would otherwise keep the quotes.
+ */
+function propertyNameText(
+  name: ts.PropertyName | undefined,
+  sourceFile: ts.SourceFile
+): string {
+  if (!name) return ''
+  if (ts.isStringLiteral(name) || ts.isNumericLiteral(name)) return name.text
+  return name.getText(sourceFile)
+}
+
 export function typeNodeToTypeInfo(
   typeNode: ts.TypeNode | undefined,
   sourceFile: ts.SourceFile
@@ -352,19 +393,7 @@ export function typeNodeToTypeInfo(
     return {
       kind: 'object',
       raw,
-      properties: typeNode.members
-        .filter(ts.isPropertySignature)
-        .map((member) => ({
-          name: member.name?.getText(sourceFile) ?? '',
-          type: typeNodeToTypeInfo(member.type, sourceFile) ?? {
-            kind: 'unknown',
-            raw: 'unknown',
-          },
-          optional: !!member.questionToken,
-          readonly: !!member.modifiers?.some(
-            (m) => m.kind === ts.SyntaxKind.ReadonlyKeyword
-          ),
-        })),
+      properties: membersToProperties(typeNode.members, sourceFile),
     }
   }
 

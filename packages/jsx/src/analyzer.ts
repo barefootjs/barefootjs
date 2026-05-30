@@ -16,6 +16,7 @@ import {
   createAnalyzerContext,
   getSourceLocation,
   typeNodeToTypeInfo,
+  membersToProperties,
   isComponentFunction,
   isArrowComponentFunction,
 } from './analyzer-context'
@@ -1782,6 +1783,7 @@ function collectInterfaceDefinition(
     kind: 'interface',
     name: node.name.text,
     definition: node.getText(ctx.sourceFile),
+    properties: membersToProperties(node.members, ctx.sourceFile),
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
   })
 }
@@ -1790,10 +1792,16 @@ function collectTypeAliasDefinition(
   node: ts.TypeAliasDeclaration,
   ctx: AnalyzerContext
 ): void {
+  // Only object-type aliases carry structured fields; other aliases
+  // (string-literal unions, etc.) have no field set to record.
+  const properties = ts.isTypeLiteralNode(node.type)
+    ? membersToProperties(node.type.members, ctx.sourceFile)
+    : undefined
   ctx.typeDefinitions.push({
     kind: 'type',
     name: node.name.text,
     definition: node.getText(ctx.sourceFile),
+    properties,
     loc: getSourceLocation(node, ctx.sourceFile, ctx.filePath),
   })
 }

@@ -21,6 +21,7 @@ import type {
   IRTemplatePart,
   IRProp,
   TypeInfo,
+  TypeDefinition,
   CompilerError,
   SourceLocation,
   ParsedExpr,
@@ -671,9 +672,10 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       if (td.definition.match(/^type \w+ = ('[^']*'(\s*\|\s*'[^']*')*)/)) {
         this.localTypeAliases.set(td.name, 'string')
       } else {
-        // Record the struct's source-key → Go-field-name map for the baker.
-        const fields = this.parseStructFields(td.definition)
-        if (fields) {
+        // Record the struct's source-key → Go-field-name map for the baker,
+        // from the same field derivation the struct emitter uses.
+        const fields = this.structFieldsFor(td)
+        if (fields.length > 0) {
           this.localStructFields.set(td.name, new Map(fields.map(f => [f.tsName, f.goName])))
         }
       }
@@ -735,53 +737,47 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
    * Convert a TypeScript type definition to a Go type.
    * Handles object types → Go structs, and union string literals → string alias.
    */
-  private typeDefinitionToGo(td: { kind: string; name: string; definition: string }): string | null {
-    const def = td.definition
-
-    // String literal union: type Filter = 'all' | 'active' | 'completed'
-    if (def.match(/^type \w+ = ('[^']*'(\s*\|\s*'[^']*')*)/)) {
+  private typeDefinitionToGo(td: TypeDefinition): string | null {
+    // String literal union: type Filter = 'all' | 'active' | 'completed'.
+    // These carry no `properties`, so the analyzer leaves the field set empty;
+    // detect the alias from the definition and map it to a Go string.
+    if (td.definition.match(/^type \w+ = ('[^']*'(\s*\|\s*'[^']*')*)/)) {
       // Map to Go string (union of string literals → just string in Go)
       return `// ${td.name} is a string type.\ntype ${td.name} = string`
     }
 
     // Object/interface type: type Todo = { id: number; text: string; ... }
-    const fields = this.parseStructFields(def)
-    if (!fields) return null
+    const fields = this.structFieldsFor(td)
+    if (fields.length === 0) return null
 
     const goFields = fields.map(
-      f => `\t${f.goName} ${this.tsTypeStringToGo(f.tsType)} \`json:"${this.toJsonTag(f.tsName)}"\``,
+      f => `\t${f.goName} ${f.goType} \`json:"${this.toJsonTag(f.tsName)}"\``,
     )
-    if (goFields.length === 0) return null
-
     return `// ${td.name} represents a ${td.name.toLowerCase()}.\ntype ${td.name} struct {\n${goFields.join('\n')}\n}`
   }
 
   /**
-   * Parse an object/interface type definition body into its struct fields.
-   * Returns `null` when `def` isn't an object/interface type (e.g. a
-   * string-union alias). This is the single source of truth for which fields a
-   * generated struct has and what each field's Go name is — both the struct
-   * emitter ({@link typeDefinitionToGo}) and the object-literal baker
-   * ({@link tsLiteralToGo}) consume it, so a literal can never name a field the
-   * struct doesn't actually declare.
+   * Derive a struct's Go fields from the analyzer-provided structured
+   * properties — no string parsing of the definition. This is the single
+   * source of truth for which fields a generated struct has and each field's Go
+   * name/type; both the struct emitter ({@link typeDefinitionToGo}) and the
+   * object-literal baker ({@link tsLiteralToGo}) consume it, so a baked literal
+   * can never name a field the struct doesn't declare.
    *
-   * The field-name regex is `\w+`, so a non-identifier source key (`"data-id"`)
-   * is silently absent from both the struct and the field map — the baker then
-   * bails to `nil` for any literal that uses such a key.
+   * A property whose source key isn't a valid Go identifier (`"data-id"`, a
+   * numeric key, …) can't become a struct field, so it's dropped here — and is
+   * therefore absent from the baker's field map too, which bails to nil for any
+   * literal that uses such a key.
    */
-  private parseStructFields(def: string): Array<{ tsName: string; goName: string; tsType: string }> | null {
-    const bodyMatch = def.match(/(?:type \w+ = |interface \w+ )\{([\s\S]*)\}/)
-    if (!bodyMatch) return null
-
-    const fields: Array<{ tsName: string; goName: string; tsType: string }> = []
-    // Handle both semicolon-separated and newline-separated field lists.
-    const fieldEntries = bodyMatch[1].split(/[;\n]/).map(s => s.trim()).filter(Boolean)
-    for (const entry of fieldEntries) {
-      // "fieldName: type" or "fieldName?: type"
-      const fieldMatch = entry.match(/^(\w+)\??\s*:\s*(.+)$/)
-      if (!fieldMatch) continue
-      const [, tsName, tsType] = fieldMatch
-      fields.push({ tsName, goName: this.capitalizeFieldName(tsName), tsType: tsType.trim() })
+  private structFieldsFor(td: TypeDefinition): Array<{ tsName: string; goName: string; goType: string }> {
+    const fields: Array<{ tsName: string; goName: string; goType: string }> = []
+    for (const prop of td.properties ?? []) {
+      if (!GoTemplateAdapter.GO_IDENTIFIER.test(prop.name)) continue
+      fields.push({
+        tsName: prop.name,
+        goName: this.capitalizeFieldName(prop.name),
+        goType: this.typeInfoToGo(prop.type),
+      })
     }
     return fields
   }
@@ -2399,6 +2395,14 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
 
     return null
   }
+
+  /**
+   * A source key that can become a Go struct field — i.e. a valid Go
+   * identifier. TS object keys that aren't (e.g. `"data-id"`, numeric keys)
+   * can't be exported struct fields, so they're excluded from struct generation
+   * and from the baker's field map.
+   */
+  private static GO_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
 
   /** Go common initialisms that should be fully uppercased (https://go.dev/wiki/CodeReviewComments#initialisms) */
   private static GO_INITIALISMS = new Set([

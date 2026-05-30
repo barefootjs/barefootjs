@@ -40,7 +40,9 @@ export type {
   IRTemplatePart,
   IRProp,
   ParamInfo,
+  PropertyInfo,
   TypeInfo,
+  TypeDefinition,
   SourceLocation,
   CompilerError,
 } from './types'
