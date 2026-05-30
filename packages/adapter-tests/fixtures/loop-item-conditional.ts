@@ -25,13 +25,6 @@ export function LoopItemConditional() {
 }
 `,
   expectedHtml: `
-    <ul bf-s="test" bf="s2">
-      <!--bf-loop-i:a-->
-      <!--bf-cond-start:s0--><!--bf-cond-end:s0-->
-      <!--bf-loop-i:b-->
-      <li bf-c="s0" data-key="b"><!--bf:s1-->b<!--/--></li>
-      <!--bf-loop-i:c-->
-      <!--bf-cond-start:s0--><!--bf-cond-end:s0-->
-    </ul>
+    <ul bf-s="test" bf="s2"><!--bf-loop-i:a--><!--bf-cond-start:s0--><!--bf-cond-end:s0--><!--bf-loop-i:b--><li bf-c="s0"><!--bf:s1-->b<!--/--></li><!--bf-loop-i:c--><!--bf-cond-start:s0--><!--bf-cond-end:s0--></ul>
   `,
 })
