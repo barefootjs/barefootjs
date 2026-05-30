@@ -266,14 +266,15 @@ describe('reactive attributes inside .map() callbacks', () => {
     const clientJs = result.files.find(f => f.type === 'clientJs')!.content
     // The per-item style binding must be wired through a createEffect that
     // re-reads the helper and writes the style attribute, so it tracks the
-    // `items()` signal and updates after hydration.
-    expect(clientJs).toContain('createEffect')
-    expect(clientJs).toContain("setAttribute('style'")
-    // The helper call must survive into the emitted effect (not be baked into
-    // the static template), so the binding re-evaluates on signal change. The
-    // index reference resolves to the loop's renderItem index param, which is
-    // in scope inside the factory.
-    expect(clientJs).toContain('widthAt(')
+    // `items()` signal and updates after hydration. Pin the helper call
+    // *inside* the createEffect alongside the style write — `widthAt(` also
+    // appears in the static template clone, so asserting it independently
+    // could pass even if the effect was missing (the exact regression here).
+    // The index resolves to the loop's renderItem index param, in scope
+    // inside the factory.
+    expect(clientJs).toMatch(
+      /createEffect\(\(\)\s*=>\s*\{[\s\S]*?widthAt\([\s\S]*?setAttribute\('style'/,
+    )
   })
 
   test('keyed loop: `key` prop is not emitted as a reactive DOM attribute', () => {
