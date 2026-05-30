@@ -1747,7 +1747,14 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     // `map[string]interface{}` items the template can't reach via field access
     // (`.ID` → <nil>), so `jsLiteralToGo` returns null there and we keep nil.
     if (typeInfo.kind === 'array') {
-      if (value === '[]' || value === 'null' || value === 'undefined') {
+      // Collapse empty / nullish literals to nil before baking. Strip all
+      // whitespace for this compare so an internally-padded empty literal
+      // (`[ ]`, `[  ]`) collapses too, not just the exact `[]` — otherwise it
+      // would bake an empty slice literal (`[]string{}`), which JSON-marshals
+      // as `[]` rather than the `null` a nil slice produces. The original
+      // `value` is still what gets parsed, so element whitespace is untouched.
+      const bare = value.replace(/\s/g, '')
+      if (bare === '[]' || bare === 'null' || bare === 'undefined') {
         return 'nil'
       }
       const baked = this.jsLiteralToGo(value, typeInfo)
@@ -1858,6 +1865,12 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         } else {
           return null
         }
+        // The key must capitalise to a valid Go struct field identifier.
+        // String/numeric keys can hold names a struct field can't —
+        // `"data-id"`, `0`, `"with space"` — which would emit a keyed literal
+        // that doesn't compile. Bail to nil for anything that isn't a bare
+        // JS identifier (the only shape `capitalizeFieldName` maps cleanly).
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return null
         const init = prop.initializer
         if (ts.isObjectLiteralExpression(init) || ts.isArrayLiteralExpression(init)) {
           return null

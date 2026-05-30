@@ -629,6 +629,44 @@ export function Dyn() {
       const types = adapter.generate(ir).types!
       expect(types).toContain('Items: nil,')
     })
+
+    test('keeps nil for object keys that are not Go-identifier-safe (#1675 review)', () => {
+      // A quoted key like "data-id" capitalises to `Data-id`, which is not a
+      // valid Go struct field identifier — baking it would emit a keyed struct
+      // literal that doesn't compile, so the whole array must stay nil.
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Row = { "data-id": string }
+export function Rows() {
+  const [rows] = createSignal<Row[]>([{ "data-id": "a" }])
+  return <ul>{rows().map((r) => <li key={r["data-id"]}>{r["data-id"]}</li>)}</ul>
+}
+`)
+      const types = adapter.generate(ir).types!
+      expect(types).toContain('Rows: nil,')
+    })
+
+    test('collapses whitespace-padded empty array literal to nil (#1675 review)', () => {
+      // The empty-literal fast-path must match `[ ]` too, not only the exact
+      // `[]`, so a padded empty initial value still defaults to nil rather than
+      // baking an empty slice literal.
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function Empty() {
+  const [items] = createSignal<string[]>([ ])
+  return <ul>{items().map((t) => <li key={t}>{t}</li>)}</ul>
+}
+`)
+      const types = adapter.generate(ir).types!
+      expect(types).toContain('Items: nil,')
+      expect(types).not.toContain('Items: []string{}')
+    })
   })
 
   describe('JSX children forwarding (#1203)', () => {
