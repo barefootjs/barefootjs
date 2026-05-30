@@ -833,6 +833,14 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
       // literal here to match the adapter's existing convention of
       // emitting comment-marker strings directly.
       safeChildren = `<>{bfComment('bf-loop-i')}${children}</>`
+    } else if (loop.bodyIsItemConditional && loop.key) {
+      // Whole-item conditional (#1665): a per-item `<!--bf-loop-i:KEY-->`
+      // anchor that is ALWAYS present (even when the item's conditional
+      // renders nothing), carrying the key so the client's
+      // `mapArrayAnchored` can hydrate every SSR-rendered item by its anchor.
+      // `bfComment(k)` emits `<!--bf-${k}-->`, so the `loop-i:` argument
+      // yields `<!--bf-loop-i:KEY-->`.
+      safeChildren = `<>{bfComment('loop-i:' + String(${loop.key}))}${children}</>`
     }
     // Apply chained `.sort()` / `.filter()` extracted to
     // `loop.sortComparator` / `loop.filterPredicate` (#1448 Tier B).

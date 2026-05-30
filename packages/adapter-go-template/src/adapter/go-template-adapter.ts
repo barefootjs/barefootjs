@@ -3983,6 +3983,11 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       }
     }
     const children = this.renderChildren(loop.children)
+    // Build the per-item anchor marker while the loop param is still on the
+    // stack, so a `bodyIsItemConditional` key expression (#1665) resolves
+    // against the range item (`.` context) like `data-key` does — popping
+    // first would rewrite `t.id` to `.T.ID` instead of `.ID`.
+    const itemMarker = this.loopItemMarker(loop)
     for (const v of addedLoopVars) {
       const rc = (this.loopVarRefCount.get(v) ?? 1) - 1
       if (rc <= 0) this.loopVarRefCount.delete(v)
@@ -4020,13 +4025,27 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         filterCond = 'true'
       }
 
-      // Per-item start marker for multi-root Fragment items (#1212).
-      const itemMarker = loop.bodyIsMultiRoot ? `{{bfComment "bf-loop-i"}}` : ''
       return `{{bfComment "loop:${loop.markerId}"}}{{range $${rangeIndex}, $${rangeValue} := ${goArray}}}{{if ${filterCond}}}${itemMarker}${children}{{end}}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
     }
 
-    const itemMarker = loop.bodyIsMultiRoot ? `{{bfComment "bf-loop-i"}}` : ''
     return `{{bfComment "loop:${loop.markerId}"}}{{range $${rangeIndex}, $${rangeValue} := ${goArray}}}${itemMarker}${children}{{end}}{{bfComment "/loop:${loop.markerId}"}}`
+  }
+
+  /**
+   * Per-item `<!--bf-loop-i-->` / `<!--bf-loop-i:KEY-->` start marker emitted
+   * inside a `{{range}}` body. Multi-root Fragment items (#1212) get the bare
+   * anchor; whole-item conditional items (#1665) get the key-bearing anchor so
+   * the client's `mapArrayAnchored` can hydrate items that render no element.
+   */
+  private loopItemMarker(loop: { bodyIsMultiRoot?: boolean; bodyIsItemConditional?: boolean; key?: string | null }): string {
+    if (loop.bodyIsMultiRoot) return `{{bfComment "bf-loop-i"}}`
+    if (loop.bodyIsItemConditional && loop.key) {
+      // `bfComment` prepends `bf-`, so `printf "loop-i:%v"` yields
+      // `<!--bf-loop-i:KEY-->`. The key expression resolves against the
+      // current range item (`.` context), matching `data-key`'s emission.
+      return `{{bfComment (printf "loop-i:%v" ${this.convertExpressionToGo(loop.key)})}}`
+    }
+    return ''
   }
 
   /**
