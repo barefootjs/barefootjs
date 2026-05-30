@@ -971,3 +971,165 @@ describe('MojoAdapter - #1448 Tier A/B fixture-driven lowering pins', () => {
     })
   }
 })
+
+// =============================================================================
+// #1448 — `/* @client */` escape hatch for STILL-UNSUPPORTED methods
+// =============================================================================
+//
+// Mojo sibling of the Go block: #1448 documents `/* @client */` as the
+// universal workaround for any Array/String method the template
+// adapters can't lower. This pins that contract for the Mojo adapter —
+// wrapping the unsupported expression in the directive must clear the
+// BF021/BF101 build error the bare form raises and emit a client-only
+// placeholder so the Mojo SSR pass renders valid `.html.ep` that the
+// client runtime fills at hydration.
+//
+// Same silent-footgun caveat as Go: the unsupported *string* methods
+// raise NO build diagnostic — bare `.startsWith` / `.repeat` / … lower
+// to a Perl hash-deref-and-call (`$name->{startsWith}('a')`) that
+// passes the adapter gate, then dies at render with
+// `Can't use string (...) as a HASH ref while "strict refs"`.
+// `/* @client */` is the only escape hatch, so these tests pin it.
+describe('MojoAdapter - #1448 @client escape hatch (unsupported methods)', () => {
+  function emit(expr: string, client: boolean) {
+    const marker = client ? '/* @client */ ' : ''
+    const adapter = new MojoAdapter()
+    const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+export function C() {
+  const [items, setItems] = createSignal<{ name: string; n: number; tags: string[] }[]>([])
+  const [name, setName] = createSignal("x")
+  return <div>{${marker}${expr}}</div>
+}
+`, adapter)
+    const template = adapter.generate(ir).template ?? ''
+    return { errors: adapter.errors ?? [], template }
+  }
+
+  function emitLoop(chain: string, client: boolean) {
+    const marker = client ? '/* @client */ ' : ''
+    const adapter = new MojoAdapter()
+    const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+export function C() {
+  const [items, setItems] = createSignal<{ name: string; n: number }[]>([])
+  const myCmp = (a: { n: number }, b: { n: number }) => a.n - b.n
+  return <ul>{${marker}${chain}}</ul>
+}
+`, adapter)
+    const template = adapter.generate(ir).template ?? ''
+    return { errors: adapter.errors ?? [], template }
+  }
+
+  // Tier C array methods — bare form raises BF101 at build time.
+  const unsupportedArray: Array<[string, string]> = [
+    ['reduce', `items().reduce((a, b) => a + b.n, 0)`],
+    ['flatMap', `items().flatMap(i => i.tags)`],
+    ['flat', `items().flat()`],
+  ]
+  for (const [name, expr] of unsupportedArray) {
+    test(`array .${name}: bare raises BF101, @client clears it + emits client placeholder`, () => {
+      const bare = emit(expr, false)
+      expect(bare.errors.some(e => e.code === 'BF101')).toBe(true)
+
+      const guarded = emit(expr, true)
+      expect(guarded.errors).toEqual([])
+      // Client-only text slot → `<%== bf->comment("client:sN") %>`.
+      expect(guarded.template).toMatch(/bf->comment\("client:s\d+"\)/)
+    })
+  }
+
+  // Tier B/C string methods — bare form emits an INVALID Perl
+  // hash-deref-and-call with NO build error (the silent footgun).
+  const unsupportedString: Array<[string, string, string]> = [
+    ['split', `name().split(",")`, '->{split}'],
+    ['startsWith', `name().startsWith("a")`, '->{startsWith}'],
+    ['endsWith', `name().endsWith("z")`, '->{endsWith}'],
+    ['replace', `name().replace("a", "b")`, '->{replace}'],
+    ['repeat', `name().repeat(3)`, '->{repeat}'],
+    ['padStart', `name().padStart(5, "0")`, '->{padStart}'],
+    ['padEnd', `name().padEnd(5, "0")`, '->{padEnd}'],
+    ['charAt', `name().charAt(0)`, '->{charAt}'],
+  ]
+  for (const [name, expr, badEmit] of unsupportedString) {
+    test(`string .${name}: bare emits invalid Perl deref, @client emits client placeholder`, () => {
+      const bare = emit(expr, false)
+      // Documents the footgun: no BF101 guard, invalid template emitted.
+      expect(bare.errors.filter(e => e.code === 'BF101')).toEqual([])
+      expect(bare.template).toContain(badEmit)
+
+      const guarded = emit(expr, true)
+      expect(guarded.errors).toEqual([])
+      expect(guarded.template).toMatch(/bf->comment\("client:s\d+"\)/)
+      expect(guarded.template).not.toContain(badEmit)
+    })
+  }
+
+  // Tier B `.sort` / `.toSorted` follow-ups still refused with BF021.
+  // The Mojo client-only loop placeholder is an empty element (the
+  // client runtime repopulates it via the `bf-s` scope marker), so the
+  // contract here is: no errors + the comparator never lowers + no
+  // rendered `<li>` survives.
+  const unsupportedSort: Array<[string, string]> = [
+    ['function-reference comparator', `items().toSorted(myCmp).map(x => <li key={x.name}>{x.name}</li>)`],
+    ['localeCompare locale/options arg', `items().toSorted((a, b) => a.name.localeCompare(b.name, "ja", { numeric: true })).map(x => <li key={x.name}>{x.name}</li>)`],
+  ]
+  for (const [label, chain] of unsupportedSort) {
+    test(`sort follow-up (${label}): bare raises BF021, @client clears it`, () => {
+      const bare = compileJSX(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+export function C() {
+  const [items, setItems] = createSignal<{ name: string; n: number }[]>([])
+  const myCmp = (a: { n: number }, b: { n: number }) => a.n - b.n
+  return <ul>{${chain}}</ul>
+}
+`.trimStart(), 'test.tsx', { adapter: new MojoAdapter() })
+      expect(bare.errors?.some(e => e.code === 'BF021')).toBe(true)
+
+      const guarded = emitLoop(chain, true)
+      expect(guarded.errors).toEqual([])
+      // Empty client-only loop placeholder — no item rows emitted SSR.
+      expect(guarded.template).not.toContain('<li')
+      expect(guarded.template).not.toContain('localeCompare')
+    })
+  }
+
+  // End-to-end proof via perl + Mojolicious: the bare unsupported form
+  // crashes Mojo template execution, while the `@client` form renders a
+  // `<!--bf-client:sN-->` placeholder. Skipped on hosts without
+  // Mojolicious installed.
+  test('e2e: bare string method crashes perl render, @client renders placeholder', async () => {
+    const guarded = `
+"use client"
+import { createSignal } from "@barefootjs/client"
+export function C() {
+  const [name, setName] = createSignal("hello")
+  return <div>{/* @client */ name().repeat(3)}</div>
+}
+`
+    const bareSrc = guarded.replace('/* @client */ ', '')
+    try {
+      const html = await renderMojoComponent({
+        source: guarded.trimStart(),
+        adapter: new MojoAdapter(),
+      })
+      expect(html).toContain('<!--bf-client:s0-->')
+    } catch (err) {
+      if (err instanceof PerlNotAvailableError) {
+        console.log('Skipping #1448 @client e2e: perl/Mojolicious not found')
+        return
+      }
+      throw err
+    }
+    // Bare form must fail Mojo template execution (no @client guard).
+    await expect(
+      renderMojoComponent({
+        source: bareSrc.trimStart(),
+        adapter: new MojoAdapter(),
+      }),
+    ).rejects.toThrow(/HASH ref/)
+  })
+})
