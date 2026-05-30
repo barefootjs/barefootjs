@@ -236,6 +236,47 @@ describe('reactive attributes inside .map() callbacks', () => {
     expect(forEachMatches.length).toBe(1)
   })
 
+  test('per-item attr reading an outer signal via helper+index gets a createEffect (#1673)', () => {
+    // A per-item attribute whose value reads the source array signal through
+    // a helper indexed by position (`widthAt(i)` → `items()[i].w`) used to
+    // emit NO reactive effect — the value was baked into the item template
+    // once and froze at its SSR value. The identical binding on a top-level
+    // element works, because the top-level path wraps opaque function calls
+    // via the Solid-style AST-flag fallback (#940). This test pins that the
+    // loop-child path now applies the same fallback.
+    const source = `
+      'use client'
+      import { createSignal } from '@barefootjs/client'
+
+      export function ReproLoopAttr() {
+        const [items, setItems] = createSignal([{ id: 'a', w: 20 }, { id: 'b', w: 50 }])
+        const widthAt = (i) => items()[i].w
+        return (
+          <ul>
+            {items().map((it, i) => (
+              <li key={it.id} data-b style={\`width:\${widthAt(i)}%\`}>{it.id}</li>
+            ))}
+          </ul>
+        )
+      }
+    `
+    const result = compileJSX(source, 'ReproLoopAttr.tsx', { adapter })
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')!.content
+    // The per-item style binding must be wired through a createEffect that
+    // re-reads the helper and writes the style attribute, so it tracks the
+    // `items()` signal and updates after hydration. Pin the helper call
+    // *inside* the createEffect alongside the style write — `widthAt(` also
+    // appears in the static template clone, so asserting it independently
+    // could pass even if the effect was missing (the exact regression here).
+    // The index resolves to the loop's renderItem index param, in scope
+    // inside the factory.
+    expect(clientJs).toMatch(
+      /createEffect\(\(\)\s*=>\s*\{[\s\S]*?widthAt\([\s\S]*?setAttribute\('style'/,
+    )
+  })
+
   test('keyed loop: `key` prop is not emitted as a reactive DOM attribute', () => {
     // Regression guard for the "key duplicate emission" bug:
     // `<li key={item.id}>` used to be both rendered as `data-key=` in the
