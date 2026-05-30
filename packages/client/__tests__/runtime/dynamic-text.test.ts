@@ -90,6 +90,28 @@ describe('__bfText', () => {
     expect(host.querySelector('span')).toBeNull()
   })
 
+  test('clears a stale Node when a re-resolved text anchor is written (conditional slot)', () => {
+    // Reproduces the conditional-slot path: a previous run spliced a live
+    // element into the slot; the next run re-resolves the anchor via $t(),
+    // which inserts a fresh text node *before* that stale element. Writing a
+    // primitive through that new anchor must remove the leftover element so
+    // the slot doesn't render both.
+    const el = document.createElement('span')
+    el.textContent = 'node'
+    const start = host.firstChild! // <!--bf:s0-->
+    start.parentNode!.insertBefore(el, start.nextSibling)
+    // Simulate $t() handing back a brand-new text node placed before `el`.
+    const reResolved = document.createTextNode('')
+    start.parentNode!.insertBefore(reResolved, start.nextSibling)
+
+    const result = __bfText(reResolved, 'plain')
+
+    expect(result).toBe(reResolved)
+    expect(host.contains(el)).toBe(false)
+    expect(host.querySelector('span')).toBeNull()
+    expect(host.textContent).toBe('plain')
+  })
+
   test('preserves server-rendered DOM for __isSlot markers', () => {
     const slotMarker = { __isSlot: true } as unknown
     anchor.nodeValue = 'ssr'

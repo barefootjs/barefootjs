@@ -653,4 +653,53 @@ describe('Adapter output', () => {
       expect(template.content).not.toMatch(/\b0\s+as\s+number\b/)
     })
   })
+
+  // The no-arg props default (`= {}`) makes a JSX-returning arrow hoisted from
+  // an object-literal value renderable at SSR (#1663). `hasRequiredProps`
+  // treats a prop with a destructuring default as non-required, but the
+  // declared props type may still mark that field required — so a bare `= {}`
+  // would fail `tsc` ("Property 'x' is missing in type '{}'..."). The default
+  // must be asserted to the param's annotated type (`{} as T`).
+  describe('no-arg props default is type-safe for typed required props (#1663 follow-up)', () => {
+    const cases = [
+      ['TestAdapter', () => new TestAdapter()],
+      ['HonoAdapter', () => new HonoAdapter()],
+    ] as const
+
+    for (const [label, make] of cases) {
+      test(`typed required prop with a default emits \`= {} as T\` (${label})`, () => {
+        // `label` is required in the type but carries a destructuring default,
+        // the exact shape that made a bare `= {}` fail tsc.
+        const source = `
+          export function Badge({ label = 'x' }: { label: string }) {
+            return <span>{label}</span>
+          }
+        `
+        const result = compileJSX(source, 'Badge.tsx', { adapter: make() })
+        expect(result.errors).toHaveLength(0)
+
+        const template = result.files.find(f => f.type === 'markedTemplate')!
+        const sig = template.content.split('\n').find(l => l.includes('function Badge'))!
+        // Asserted to the generated props type, never a bare `= {}`.
+        expect(sig).toContain('= {} as BadgePropsWithHydration')
+        expect(sig).not.toMatch(/=\s*\{\}\s*\)/)
+      })
+    }
+
+    test('untyped props still default to a bare `= {} as <hydration type>` (TestAdapter)', () => {
+      const source = `
+        export function Plain() {
+          return <span>hi</span>
+        }
+      `
+      const result = compileJSX(source, 'Plain.tsx', { adapter: new TestAdapter() })
+      expect(result.errors).toHaveLength(0)
+
+      const template = result.files.find(f => f.type === 'markedTemplate')!
+      const sig = template.content.split('\n').find(l => l.includes('function Plain'))!
+      // No declared props type → default asserted to the hydration-only type.
+      expect(sig).toContain('= {} as {')
+      expect(sig).toContain('__instanceId')
+    })
+  })
 })

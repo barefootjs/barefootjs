@@ -142,12 +142,16 @@ export class TestAdapter extends JsxAdapter {
     // props, so a bare no-arg call (`Foo()`) doesn't crash on destructuring
     // `undefined`. This is what makes a JSX-returning arrow hoisted from an
     // object-literal value (e.g. `THEME_LOGOS[id]()`) renderable at SSR
-    // (#1663). Only safe when no required prop exists — otherwise `{}` would
-    // not satisfy the props type.
+    // (#1663). `hasRequiredProps` ignores props that carry a destructuring
+    // default, but the declared props type may still mark that field
+    // required — so a bare `= {}` would fail `tsc` ("Property 'x' is missing
+    // in type '{}'..."). Assert the default to the param's own annotated type
+    // (`{} as T`); the destructuring defaults supply the values at runtime.
     const hasRequiredProps = ir.metadata.propsParams.some(
       (p: ParamInfo) => !p.optional && p.defaultValue === undefined && !p.isRest,
     )
-    const noArgDefault = hasRequiredProps ? '' : ' = {}'
+    const propsTypeExpr = typeAnnotation.replace(/^:\s*/, '')
+    const noArgDefault = hasRequiredProps ? '' : ` = {} as ${propsTypeExpr}`
 
     const lines: string[] = []
     // Module-export keyword belongs to the adapter: it knows the target language
