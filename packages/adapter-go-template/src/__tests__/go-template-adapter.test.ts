@@ -47,9 +47,10 @@ runAdapterConformanceTests({
     // leaves it `nil`; (2) the loop body references the outer `sel` signal,
     // which the template emits as `.Sel` — resolved against the loop element
     // inside `range` rather than the root scope (`$.Sel`), a separate codegen
-    // bug masked until now by the previously-empty loop. The anchored SSR shape
-    // with rendered items is covered by Hono + CSR conformance and the runtime
-    // hydration tests. https://github.com/piconic-ai/barefootjs/issues/1672
+    // bug masked until now by the previously-empty loop and now tracked in
+    // #1677. The anchored SSR shape with rendered items is covered by Hono +
+    // CSR conformance and the runtime hydration tests.
+    // https://github.com/piconic-ai/barefootjs/issues/1677
     'loop-item-conditional',
     // #1297 fixed the harness-side IR emission gate (multi-component
     // sources now emit one `ir` file per component, and the harness

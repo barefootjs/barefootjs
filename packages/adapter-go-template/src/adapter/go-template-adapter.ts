@@ -1812,6 +1812,9 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       return JSON.stringify(node.text)
     }
+    // Pass the numeric literal's source spelling through verbatim. Every form
+    // the TS parser accepts here (`1`, `1.5`, `1e3`, `0x10`, `1_000`) is also a
+    // valid Go numeric literal, so no re-formatting is needed.
     if (ts.isNumericLiteral(node)) return node.text
     if (node.kind === ts.SyntaxKind.TrueKeyword) return 'true'
     if (node.kind === ts.SyntaxKind.FalseKeyword) return 'false'
@@ -1861,6 +1864,10 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         }
         const go = this.tsLiteralToGo(init)
         if (go === null) return null
+        // Field name MUST be capitalised with the same helper the struct
+        // definition uses (see `capitalizeFieldName` call in the struct-field
+        // generation above), or the keyed literal won't match the field and Go
+        // won't compile. Keep these two call sites in sync.
         entries.push(`${this.capitalizeFieldName(key)}: ${go}`)
       }
       return `${goType}{${entries.join(', ')}}`
