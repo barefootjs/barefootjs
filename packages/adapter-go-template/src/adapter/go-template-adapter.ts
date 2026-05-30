@@ -329,6 +329,12 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   private localTypeNames: Set<string> = new Set()
   /** Local type aliases mapping type name to base type (e.g., Filter → 'string') */
   private localTypeAliases: Map<string, string> = new Map()
+  /**
+   * Per-struct field map (type name → source TS key → Go field name), populated
+   * during generateTypes. The object-literal baker consults this so a baked
+   * struct literal only names fields the generated struct actually declares.
+   */
+  private localStructFields: Map<string, Map<string, string>> = new Map()
 
   /** Set during type generation when any emit references
    *  `template.HTML(...)`; toggles the `"html/template"` import. */
@@ -654,6 +660,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     // Build set of locally-defined type names and aliases so typeInfoToGo can resolve them
     this.localTypeNames = new Set<string>()
     this.localTypeAliases = new Map<string, string>()
+    this.localStructFields = new Map<string, Map<string, string>>()
     for (const td of ir.metadata.typeDefinitions) {
       // Skip the Props type itself (it's the component's own props, not a reusable type)
       if (td.name === 'Props' || td.name === `${componentName}Props`) continue
@@ -663,6 +670,12 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       // Track string literal union aliases (e.g., type Filter = 'all' | 'active')
       if (td.definition.match(/^type \w+ = ('[^']*'(\s*\|\s*'[^']*')*)/)) {
         this.localTypeAliases.set(td.name, 'string')
+      } else {
+        // Record the struct's source-key → Go-field-name map for the baker.
+        const fields = this.parseStructFields(td.definition)
+        if (fields) {
+          this.localStructFields.set(td.name, new Map(fields.map(f => [f.tsName, f.goName])))
+        }
       }
     }
 
@@ -732,28 +745,45 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     }
 
     // Object/interface type: type Todo = { id: number; text: string; ... }
-    const bodyMatch = def.match(/(?:type \w+ = |interface \w+ )\{([\s\S]*)\}/)
-    if (!bodyMatch) return null
+    const fields = this.parseStructFields(def)
+    if (!fields) return null
 
-    const body = bodyMatch[1]
-    const goFields: string[] = []
-
-    // Parse each field: "fieldName: type" or "fieldName?: type"
-    // Handle both semicolon-separated and newline-separated
-    const fieldEntries = body.split(/[;\n]/).map(s => s.trim()).filter(Boolean)
-    for (const entry of fieldEntries) {
-      const fieldMatch = entry.match(/^(\w+)\??\s*:\s*(.+)$/)
-      if (!fieldMatch) continue
-      const [, fieldName, tsType] = fieldMatch
-      const goFieldName = this.capitalizeFieldName(fieldName)
-      const goType = this.tsTypeStringToGo(tsType.trim())
-      const jsonTag = this.toJsonTag(fieldName)
-      goFields.push(`\t${goFieldName} ${goType} \`json:"${jsonTag}"\``)
-    }
-
+    const goFields = fields.map(
+      f => `\t${f.goName} ${this.tsTypeStringToGo(f.tsType)} \`json:"${this.toJsonTag(f.tsName)}"\``,
+    )
     if (goFields.length === 0) return null
 
     return `// ${td.name} represents a ${td.name.toLowerCase()}.\ntype ${td.name} struct {\n${goFields.join('\n')}\n}`
+  }
+
+  /**
+   * Parse an object/interface type definition body into its struct fields.
+   * Returns `null` when `def` isn't an object/interface type (e.g. a
+   * string-union alias). This is the single source of truth for which fields a
+   * generated struct has and what each field's Go name is — both the struct
+   * emitter ({@link typeDefinitionToGo}) and the object-literal baker
+   * ({@link tsLiteralToGo}) consume it, so a literal can never name a field the
+   * struct doesn't actually declare.
+   *
+   * The field-name regex is `\w+`, so a non-identifier source key (`"data-id"`)
+   * is silently absent from both the struct and the field map — the baker then
+   * bails to `nil` for any literal that uses such a key.
+   */
+  private parseStructFields(def: string): Array<{ tsName: string; goName: string; tsType: string }> | null {
+    const bodyMatch = def.match(/(?:type \w+ = |interface \w+ )\{([\s\S]*)\}/)
+    if (!bodyMatch) return null
+
+    const fields: Array<{ tsName: string; goName: string; tsType: string }> = []
+    // Handle both semicolon-separated and newline-separated field lists.
+    const fieldEntries = bodyMatch[1].split(/[;\n]/).map(s => s.trim()).filter(Boolean)
+    for (const entry of fieldEntries) {
+      // "fieldName: type" or "fieldName?: type"
+      const fieldMatch = entry.match(/^(\w+)\??\s*:\s*(.+)$/)
+      if (!fieldMatch) continue
+      const [, tsName, tsType] = fieldMatch
+      fields.push({ tsName, goName: this.capitalizeFieldName(tsName), tsType: tsType.trim() })
+    }
+    return fields
   }
 
   /**
@@ -1747,18 +1777,10 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     // `map[string]interface{}` items the template can't reach via field access
     // (`.ID` → <nil>), so `jsLiteralToGo` returns null there and we keep nil.
     if (typeInfo.kind === 'array') {
-      // Collapse empty / nullish literals to nil before baking. Strip all
-      // whitespace for this compare so an internally-padded empty literal
-      // (`[ ]`, `[  ]`) collapses too, not just the exact `[]` — otherwise it
-      // would bake an empty slice literal (`[]string{}`), which JSON-marshals
-      // as `[]` rather than the `null` a nil slice produces. The original
-      // `value` is still what gets parsed, so element whitespace is untouched.
-      const bare = value.replace(/\s/g, '')
-      if (bare === '[]' || bare === 'null' || bare === 'undefined') {
-        return 'nil'
-      }
-      const baked = this.jsLiteralToGo(value, typeInfo)
-      return baked ?? 'nil'
+      // Bake a fully-literal initial value into a Go slice literal; anything
+      // the parser can't reduce to a literal — a call, an identifier, `null` /
+      // `undefined`, or an empty array — yields null and we keep `nil`.
+      return this.jsLiteralToGo(value, typeInfo) ?? 'nil'
     }
 
     // String alias (e.g., Filter = string) — return string value instead of nil
@@ -1828,6 +1850,12 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     if (node.kind === ts.SyntaxKind.NullKeyword) return 'nil'
 
     if (ts.isArrayLiteralExpression(node)) {
+      // An empty array literal (`[]`, and — since the TS parser tolerates
+      // whitespace/comments — `[ ]`, `[/* */]`) carries no items, so there's
+      // nothing to bake. Returning null keeps the field `nil`, which JSON-
+      // marshals as `null` rather than the `[]` an empty slice would produce.
+      if (node.elements.length === 0) return null
+
       // Slice header mirrors the field's Go type (`[]string`, `[]Item`,
       // `[]interface{}`); elements are converted against the element type.
       const elemType = typeInfo?.kind === 'array' ? typeInfo.elementType : undefined
@@ -1846,42 +1874,40 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     if (ts.isObjectLiteralExpression(node)) {
       // An object can only be baked when the target Go type is a concrete
       // struct — otherwise it would land in `interface{}` / a map the SSR
-      // template can't reach via field access. Bail (→ nil) in that case.
+      // template can't reach via field access. The struct's field map is the
+      // source of truth: it tells us the exact Go field name for each source
+      // key and, by omission, which keys the struct doesn't declare. Bail
+      // (→ nil) when the type isn't a known struct.
       const goType = typeInfo ? this.typeInfoToGo(typeInfo) : 'interface{}'
-      if (!this.localTypeNames.has(goType)) return null
+      const structFields = this.localStructFields.get(goType)
+      if (!structFields) return null
       const entries: string[] = []
       for (const prop of node.properties) {
         // Only plain `key: scalar` pairs are baked; spreads, methods,
         // shorthand, computed/accessor members, and nested object/array
         // values (whose struct field types we don't track here) bail to nil.
         if (!ts.isPropertyAssignment(prop)) return null
-        let key: string
         if (
-          ts.isIdentifier(prop.name) ||
-          ts.isStringLiteral(prop.name) ||
-          ts.isNumericLiteral(prop.name)
+          !ts.isIdentifier(prop.name) &&
+          !ts.isStringLiteral(prop.name) &&
+          !ts.isNumericLiteral(prop.name)
         ) {
-          key = prop.name.text
-        } else {
           return null
         }
-        // The key must capitalise to a valid Go struct field identifier.
-        // String/numeric keys can hold names a struct field can't —
-        // `"data-id"`, `0`, `"with space"` — which would emit a keyed literal
-        // that doesn't compile. Bail to nil for anything that isn't a bare
-        // JS identifier (the only shape `capitalizeFieldName` maps cleanly).
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return null
+        // Resolve the Go field name from the struct's own field map rather
+        // than re-deriving it. A key the struct doesn't declare (a typo, or a
+        // non-identifier key like `"data-id"` that never became a field) is
+        // absent here, so we bail to nil instead of emitting a literal that
+        // names a nonexistent field and won't compile.
+        const goField = structFields.get(prop.name.text)
+        if (!goField) return null
         const init = prop.initializer
         if (ts.isObjectLiteralExpression(init) || ts.isArrayLiteralExpression(init)) {
           return null
         }
         const go = this.tsLiteralToGo(init)
         if (go === null) return null
-        // Field name MUST be capitalised with the same helper the struct
-        // definition uses (see `capitalizeFieldName` call in the struct-field
-        // generation above), or the keyed literal won't match the field and Go
-        // won't compile. Keep these two call sites in sync.
-        entries.push(`${this.capitalizeFieldName(key)}: ${go}`)
+        entries.push(`${goField}: ${go}`)
       }
       return `${goType}{${entries.join(', ')}}`
     }
