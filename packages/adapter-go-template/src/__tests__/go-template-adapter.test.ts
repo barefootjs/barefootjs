@@ -2007,6 +2007,25 @@ export function C() {
     })
   }
 
+  // Predicate-level use of an unsupported string method also fails the
+  // build loudly (intended): a `.filter(t => t.name.startsWith("a"))`
+  // whose predicate calls one of the gated methods now refuses the whole
+  // loop with BF101 (via the shared `isSupported` predicate gate in
+  // jsx-to-ir) rather than lowering to a broken `.StartsWith` inside the
+  // range. Pinning this so the loud-failure contract can't silently
+  // regress back to the old emit-broken-template behaviour.
+  test('unsupported string method inside a .filter() predicate raises BF101', () => {
+    const result = compileJSX(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+export function C() {
+  const [items, setItems] = createSignal<{ name: string }[]>([])
+  return <ul>{items().filter(t => t.name.startsWith("a")).map(t => <li key={t.name}>{t.name}</li>)}</ul>
+}
+`.trimStart(), 'test.tsx', { adapter: new GoTemplateAdapter() })
+    expect(result.errors?.some(e => e.code === 'BF101')).toBe(true)
+  })
+
   // Tier B `.sort` / `.toSorted` follow-ups still refused with BF021.
   const unsupportedSort: Array<[string, string]> = [
     ['function-reference comparator', `items().toSorted(myCmp).map(x => <li key={x.name}>{x.name}</li>)`],

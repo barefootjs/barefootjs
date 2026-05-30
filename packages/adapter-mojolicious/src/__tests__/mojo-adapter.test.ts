@@ -1086,6 +1086,25 @@ export function C(props: { config: string }) {
     expect(template).not.toContain('$JSON->{stringify}')
   })
 
+  // Predicate-level use of an unsupported string method also fails the
+  // build loudly (intended): a `.filter(t => t.name.startsWith("a"))`
+  // whose predicate calls one of the gated methods now refuses the whole
+  // loop with BF101 (via the shared `isSupported` predicate gate in
+  // jsx-to-ir) rather than lowering to a broken `->{startsWith}` inside
+  // the grep. Pinning this so the loud-failure contract can't silently
+  // regress back to the old emit-broken-template behaviour.
+  test('unsupported string method inside a .filter() predicate raises BF101', () => {
+    const result = compileJSX(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+export function C() {
+  const [items, setItems] = createSignal<{ name: string }[]>([])
+  return <ul>{items().filter(t => t.name.startsWith("a")).map(t => <li key={t.name}>{t.name}</li>)}</ul>
+}
+`.trimStart(), 'test.tsx', { adapter: new MojoAdapter() })
+    expect(result.errors?.some(e => e.code === 'BF101')).toBe(true)
+  })
+
   // Tier B `.sort` / `.toSorted` follow-ups still refused with BF021.
   // The Mojo client-only loop placeholder is an empty element (the
   // client runtime repopulates it via the `bf-s` scope marker), so the
