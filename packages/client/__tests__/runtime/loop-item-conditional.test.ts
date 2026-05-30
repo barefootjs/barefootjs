@@ -1,13 +1,13 @@
 /**
- * D4-c + 案Y contract: loop-item conditionals anchored by `<!--bf-loop-i:KEY-->`.
+ * Whole-item loop conditionals are anchored by `<!--bf-loop-i:KEY-->` (#1665).
  *
  * Each item's conditional shares the SAME slot id (s0) across items — exactly
- * what the compiler emits for `arr.map(t => cond && <li/>)`. The range-aware
- * insert must toggle ONLY its own item's range and never touch a sibling
- * item that happens to share the slot id.
- *
- * RED until insert() accepts a Comment anchor and scopes its DOM mutations
- * to [anchor.nextSibling, nextAnchorOrLoopEnd).
+ * what the compiler emits for `arr.map(t => cond && <li/>)`, because the slot
+ * id is assigned once per source conditional, not once per rendered item. So
+ * `insert()` cannot search the whole component scope for `[bf-c="s0"]`; it must
+ * toggle ONLY its own item's range and never touch a sibling item that shares
+ * the slot id. The fix gives `insert()` a Comment anchor as its scope and
+ * confines its DOM reads/mutations to [anchor.nextSibling, nextAnchorOrLoopEnd).
  */
 import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { insert } from '../../src/runtime/insert'
@@ -27,7 +27,7 @@ function anchor(el: Element, key: string): Comment {
   throw new Error(`anchor ${key} not found`)
 }
 
-describe('insert() range-scoped to a loop-item anchor (D4-c + Y)', () => {
+describe('insert() range-scoped to a loop-item anchor', () => {
   beforeEach(() => { document.body.innerHTML = '' })
 
   test('toggling one item does not affect a sibling item sharing the slot id', () => {

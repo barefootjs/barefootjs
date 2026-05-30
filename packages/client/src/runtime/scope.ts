@@ -35,7 +35,7 @@ export function getPortalScopeId(element: Element): string | null {
  * The boundary depends on the anchor's kind:
  *  - `bf-scope:` anchor (fragment-root component): boundary is the next
  *    `bf-scope:` comment or the end of the parent's children (unchanged).
- *  - `bf-loop-i:<key>` anchor (loop item, 案Y/#1665): boundary is the next
+ *  - `bf-loop-i:<key>` anchor (loop item, #1665): boundary is the next
  *    loop-item anchor (`bf-loop-i:*`) or the loop end marker (`bf-/loop:*`),
  *    so one item's range never bleeds into the next item or past the loop.
  */

@@ -424,7 +424,10 @@ function isItemAnchor(node: Node): node is Comment {
 }
 
 /** Collect a live item range: the anchor and every node up to the next item
- *  anchor or the loop end marker (exclusive). Derived fresh per call (D3). */
+ *  anchor or the loop end marker (exclusive). Recomputed from the live DOM on
+ *  every call rather than cached, because `insert()` adds and removes the
+ *  item's content independently of this module — a cached node list would go
+ *  stale the moment a conditional toggled. */
 function collectAnchorRange(anchor: Comment, end: Comment | null): Node[] {
   const nodes: Node[] = [anchor]
   let node: Node | null = anchor.nextSibling

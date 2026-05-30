@@ -17,7 +17,7 @@ import { BF_COND, BF_SCOPE, BF_LOOP_ITEM } from '@barefootjs/shared'
  *
  * `anchor === null` is the legacy element-scope path: every DOM read goes
  * through the component scope element exactly as before. When `insert()` is
- * given a `<!--bf-loop-i:<key>-->` anchor instead (案Y), the conditional is a
+ * given a `<!--bf-loop-i:<key>-->` anchor instead, the conditional is a
  * whole loop item with no wrapper element, so all reads are confined to that
  * item's sibling range — letting every item reuse the same conditional slot
  * id without colliding.
@@ -188,9 +188,9 @@ export function insert(
 
   // Resolve the scope into a search region. For an Element scope this is
   // byte-identical to the legacy descendant search. For a Comment anchor
-  // (`<!--bf-loop-i:<key>-->`, 案Y) the region is the item's sibling range,
-  // so a whole-item conditional toggles only its own item even when every
-  // item shares the same conditional slot id (#1665).
+  // (`<!--bf-loop-i:<key>-->`) the region is the item's sibling range, so a
+  // whole-item conditional toggles only its own item even when every item
+  // shares the same conditional slot id (#1665).
   const region = makeRegion(scope)
 
   // Extract parent scope ID for renderChild context.
