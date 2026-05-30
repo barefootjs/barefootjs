@@ -1227,49 +1227,6 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
       return this.convertHigherOrderExpr(expr)
     }
 
-    // #1448 follow-up — String methods with NO lowering yet. Same
-    // routing rationale as the row above: without this, the regex
-    // pipeline mangles `name().startsWith('a')` into
-    // `$name->{startsWith}('a')` (a hash-deref-and-call that dies at
-    // render with "Can't use string (...) as a HASH ref"), emitting no
-    // build diagnostic. Routing through the AST path lets
-    // `isSupported`'s `UNSUPPORTED_METHODS` gate fire BF101 instead,
-    // matching Go. Stays in sync with the string-method block in
-    // `UNSUPPORTED_METHODS`; each name drops off as its lowering lands.
-    //
-    // The regex is only a cheap pre-filter: because these method names
-    // (`replace`, `match`, `split`, `search`, …) are ordinary words
-    // that also occur inside string literals, an unanchored substring
-    // match alone would misroute a SUPPORTED expression whose literal
-    // merely contains `.replace(` (e.g. `JSON.stringify(x) + ".replace("`)
-    // onto a path that bypasses the `rewriteTemplatePrimitives` pass
-    // below and emits broken Perl. So confirm against the parsed AST
-    // via `isSupported`: only a genuinely unsupported expression (an
-    // actual unsupported-method call) is refused; supported expressions
-    // fall through to the normal pipeline unchanged. Emit BF101 inline
-    // from the `support` we already have (matching the `find`/`findIndex`
-    // gap branch below) rather than re-parsing inside
-    // `convertHigherOrderExpr`.
-    if (/\.\s*(?:split|startsWith|endsWith|replace|replaceAll|repeat|padStart|padEnd|charAt|charCodeAt|codePointAt|normalize|substring|substr|match|matchAll|search)\s*\(/.test(expr)) {
-      const support = isSupported(parseExpression(expr))
-      if (!support.supported) {
-        this.errors.push({
-          code: 'BF101',
-          severity: 'error',
-          message: `Expression not supported: ${expr.trim()}`,
-          loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
-          suggestion: {
-            message: support.reason
-              ? `${support.reason}\n\nOptions:\n1. Use /* @client */ for client-side evaluation\n2. Pre-compute the value in Perl`
-              : 'Options:\n1. Use /* @client */ for client-side evaluation\n2. Pre-compute the value in Perl',
-          },
-        })
-        return "''"
-      }
-      // Supported (the method name was inside a string literal, not an
-      // actual unsupported call) — fall through to the normal pipeline.
-    }
-
     // #1443/#1448: `.join(sep)` is lifted by the parser to the
     // `array-method` IR kind, and `renderArrayMethod`'s `case 'join'`
     // already emits the correct `join(sep, @{arr})`. Route the
@@ -1299,6 +1256,44 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
         },
       })
       return "''"
+    }
+
+    // #1448 follow-up — generic unsupported-method gate. Any member
+    // method call (`.foo(...)`) that reached here without matching one
+    // of the supported routes above is checked against the parser's
+    // `isSupported`. Methods listed in the parser's `UNSUPPORTED_METHODS`
+    // (e.g. `String.prototype.startsWith` / `.split` / `.replace`, and
+    // any future un-lowered method) report unsupported and are refused
+    // with BF101 here, instead of being mangled by the regex pipeline
+    // below into a `$obj->{method}(...)` hash-deref that dies at render
+    // ("Can't use string (...) as a HASH ref") with no build diagnostic.
+    //
+    // Driving this off `isSupported` rather than a hand-maintained
+    // method-name regex keeps the parser's `UNSUPPORTED_METHODS` the
+    // single source of truth (matching the Go adapter's
+    // `convertExpressionToGo`, which has no such list): new unsupported
+    // methods need no edit here, and a method that gains a lowering
+    // stops being refused the moment the parser recognises it.
+    // Supported calls — templatePrimitives like `JSON.stringify(x)` /
+    // `Math.floor(x)`, and any expression whose only method-name match
+    // is inside a string literal (`name() + ".replace("`) — report
+    // supported and fall through to the normal pipeline unchanged.
+    if (/\.\s*[A-Za-z_$][\w$]*\s*\(/.test(expr)) {
+      const support = isSupported(parseExpression(expr))
+      if (!support.supported) {
+        this.errors.push({
+          code: 'BF101',
+          severity: 'error',
+          message: `Expression not supported: ${expr.trim()}`,
+          loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+          suggestion: {
+            message: support.reason
+              ? `${support.reason}\n\nOptions:\n1. Use /* @client */ for client-side evaluation\n2. Pre-compute the value in Perl`
+              : 'Options:\n1. Use /* @client */ for client-side evaluation\n2. Pre-compute the value in Perl',
+          },
+        })
+        return "''"
+      }
     }
 
     // templatePrimitives substitution (#1189): rewrite identifier-path
