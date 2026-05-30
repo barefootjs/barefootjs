@@ -514,15 +514,18 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     // props, so a bare no-arg call (`Foo()`) doesn't crash on destructuring
     // `undefined`. This makes a JSX-returning arrow hoisted from an
     // object-literal value (e.g. `THEME_LOGOS[id]()`) renderable at SSR
-    // (#1663). Only safe when no required prop exists — otherwise `{}` would
-    // not satisfy the props type. The SolidJS-style (`propsObjectName`)
-    // branch only opts in when there's no declared props type, since a
-    // declared type may carry required fields that `{}` wouldn't satisfy.
+    // (#1663). `hasRequiredProps` ignores props that carry a destructuring
+    // default, but the declared props type may still mark that field
+    // required — so a bare `= {}` would fail `tsc`. Assert the default to the
+    // param's own annotated type (`{} as T`); the destructuring defaults
+    // supply the values at runtime. The SolidJS-style (`propsObjectName`)
+    // branch opts in whenever the annotation is satisfiable by `{} as T`.
     const hasRequiredProps = ir.metadata.propsParams.some(
       (p: ParamInfo) => !p.optional && p.defaultValue === undefined && !p.isRest,
     )
-    const noArgDefault =
-      (propsObjectName ? !propsTypeName : !hasRequiredProps) ? ' = {}' : ''
+    const wantsNoArgDefault = propsObjectName ? !propsTypeName : !hasRequiredProps
+    const propsTypeExpr = typeAnnotation.replace(/^:\s*/, '')
+    const noArgDefault = wantsNoArgDefault ? ` = {} as ${propsTypeExpr}` : ''
 
     const lines: string[] = []
     // Module-export keyword belongs to the adapter: it knows the target language

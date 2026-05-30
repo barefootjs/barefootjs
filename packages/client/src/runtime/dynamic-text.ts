@@ -20,17 +20,27 @@
 const END_MARKER = '/'
 
 /** Remove every sibling between `start` (the `<!--bf:sX-->` comment) and the
- *  matching `<!--/-->` end comment, leaving both markers in place. */
-function clearSlotRegion(start: Node): void {
+ *  matching `<!--/-->` end comment, leaving both markers in place. When `keep`
+ *  is supplied that node is left in place (used when writing a primitive
+ *  through a text anchor that must survive while stale siblings are cleared). */
+function clearSlotRegion(start: Node, keep?: Node): void {
   let n = start.nextSibling
   while (
     n &&
     !(n.nodeType === Node.COMMENT_NODE && (n as Comment).nodeValue === END_MARKER)
   ) {
     const next = n.nextSibling
-    n.parentNode?.removeChild(n)
+    if (n !== keep) n.parentNode?.removeChild(n)
     n = next
   }
+}
+
+/** Walk back from `node` to the nearest preceding comment marker (the slot's
+ *  `<!--bf:sX-->` start), skipping any stale element siblings in between. */
+function slotStart(node: Node): Node | null {
+  let n = node.previousSibling
+  while (n && n.nodeType !== Node.COMMENT_NODE) n = n.previousSibling
+  return n
 }
 
 export function __bfText(current: Node | null, value: unknown): Node | null {
@@ -54,6 +64,13 @@ export function __bfText(current: Node | null, value: unknown): Node | null {
   const text = String(value ?? '')
   if (current.nodeType === Node.TEXT_NODE) {
     current.nodeValue = text
+    // The conditional-slot path re-resolves the anchor via `$t()` on every
+    // run, which can hand back a freshly created text node sitting *before* a
+    // stale element left by a previous Node-valued run. Clear any remaining
+    // siblings up to the end marker so switching JSX → text doesn't render
+    // both the old element and the new text.
+    const start = slotStart(current)
+    if (start && start.nodeType === Node.COMMENT_NODE) clearSlotRegion(start, current)
     return current
   }
 
