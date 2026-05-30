@@ -225,6 +225,55 @@ describe('BF023 — ternary .map() callback', () => {
 })
 
 // ---------------------------------------------------------------------------
+// BF023 — logical (&&, ||, ??) .map() callback (#1665)
+//
+// A whole-item conditional (`cond && <li>`) renders 0-or-1 element per
+// iteration. The same key reconciliation applies — without a key, toggling
+// items collapses or misorders them — so the JSX element inside a logical
+// expression must carry a key, just like a ternary branch.
+// ---------------------------------------------------------------------------
+
+describe('BF023 — logical && / || .map() callback (#1665)', () => {
+  test('&& body without key raises BF023', () => {
+    const source = `
+      interface Item { active: boolean; id: string }
+      export function List({ items }: { items: Item[] }) {
+        return <ul>{items.map(item => item.active && <li>{item.id}</li>)}</ul>
+      }
+    `
+    const errs = errorsFor(ErrorCodes.MISSING_KEY_IN_LIST, source)
+    expect(errs).toHaveLength(1)
+    expect(errs[0].severity).toBe('error')
+  })
+
+  test('&& body with key — no error', () => {
+    const source = `
+      interface Item { active: boolean; id: string }
+      export function List({ items }: { items: Item[] }) {
+        return <ul>{items.map(item => item.active && <li key={item.id}>{item.id}</li>)}</ul>
+      }
+    `
+    const result = compile(source)
+    const errs = result.errors.filter(
+      (e) => e.code === ErrorCodes.MISSING_KEY_IN_LIST || e.code === ErrorCodes.MISSING_KEY_IN_NESTED_LIST,
+    )
+    expect(errs).toHaveLength(0)
+  })
+
+  test('|| body without key raises BF023', () => {
+    const source = `
+      interface Item { hidden: boolean; id: string }
+      export function List({ items }: { items: Item[] }) {
+        return <ul>{items.map(item => item.hidden || <li>{item.id}</li>)}</ul>
+      }
+    `
+    const errs = errorsFor(ErrorCodes.MISSING_KEY_IN_LIST, source)
+    expect(errs).toHaveLength(1)
+    expect(errs[0].severity).toBe('error')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // BF024 — nested map
 // ---------------------------------------------------------------------------
 

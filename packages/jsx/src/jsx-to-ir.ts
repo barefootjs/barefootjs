@@ -2669,18 +2669,34 @@ function checkLoopKey(
   }
   while (ts.isParenthesizedExpression(body)) body = body.expression
 
+  // Check a JSX operand (unwrapping parentheses) if it is an element.
+  function checkJsxOperand(node: ts.Node): void {
+    let n = node
+    while (ts.isParenthesizedExpression(n)) n = n.expression
+    if (ts.isJsxElement(n)) checkOpening(n.openingElement)
+    else if (ts.isJsxSelfClosingElement(n)) checkOpening(n)
+  }
+
   if (ts.isConditionalExpression(body)) {
     // Check both branches independently
-    const whenTrue = body.whenTrue
-    const whenFalse = body.whenFalse
-    let wt: ts.Node = whenTrue
-    let wf: ts.Node = whenFalse
-    while (ts.isParenthesizedExpression(wt)) wt = wt.expression
-    while (ts.isParenthesizedExpression(wf)) wf = wf.expression
-    if (ts.isJsxElement(wt)) checkOpening(wt.openingElement)
-    else if (ts.isJsxSelfClosingElement(wt)) checkOpening(wt)
-    if (ts.isJsxElement(wf)) checkOpening(wf.openingElement)
-    else if (ts.isJsxSelfClosingElement(wf)) checkOpening(wf)
+    checkJsxOperand(body.whenTrue)
+    checkJsxOperand(body.whenFalse)
+    return
+  }
+
+  // Logical `cond && <jsx>` / `cond || <jsx>` / `a ?? <jsx>` whole-item
+  // conditionals (#1665). The JSX operand renders 0-or-1 element per
+  // iteration and still needs a key for correct reconciliation, exactly
+  // like a ternary branch. Without this case the binary-expression body
+  // silently skipped key validation.
+  if (
+    ts.isBinaryExpression(body) &&
+    (body.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken ||
+      body.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+      body.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)
+  ) {
+    checkJsxOperand(body.left)
+    checkJsxOperand(body.right)
     return
   }
 

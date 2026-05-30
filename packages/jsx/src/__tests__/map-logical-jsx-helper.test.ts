@@ -117,11 +117,14 @@ describe('.map() with logical / JSX-helper-call body (#1665)', () => {
   })
 
   test('inline JSX in a `&&` map body compiles instead of emitting raw JSX verbatim', () => {
+    // `key` is required on the `&&` JSX operand (#1665 / BF023): a whole-item
+    // conditional renders 0-or-1 element per iteration and needs a stable key
+    // for correct reconciliation, exactly like a ternary branch.
     const source = `
       'use client'
       const THEMES = [{ id: 'piconic' }, { id: 'hono' }]
       export function Header(props: { sel: string }) {
-        return <div>{THEMES.map(t => props.sel === t.id && <span>{t.id}</span>)}</div>
+        return <div>{THEMES.map(t => props.sel === t.id && <span key={t.id}>{t.id}</span>)}</div>
       }
     `
     const result = compileJSX(source, 'Header.tsx', { adapter })
