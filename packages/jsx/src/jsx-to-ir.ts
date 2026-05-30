@@ -1703,6 +1703,33 @@ function containsJsxInExpression(node: ts.Node): boolean {
   return ts.forEachChild(node, containsJsxInExpression) ?? false
 }
 
+/**
+ * Check if an expression calls a module/local JSX-returning helper (one
+ * tracked in `jsxFunctions` / `jsxMultiReturnFunctions` for IR-level
+ * inlining). Used alongside `containsJsxInExpression` so a map callback
+ * body like `cond && themeLogo(t.id)` is recognised as renderable JSX
+ * control flow even though it has no inline JSX literal (#1665).
+ */
+function callsJsxHelper(node: ts.Node, ctx: TransformContext): boolean {
+  let found = false
+  const visit = (n: ts.Node): void => {
+    if (found) return
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
+      const name = n.expression.text
+      if (
+        ctx.analyzer.jsxFunctions.has(name) ||
+        ctx.analyzer.jsxMultiReturnFunctions.has(name)
+      ) {
+        found = true
+        return
+      }
+    }
+    ts.forEachChild(n, visit)
+  }
+  visit(node)
+  return found
+}
+
 function containsAwaitExpression(node: ts.Node): boolean {
   if (ts.isAwaitExpression(node)) return true
   if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) return false
@@ -1893,7 +1920,7 @@ function transformJsxExpression(
       if (
         (node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ||
           node.operatorToken.kind === ts.SyntaxKind.BarBarToken) &&
-        containsJsxInExpression(node.right)
+        (containsJsxInExpression(node.right) || callsJsxHelper(node.right, ctx))
       ) {
         return transformNullishCoalescing(node, ctx)
       }
@@ -2642,18 +2669,34 @@ function checkLoopKey(
   }
   while (ts.isParenthesizedExpression(body)) body = body.expression
 
+  // Check a JSX operand (unwrapping parentheses) if it is an element.
+  function checkJsxOperand(node: ts.Node): void {
+    let n = node
+    while (ts.isParenthesizedExpression(n)) n = n.expression
+    if (ts.isJsxElement(n)) checkOpening(n.openingElement)
+    else if (ts.isJsxSelfClosingElement(n)) checkOpening(n)
+  }
+
   if (ts.isConditionalExpression(body)) {
     // Check both branches independently
-    const whenTrue = body.whenTrue
-    const whenFalse = body.whenFalse
-    let wt: ts.Node = whenTrue
-    let wf: ts.Node = whenFalse
-    while (ts.isParenthesizedExpression(wt)) wt = wt.expression
-    while (ts.isParenthesizedExpression(wf)) wf = wf.expression
-    if (ts.isJsxElement(wt)) checkOpening(wt.openingElement)
-    else if (ts.isJsxSelfClosingElement(wt)) checkOpening(wt)
-    if (ts.isJsxElement(wf)) checkOpening(wf.openingElement)
-    else if (ts.isJsxSelfClosingElement(wf)) checkOpening(wf)
+    checkJsxOperand(body.whenTrue)
+    checkJsxOperand(body.whenFalse)
+    return
+  }
+
+  // Logical `cond && <jsx>` / `cond || <jsx>` / `a ?? <jsx>` whole-item
+  // conditionals (#1665). The JSX operand renders 0-or-1 element per
+  // iteration and still needs a key for correct reconciliation, exactly
+  // like a ternary branch. Without this case the binary-expression body
+  // silently skipped key validation.
+  if (
+    ts.isBinaryExpression(body) &&
+    (body.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken ||
+      body.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+      body.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)
+  ) {
+    checkJsxOperand(body.left)
+    checkJsxOperand(body.right)
     return
   }
 
@@ -2677,6 +2720,69 @@ function loopBodyIsMultiRoot(children: IRNode[]): boolean {
   const only = real[0]
   if (only.type !== 'fragment') return false
   return loopBodyIsMultiRoot(only.children)
+}
+
+/**
+ * True when a conditional branch does NOT render exactly one root element —
+ * the element-less side of a whole-item conditional. Covers the empty branch
+ * of `cond && <li/>` (`null`) and `cond ? <li/> : null`, and the scalar side
+ * of `expr || <li/>` / `expr ?? <li/>` (the left operand renders as text or
+ * nothing, never a tracked element). Any such branch makes the loop item
+ * render 0-or-1 element across states, which the element-tracking `mapArray`
+ * cannot represent — the loop must use anchored emission instead.
+ *
+ * Element / component branches return `false`; a fragment is element-like
+ * only when it flattens to exactly one element child.
+ */
+function branchHasNoElement(node: IRNode): boolean {
+  if (node.type === 'element' || node.type === 'component') return false
+  if (node.type === 'conditional') {
+    return branchHasNoElement(node.whenTrue) || branchHasNoElement(node.whenFalse)
+  }
+  if (node.type === 'fragment') {
+    const real = node.children.filter(
+      (c) => !(c.type === 'text' && typeof c.value === 'string' && !c.value.trim())
+    )
+    return real.length !== 1 || branchHasNoElement(real[0])
+  }
+  // expression, text, and everything else: not a single tracked element.
+  return true
+}
+
+/**
+ * When the loop body is a single whole-item conditional with an element-less
+ * branch (the #1665 shapes: `&&`, `|| <jsx>`, `?? <jsx>`, `? <jsx> : null`),
+ * return that conditional so the caller can route the loop through anchored
+ * emission. Returns `null` for single-element bodies and for both-branch-
+ * element ternaries (which always render exactly one element and stay on the
+ * legacy `mapArray` path).
+ */
+function loopBodyItemConditional(children: IRNode[]): IRConditional | null {
+  const real = children.filter(
+    (c) => !(c.type === 'text' && typeof c.value === 'string' && !c.value.trim())
+  )
+  if (real.length !== 1) return null
+  const only = real[0]
+  if (only.type !== 'conditional') return null
+  if (branchHasNoElement(only.whenTrue) || branchHasNoElement(only.whenFalse)) {
+    return only
+  }
+  return null
+}
+
+/**
+ * Hoist a key expression out of a whole-item conditional for `mapArray`'s
+ * keyFn. Ignores element-less branches (they carry no element and thus no
+ * key) and requires the rendering branch(es) to agree on the key expression.
+ * Returns `null` when no key can be determined.
+ */
+function extractItemConditionalKey(cond: IRConditional): string | null {
+  const a = branchHasNoElement(cond.whenTrue) ? null : extractLoopKey(cond.whenTrue)
+  const b = branchHasNoElement(cond.whenFalse) ? null : extractLoopKey(cond.whenFalse)
+  if (a !== null && b !== null) {
+    return normalizeKeyExpr(a) === normalizeKeyExpr(b) ? a : null
+  }
+  return a ?? b
 }
 
 function transformMapCall(
@@ -2947,6 +3053,36 @@ function transformMapCall(
     }
     if (index) ctx.loopParams.add(index)
 
+    // Logical control flow (`cond && <X/>`, `a ?? themeLogo()`) as the map
+    // body. This is not a JSX literal, ternary, or block, so without this
+    // the dispatch below leaves `children` empty and the whole `.map(...)`
+    // falls through to the reactive-text path — emitting the callback
+    // verbatim. That left inline JSX uncompiled and module-level JSX
+    // helpers undeclared (ReferenceError at hydration, #1665). Route the
+    // logical body through the shared JSX expression transformer, which
+    // lowers it into an IRConditional and inlines any JSX helper, exactly
+    // like the ternary form.
+    //
+    // Scoped deliberately to logical operators that actually render JSX
+    // (inline literal or a tracked helper call): a bare call body
+    // (`map(t => renderItem(t))`) stays on the existing reactive-text path
+    // that #546 owns, and a scalar logical body (`t.active && t.label`)
+    // keeps rendering its value.
+    const tryTransformRenderableBody = (expr: ts.Expression): void => {
+      if (!ts.isBinaryExpression(expr)) return
+      const op = expr.operatorToken.kind
+      if (
+        op !== ts.SyntaxKind.AmpersandAmpersandToken &&
+        op !== ts.SyntaxKind.BarBarToken &&
+        op !== ts.SyntaxKind.QuestionQuestionToken
+      ) {
+        return
+      }
+      if (!containsJsxInExpression(expr) && !callsJsxHelper(expr, ctx)) return
+      const transformed = transformJsxExpression(expr, ctx, isClientOnly)
+      if (transformed) children = [transformed]
+    }
+
     // Transform callback body
     const body = callback.body
     if (ts.isJsxElement(body) || ts.isJsxSelfClosingElement(body) || ts.isJsxFragment(body)) {
@@ -2973,6 +3109,8 @@ function transformMapCall(
       } else if (method === 'flatMap' && ts.isArrayLiteralExpression(inner)) {
         // flatMap arrow with array literal: items.flatMap(item => ([<A/>, <B/>]))
         children = transformArrayLiteralChildren(inner, ctx)
+      } else {
+        tryTransformRenderableBody(inner)
       }
     } else if (method === 'flatMap' && ts.isArrayLiteralExpression(body)) {
       // flatMap arrow with array literal: items.flatMap(item => [<A/>, <B/>])
@@ -3025,6 +3163,8 @@ function transformMapCall(
       if (method === 'flatMap' && children.length === 0) {
         flatMapCallback = buildFlatMapCallback(callback, body, ctx)
       }
+    } else {
+      tryTransformRenderableBody(body)
     }
 
     // Unregister loop params
@@ -3055,7 +3195,15 @@ function transformMapCall(
   // same `key={EXPR}`, that EXPR is lifted out to mapArray's keyFn so a
   // shape change (e.g. `<polygon>` ↔ `<circle>`) replaces the DOM node
   // instead of mutating attributes on the wrong tag.
-  const key = children.length > 0 ? extractLoopKey(children[0]) : null
+  // Whole-item conditional bodies (#1665): the loop item is a single
+  // conditional whose at-least-one branch renders nothing, so an item shows
+  // 0-or-1 element. The key lives inside the rendering branch, so hoist it
+  // from there; a flag routes the loop through anchored emission downstream.
+  const itemConditional = children.length > 0 ? loopBodyItemConditional(children) : null
+  const bodyIsItemConditional = itemConditional !== null
+  const key = bodyIsItemConditional
+    ? extractItemConditionalKey(itemConditional!)
+    : (children.length > 0 ? extractLoopKey(children[0]) : null)
 
   // Extract childComponent info if the loop body is a single component
   // This enables createComponent-based rendering with proper prop passing
@@ -3137,6 +3285,7 @@ function transformMapCall(
     callsReactiveGetters: callsReactive || undefined,
     hasFunctionCalls: hasCalls || undefined,
     bodyIsMultiRoot: bodyIsMultiRoot || undefined,
+    bodyIsItemConditional: bodyIsItemConditional || undefined,
     childComponent,
     nestedComponents,
     filterPredicate,

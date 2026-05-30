@@ -36,6 +36,18 @@ runAdapterConformanceTests({
   // template syntax (#1266).
   skipJsx: [
     'return-map',
+    // #1665 whole-item loop conditional. The Go adapter correctly emits the
+    // per-item `<!--bf-loop-i:KEY-->` anchor, `data-key`, and conditional
+    // markers (verified by template-structure tests), but the array signal's
+    // initial value is not baked into the generated `NewXxxProps` constructor
+    // (`Items: nil`, unlike scalar signals such as `Sel: "b"`), so the Go SSR
+    // renders an empty loop. Populating signal-array initial values into the
+    // SSR data context is a separate pre-existing Go limitation — every other
+    // signal-loop fixture sidesteps it with an empty initial array. The
+    // anchored SSR shape with rendered items is covered by Hono + CSR
+    // conformance and the runtime hydration tests. Remove this skip once the
+    // Go limitation is fixed: https://github.com/piconic-ai/barefootjs/issues/1672
+    'loop-item-conditional',
     // #1297 fixed the harness-side IR emission gate (multi-component
     // sources now emit one `ir` file per component, and the harness
     // picks the entry-point IR). The remaining gap is adapter-side:

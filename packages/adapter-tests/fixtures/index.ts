@@ -57,6 +57,7 @@ import { fixture as styleObjectDynamic } from './style-object-dynamic'
 // Priority 6: Advanced patterns
 import { fixture as fragment } from './fragment'
 import { fixture as fragmentConditional } from './fragment-conditional'
+import { fixture as loopItemConditional } from './loop-item-conditional'
 import { fixture as clientOnly } from './client-only'
 import { fixture as clientOnlyLoopWithSiblingCond } from './client-only-loop-with-sibling-cond'
 import { fixture as eventHandlers } from './event-handlers'
@@ -217,6 +218,7 @@ export const jsxFixtures: JSXFixture[] = [
   // Priority 6: Advanced patterns
   fragment,
   fragmentConditional,
+  loopItemConditional,
   clientOnly,
   clientOnlyLoopWithSiblingCond,
   eventHandlers,

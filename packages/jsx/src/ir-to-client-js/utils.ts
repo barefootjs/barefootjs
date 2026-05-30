@@ -21,10 +21,11 @@ import {
   BF_LOOP_END,
   loopStartMarker,
   loopEndMarker,
+  loopItemMarker,
   toHTMLAttrName as toHtmlAttrName,
 } from '@barefootjs/shared'
 
-export { DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH, BF_LOOP_START, BF_LOOP_END, loopStartMarker, loopEndMarker, toHtmlAttrName }
+export { DATA_KEY, DATA_KEY_PREFIX, DATA_BF_PH, BF_LOOP_START, BF_LOOP_END, loopStartMarker, loopEndMarker, loopItemMarker, toHtmlAttrName }
 
 /**
  * Parameter name for the props object in generated init/template functions.

@@ -4,7 +4,7 @@
 
 import type { AttrValue, IRAttribute, IRNode } from '../types'
 import { isBooleanAttr } from '../html-constants'
-import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM, DATA_BF_PH, keyAttrName, loopStartMarker, loopEndMarker, freeIdsFromRefs, setIntersects, wrapExprWithLoopParams } from './utils'
+import { toHtmlAttrName, attrValueToString, quotePropName, PROPS_PARAM, DATA_BF_PH, keyAttrName, loopStartMarker, loopEndMarker, loopItemMarker, freeIdsFromRefs, setIntersects, wrapExprWithLoopParams } from './utils'
 import type { LoopParamSpec } from './utils'
 import { nameForRegistryRef } from './component-scope'
 import { assertNever } from './walker'
@@ -411,6 +411,17 @@ function buildSpreadAttrsMergeCall(args: {
  *    `generateCsrTemplate` (case `'component'`). Set to `true` when generating
  *    the per-iteration `staticItemTemplate` for static loops.
  */
+/**
+ * Build the per-item `<!--bf-loop-i:KEY-->` anchor comment for a whole-item
+ * conditional loop (#1665), where `keyExpr` is the loop's per-item key
+ * expression (e.g. `t.id`). Emits a live `${keyExpr}` interpolation so each
+ * rendered item carries its own key — `loopItemMarker` is reserved for
+ * already-evaluated key strings (runtime / static contexts).
+ */
+function itemAnchorTemplate(keyExpr: string): string {
+  return `<!--${loopItemMarker('${' + keyExpr + '}')}-->`
+}
+
 export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, loopDepth = 0, loopParams?: ReadonlyArray<string | LoopParamSpec>, branchSlotsVar?: string, insideLoop = false, inHoistedChildren = false): string {
   const recurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth, loopParams, branchSlotsVar, insideLoop, inHoistedChildren)
   const wrapExpr = (expr: string) => wrapExprWithLoopParams(expr, loopParams)
@@ -558,7 +569,16 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
       // Case 1 — childComponent body materialize); propagating it through
       // every nested loop regressed form-builder's inner-loop Select wiring.
       const innerRecurse = (n: IRNode): string => irToHtmlTemplate(n, restSpreadNames, loopDepth + 1, loopParams, branchSlotsVar, insideLoop)
-      const childTemplate = node.children.map(innerRecurse).join('')
+      let childTemplate = node.children.map(innerRecurse).join('')
+      // Whole-item conditional loops (#1665): prepend an always-present
+      // `<!--bf-loop-i:KEY-->` anchor before each item's (possibly empty)
+      // conditional content. `mapArrayAnchored` tracks items by this anchor,
+      // so an item that renders no element still keeps its identity and slot.
+      // The key is a per-item expression, so the marker carries a live
+      // `${KEY}` interpolation (not the literal key text).
+      if (node.bodyIsItemConditional && node.key) {
+        childTemplate = `${itemAnchorTemplate(node.key)}${childTemplate}`
+      }
       const indexParam = node.index ? `, ${node.index}` : ''
       // Apply chained sort / filter for the SSR-mirror template (#1448
       // Tier B). Pre-Tier-B this just used `node.array` directly,
@@ -1499,7 +1519,13 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
     }
 
     case 'loop': {
-      const childTemplate = node.children.map(recurseInLoop).join('')
+      let childTemplate = node.children.map(recurseInLoop).join('')
+      // Whole-item conditional loops (#1665): prepend the per-item
+      // `<!--bf-loop-i:KEY-->` anchor so `mapArrayAnchored` can track items
+      // that render no element. Mirrors the `irToHtmlTemplate` loop case.
+      if (node.bodyIsItemConditional && node.key) {
+        childTemplate = `${itemAnchorTemplate(node.key)}${childTemplate}`
+      }
       const indexParam = node.index ? `, ${node.index}` : ''
       // An init-scope-only array would `undefined.map(...)` ⇒ TypeError.
       // Substitute an empty array; init's reconcile pass populates the loop

@@ -120,7 +120,18 @@ export function stringifyPlainLoop(
     reactiveEffects,
     childRefs,
     bodyIsMultiRoot,
+    anchored,
+    anchorKeyExpr,
   } = plan
+
+  // Whole-item conditional loops (#1665) render 0-or-1 element per item, so
+  // they route through `mapArrayAnchored`. The renderItem returns a fragment
+  // headed by a `<!--bf-loop-i:KEY-->` anchor and seeded with the
+  // conditional's markers; `insert(__anchor, …)` then owns the content.
+  if (anchored) {
+    stringifyAnchoredLoop(lines, plan, topIndent, anchorKeyExpr)
+    return
+  }
 
   // `childRefs` need `__el` as a handle to invoke the user's callback inside
   // the factory, so non-empty refs force the multi-line layout the same way
@@ -152,6 +163,55 @@ export function stringifyPlainLoop(
   }
   emitLoopChildRefs(lines, childRefs, { indent: bodyIndent, elVar: '__el', bodyIsMultiRoot })
   lines.push(`${bodyIndent}return __el`)
+  lines.push(`${topIndent}}, '${markerId}')`)
+}
+
+/**
+ * Emit a whole-item conditional loop via `mapArrayAnchored` (#1665).
+ *
+ * The renderItem identifies each item by an always-present
+ * `<!--bf-loop-i:KEY-->` anchor instead of a root element (which the item may
+ * not have). On CSR it returns a `DocumentFragment` of
+ * `[anchor, bf-cond-start, bf-cond-end]` so `insert()`'s first run has the
+ * markers to populate; on hydration (`__existing` is the SSR anchor Comment)
+ * it returns that anchor and `insert()` adopts the SSR-rendered content. The
+ * conditional itself is emitted by the shared reactive-effects stringifier
+ * with `elVar: '__anchor'`, so `insert(__anchor, …)` range-scopes the
+ * toggle to this item.
+ */
+function stringifyAnchoredLoop(
+  lines: string[],
+  plan: PlainLoopPlan,
+  topIndent: string,
+  anchorKeyExpr: string,
+): void {
+  const {
+    containerVar, markerId, arrayExpr, keyFn,
+    paramHead, paramUnwrap, indexParam, mapPreambleWrapped, reactiveEffects,
+  } = plan
+
+  // The single whole-item conditional supplies the slot id used to seed the
+  // CSR markers so `insert()`'s first run can find and populate them.
+  const condSlot = reactiveEffects?.conditionals[0]?.slotId ?? null
+
+  lines.push(`${topIndent}mapArrayAnchored(() => ${arrayExpr}, ${containerVar}, ${keyFn}, (${paramHead}, ${indexParam}, __existing) => {`)
+  const bodyIndent = topIndent + '  '
+  if (paramUnwrap) lines.push(`${bodyIndent}${paramUnwrap}`)
+  if (mapPreambleWrapped) lines.push(`${bodyIndent}${mapPreambleWrapped}`)
+  lines.push(`${bodyIndent}const __anchor = __existing ?? document.createComment(\`bf-loop-i:\${${anchorKeyExpr}}\`)`)
+  lines.push(`${bodyIndent}let __frag = null`)
+  lines.push(`${bodyIndent}if (!__existing) {`)
+  lines.push(`${bodyIndent}  __frag = document.createDocumentFragment()`)
+  lines.push(`${bodyIndent}  __frag.appendChild(__anchor)`)
+  if (condSlot) {
+    lines.push(`${bodyIndent}  __frag.appendChild(document.createComment('bf-cond-start:${condSlot}'))`)
+    lines.push(`${bodyIndent}  __frag.appendChild(document.createComment('bf-cond-end:${condSlot}'))`)
+  }
+  lines.push(`${bodyIndent}}`)
+  if (reactiveEffects !== null) {
+    stringifyReactiveEffects(lines, reactiveEffects, { indent: bodyIndent, elVar: '__anchor', bodyIsMultiRoot: false })
+  }
+  lines.push(`${bodyIndent}return __frag ?? __anchor`)
   lines.push(`${topIndent}}, '${markerId}')`)
 }
 

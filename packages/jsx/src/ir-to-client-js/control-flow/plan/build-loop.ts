@@ -56,6 +56,15 @@ export interface BuildLoopPlanOptions {
  * described above and returns the discriminated `LoopPlan`.
  */
 export function buildLoopPlan(elem: TopLevelLoop, opts: BuildLoopPlanOptions): LoopPlan {
+  // Whole-item conditional bodies (#1665) render 0-or-1 element per item, so
+  // they need anchored `mapArrayAnchored` emission regardless of whether the
+  // array is static or dynamic. Routing both through the plain (anchored)
+  // path keeps `const arr` and `signal()` behaviour identical — a static
+  // array's per-item conditional still toggles reactively instead of freezing
+  // in the SSR-time `forEach` (which has no conditional handling at all).
+  if (elem.bodyIsItemConditional) {
+    return buildPlainLoopPlan(elem)
+  }
   if (elem.isStaticArray) {
     return buildStaticLoopPlan(elem, opts.unsafeLocalNames)
   }
@@ -92,6 +101,14 @@ export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
     reactiveEffects: hasReactive ? buildLoopReactiveEffectsPlan(elem) : null,
     childRefs: buildChildRefBindings(elem.bindings.refs, elem.param, elem.paramBindings),
     bodyIsMultiRoot: elem.bodyIsMultiRoot ?? false,
+    anchored: elem.bodyIsItemConditional ?? false,
+    // Fall back to the iteration index when the loop has no key. A whole-item
+    // conditional without a key is a BF023 error, but the emitted client JS
+    // must still parse — an empty `anchorKeyExpr` would produce
+    // `createComment(`bf-loop-i:${}`)` (a SyntaxError that breaks the whole
+    // bundle). `elem.index || '__idx'` matches `indexParam` above, so the
+    // anchor value stays consistent with the renderItem's own index param.
+    anchorKeyExpr: elem.key ? wrap(elem.key) : (elem.index || '__idx'),
   }
 }
 

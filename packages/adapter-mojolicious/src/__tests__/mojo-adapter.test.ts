@@ -69,6 +69,19 @@ runAdapterConformanceTests({
     'toggle-shared',
     'reactive-props',
     'props-reactivity-comparison',
+    // #1665 whole-item loop conditional. The Mojo adapter correctly emits the
+    // per-item `<!--bf-loop-i:KEY-->` anchor, `data-key`, and the conditional
+    // markers (verified by template-structure tests), but the fixture's
+    // `sel() === t.id` string comparison lowers to Perl numeric `==`
+    // (`"b" == "a"` → `0 == 0` → true), so the perl-executed render renders
+    // every item's true branch instead of only the matching one. Selecting
+    // `eq` vs `==` from operand types is a separate pre-existing Mojo
+    // limitation (same family as the skipped `logical-or-jsx` /
+    // `nullish-coalescing-jsx` map shapes); the anchored SSR shape itself is
+    // covered cross-adapter by Hono + CSR conformance and the runtime
+    // hydration tests. Remove this skip once the Mojo limitation is fixed:
+    // https://github.com/piconic-ai/barefootjs/issues/1672
+    'loop-item-conditional',
   ],
   // Per-fixture build-time contracts for shapes the Mojo adapter
   // intentionally refuses to lower. Owned by this adapter test file
