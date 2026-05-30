@@ -667,6 +667,36 @@ export function Empty() {
       expect(types).toContain('Items: nil,')
       expect(types).not.toContain('Items: []string{}')
     })
+
+    test('bakes generic Array<T> / ReadonlyArray<T> initial values like T[] (#1675 review)', () => {
+      // `createSignal<Array<T>>` reaches the analyzer as a generic type
+      // reference, not a `T[]` array node. The analyzer normalises both to the
+      // same array TypeInfo, so baking treats them identically — element typing
+      // (and struct-element baking) is preserved rather than degrading to nil.
+      const adapter = new GoTemplateAdapter()
+      const scalarIr = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function Tags() {
+  const [tags] = createSignal<Array<string>>(["x", "y"])
+  return <ul>{tags().map((t) => <li key={t}>{t}</li>)}</ul>
+}
+`)
+      expect(adapter.generate(scalarIr).types!).toContain('Tags: []string{"x", "y"},')
+
+      const structIr = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Item = { id: string }
+export function List() {
+  const [items] = createSignal<ReadonlyArray<Item>>([{ id: "a" }])
+  return <ul>{items().map((t) => <li key={t.id}>{t.id}</li>)}</ul>
+}
+`)
+      expect(adapter.generate(structIr).types!).toContain('Items: []Item{Item{ID: "a"}},')
+    })
   })
 
   describe('JSX children forwarding (#1203)', () => {

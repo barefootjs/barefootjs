@@ -399,6 +399,23 @@ export function typeNodeToTypeInfo(
 
   // Type reference (named type)
   if (ts.isTypeReferenceNode(typeNode)) {
+    // Normalise the generic array forms `Array<T>` / `ReadonlyArray<T>` to the
+    // same `kind: 'array'` shape as `T[]`, so every consumer sees one array
+    // representation regardless of how the source spelled it.
+    const refName = ts.isIdentifier(typeNode.typeName) ? typeNode.typeName.text : ''
+    if (
+      (refName === 'Array' || refName === 'ReadonlyArray') &&
+      typeNode.typeArguments?.length === 1
+    ) {
+      return {
+        kind: 'array',
+        raw,
+        elementType: typeNodeToTypeInfo(typeNode.typeArguments[0], sourceFile) ?? {
+          kind: 'unknown',
+          raw: 'unknown',
+        },
+      }
+    }
     return {
       kind: 'interface',
       raw,
