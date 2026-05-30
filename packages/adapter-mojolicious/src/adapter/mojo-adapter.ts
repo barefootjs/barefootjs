@@ -1227,6 +1227,19 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
       return this.convertHigherOrderExpr(expr)
     }
 
+    // #1448 follow-up — String methods with NO lowering yet. Same
+    // routing rationale as the row above: without this, the regex
+    // pipeline mangles `name().startsWith('a')` into
+    // `$name->{startsWith}('a')` (a hash-deref-and-call that dies at
+    // render with "Can't use string (...) as a HASH ref"), emitting no
+    // build diagnostic. Routing through the AST path lets
+    // `isSupported`'s `UNSUPPORTED_METHODS` gate fire BF101 instead,
+    // matching Go. Stays in sync with the string-method block in
+    // `UNSUPPORTED_METHODS`; each name drops off as its lowering lands.
+    if (/\.\s*(?:split|startsWith|endsWith|replace|replaceAll|repeat|padStart|padEnd|charAt|charCodeAt|codePointAt|normalize|substring|substr|match|matchAll|search)\s*\(/.test(expr)) {
+      return this.convertHigherOrderExpr(expr)
+    }
+
     // #1443/#1448: `.join(sep)` is lifted by the parser to the
     // `array-method` IR kind, and `renderArrayMethod`'s `case 'join'`
     // already emits the correct `join(sep, @{arr})`. Route the
