@@ -1291,6 +1291,12 @@ export interface TypeDefinition {
   kind: 'interface' | 'type'
   name: string
   definition: string // Original TypeScript definition
+  /**
+   * Structured fields for object/interface shapes, so adapters can consume the
+   * field set (names + types) without re-parsing `definition`. Absent for
+   * type aliases that aren't object types (e.g. string-literal unions).
+   */
+  properties?: PropertyInfo[]
   loc: SourceLocation
 }
 
