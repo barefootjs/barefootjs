@@ -1236,7 +1236,20 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     // `isSupported`'s `UNSUPPORTED_METHODS` gate fire BF101 instead,
     // matching Go. Stays in sync with the string-method block in
     // `UNSUPPORTED_METHODS`; each name drops off as its lowering lands.
-    if (/\.\s*(?:split|startsWith|endsWith|replace|replaceAll|repeat|padStart|padEnd|charAt|charCodeAt|codePointAt|normalize|substring|substr|match|matchAll|search)\s*\(/.test(expr)) {
+    //
+    // The regex is only a cheap pre-filter: because these method names
+    // (`replace`, `match`, `split`, `search`, …) are ordinary words
+    // that also occur inside string literals, an unanchored substring
+    // match alone would misroute a SUPPORTED expression whose literal
+    // merely contains `.replace(` (e.g. `JSON.stringify(x) + ".replace("`)
+    // onto the AST path — silently bypassing the `rewriteTemplatePrimitives`
+    // pass below and emitting broken Perl. Confirm against the parsed
+    // AST via `isSupported` before diverting: only a genuinely
+    // unsupported expression (an actual unsupported-method call) is
+    // routed to `convertHigherOrderExpr` for its BF101; supported
+    // expressions fall through to the normal pipeline unchanged.
+    if (/\.\s*(?:split|startsWith|endsWith|replace|replaceAll|repeat|padStart|padEnd|charAt|charCodeAt|codePointAt|normalize|substring|substr|match|matchAll|search)\s*\(/.test(expr)
+        && !isSupported(parseExpression(expr)).supported) {
       return this.convertHigherOrderExpr(expr)
     }
 

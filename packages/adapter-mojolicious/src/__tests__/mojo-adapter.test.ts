@@ -1061,6 +1061,31 @@ export function C() {
     })
   }
 
+  // Routing guard regression: the unsupported-string-method regex is an
+  // unanchored substring test, and these names (`replace`, `split`, …)
+  // are ordinary words that also appear inside string literals. A
+  // SUPPORTED expression whose literal merely contains `.replace(` must
+  // NOT be diverted onto the AST path — doing so would bypass
+  // `rewriteTemplatePrimitives` and silently emit broken Perl
+  // (`$JSON->{stringify} + '.replace('`). The `isSupported` gate on the
+  // regex keeps such expressions on the normal pipeline.
+  test('string-method regex does not misroute a supported expr with a method name inside a literal', () => {
+    const adapter = new MojoAdapter()
+    const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+export function C(props: { config: string }) {
+  return <div>{JSON.stringify(props.config) + ".replace("}</div>
+}
+`, adapter)
+    const template = adapter.generate(ir).template ?? ''
+    expect(adapter.errors ?? []).toEqual([])
+    // templatePrimitive lowering preserved...
+    expect(template).toContain('bf->json($config)')
+    // ...and the literal is NOT mangled into a hash-deref.
+    expect(template).not.toContain('$JSON->{stringify}')
+  })
+
   // Tier B `.sort` / `.toSorted` follow-ups still refused with BF021.
   // The Mojo client-only loop placeholder is an empty element (the
   // client runtime repopulates it via the `bf-s` scope marker), so the
