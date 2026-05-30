@@ -53,7 +53,10 @@ function makeRenderItem(slotId: string, cond: (id: string) => boolean) {
       anchor,
       slotId,
       () => cond(itemAccessor().id),
-      { template: () => `<li bf-c="${slotId}">${itemAccessor().id}</li>`, bindEvents: () => {} },
+      // Mirror the real compiler emission: the true-branch element carries
+      // `data-key`, so its opening-tag signature matches the SSR-rendered
+      // element and hydration adopts it in place (no swap).
+      { template: () => `<li bf-c="${slotId}" data-key="${itemAccessor().id}">${itemAccessor().id}</li>`, bindEvents: () => {} },
       { template: () => `<!--bf-cond-start:${slotId}--><!--bf-cond-end:${slotId}-->`, bindEvents: () => {} },
     )
     return frag ?? anchor
@@ -104,6 +107,56 @@ describe('mapArrayAnchored — CSR creation & per-item toggle', () => {
     expect(liTexts(host)).toEqual(['a'])
     setSel('c')
     expect(liTexts(host)).toEqual(['c'])
+    expect(anchorKeys(host)).toEqual(['a', 'b', 'c'])
+  })
+})
+
+describe('mapArrayAnchored — hydration of SSR-rendered anchors', () => {
+  beforeEach(() => { document.body.innerHTML = '' })
+
+  /** Seed a container with SSR-like DOM: per-item anchors + branch content. */
+  function seedSsr(markerId: string, items: Array<{ id: string; active: boolean }>, slotId: string): HTMLElement {
+    const host = document.createElement('div')
+    host.setAttribute(BF_SCOPE, 'c0')
+    let html = `<!--${loopStartMarker(markerId)}-->`
+    for (const it of items) {
+      html += `<!--${loopItemMarker(it.id)}-->`
+      html += it.active
+        ? `<li bf-c="${slotId}" data-key="${it.id}">${it.id}</li>`
+        : `<!--bf-cond-start:${slotId}--><!--bf-cond-end:${slotId}-->`
+    }
+    html += `<!--${loopEndMarker(markerId)}-->`
+    host.innerHTML = html
+    document.body.appendChild(host)
+    return host
+  }
+
+  test('adopts SSR anchors without recreating, then toggles in place', () => {
+    const host = seedSsr('l0', [
+      { id: 'a', active: false },
+      { id: 'b', active: true },
+      { id: 'c', active: false },
+    ], 's1')
+    // The SSR <li> for 'b' — identity must survive hydration (no re-create).
+    const ssrLi = host.querySelector('li')!
+    const [items] = createSignal([{ id: 'a' }, { id: 'b' }, { id: 'c' }])
+    const [sel, setSel] = createSignal('b')
+    createRoot(() => {
+      mapArrayAnchored(
+        () => items(),
+        host,
+        (it) => String(it.id),
+        makeRenderItem('s1', (id) => sel() === id),
+        'l0',
+      )
+    })
+    expect(anchorKeys(host)).toEqual(['a', 'b', 'c'])
+    expect(liTexts(host)).toEqual(['b'])
+    // Hydration adopted the existing element rather than cloning a new one.
+    expect(host.querySelector('li')).toBe(ssrLi)
+    // Toggling moves the rendered item without duplicating anchors.
+    setSel('a')
+    expect(liTexts(host)).toEqual(['a'])
     expect(anchorKeys(host)).toEqual(['a', 'b', 'c'])
   })
 })
