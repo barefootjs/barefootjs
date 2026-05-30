@@ -38,15 +38,18 @@ runAdapterConformanceTests({
     'return-map',
     // #1665 whole-item loop conditional. The Go adapter correctly emits the
     // per-item `<!--bf-loop-i:KEY-->` anchor, `data-key`, and conditional
-    // markers (verified by template-structure tests), but the array signal's
-    // initial value is not baked into the generated `NewXxxProps` constructor
-    // (`Items: nil`, unlike scalar signals such as `Sel: "b"`), so the Go SSR
-    // renders an empty loop. Populating signal-array initial values into the
-    // SSR data context is a separate pre-existing Go limitation — every other
-    // signal-loop fixture sidesteps it with an empty initial array. The
-    // anchored SSR shape with rendered items is covered by Hono + CSR
-    // conformance and the runtime hydration tests. Remove this skip once the
-    // Go limitation is fixed: https://github.com/piconic-ai/barefootjs/issues/1672
+    // markers (verified by template-structure tests). Signal-array initial
+    // values are now baked into `NewXxxProps` for typed and scalar arrays
+    // (#1672), but this fixture stays skipped for two reasons that survive
+    // that change: (1) its `items` signal is an *untyped* object array, which
+    // lands in a `[]interface{}` field whose `map` items the loop body can't
+    // reach via struct field access (`.ID` → <nil>), so the bake intentionally
+    // leaves it `nil`; (2) the loop body references the outer `sel` signal,
+    // which the template emits as `.Sel` — resolved against the loop element
+    // inside `range` rather than the root scope (`$.Sel`), a separate codegen
+    // bug masked until now by the previously-empty loop. The anchored SSR shape
+    // with rendered items is covered by Hono + CSR conformance and the runtime
+    // hydration tests. https://github.com/piconic-ai/barefootjs/issues/1672
     'loop-item-conditional',
     // #1297 fixed the harness-side IR emission gate (multi-component
     // sources now emit one `ir` file per component, and the harness
@@ -529,6 +532,101 @@ export function Score(props: { value?: number }) {
       const floatTypes = adapter.generate(floatIr).types!
       expect(floatTypes).not.toContain('value := in.Value')
       expect(floatTypes).toContain('Value: in.Value,')
+    })
+
+    test('bakes typed struct array-literal initial values into NewXxxProps (#1672)', () => {
+      // A signal typed `Item[]` lands in a `[]Item` field whose template loop
+      // body reaches each element via struct field access (`.ID`). Baking the
+      // inline literal as a Go struct slice — capitalising keys to match the
+      // generated field names — lets the Go SSR render the list. Previously
+      // `convertInitialValue` returned `nil` for any array literal, freezing
+      // SSR loops to empty (the reason whole-item-conditional loop fixtures
+      // had to skip Go render conformance — #1665 / #1672).
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Item = { id: string }
+export function List() {
+  const [items] = createSignal<Item[]>([{ id: "a" }, { id: "b" }, { id: "c" }])
+  return <ul>{items().map((t) => <li key={t.id}>{t.id}</li>)}</ul>
+}
+`)
+      const types = adapter.generate(ir).types!
+      expect(types).not.toContain('Items: nil,')
+      expect(types).toContain('Items: []Item{')
+      expect(types).toContain('Item{ID: "a"}')
+      expect(types).toContain('Item{ID: "b"}')
+      expect(types).toContain('Item{ID: "c"}')
+    })
+
+    test('bakes scalar array-literal initial values into NewXxxProps (#1672)', () => {
+      // Scalar loops render each element via `{{.}}`, so an `[]interface{}`
+      // (untyped) or `[]string` (typed) slice literal both render correctly.
+      const adapter = new GoTemplateAdapter()
+      const untypedIr = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function Tags() {
+  const [tags] = createSignal(["x", "y", "z"])
+  return <ul>{tags().map((t) => <li key={t}>{t}</li>)}</ul>
+}
+`)
+      expect(adapter.generate(untypedIr).types!).toContain(
+        'Tags: []interface{}{"x", "y", "z"},',
+      )
+
+      const typedIr = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function Tags() {
+  const [tags] = createSignal<string[]>(["x", "y", "z"])
+  return <ul>{tags().map((t) => <li key={t}>{t}</li>)}</ul>
+}
+`)
+      expect(adapter.generate(typedIr).types!).toContain(
+        'Tags: []string{"x", "y", "z"},',
+      )
+    })
+
+    test('keeps nil for untyped object-array initial values (#1672)', () => {
+      // Without a struct type the field is `[]interface{}`, but the loop body
+      // reaches items via struct field access (`.ID`) the map form can't
+      // satisfy (`<nil>`). Leave it nil — status quo for the untyped case —
+      // rather than baking a literal that renders empty.
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function List() {
+  const [items] = createSignal([{ id: "a" }, { id: "b" }])
+  return <ul>{items().map((t) => <li key={t.id}>{t.id}</li>)}</ul>
+}
+`)
+      expect(adapter.generate(ir).types!).toContain('Items: nil,')
+    })
+
+    test('keeps nil for non-literal array initial values (#1672)', () => {
+      // A signal whose array initial value is a function call / variable
+      // reference cannot be evaluated at codegen time — it must stay nil so
+      // the handler populates it (no behaviour change for these cases).
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+function build(): string[] { return [] }
+export function Dyn() {
+  const [items] = createSignal(build())
+  return <ul>{items().map((t) => <li key={t}>{t}</li>)}</ul>
+}
+`)
+      const types = adapter.generate(ir).types!
+      expect(types).toContain('Items: nil,')
     })
   })
 

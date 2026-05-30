@@ -1735,14 +1735,23 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       }
     }
 
-    // For arrays, use nil for complex JS expressions
+    // For arrays, bake a fully-literal initial value into a Go slice literal
+    // so the SSR data context carries the items (#1672). Empty / nullish
+    // literals collapse to nil, and any non-literal element (a call, a
+    // variable reference, …) falls back to nil so the handler populates it.
+    //
+    // The baked literal is element-type-aware so it both compiles and renders:
+    //   - scalar elements →  `[]string{…}` / `[]interface{}{…}`  (template `{{.}}`)
+    //   - struct elements →  `[]Item{Item{ID: …}}`               (template `.ID`)
+    // An untyped object array would land in a `[]interface{}` field whose
+    // `map[string]interface{}` items the template can't reach via field access
+    // (`.ID` → <nil>), so `jsLiteralToGo` returns null there and we keep nil.
     if (typeInfo.kind === 'array') {
-      // Simple array literal or empty
       if (value === '[]' || value === 'null' || value === 'undefined') {
         return 'nil'
       }
-      // Complex expression - use nil as placeholder
-      return 'nil'
+      const baked = this.jsLiteralToGo(value, typeInfo)
+      return baked ?? 'nil'
     }
 
     // String alias (e.g., Filter = string) — return string value instead of nil
@@ -1758,6 +1767,105 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
 
     // Default for complex expressions
     return 'nil'
+  }
+
+  /**
+   * Convert a fully-literal JS expression string into an equivalent Go literal
+   * whose Go type matches `typeInfo` (#1672), used to bake a signal's inline
+   * initial value into the SSR data context:
+   *
+   *   `["x", "y"]`             (string[])  → `[]string{"x", "y"}`
+   *   `["x", "y"]`             (unknown[]) → `[]interface{}{"x", "y"}`
+   *   `[{ id: "a" }]`          (Item[])    → `[]Item{Item{ID: "a"}}`
+   *
+   * Returns `null` — so the caller keeps `nil` — when the expression (or any
+   * nested element) is not a pure literal (a call, identifier, template with
+   * interpolation, …) or cannot be expressed in the target Go type without a
+   * render/compile mismatch (e.g. an object element in a `[]interface{}` field,
+   * which the SSR template reaches via struct field access the map lacks).
+   */
+  private jsLiteralToGo(value: string, typeInfo: TypeInfo): string | null {
+    const sf = ts.createSourceFile(
+      '__lit.ts', `(${value})`, ts.ScriptTarget.Latest, /* setParentNodes */ true,
+    )
+    const stmt = sf.statements[0]
+    if (!stmt || !ts.isExpressionStatement(stmt)) return null
+    let expr: ts.Expression = stmt.expression
+    while (ts.isParenthesizedExpression(expr)) expr = expr.expression
+    return this.tsLiteralToGo(expr, typeInfo)
+  }
+
+  /**
+   * Recursively convert a TS literal AST node to a Go literal typed as
+   * `typeInfo`, or null when the node is not a pure literal / cannot be
+   * represented in that Go type.
+   */
+  private tsLiteralToGo(node: ts.Expression, typeInfo?: TypeInfo): string | null {
+    // Unwrap a leading unary minus on a numeric literal (`-1`).
+    if (
+      ts.isPrefixUnaryExpression(node) &&
+      node.operator === ts.SyntaxKind.MinusToken &&
+      ts.isNumericLiteral(node.operand)
+    ) {
+      return `-${node.operand.text}`
+    }
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      return JSON.stringify(node.text)
+    }
+    if (ts.isNumericLiteral(node)) return node.text
+    if (node.kind === ts.SyntaxKind.TrueKeyword) return 'true'
+    if (node.kind === ts.SyntaxKind.FalseKeyword) return 'false'
+    if (node.kind === ts.SyntaxKind.NullKeyword) return 'nil'
+
+    if (ts.isArrayLiteralExpression(node)) {
+      // Slice header mirrors the field's Go type (`[]string`, `[]Item`,
+      // `[]interface{}`); elements are converted against the element type.
+      const elemType = typeInfo?.kind === 'array' ? typeInfo.elementType : undefined
+      const sliceHeader = typeInfo?.kind === 'array'
+        ? this.typeInfoToGo(typeInfo)
+        : '[]interface{}'
+      const elems: string[] = []
+      for (const el of node.elements) {
+        const go = this.tsLiteralToGo(el, elemType)
+        if (go === null) return null
+        elems.push(go)
+      }
+      return `${sliceHeader}{${elems.join(', ')}}`
+    }
+
+    if (ts.isObjectLiteralExpression(node)) {
+      // An object can only be baked when the target Go type is a concrete
+      // struct — otherwise it would land in `interface{}` / a map the SSR
+      // template can't reach via field access. Bail (→ nil) in that case.
+      const goType = typeInfo ? this.typeInfoToGo(typeInfo) : 'interface{}'
+      if (!this.localTypeNames.has(goType)) return null
+      const entries: string[] = []
+      for (const prop of node.properties) {
+        // Only plain `key: scalar` pairs are baked; spreads, methods,
+        // shorthand, computed/accessor members, and nested object/array
+        // values (whose struct field types we don't track here) bail to nil.
+        if (!ts.isPropertyAssignment(prop)) return null
+        let key: string
+        if (
+          ts.isIdentifier(prop.name) ||
+          ts.isStringLiteral(prop.name) ||
+          ts.isNumericLiteral(prop.name)
+        ) {
+          key = prop.name.text
+        } else {
+          return null
+        }
+        const init = prop.initializer
+        if (ts.isObjectLiteralExpression(init) || ts.isArrayLiteralExpression(init)) {
+          return null
+        }
+        const go = this.tsLiteralToGo(init)
+        if (go === null) return null
+        entries.push(`${this.capitalizeFieldName(key)}: ${go}`)
+      }
+      return `${goType}{${entries.join(', ')}}`
+    }
+    return null
   }
 
   /**
