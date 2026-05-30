@@ -598,8 +598,18 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
       : loop.index ? `$${loop.index}` : '$_i'
     const prevInLoop = this.inLoop
     this.inLoop = true
-    const children = this.renderChildren(loop.children)
+    const renderedChildren = this.renderChildren(loop.children)
     this.inLoop = prevInLoop
+
+    // Whole-item conditional (#1665): prepend an always-present
+    // `<!--bf-loop-i:KEY-->` anchor before each item's (possibly empty)
+    // conditional content so the client's `mapArrayAnchored` can hydrate
+    // every SSR-rendered item by its anchor. `bf->comment` prepends `bf-`,
+    // so `"loop-i:" . KEY` yields `<!--bf-loop-i:KEY-->`.
+    const children =
+      loop.bodyIsItemConditional && loop.key
+        ? `<%== bf->comment("loop-i:" . ${this.convertExpressionToPerl(loop.key)}) %>\n${renderedChildren}`
+        : renderedChildren
 
     const lines: string[] = []
     // Scoped per-call-site marker so sibling `.map()`s under the same parent

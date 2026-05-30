@@ -617,8 +617,8 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     return this.renderExpression(node)
   }
 
-  emitConditional(node: IRConditional, _ctx: HonoRenderCtx, _emit: EmitIRNode<HonoRenderCtx>): string {
-    return this.renderConditional(node)
+  emitConditional(node: IRConditional, ctx: HonoRenderCtx, _emit: EmitIRNode<HonoRenderCtx>): string {
+    return this.renderConditional(node, ctx)
   }
 
   emitLoop(node: IRLoop, _ctx: HonoRenderCtx, _emit: EmitIRNode<HonoRenderCtx>): string {
@@ -738,14 +738,21 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     return `{${expr.expr}}`
   }
 
-  renderConditional(cond: IRConditional): string {
+  renderConditional(cond: IRConditional, ctx?: HonoRenderCtx): string {
     // Handle @client directive - render comment markers for client-side evaluation
     if (cond.clientOnly && cond.slotId) {
       return `{bfComment("cond-start:${cond.slotId}")}{bfComment("cond-end:${cond.slotId}")}`
     }
 
-    const whenTrue = this.renderNodeRaw(cond.whenTrue)
-    let whenFalse = this.renderNodeRaw(cond.whenFalse)
+    // A conditional that is itself a loop item root (#1665 whole-item
+    // conditional: `arr.map(t => cond && <li/>)`) makes its branch element the
+    // loop item's root, so the `data-key` that reconciliation/hydration expect
+    // belongs on that element — exactly like a non-conditional loop root. Pass
+    // the flag through so `renderElement` emits `data-key`, matching the Go /
+    // CSR adapters' generic `key`→`data-key` rewrite.
+    const branchCtx: HonoRenderCtx | undefined = ctx?.isLoopItemRoot ? { isLoopItemRoot: true } : undefined
+    const whenTrue = this.renderNodeRawCtx(cond.whenTrue, branchCtx)
+    let whenFalse = this.renderNodeRawCtx(cond.whenFalse, branchCtx)
 
     // Handle empty/null whenFalse
     if (!whenFalse || whenFalse === '' || whenFalse === 'null') {
@@ -764,6 +771,20 @@ export class HonoAdapter extends JsxAdapter implements IRNodeEmitter<HonoRenderC
     }
 
     return `{${cond.condition} ? ${whenTrue} : ${whenFalse}}`
+  }
+
+  /**
+   * Like the base `renderNodeRaw`, but threads a render ctx through to
+   * `renderNode` so a conditional branch can mark its element as a loop item
+   * root (#1665). The `null` / `undefined` expression branch carries no
+   * element, so it short-circuits exactly as the base helper does.
+   */
+  private renderNodeRawCtx(node: IRNode, ctx?: HonoRenderCtx): string {
+    if (node.type === 'expression') {
+      if (node.expr === 'null' || node.expr === 'undefined') return 'null'
+      return node.expr
+    }
+    return this.renderNode(node, ctx)
   }
 
   private wrapWithCondMarker(node: IRNode, content: string, condId: string): string {
