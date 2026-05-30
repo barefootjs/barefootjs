@@ -56,6 +56,15 @@ export interface BuildLoopPlanOptions {
  * described above and returns the discriminated `LoopPlan`.
  */
 export function buildLoopPlan(elem: TopLevelLoop, opts: BuildLoopPlanOptions): LoopPlan {
+  // Whole-item conditional bodies (#1665) render 0-or-1 element per item, so
+  // they need anchored `mapArrayAnchored` emission regardless of whether the
+  // array is static or dynamic. Routing both through the plain (anchored)
+  // path keeps `const arr` and `signal()` behaviour identical — a static
+  // array's per-item conditional still toggles reactively instead of freezing
+  // in the SSR-time `forEach` (which has no conditional handling at all).
+  if (elem.bodyIsItemConditional) {
+    return buildPlainLoopPlan(elem)
+  }
   if (elem.isStaticArray) {
     return buildStaticLoopPlan(elem, opts.unsafeLocalNames)
   }
