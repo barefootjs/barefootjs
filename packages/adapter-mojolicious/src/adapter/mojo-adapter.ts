@@ -1242,15 +1242,32 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     // that also occur inside string literals, an unanchored substring
     // match alone would misroute a SUPPORTED expression whose literal
     // merely contains `.replace(` (e.g. `JSON.stringify(x) + ".replace("`)
-    // onto the AST path — silently bypassing the `rewriteTemplatePrimitives`
-    // pass below and emitting broken Perl. Confirm against the parsed
-    // AST via `isSupported` before diverting: only a genuinely
-    // unsupported expression (an actual unsupported-method call) is
-    // routed to `convertHigherOrderExpr` for its BF101; supported
-    // expressions fall through to the normal pipeline unchanged.
-    if (/\.\s*(?:split|startsWith|endsWith|replace|replaceAll|repeat|padStart|padEnd|charAt|charCodeAt|codePointAt|normalize|substring|substr|match|matchAll|search)\s*\(/.test(expr)
-        && !isSupported(parseExpression(expr)).supported) {
-      return this.convertHigherOrderExpr(expr)
+    // onto a path that bypasses the `rewriteTemplatePrimitives` pass
+    // below and emits broken Perl. So confirm against the parsed AST
+    // via `isSupported`: only a genuinely unsupported expression (an
+    // actual unsupported-method call) is refused; supported expressions
+    // fall through to the normal pipeline unchanged. Emit BF101 inline
+    // from the `support` we already have (matching the `find`/`findIndex`
+    // gap branch below) rather than re-parsing inside
+    // `convertHigherOrderExpr`.
+    if (/\.\s*(?:split|startsWith|endsWith|replace|replaceAll|repeat|padStart|padEnd|charAt|charCodeAt|codePointAt|normalize|substring|substr|match|matchAll|search)\s*\(/.test(expr)) {
+      const support = isSupported(parseExpression(expr))
+      if (!support.supported) {
+        this.errors.push({
+          code: 'BF101',
+          severity: 'error',
+          message: `Expression not supported: ${expr.trim()}`,
+          loc: { file: this.componentName + '.tsx', start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+          suggestion: {
+            message: support.reason
+              ? `${support.reason}\n\nOptions:\n1. Use /* @client */ for client-side evaluation\n2. Pre-compute the value in Perl`
+              : 'Options:\n1. Use /* @client */ for client-side evaluation\n2. Pre-compute the value in Perl',
+          },
+        })
+        return "''"
+      }
+      // Supported (the method name was inside a string literal, not an
+      // actual unsupported call) — fall through to the normal pipeline.
     }
 
     // #1443/#1448: `.join(sep)` is lifted by the parser to the
