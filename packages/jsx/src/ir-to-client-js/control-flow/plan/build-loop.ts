@@ -102,7 +102,13 @@ export function buildPlainLoopPlan(elem: TopLevelLoop): PlainLoopPlan {
     childRefs: buildChildRefBindings(elem.bindings.refs, elem.param, elem.paramBindings),
     bodyIsMultiRoot: elem.bodyIsMultiRoot ?? false,
     anchored: elem.bodyIsItemConditional ?? false,
-    anchorKeyExpr: elem.key ? wrap(elem.key) : '',
+    // Fall back to the iteration index when the loop has no key. A whole-item
+    // conditional without a key is a BF023 error, but the emitted client JS
+    // must still parse — an empty `anchorKeyExpr` would produce
+    // `createComment(`bf-loop-i:${}`)` (a SyntaxError that breaks the whole
+    // bundle). `elem.index || '__idx'` matches `indexParam` above, so the
+    // anchor value stays consistent with the renderItem's own index param.
+    anchorKeyExpr: elem.key ? wrap(elem.key) : (elem.index || '__idx'),
   }
 }
 
