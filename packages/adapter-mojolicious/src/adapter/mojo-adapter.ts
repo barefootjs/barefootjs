@@ -1627,8 +1627,8 @@ class MojoTopLevelEmitter implements ParsedExprEmitter {
     // `Math.floor(x)` → `bf->json($x)` / `bf->floor($x)`. Args render
     // recursively through this same emitter so prop refs / signal calls
     // inside them get the standard transforms. Mirrors the Go adapter's
-    // `call()` primitive dispatch. Wrong-arity calls record BF101 and
-    // fall through to the generic emit (never silently emit a bad call).
+    // `call()` primitive dispatch. A wrong-arity call records BF101 and
+    // returns the safe `''` placeholder (never silently emits a bad call).
     const path = identifierPath(callee)
     const spec = path ? MOJO_TEMPLATE_PRIMITIVES[path] : undefined
     if (path && spec) {
@@ -1754,17 +1754,17 @@ class MojoTopLevelEmitter implements ParsedExprEmitter {
   }
 
   templateLiteral(parts: TemplatePart[], emit: (e: ParsedExpr) => string): string {
-    // `` `chat-${msg.role}` `` → Perl double-quoted string with the
-    // expression parts interpolated (`"chat-$msg->{role}"`). Static
-    // chunks escape the characters that are special inside `"..."`
-    // (`\`, `"`, and the sigils `$` / `@`) so literal text survives.
-    // Build Perl string concatenation (`"n=" . ($count + 1)`), not
-    // double-quote interpolation. Interpolation only evaluates simple
-    // `$var` reads, so complex `${...}` parts — arithmetic, helper calls
-    // (`bf->json(...)`), ternaries — would render unevaluated. Static
-    // chunks escape the sigils that interpolate inside `"..."` (`$`/`@`)
-    // plus `"`/`\`; expression terms whose Perl precedence is below `.`
-    // wrap in parens so they bind before concatenation.
+    // `` `n=${count() + 1}` `` → Perl string concatenation
+    // (`"n=" . ($count + 1)`), NOT double-quote interpolation. Perl only
+    // interpolates simple `$var` reads inside `"..."`, so complex `${...}`
+    // parts — arithmetic, helper calls (`bf->json(...)`), ternaries —
+    // would render unevaluated if inlined into a quoted string.
+    //   - Static chunks are emitted as quoted literals with the sigils
+    //     that interpolate inside `"..."` (`$`/`@`) plus `"`/`\` escaped,
+    //     so literal text survives verbatim.
+    //   - Expression terms whose Perl precedence is below `.` (binary /
+    //     logical / conditional) wrap in parens so they bind before the
+    //     concatenation.
     const terms: string[] = []
     for (const part of parts) {
       if (part.type === 'string') {
@@ -1785,7 +1785,12 @@ class MojoTopLevelEmitter implements ParsedExprEmitter {
   }
 
   arrowFn(_param: string, _body: ParsedExpr): string {
-    return ''
+    // A bare arrow function never stands alone at a render position (it's
+    // only meaningful as a higher-order predicate, handled above). Return
+    // the safe Perl empty-string literal `''` — consistent with the BF101
+    // / `unsupported` paths — so a stray emit can't produce a `<%= %>`
+    // syntax error.
+    return "''"
   }
 
   unsupported(_raw: string, _reason: string): string {
