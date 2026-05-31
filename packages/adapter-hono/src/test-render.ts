@@ -8,6 +8,7 @@
 import { compileJSX } from '@barefootjs/jsx'
 import type { TemplateAdapter } from '@barefootjs/jsx'
 import { Hono } from 'hono'
+import { readFileSync } from 'node:fs'
 import { mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
@@ -24,6 +25,16 @@ export interface RenderOptions {
   /** Additional component files (filename → source) */
   components?: Record<string, string>
   /**
+   * Pre-compiled child component modules (import specifier → absolute
+   * module path) — #1467 Phase 2a. When the parent imports one of these
+   * specifiers, the import is *re-anchored* to the given module path
+   * (kept as a real ESM import) instead of having the child inlined via
+   * `components`. The module is a committed, export-intact marked
+   * template, so SSR loads it through the module system — no export
+   * stripping. Takes precedence over `components` for the same key.
+   */
+  componentModules?: Record<string, string>
+  /**
    * Explicit component to render when the source declares multiple
    * exports. When omitted, the first function-valued export in
    * `Object.keys(mod)` iteration order is picked — that order is
@@ -34,14 +45,46 @@ export interface RenderOptions {
   componentName?: string
 }
 
-export async function renderHonoComponent(options: RenderOptions): Promise<string> {
-  const { source, adapter, props, components, componentName: requestedName } = options
+/**
+ * Drop module-level exports from a compiled marked template so it can be
+ * inlined as plain declarations alongside other components. Specifier
+ * blocks (`export { … }`, `export type { … }`, with or without a
+ * trailing `from '…'` re-export source) are removed whole; declaration
+ * forms (`export function/const/let/type/interface`, `export default`)
+ * keep their body with only the leading keyword stripped.
+ *
+ * The set of forms is bounded by `generateModuleExports` in
+ * @barefootjs/jsx — see the caller for the enumeration. This stays a
+ * line-oriented text pass (rather than a real parse) because the input
+ * is compiler-generated with a stable, single-line-per-export shape.
+ */
+function stripModuleExports(code: string): string {
+  return code
+    // `export [type] { … } [from '…']` specifier / re-export blocks.
+    .replace(
+      /^[ \t]*export\s+(?:type\s+)?\{[^}]*\}(?:[ \t]*from[ \t]*['"][^'"]*['"])?[ \t]*;?[ \t]*$/gm,
+      '',
+    )
+    // Leading keyword on declaration forms (`export function`,
+    // `export const X = …`, `export default …`, etc.).
+    .replace(/\bexport\s+(default\s+)?/g, '')
+}
 
-  // Compile child components first
+export async function renderHonoComponent(options: RenderOptions): Promise<string> {
+  const { source, adapter, props, components, componentModules, componentName: requestedName } = options
+
+  // Child imports re-anchored to a pre-compiled module (#1467 Phase 2a):
+  // import specifier → absolute path. These are NOT inlined; the parent's
+  // matching import is rewritten to the path and loaded as a real module.
+  const moduleMap = new Map<string, string>(Object.entries(componentModules ?? {}))
+
+  // Compile child components first (inline path). Keys also present in
+  // `moduleMap` are skipped here — they load as real modules instead.
   const childCodes: string[] = []
   const componentKeys = new Set<string>()
   if (components) {
     for (const [filename, childSource] of Object.entries(components)) {
+      if (moduleMap.has(filename)) continue
       componentKeys.add(filename)
       const childResult = compileJSX(childSource, filename, { adapter })
       const childErrors = childResult.errors.filter(e => e.severity === 'error')
@@ -50,8 +93,23 @@ export async function renderHonoComponent(options: RenderOptions): Promise<strin
       }
       const childTemplate = childResult.files.find(f => f.type === 'markedTemplate')
       if (!childTemplate) throw new Error(`No marked template for ${filename}`)
-      // Strip export keywords so only the parent component is exported
-      const localCode = childTemplate.content.replace(/\bexport\s+(default\s+)?/g, '')
+      // Strip exports so only the parent component is exported, inlining
+      // the child as plain top-level declarations. The marked template's
+      // export forms are fixed by `generateModuleExports` (+ the
+      // component's own `export function`) in @barefootjs/jsx, each on
+      // its own line:
+      //
+      //   export const/let X = …      export function / async function …
+      //   export type X = …           export interface X { … }
+      //   export { A, B } [from '…']   export type { A } [from '…']
+      //
+      // The `export { … }` / `export type { … }` *specifier* blocks
+      // (with or without a trailing `from '…'`) must be dropped whole —
+      // their bindings are already declared inline, and naively removing
+      // just the `export ` keyword leaves a bare `{ A }` / `type { A }`
+      // (the latter a syntax error). Declaration forms keep their body;
+      // only the leading `export `/`export default ` is removed.
+      const localCode = stripModuleExports(childTemplate.content)
       childCodes.push(localCode)
     }
   }
@@ -67,22 +125,56 @@ export async function renderHonoComponent(options: RenderOptions): Promise<strin
   const templateFile = result.files.find(f => f.type === 'markedTemplate')
   if (!templateFile) throw new Error('No marked template in compile output')
 
+  // Pre-compiled child modules are committed under the adapter-tests
+  // fixtures tree, where `hono/jsx` is NOT resolvable (hono lives in
+  // this package's node_modules — the very reason render temp files go
+  // here). Copy each committed module verbatim into the render temp dir
+  // and re-anchor the parent import there. The committed file stays the
+  // reviewable source of truth; this is a byte copy, not export surgery.
+  const childModuleWrites: Array<{ path: string; content: string }> = []
+  const moduleTempPaths = new Map<string, string>()
+  for (const [key, modPath] of moduleMap) {
+    const safe = key.replace(/[^a-zA-Z0-9]+/g, '_')
+    const tempPath = resolve(
+      RENDER_TEMP_DIR,
+      `child-${safe}-${Date.now()}-${Math.random().toString(36).slice(2)}.tsx`,
+    )
+    moduleTempPaths.set(key, tempPath)
+    childModuleWrites.push({ path: tempPath, content: readFileSync(modPath, 'utf8') })
+  }
+
   let parentCode = templateFile.content
-  // Strip import lines that reference component files
-  if (componentKeys.size > 0) {
+  // Resolve each child import: re-anchor to a pre-compiled module's temp
+  // copy (`moduleTempPaths`), strip it (inlined via `components`), or
+  // leave it. Both maps key on the import specifier; match the parent's
+  // import path with or without a `.tsx` extension (`./badge` ↔
+  // `./badge.tsx`).
+  //
+  // Assumes one import statement per line — the marked-template adapter
+  // emits single-line imports (`import { Slot } from '../slot'`), so the
+  // per-line scan is sufficient. A multi-line import would not match
+  // here; the unrewritten `../slot` then fails loudly at module
+  // resolution rather than rendering wrong output.
+  if (componentKeys.size > 0 || moduleTempPaths.size > 0) {
+    const matchKey = (importPath: string, keys: Iterable<string>): string | undefined => {
+      for (const key of keys) {
+        const keyWithoutExt = key.replace(/\.tsx?$/, '')
+        if (importPath === keyWithoutExt || importPath === key) return key
+      }
+      return undefined
+    }
     parentCode = parentCode
       .split('\n')
-      .filter(line => {
-        const importMatch = line.match(/^\s*import\s+.*from\s+['"](.+?)['"]/)
-        if (!importMatch) return true
-        const importPath = importMatch[1]
-        // Match against component keys: './badge' matches './badge.tsx'
-        for (const key of componentKeys) {
-          const keyWithoutExt = key.replace(/\.tsx?$/, '')
-          if (importPath === keyWithoutExt || importPath === key) return false
-        }
-        return true
+      .map(line => {
+        const importMatch = line.match(/^(\s*import\s+.*from\s+['"])(.+?)(['"].*)$/)
+        if (!importMatch) return line
+        const [, prefix, importPath, suffix] = importMatch
+        const moduleKey = matchKey(importPath, moduleTempPaths.keys())
+        if (moduleKey) return `${prefix}${moduleTempPaths.get(moduleKey)}${suffix}`
+        if (matchKey(importPath, componentKeys)) return null
+        return line
       })
+      .filter((line): line is string => line !== null)
       .join('\n')
   }
 
@@ -95,6 +187,11 @@ export async function renderHonoComponent(options: RenderOptions): Promise<strin
   const code = codeParts.join('\n')
 
   await mkdir(RENDER_TEMP_DIR, { recursive: true })
+  // Materialise the verbatim child-module copies next to the parent so
+  // their `hono/jsx` pragma resolves.
+  for (const { path, content } of childModuleWrites) {
+    await Bun.write(path, content)
+  }
   // Unique filename per render to avoid Bun's process-level module cache
   // (bun#12371: re-importing the same path returns stale module)
   const tempFile = resolve(
@@ -139,5 +236,8 @@ export async function renderHonoComponent(options: RenderOptions): Promise<strin
     return await res.text()
   } finally {
     await rm(tempFile, { force: true }).catch(() => {})
+    for (const { path } of childModuleWrites) {
+      await rm(path, { force: true }).catch(() => {})
+    }
   }
 }

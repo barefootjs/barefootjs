@@ -18,6 +18,9 @@ import { fixture as portal } from './portal'
 import { fixture as todoApp } from './todo-app'
 import { fixture as todoAppSsr } from './todo-app-ssr'
 import { fixture as aiChat } from './ai-chat'
+// #1467 Phase 2a: first `site/ui` source-root fixture (Button + its
+// auto-inferred Slot sibling), proving the UI loader infrastructure.
+import { fixture as button } from './button'
 // Priority 1: Core reactivity
 import { fixture as signalWithFallback } from './signal-with-fallback'
 import { fixture as signalDefaultFromJsx } from './signal-default-from-jsx'
@@ -179,6 +182,7 @@ export const jsxFixtures: JSXFixture[] = [
   todoApp,
   todoAppSsr,
   aiChat,
+  button,
   // Priority 1: Core reactivity
   signalWithFallback,
   signalDefaultFromJsx,
