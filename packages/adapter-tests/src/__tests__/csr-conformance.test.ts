@@ -101,18 +101,6 @@ describe('CSR Conformance Tests', () => {
     //     empty `<ul>` while the CSR template lambda renders the full
     //     list — same divergence as `static-array-from-props` above.
     'todo-app',
-    //   - `site/ui` `button`: `baseClasses` contain literal quotes /
-    //     angle brackets (`[class*="size-"]`, `has-[>svg]`) that Hono
-    //     SSR HTML-escapes (`&quot;`, `&gt;`) but the CSR template
-    //     emits raw — `normalizeHTML` doesn't unescape, so the two
-    //     diverge textually and the embedded `"` breaks its attribute
-    //     tokenizer. Real hydration is unaffected: the fixture-hydrate
-    //     runner mounts the (escaped) SSR HTML and `initButton` writes
-    //     the class via `setAttribute` (no escaping needed). Template
-    //     attribute-value escaping for metacharacter-bearing class
-    //     strings is a separate compiler concern; SSR conformance +
-    //     fixture-hydrate cover Button's class composition.
-    'button',
     // #1448 Tier B — iteration shape fixtures are SSR-only prop-based
     // components. The CSR template path can't resolve bare prop refs
     // (items, etc.) without `"use client"` + signal wiring.

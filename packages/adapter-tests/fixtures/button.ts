@@ -40,7 +40,15 @@ export const spec: SharedFixtureSpec = {
   sourceFile: 'button',
   description:
     'site/ui Button — variant/size class composition + auto-inferred Slot sibling',
-  props: { variant: 'secondary', size: 'sm', children: 'Click me' },
+  // `className: ''` is passed explicitly: the CSR template emits the raw
+  // `_p.className` and does not apply the component's destructured
+  // `className = ''` default, so without it the CSR render would diverge
+  // from SSR with a literal `undefined` in the class. (Default-prop
+  // resolution in the template is a separate, pre-existing limitation;
+  // see CLAUDE.md.) The variant/size class metacharacters (`[class*="…"]`,
+  // `has-[>svg]`) are now escaped by the client template (escapeAttr), so
+  // Button participates in CSR conformance.
+  props: { variant: 'secondary', size: 'sm', className: '', children: 'Click me' },
   interactions: [
     { type: 'expectText', selector: 'button', text: 'Click me' },
     // Stateless: a click changes nothing, but it proves the hydrated

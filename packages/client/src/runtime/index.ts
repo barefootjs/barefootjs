@@ -68,6 +68,7 @@ export {
   getPropsUpdateFn,
   getComponentProps,
   parseHTML,
+  escapeAttr,
 } from './component'
 
 // Spread props helpers

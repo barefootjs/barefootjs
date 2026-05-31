@@ -400,6 +400,24 @@ export function escapeAttrGt(html: string): string {
   return html.replace(/"[^"]*"/g, match => match.replace(/>/g, '&gt;'))
 }
 
+/**
+ * HTML-escape a single attribute *value* before it is concatenated into a
+ * client-rendered template string. Matches the SSR adapters' attribute
+ * escaping (Hono's `escapeToBuffer`: `& " ' < >`) so client-rendered DOM
+ * is byte-identical to the server-rendered form and metacharacter-bearing
+ * values (UnoCSS `[class*="size-"]`, `has-[>svg]`, …) don't corrupt
+ * attribute parsing when the template is inserted via `innerHTML`. `&` is
+ * replaced first so the emitted entities aren't themselves re-escaped.
+ */
+export function escapeAttr(value: unknown): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
 /**
