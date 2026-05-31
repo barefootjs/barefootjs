@@ -737,6 +737,48 @@ export function L(props: { active: string }) {
       expect(template).toContain('eq $.Active .ID')
       expect(template).not.toContain('eq .Active .ID')
     })
+
+    test('references an outer loop variable from a nested loop via its range var, not root', () => {
+      // In nested `{{range}}`s the inner dot is the inner element; the outer
+      // loop value is in scope as the Go range variable `$group` (declared by
+      // the outer `{{range $_, $group := .Groups}}`). A reference to the outer
+      // item from the inner body must use `$group.ID`, not `$.Group.ID` (root)
+      // nor `.ID` (inner element).
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Item = { id: string }
+type Group = { id: string; items: Item[] }
+export function L() {
+  const [groups] = createSignal<Group[]>([])
+  return <ul>{groups().map((group) => <li key={group.id}>{group.items.map((item) => <span key={item.id}>{group.id}:{item.id}</span>)}</li>)}</ul>
+}
+`)
+      const template = adapter.generate(ir).template
+      // Outer item referenced from the inner loop body resolves to $group.ID.
+      expect(template).toContain('$group.ID')
+      expect(template).not.toContain('$.Group.ID')
+    })
+
+    test('compares an outer loop variable in a nested loop condition via its range var', () => {
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Item = { id: string; groupId: string }
+type Group = { id: string; items: Item[] }
+export function L() {
+  const [groups] = createSignal<Group[]>([])
+  return <ul>{groups().map((group) => <li key={group.id}>{group.items.map((item) => group.id === item.groupId && <span key={item.id}>{item.id}</span>)}</li>)}</ul>
+}
+`)
+      const template = adapter.generate(ir).template
+      expect(template).toContain('eq $group.ID .GroupId')
+      expect(template).not.toContain('eq $.Group.ID')
+    })
   })
 
   describe('JSX children forwarding (#1203)', () => {

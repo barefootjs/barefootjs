@@ -2649,8 +2649,26 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   identifier(name: string): string {
     const currentLoopParam = this.loopParamStack[this.loopParamStack.length - 1]
     if (currentLoopParam && name === currentLoopParam) return '.'
+    // An *outer* loop's value variable (we're in a nested loop) is in scope as
+    // the Go range variable `$name` declared by that loop's `{{range … := …}}`;
+    // the inner dot no longer refers to it, and it's not a root field. (#1677)
+    if (this.isOuterLoopParam(name)) return `$${name}`
     if (this.loopVarRefCount.has(name)) return `$${name}`
     return this.rootFieldRef(name)
+  }
+
+  /**
+   * True when `name` is a loop value variable from an enclosing (not the
+   * current) loop — i.e. it sits on `loopParamStack` below the top. Such a
+   * reference resolves to the Go range variable `$name`, not the inner dot or
+   * the root data.
+   */
+  private isOuterLoopParam(name: string): boolean {
+    const top = this.loopParamStack.length - 1
+    for (let i = 0; i < top; i++) {
+      if (this.loopParamStack[i] === name) return true
+    }
+    return false
   }
 
   /**
@@ -3933,6 +3951,10 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
           const currentLoopParam = this.loopParamStack[this.loopParamStack.length - 1]
           if (currentLoopParam && expr.name === currentLoopParam) {
             return plain('.')
+          }
+          // Outer loop value variable (nested loop) → its range var `$name`.
+          if (this.isOuterLoopParam(expr.name)) {
+            return plain(`$${expr.name}`)
           }
           if (this.loopVarRefCount.has(expr.name)) {
             return plain(`$${expr.name}`)
