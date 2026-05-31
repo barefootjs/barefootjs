@@ -22,6 +22,7 @@ import type {
   IRTemplatePart,
   AttrValue,
   CompilerError,
+  TypeInfo,
   TemplatePrimitiveRegistry,
 } from '@barefootjs/jsx'
 import {
@@ -151,6 +152,13 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
    */
   private propsObjectName: string | null = null
   private propsParams: { name: string }[] = []
+  /**
+   * Names (signal getters + props) whose value is a string, so `===`/`!==`
+   * against them lowers to Perl `eq`/`ne` rather than numeric `==`/`!=`.
+   * Perl's numeric `==` coerces non-numeric strings to 0, making `"b" == "a"`
+   * true — selecting the string operator from the operand's type avoids that.
+   */
+  private stringValueNames: Set<string> = new Set()
 
   constructor(options: MojoAdapterOptions = {}) {
     super()
@@ -164,6 +172,20 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     this.componentName = ir.metadata.componentName
     this.propsObjectName = ir.metadata.propsObjectName ?? null
     this.propsParams = ir.metadata.propsParams.map(p => ({ name: p.name }))
+    // Record string-typed signals and props so equality comparisons against
+    // them lower to `eq`/`ne` (#1672). A signal is string-typed when its
+    // inferred type is `string` (the analyzer infers this from a string-literal
+    // initial value) or, defensively, when its initial value is a bare string
+    // literal; a prop when its annotated type is `string`.
+    this.stringValueNames = new Set<string>()
+    for (const s of ir.metadata.signals) {
+      if (isStringTypeInfo(s.type) || isBareStringLiteral(s.initialValue)) {
+        this.stringValueNames.add(s.getter)
+      }
+    }
+    for (const p of ir.metadata.propsParams) {
+      if (isStringTypeInfo(p.type)) this.stringValueNames.add(p.name)
+    }
     this.errors = []
     this.childrenCaptureCounter = 0
 
@@ -960,7 +982,7 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
     // those would yield runtime errors in Perl, which is the user's
     // signal to refactor. Wholesale refusal would also block the
     // canonical case the issue exists to enable.
-    return emitParsedExpr(expr, new MojoFilterEmitter(param, localVarMap))
+    return emitParsedExpr(expr, new MojoFilterEmitter(param, localVarMap, n => this._isStringValueName(n)))
   }
 
   /**
@@ -1222,6 +1244,12 @@ export class MojoAdapter extends BaseAdapter implements IRNodeEmitter<MojoRender
    * the AST — used for Mojo-specific gaps (`.find` / `.findIndex` have
    * no Embedded-Perl lowering) and templatePrimitive arity errors.
    */
+  /** Whether `name` (a signal getter or prop) holds a string value, so an
+   *  equality comparison against it should use Perl `eq`/`ne` (#1672). */
+  _isStringValueName(name: string): boolean {
+    return this.stringValueNames.has(name)
+  }
+
   _recordExprBF101(message: string, reason?: string): void {
     this.errors.push({
       code: 'BF101',
@@ -1417,6 +1445,38 @@ function renderSortMethod(recv: string, c: SortComparator): string {
   return `bf->sort(${recv}, { keys => [${keyHashes.join(', ')}] })`
 }
 
+/** True when `type` is the `string` primitive. */
+function isStringTypeInfo(type: TypeInfo | undefined): boolean {
+  return type?.kind === 'primitive' && type.primitive === 'string'
+}
+
+/** True when `initialValue` is a bare string-literal expression (`'x'` /
+ *  `"x"`), used as a fallback for signals whose type wasn't inferred. */
+function isBareStringLiteral(initialValue: string | undefined): boolean {
+  if (!initialValue) return false
+  const v = initialValue.trim()
+  return (v.startsWith("'") && v.endsWith("'")) || (v.startsWith('"') && v.endsWith('"'))
+}
+
+/**
+ * Whether a comparison operand is string-typed, so JS `===`/`!==` against it
+ * must lower to Perl `eq`/`ne` instead of numeric `==`/`!=` (#1672). Covers a
+ * string literal, a string-signal getter call (`sel()`), and a string prop
+ * access (`props.x`). `isStringName` reports whether a getter/prop name is
+ * known-string. Loop-element fields (`t.id`) on untyped arrays have no known
+ * type and stay undetected — a separate, narrower gap.
+ */
+function isStringTypedOperand(expr: ParsedExpr, isStringName: (n: string) => boolean): boolean {
+  if (expr.kind === 'literal' && expr.literalType === 'string') return true
+  if (expr.kind === 'call' && expr.callee.kind === 'identifier' && expr.args.length === 0) {
+    return isStringName(expr.callee.name)
+  }
+  if (expr.kind === 'member' && expr.object.kind === 'identifier' && expr.object.name === 'props') {
+    return isStringName(expr.property)
+  }
+  return false
+}
+
 /**
  * Lowering for the predicate body of a filter / every / some / find,
  * plus the same shape used by `renderBlockBodyCondition` for complex
@@ -1434,6 +1494,10 @@ class MojoFilterEmitter implements ParsedExprEmitter {
   constructor(
     private readonly param: string,
     private readonly localVarMap: Map<string, string>,
+    // Reports whether a getter/prop name is string-typed, so `===`/`!==`
+    // against it lowers to `eq`/`ne` (#1672). Defaults to "never" for callers
+    // that don't thread it through.
+    private readonly isStringName: (n: string) => boolean = () => false,
   ) {}
 
   identifier(name: string): string {
@@ -1486,16 +1550,15 @@ class MojoFilterEmitter implements ParsedExprEmitter {
   binary(op: string, left: ParsedExpr, right: ParsedExpr, emit: (e: ParsedExpr) => string): string {
     const l = emit(left)
     const r = emit(right)
-    // String equality: `eq`/`ne` when EITHER operand is a string
-    // literal (`role() === 'admin'` and the reversed `'admin' === role()`).
-    // Falling back to numeric `==`/`!=` for a string literal would make
-    // Perl coerce both sides to 0 and match unrelated non-numeric strings.
-    const leftStr = left.kind === 'literal' && left.literalType === 'string'
-    const rightStr = right.kind === 'literal' && right.literalType === 'string'
-    if ((op === '===' || op === '==') && (leftStr || rightStr)) {
+    // String equality: `eq`/`ne` when EITHER operand is string-typed — a string
+    // literal, a string signal getter, or a string prop. Numeric `==`/`!=`
+    // would coerce both sides to 0 and match unrelated non-numeric strings (#1672).
+    const isStr = (e: ParsedExpr) => isStringTypedOperand(e, this.isStringName)
+    const stringCmp = isStr(left) || isStr(right)
+    if ((op === '===' || op === '==') && stringCmp) {
       return `${l} eq ${r}`
     }
-    if ((op === '!==' || op === '!=') && (leftStr || rightStr)) {
+    if ((op === '!==' || op === '!=') && stringCmp) {
       return `${l} ne ${r}`
     }
     const opMap: Record<string, string> = {
@@ -1524,7 +1587,7 @@ class MojoFilterEmitter implements ParsedExprEmitter {
     // higher-order's own `param` (potentially shadowing the outer one),
     // so we spin up a nested emitter with the inner param.
     const arrayExpr = emit(object)
-    const predBody = emitParsedExpr(predicate, new MojoFilterEmitter(param, this.localVarMap))
+    const predBody = emitParsedExpr(predicate, new MojoFilterEmitter(param, this.localVarMap, this.isStringName))
     const grepBody = predBody.replace(new RegExp(`\\$${param}\\b`, 'g'), '$_')
     if (method === 'filter') return `[grep { ${grepBody} } @{${arrayExpr}}]`
     if (method === 'every') return `!(grep { !(${grepBody}) } @{${arrayExpr}})`
@@ -1664,16 +1727,17 @@ class MojoTopLevelEmitter implements ParsedExprEmitter {
   binary(op: string, left: ParsedExpr, right: ParsedExpr, emit: (e: ParsedExpr) => string): string {
     const l = emit(left)
     const r = emit(right)
-    // String equality: `eq`/`ne` when EITHER operand is a string
-    // literal (`role() === 'admin'` and the reversed `'admin' === role()`).
-    // Falling back to numeric `==`/`!=` for a string literal would make
-    // Perl coerce both sides to 0 and match unrelated non-numeric strings.
-    const leftStr = left.kind === 'literal' && left.literalType === 'string'
-    const rightStr = right.kind === 'literal' && right.literalType === 'string'
-    if ((op === '===' || op === '==') && (leftStr || rightStr)) {
+    // String equality: `eq`/`ne` when EITHER operand is string-typed — a string
+    // literal (`role() === 'admin'`), a string signal getter (`sel()`), or a
+    // string prop (`props.x`). Falling back to numeric `==`/`!=` would make
+    // Perl coerce both sides to 0 and match unrelated non-numeric strings
+    // (`"b" == "a"` → true), so all loop items render their true branch (#1672).
+    const isStr = (e: ParsedExpr) => isStringTypedOperand(e, n => this.adapter._isStringValueName(n))
+    const stringCmp = isStr(left) || isStr(right)
+    if ((op === '===' || op === '==') && stringCmp) {
       return `${l} eq ${r}`
     }
-    if ((op === '!==' || op === '!=') && (leftStr || rightStr)) {
+    if ((op === '!==' || op === '!=') && stringCmp) {
       return `${l} ne ${r}`
     }
     const opMap: Record<string, string> = {

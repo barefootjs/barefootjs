@@ -69,19 +69,6 @@ runAdapterConformanceTests({
     'toggle-shared',
     'reactive-props',
     'props-reactivity-comparison',
-    // #1665 whole-item loop conditional. The Mojo adapter correctly emits the
-    // per-item `<!--bf-loop-i:KEY-->` anchor, `data-key`, and the conditional
-    // markers (verified by template-structure tests), but the fixture's
-    // `sel() === t.id` string comparison lowers to Perl numeric `==`
-    // (`"b" == "a"` → `0 == 0` → true), so the perl-executed render renders
-    // every item's true branch instead of only the matching one. Selecting
-    // `eq` vs `==` from operand types is a separate pre-existing Mojo
-    // limitation (same family as the skipped `logical-or-jsx` /
-    // `nullish-coalescing-jsx` map shapes); the anchored SSR shape itself is
-    // covered cross-adapter by Hono + CSR conformance and the runtime
-    // hydration tests. Remove this skip once the Mojo limitation is fixed:
-    // https://github.com/piconic-ai/barefootjs/issues/1672
-    'loop-item-conditional',
   ],
   // Per-fixture build-time contracts for shapes the Mojo adapter
   // intentionally refuses to lower. Owned by this adapter test file
@@ -287,6 +274,40 @@ export function List() {
     // Markers are scoped per-call-site (#1087): `bf->comment("loop:<id>")`.
     expect(result.template).toMatch(/bf->comment\("loop:[^"]+"\)/)
     expect(result.template).toMatch(/bf->comment\("\/loop:[^"]+"\)/)
+  })
+
+  test('compares string signals with Perl `eq`, not numeric `==` (#1672)', () => {
+    // `sel() === t.id` where `sel` is a string signal must lower to `eq`.
+    // Perl numeric `==` coerces non-numeric strings to 0, so `"b" == "a"` is
+    // true and every loop item would render its true branch.
+    const result = compileAndGenerate(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function LoopItemConditional() {
+  const [items] = createSignal([{ id: "a" }, { id: "b" }, { id: "c" }])
+  const [sel] = createSignal("b")
+  return <ul>{items().map(t => sel() === t.id && <li key={t.id}>{t.id}</li>)}</ul>
+}
+`)
+    expect(result.template).toContain('$sel eq $t->{id}')
+    expect(result.template).not.toContain('$sel == $t->{id}')
+  })
+
+  test('compares number signals with Perl `==` (#1672)', () => {
+    // A numeric signal comparison must stay `==`, not flip to `eq`.
+    const result = compileAndGenerate(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function L() {
+  const [items] = createSignal([{ n: 1 }, { n: 2 }])
+  const [sel] = createSignal(2)
+  return <ul>{items().map(t => sel() === t.n && <li key={t.n}>{t.n}</li>)}</ul>
+}
+`)
+    expect(result.template).toContain('$sel == $t->{n}')
+    expect(result.template).not.toContain('$sel eq $t->{n}')
   })
 
   test('generates script registration for client components', () => {
