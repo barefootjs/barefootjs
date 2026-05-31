@@ -34,6 +34,31 @@ export interface RenderOptions {
   componentName?: string
 }
 
+/**
+ * Drop module-level exports from a compiled marked template so it can be
+ * inlined as plain declarations alongside other components. Specifier
+ * blocks (`export { … }`, `export type { … }`, with or without a
+ * trailing `from '…'` re-export source) are removed whole; declaration
+ * forms (`export function/const/let/type/interface`, `export default`)
+ * keep their body with only the leading keyword stripped.
+ *
+ * The set of forms is bounded by `generateModuleExports` in
+ * @barefootjs/jsx — see the caller for the enumeration. This stays a
+ * line-oriented text pass (rather than a real parse) because the input
+ * is compiler-generated with a stable, single-line-per-export shape.
+ */
+function stripModuleExports(code: string): string {
+  return code
+    // `export [type] { … } [from '…']` specifier / re-export blocks.
+    .replace(
+      /^[ \t]*export\s+(?:type\s+)?\{[^}]*\}(?:[ \t]*from[ \t]*['"][^'"]*['"])?[ \t]*;?[ \t]*$/gm,
+      '',
+    )
+    // Leading keyword on declaration forms (`export function`,
+    // `export const X = …`, `export default …`, etc.).
+    .replace(/\bexport\s+(default\s+)?/g, '')
+}
+
 export async function renderHonoComponent(options: RenderOptions): Promise<string> {
   const { source, adapter, props, components, componentName: requestedName } = options
 
@@ -50,16 +75,23 @@ export async function renderHonoComponent(options: RenderOptions): Promise<strin
       }
       const childTemplate = childResult.files.find(f => f.type === 'markedTemplate')
       if (!childTemplate) throw new Error(`No marked template for ${filename}`)
-      // Strip exports so only the parent component is exported. Re-export
-      // statements (`export type { SlotProps }`, `export { Slot }`) must
-      // be dropped whole — naively removing just the `export ` keyword
-      // would leave a bare `type { SlotProps }` / `{ Slot }`, the former
-      // a syntax error. The bindings they name are already declared in
-      // the body, so dropping the re-export loses nothing for SSR.
-      const localCode = childTemplate.content
-        .replace(/^[ \t]*export\s+type\s+\{[^}]*\}[ \t]*;?[ \t]*$/gm, '')
-        .replace(/^[ \t]*export\s+\{[^}]*\}[ \t]*;?[ \t]*$/gm, '')
-        .replace(/\bexport\s+(default\s+)?/g, '')
+      // Strip exports so only the parent component is exported, inlining
+      // the child as plain top-level declarations. The marked template's
+      // export forms are fixed by `generateModuleExports` (+ the
+      // component's own `export function`) in @barefootjs/jsx, each on
+      // its own line:
+      //
+      //   export const/let X = …      export function / async function …
+      //   export type X = …           export interface X { … }
+      //   export { A, B } [from '…']   export type { A } [from '…']
+      //
+      // The `export { … }` / `export type { … }` *specifier* blocks
+      // (with or without a trailing `from '…'`) must be dropped whole —
+      // their bindings are already declared inline, and naively removing
+      // just the `export ` keyword leaves a bare `{ A }` / `type { A }`
+      // (the latter a syntax error). Declaration forms keep their body;
+      // only the leading `export `/`export default ` is removed.
+      const localCode = stripModuleExports(childTemplate.content)
       childCodes.push(localCode)
     }
   }
