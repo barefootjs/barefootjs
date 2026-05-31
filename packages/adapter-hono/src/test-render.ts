@@ -149,6 +149,12 @@ export async function renderHonoComponent(options: RenderOptions): Promise<strin
   // leave it. Both maps key on the import specifier; match the parent's
   // import path with or without a `.tsx` extension (`./badge` ↔
   // `./badge.tsx`).
+  //
+  // Assumes one import statement per line — the marked-template adapter
+  // emits single-line imports (`import { Slot } from '../slot'`), so the
+  // per-line scan is sufficient. A multi-line import would not match
+  // here; the unrewritten `../slot` then fails loudly at module
+  // resolution rather than rendering wrong output.
   if (componentKeys.size > 0 || moduleTempPaths.size > 0) {
     const matchKey = (importPath: string, keys: Iterable<string>): string | undefined => {
       for (const key of keys) {
