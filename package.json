@@ -17,6 +17,7 @@
     "build": "bun run --filter '@barefootjs/shared' build && bun run --filter '@barefootjs/streaming' build && bun run --filter '@barefootjs/jsx' build && bun run --filter '@barefootjs/client' build && bun run --filter '@barefootjs/hono' --filter '@barefootjs/go-template' --filter '@barefootjs/mojolicious' build && bun run --filter '*' build",
     "test": "bun test --cwd . __tests__",
     "test:e2e": "bun run --filter '*' test:e2e",
+    "bench": "bun run benchmarks/reactive.ts && bun run benchmarks/deep-tree.ts",
     "clean": "bun run --filter '*' clean",
     "release:publish": "bun run build && bun scripts/changeset-publish.ts",
     "dev": "docker compose up",
