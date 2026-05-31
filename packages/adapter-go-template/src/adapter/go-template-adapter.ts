@@ -1983,8 +1983,12 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
     const sf = ts.createSourceFile(
       '__lit.ts', `(${value})`, ts.ScriptTarget.Latest, /* setParentNodes */ true,
     )
+    // Require exactly one expression statement. A value that error-recovers
+    // into multiple statements (e.g. `1; 2`) isn't a single literal — bail
+    // rather than silently baking only the first.
+    if (sf.statements.length !== 1) return null
     const stmt = sf.statements[0]
-    if (!stmt || !ts.isExpressionStatement(stmt)) return null
+    if (!ts.isExpressionStatement(stmt)) return null
     let expr: ts.Expression = stmt.expression
     while (ts.isParenthesizedExpression(expr)) expr = expr.expression
     return expr
