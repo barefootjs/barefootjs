@@ -58,10 +58,9 @@ intermediate, half-updated state.
 
 ## When to use
 
-### Multiple signal writes in one event handler
-
 When a single handler updates several signals that feed shared effects/memos,
-`batch` collapses the work into one update pass:
+`batch` collapses the work into one update pass — and keeps the subscriber from
+running while a cross-field invariant is temporarily broken:
 
 ```tsx
 const reset = () => {
@@ -74,12 +73,6 @@ const reset = () => {
   // every subscriber ran once, not once-per-field
 }
 ```
-
-### Glitch-free consistency for cross-field invariants
-
-If an effect relies on an invariant that spans multiple signals (e.g. `x + y`
-must always equal `100`), `batch` ensures the effect never runs while the
-invariant is temporarily broken.
 
 ## Caveats
 
@@ -102,19 +95,6 @@ doubled()   // 20  — recomputed after the batch ends
 ```
 
 If you need the recomputed value, read it after the batch.
-
-### Nested batches flush at the outermost end
-
-Batches can be nested; effects flush only when the outermost batch completes.
-
-```tsx
-batch(() => {
-  setA(1)
-  batch(() => { setB(2) })
-  // inner batch ended, but nothing has flushed yet
-})
-// effects flush here
-```
 
 ### `await` escapes the batch
 
