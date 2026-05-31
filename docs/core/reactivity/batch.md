@@ -39,7 +39,8 @@ setX(70) // effect runs — observes x=70, y=60 (intermediate)
 setY(30) // effect runs again — observes x=70, y=30
 ```
 
-The effect ran twice and saw a transient `x=70, y=60` state.
+Beyond its initial run on creation, the effect ran twice more — once per write —
+and saw a transient `x=70, y=60` state.
 
 ## With batch
 
@@ -117,21 +118,34 @@ batch(() => {
 
 ### `await` escapes the batch
 
-`batch` only covers the **synchronous** portion of `fn`. Writes after an `await`
-run outside the batch and are no longer grouped:
+`batch` only covers the **synchronous** portion of `fn`. Wrapping an async
+function in `batch` groups only the writes before the first `await` — everything
+after runs ungrouped, and the promise `batch` returns is easy to leave floating.
+
+Instead, wrap each synchronous group of writes in its own `batch`, with `await`
+between the groups:
 
 ```tsx
 const onSubmit = async () => {
-  batch(async () => {
-    setLoading(true)        // batched
-    await save()
-    setLoading(false)       // NOT batched — runs after the batch flushed
-    setResult('ok')         // NOT batched
+  batch(() => {
+    setLoading(true)
+    setError(null)
   })
+
+  try {
+    const result = await save()
+    batch(() => {
+      setLoading(false)
+      setResult(result)
+    })
+  } catch (err) {
+    batch(() => {
+      setLoading(false)
+      setError(err)
+    })
+  }
 }
 ```
-
-For async handlers, wrap each synchronous group of writes in its own `batch`.
 
 ## Note
 
