@@ -2649,8 +2649,38 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   identifier(name: string): string {
     const currentLoopParam = this.loopParamStack[this.loopParamStack.length - 1]
     if (currentLoopParam && name === currentLoopParam) return '.'
+    // An *outer* loop's value variable (we're in a nested loop) is in scope as
+    // the Go range variable `$name` declared by that loop's `{{range … := …}}`;
+    // the inner dot no longer refers to it, and it's not a root field. (#1677)
+    if (this.isOuterLoopParam(name)) return `$${name}`
     if (this.loopVarRefCount.has(name)) return `$${name}`
-    return `.${this.capitalizeFieldName(name)}`
+    return this.rootFieldRef(name)
+  }
+
+  /**
+   * True when `name` is a loop value variable from an enclosing (not the
+   * current) loop — i.e. it sits on `loopParamStack` below the top. Such a
+   * reference resolves to the Go range variable `$name`, not the inner dot or
+   * the root data.
+   */
+  private isOuterLoopParam(name: string): boolean {
+    const top = this.loopParamStack.length - 1
+    for (let i = 0; i < top; i++) {
+      if (this.loopParamStack[i] === name) return true
+    }
+    return false
+  }
+
+  /**
+   * A reference to a root-scope field — a signal, a prop, or a derived value
+   * that lives on the component's top-level data struct. Inside a `{{range}}`
+   * the dot is rebound to the iteration element, so root data must be reached
+   * through Go template's `$` (the top-level argument to Execute), which never
+   * rebinds. Outside any loop the root *is* the dot, so we emit `.Field` (#1677).
+   */
+  private rootFieldRef(name: string): string {
+    const prefix = this.loopParamStack.length > 0 ? '$.' : '.'
+    return `${prefix}${this.capitalizeFieldName(name)}`
   }
 
   literal(value: string | number | boolean | null, literalType: LiteralType): string {
@@ -2660,9 +2690,9 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
   }
 
   call(callee: ParsedExpr, args: ParsedExpr[], emit: (e: ParsedExpr) => string): string {
-    // Signal call: count() -> .Count
+    // Signal call: count() -> .Count (or $.Count inside a loop, #1677)
     if (callee.kind === 'identifier' && args.length === 0) {
-      return `.${this.capitalizeFieldName(callee.name)}`
+      return this.rootFieldRef(callee.name)
     }
     // Array methods (`.join` and any others added to ArrayMethod, #1443)
     // are lifted into the `array-method` IR kind at parse time, so
@@ -2726,9 +2756,10 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
       if (templateBlock) return templateBlock
     }
 
-    // SolidJS-style props pattern: props.xxx -> .Xxx
+    // SolidJS-style props pattern: props.xxx -> .Xxx (or $.Xxx inside a loop,
+    // since props live on the root data struct, not the iteration element #1677)
     if (object.kind === 'identifier' && this.propsObjectName && object.name === this.propsObjectName) {
-      return `.${this.capitalizeFieldName(property)}`
+      return this.rootFieldRef(property)
     }
 
     // Inside a loop, the loop param variable refers to the current item
@@ -3921,11 +3952,15 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
           if (currentLoopParam && expr.name === currentLoopParam) {
             return plain('.')
           }
+          // Outer loop value variable (nested loop) → its range var `$name`.
+          if (this.isOuterLoopParam(expr.name)) {
+            return plain(`$${expr.name}`)
+          }
           if (this.loopVarRefCount.has(expr.name)) {
             return plain(`$${expr.name}`)
           }
         }
-        return plain(`.${this.capitalizeFieldName(expr.name)}`)
+        return plain(this.rootFieldRef(expr.name))
 
       case 'literal':
         if (expr.literalType === 'string') return plain(`"${expr.value}"`)
@@ -3934,7 +3969,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
 
       case 'call': {
         if (expr.callee.kind === 'identifier' && expr.args.length === 0) {
-          return plain(`.${this.capitalizeFieldName(expr.callee.name)}`)
+          return plain(this.rootFieldRef(expr.callee.name))
         }
         return plain(this.renderParsedExpr(expr))
       }
@@ -3950,7 +3985,7 @@ export class GoTemplateAdapter extends BaseAdapter implements ParsedExprEmitter,
         }
 
         if (expr.object.kind === 'identifier' && this.propsObjectName && expr.object.name === this.propsObjectName) {
-          return plain(`.${this.capitalizeFieldName(expr.property)}`)
+          return plain(this.rootFieldRef(expr.property))
         }
 
         {

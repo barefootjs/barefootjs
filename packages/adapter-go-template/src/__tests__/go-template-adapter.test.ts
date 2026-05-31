@@ -38,19 +38,17 @@ runAdapterConformanceTests({
     'return-map',
     // #1665 whole-item loop conditional. The Go adapter correctly emits the
     // per-item `<!--bf-loop-i:KEY-->` anchor, `data-key`, and conditional
-    // markers (verified by template-structure tests). Signal-array initial
-    // values are now baked into `NewXxxProps` for typed and scalar arrays
-    // (#1672), but this fixture stays skipped for two reasons that survive
-    // that change: (1) its `items` signal is an *untyped* object array, which
-    // lands in a `[]interface{}` field whose `map` items the loop body can't
-    // reach via struct field access (`.ID` → <nil>), so the bake intentionally
-    // leaves it `nil`; (2) the loop body references the outer `sel` signal,
-    // which the template emits as `.Sel` — resolved against the loop element
-    // inside `range` rather than the root scope (`$.Sel`), a separate codegen
-    // bug masked until now by the previously-empty loop and now tracked in
-    // #1677. The anchored SSR shape with rendered items is covered by Hono +
-    // CSR conformance and the runtime hydration tests.
-    // https://github.com/piconic-ai/barefootjs/issues/1677
+    // markers (verified by template-structure tests). The outer-signal scope
+    // bug that used to leave this skipped — `sel()` emitted as `.Sel` (loop
+    // element) instead of `$.Sel` (root) inside `range` — is now fixed (#1677).
+    // It stays skipped on Go for the one remaining reason: its `items` signal
+    // is an *untyped* object array, which lands in a `[]interface{}` field
+    // whose `map` items the loop body can't reach via struct field access
+    // (`.ID` → <nil>), so the #1672 bake intentionally leaves it `nil` and the
+    // SSR loop renders empty. Typing the signal (`createSignal<Item[]>`) would
+    // unblock it; the untyped path is tracked in #1680. The anchored SSR shape
+    // with rendered items is covered by Hono + CSR conformance and the runtime
+    // hydration tests. https://github.com/piconic-ai/barefootjs/issues/1680
     'loop-item-conditional',
     // #1297 fixed the harness-side IR emission gate (multi-component
     // sources now emit one `ir` file per component, and the harness
@@ -696,6 +694,90 @@ export function List() {
 }
 `)
       expect(adapter.generate(structIr).types!).toContain('Items: []Item{Item{ID: "a"}},')
+    })
+  })
+
+  describe('loop body outer-scope references (#1677)', () => {
+    test('references an outer signal inside a loop via $ root scope, not the element', () => {
+      // Inside `{{range $_, $t := .Items}}` the dot is rebound to the loop
+      // element, so a reference to the outer `sel` signal must reach the root
+      // data through Go template's `$` (`$.Sel`), not `.Sel` — which would
+      // resolve against the element struct (no `Sel` field → <nil>).
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Item = { id: string }
+export function L() {
+  const [items] = createSignal<Item[]>([{ id: "a" }, { id: "b" }])
+  const [sel] = createSignal("b")
+  return <ul>{items().map((t) => sel() === t.id && <li key={t.id}>{t.id}</li>)}</ul>
+}
+`)
+      const template = adapter.generate(ir).template
+      // The loop element field stays element-scoped; the outer signal is rooted.
+      expect(template).toContain('eq $.Sel .ID')
+      expect(template).not.toContain('eq .Sel .ID')
+    })
+
+    test('references an outer prop inside a loop via $ root scope', () => {
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Item = { id: string }
+export function L(props: { active: string }) {
+  const [items] = createSignal<Item[]>([{ id: "a" }])
+  return <ul>{items().map((t) => props.active === t.id && <li key={t.id}>{t.id}</li>)}</ul>
+}
+`)
+      const template = adapter.generate(ir).template
+      expect(template).toContain('eq $.Active .ID')
+      expect(template).not.toContain('eq .Active .ID')
+    })
+
+    test('references an outer loop variable from a nested loop via its range var, not root', () => {
+      // In nested `{{range}}`s the inner dot is the inner element; the outer
+      // loop value is in scope as the Go range variable `$group` (declared by
+      // the outer `{{range $_, $group := .Groups}}`). A reference to the outer
+      // item from the inner body must use `$group.ID`, not `$.Group.ID` (root)
+      // nor `.ID` (inner element).
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Item = { id: string }
+type Group = { id: string; items: Item[] }
+export function L() {
+  const [groups] = createSignal<Group[]>([])
+  return <ul>{groups().map((group) => <li key={group.id}>{group.items.map((item) => <span key={item.id}>{group.id}:{item.id}</span>)}</li>)}</ul>
+}
+`)
+      const template = adapter.generate(ir).template
+      // Outer item referenced from the inner loop body resolves to $group.ID.
+      expect(template).toContain('$group.ID')
+      expect(template).not.toContain('$.Group.ID')
+    })
+
+    test('compares an outer loop variable in a nested loop condition via its range var', () => {
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type Item = { id: string; groupId: string }
+type Group = { id: string; items: Item[] }
+export function L() {
+  const [groups] = createSignal<Group[]>([])
+  return <ul>{groups().map((group) => <li key={group.id}>{group.items.map((item) => group.id === item.groupId && <span key={item.id}>{item.id}</span>)}</li>)}</ul>
+}
+`)
+      const template = adapter.generate(ir).template
+      expect(template).toContain('eq $group.ID .GroupId')
+      expect(template).not.toContain('eq $.Group.ID')
     })
   })
 
