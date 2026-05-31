@@ -90,6 +90,16 @@ runAdapterConformanceTests({
     // option fixed on the Hono side. Separate follow-up.
     'toggle-shared',
     'props-reactivity-comparison',
+    // #1467 Phase 2a: first `site/ui` source-root fixture. Button
+    // compiles cleanly on the Go adapter (no diagnostic), but its
+    // variant/size class composition (`Record<…>[key]` indexed object
+    // literals) and `applyRestAttrs` spread haven't been validated for
+    // byte-parity against the Hono reference under Go's template
+    // semantics. Cross-adapter parity for the `site/ui` corpus is
+    // explicitly Phase 3 ("cross-adapter parity (Mojo/Go templates)"),
+    // so Button participates only in Hono SSR conformance + the
+    // fixture-hydrate runtime layer for now.
+    'button',
   ],
   // Per-fixture build-time contracts for shapes the Go template
   // adapter intentionally refuses to lower. Lives here (not on the

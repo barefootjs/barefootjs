@@ -50,8 +50,16 @@ export async function renderHonoComponent(options: RenderOptions): Promise<strin
       }
       const childTemplate = childResult.files.find(f => f.type === 'markedTemplate')
       if (!childTemplate) throw new Error(`No marked template for ${filename}`)
-      // Strip export keywords so only the parent component is exported
-      const localCode = childTemplate.content.replace(/\bexport\s+(default\s+)?/g, '')
+      // Strip exports so only the parent component is exported. Re-export
+      // statements (`export type { SlotProps }`, `export { Slot }`) must
+      // be dropped whole — naively removing just the `export ` keyword
+      // would leave a bare `type { SlotProps }` / `{ Slot }`, the former
+      // a syntax error. The bindings they name are already declared in
+      // the body, so dropping the re-export loses nothing for SSR.
+      const localCode = childTemplate.content
+        .replace(/^[ \t]*export\s+type\s+\{[^}]*\}[ \t]*;?[ \t]*$/gm, '')
+        .replace(/^[ \t]*export\s+\{[^}]*\}[ \t]*;?[ \t]*$/gm, '')
+        .replace(/\bexport\s+(default\s+)?/g, '')
       childCodes.push(localCode)
     }
   }

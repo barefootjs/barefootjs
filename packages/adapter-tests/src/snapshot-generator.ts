@@ -14,11 +14,16 @@ import { renderHonoComponent } from '@barefootjs/hono/test-render'
 import { HonoAdapter } from '@barefootjs/hono/adapter'
 import { compileJSX, combineParentChildClientJs } from '@barefootjs/jsx'
 import {
-  SHARED_COMPONENTS_DIR,
   SNAPSHOT_DIR,
+  componentPath,
+  componentSourcePath,
+  fixtureSourceRoot,
   loadAllSharedSpecs,
+  resolveSiblingBasenames,
+  resolveSiblingComponents,
   sharedFixtureInstanceId,
   sourceFileBasename,
+  type FixtureSourceRoot,
   type SharedFixtureSpec,
 } from '../fixtures/_helpers'
 
@@ -65,9 +70,8 @@ async function withSeededMathRandom<T>(seed: number, fn: () => Promise<T>): Prom
   }
 }
 
-async function compileClientJs(basename: string): Promise<string> {
-  const sourcePath = resolve(SHARED_COMPONENTS_DIR, `${basename}.tsx`)
-  const source = await Bun.file(sourcePath).text()
+async function compileClientJs(root: FixtureSourceRoot, basename: string): Promise<string> {
+  const source = await Bun.file(componentPath(root, basename)).text()
   const compiled = compileJSX(source, `${basename}.tsx`, { adapter: new HonoAdapter() })
   const file = compiled.files.find(f => f.type === 'clientJs')
   if (!file) {
@@ -80,9 +84,9 @@ async function compileClientJs(basename: string): Promise<string> {
 export async function generateSharedComponentSnapshot(
   spec: SharedFixtureSpec,
 ): Promise<{ htmlBytes: number; clientJsBytes: number }> {
+  const root = fixtureSourceRoot(spec)
   const sourceBasename = sourceFileBasename(spec)
-  const sourcePath = resolve(SHARED_COMPONENTS_DIR, `${sourceBasename}.tsx`)
-  const source = await Bun.file(sourcePath).text()
+  const source = await Bun.file(componentSourcePath(spec)).text()
 
   // Pin the root scope's `bf-s` via `__instanceId`. The shared id
   // helper keeps snapshot generation and adapter-conformance runs
@@ -93,19 +97,11 @@ export async function generateSharedComponentSnapshot(
 
   // SSR-side child injection. When the parent's template invokes child
   // components synchronously (no `/* @client */` deferral), the temp file
-  // renderHonoComponent writes can't resolve their `./Child` imports — pass
-  // each child's source through `components` so the helper inlines them.
-  //
-  // Key with the leading `./` so `renderHonoComponent`'s import-strip filter
-  // (which does an exact-string match against the import path) matches the
-  // `import Child from './Child'` line the compiled parent template emits.
-  const components: Record<string, string> = {}
-  for (const extra of spec.additionalComponents ?? []) {
-    const extraSource = await Bun.file(
-      resolve(SHARED_COMPONENTS_DIR, `${extra}.tsx`),
-    ).text()
-    components[`./${extra}.tsx`] = extraSource
-  }
+  // renderHonoComponent writes can't resolve their relative imports — pass
+  // each sibling's source through `components` (keyed by the parent's
+  // import specifier) so the helper inlines them. For `ui` fixtures the
+  // sibling set is auto-inferred from `../<name>` imports.
+  const components = resolveSiblingComponents(spec)
 
   const ssrHtml = await withSeededMathRandom(seedFromId(spec.id), () =>
     renderHonoComponent({
@@ -116,14 +112,14 @@ export async function generateSharedComponentSnapshot(
       // for dynamically imported modules in Bun, so multi-component files
       // can otherwise render the wrong component.
       componentName: spec.componentName,
-      components: Object.keys(components).length > 0 ? components : undefined,
+      components,
     }),
   )
 
   let clientJs: string
-  const extras = spec.additionalComponents ?? []
+  const extras = resolveSiblingBasenames(spec)
   if (extras.length === 0) {
-    clientJs = await compileClientJs(sourceBasename)
+    clientJs = await compileClientJs(root, sourceBasename)
   } else {
     // Use `combineParentChildClientJs` (same helper `bf build` uses) to
     // inline child component bundles into the parent and resolve the
@@ -131,9 +127,9 @@ export async function generateSharedComponentSnapshot(
     // Raw concat would leave the placeholders intact and the browser
     // would 404 on `/* @bf-child:... */` URLs.
     const files = new Map<string, string>()
-    files.set(sourceBasename, await compileClientJs(sourceBasename))
+    files.set(sourceBasename, await compileClientJs(root, sourceBasename))
     for (const extra of extras) {
-      files.set(extra, await compileClientJs(extra))
+      files.set(extra, await compileClientJs(root, extra))
     }
     const combined = combineParentChildClientJs(files)
     clientJs = combined.get(sourceBasename) ?? files.get(sourceBasename)!

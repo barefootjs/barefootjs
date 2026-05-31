@@ -142,8 +142,20 @@ function buildCsrEvalModule(clientJs: string, props: Record<string, unknown>): s
     .replace(/^import\s+\{[^}]*\}\s+from\s+['"][^'"]*['"];?\s*$/gm, '')
     .replace(/^import\s+['"][^'"]*['"];?\s*$/gm, '')
 
+  // Root scope id for the rendered tree. Shared / UI fixtures pass a
+  // deterministic `__instanceId` (`<ComponentName>_test`) so the CSR
+  // output's root `bf-s` canonicalises to `<ComponentName>_*` under
+  // `normalizeHTML`, matching the SSR snapshot (#1467 Phase 2a). Other
+  // fixtures carry no `__instanceId`; they fall back to the legacy
+  // hardcoded `test`, so their output is unchanged.
+  const rootScope =
+    typeof props.__instanceId === 'string' && props.__instanceId
+      ? props.__instanceId
+      : 'test'
+
   return `
 // --- Mock runtime ---
+const __rootScope = ${JSON.stringify(rootScope)}
 const __templates = new Map()
 const __inits = new Map()
 let __lastComponent = null
@@ -172,29 +184,30 @@ function renderChild(name, props, key, suffix) {
   // Static children (with suffix): use deterministic scope ID matching SSR pattern
   // Loop children (no suffix): use component name + random hash
   const scopeId = suffix
-    ? 'test_' + suffix
+    ? __rootScope + '_' + suffix
     : '~' + name + '_' + Math.random().toString(36).slice(2, 8)
   const keyAttr = key !== undefined ? ' data-key="' + key + '"' : ''
   // Slot-relationship markers (bf-h/bf-m) — mirrors the production
   // runtime renderChild in @barefootjs/client/runtime so CSR conformance
   // output asserts the same shape SSR emits.
   //
-  // Mock-only constraint: \`bf-h="test"\` is hardcoded because this
-  // stub doesn't carry through the real \`_parentScopeId\` chain. The
-  // outer fixture root is always given bf-s="test", so children always
-  // get bf-h="test". Both \`normalizeHTML\` (cross-adapter) and the
-  // CSR conformance test strip these attributes before comparison, so
-  // the hardcoded value is invisible to assertions today. If a future
-  // CSR test wants to assert on the bf-h value itself, this mock
-  // needs to be rewritten to track the actual parent scope at call time.
-  const slotAttrs = suffix ? ' bf-h="test" bf-m="' + suffix + '"' : ''
+  // Mock-only constraint: \`bf-h\` is set to the single outer
+  // \`__rootScope\` because this stub doesn't carry through the real
+  // \`_parentScopeId\` chain. The outer fixture root is always given
+  // bf-s="\${__rootScope}", so children always get the matching bf-h.
+  // Both \`normalizeHTML\` (cross-adapter) and the CSR conformance test
+  // strip these attributes before comparison, so the value is invisible
+  // to assertions today. If a future CSR test wants to assert on the
+  // bf-h value itself, this mock needs to be rewritten to track the
+  // actual parent scope at call time.
+  const slotAttrs = suffix ? ' bf-h="' + __rootScope + '" bf-m="' + suffix + '"' : ''
   if (!template) return '<div bf-s="' + scopeId + '"' + slotAttrs + keyAttr + '>[' + name + ']</div>'
   // #1320: substitute the hoisted-children placeholder with the harness's
   // hardcoded outer scope (\`test\`). Mirrors the production renderChild
   // in @barefootjs/client/runtime. Anchored to the exact attribute
   // shape so user text containing the sentinel is left alone.
   const html = template(props).trim()
-    .replace(/\\s+bf-s="__BF_PARENT_SCOPE__"/g, ' bf-s="test"')
+    .replace(/\\s+bf-s="__BF_PARENT_SCOPE__"/g, ' bf-s="' + __rootScope + '"')
   const bfsAttr = ' bf-s="' + scopeId + '"'
   const extraAttrs = slotAttrs + keyAttr
   // Dedupe bf-s only when the child template already carries one
@@ -286,18 +299,18 @@ let __html = __templateFn ? __templateFn(${JSON.stringify(props)}) : ''
 // #1320: resolve any hoisted-children placeholder that didn't pass
 // through a nested renderChild. The outer bf-s="test" injection
 // below runs second, so this substitution must precede it.
-__html = __html.replace(/\\s+bf-s="__BF_PARENT_SCOPE__"/g, ' bf-s="test"')
-// Inject bf-s="test" on the root element to match SSR scope ID
-// convention — appended AFTER user-defined attributes, mirroring
+__html = __html.replace(/\\s+bf-s="__BF_PARENT_SCOPE__"/g, ' bf-s="' + __rootScope + '"')
+// Inject bf-s="\${__rootScope}" on the root element to match SSR scope
+// ID convention — appended AFTER user-defined attributes, mirroring
 // Hono renderElement (#1295). Skip when the root already carries
 // bf-s from a nested renderChild call (#1320 dedup).
 if (!/^<\\w+[^>]*\\sbf-s="/.test(__html)) {
 if (__html.match(/^<\\w+[^>]* bf="/)) {
-  __html = __html.replace(/ bf="/, ' bf-s="test" bf="')
+  __html = __html.replace(/ bf="/, ' bf-s="' + __rootScope + '" bf="')
 } else if (__html.match(/^<\\w+\\s[^>]*>/)) {
-  __html = __html.replace(/^(<\\w+\\s[^>]*?)(\\s*\\/?>)/, '$1 bf-s="test"$2')
+  __html = __html.replace(/^(<\\w+\\s[^>]*?)(\\s*\\/?>)/, '$1 bf-s="' + __rootScope + '"$2')
 } else {
-  __html = __html.replace(/^(<\\w+)/, '$1 bf-s="test"')
+  __html = __html.replace(/^(<\\w+)/, '$1 bf-s="' + __rootScope + '"')
 }
 }
 export default __html
