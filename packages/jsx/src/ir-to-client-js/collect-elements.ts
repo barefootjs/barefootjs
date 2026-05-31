@@ -3,7 +3,7 @@
  */
 
 import { type IRNode, type IRElement, type IRComponent, type IRLoop, type IRProp, pickAttrMetaFromIR } from '../types'
-import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchReactiveAttr, BranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildBindings, LoopChildBranchSummary, LoopChildConditional, NestedLoop } from './types'
+import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchReactiveAttr, BranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildBindings, LoopChildBranchSummary, LoopChildConditional, LoopOffset, NestedLoop } from './types'
 import { attrValueToString, freeIdsFromRefs, quotePropName, PROPS_PARAM } from './utils'
 import { classifyReactivity, decideWrapForAttr, decideWrapForChildProp, decideWrapFromAstFlags, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts, collectLoopChildRefs, emptyLoopChildBindings } from './reactivity'
 import { irToHtmlTemplate, irToPlaceholderTemplate, irChildrenToJsExpr } from './html-template'
@@ -101,26 +101,24 @@ export function computeLoopSiblingOffsets(root: IRNode): Map<IRLoop, LoopSibling
 }
 
 /**
- * Resolve a loop's offset descriptor into the two fields stored on
- * `TopLevelLoop` / `NestedLoop`: a static `siblingOffset` and the rendered
- * array expressions of the preceding sibling loops (whose lengths are added
- * at codegen via `buildLoopChildIndexExpr`).
+ * Resolve a loop's pre-pass descriptor into the `LoopOffset` value object
+ * stored on `TopLevelLoop` / `NestedLoop`: the static sibling count plus the
+ * rendered array expressions of the preceding sibling loops (whose lengths
+ * are added at codegen via `buildLoopChildIndexExpr`). Returns `undefined`
+ * when nothing precedes the loop, so the loop keeps bare `children[idx]`.
  */
-function resolveLoopOffset(
-  desc: LoopSiblingOffset | undefined,
-): { siblingOffset?: number; precedingLoopArrays?: string[] } {
-  if (!desc) return {}
-  const precedingLoopArrays = desc.precedingLoops.map(loop =>
-    buildLoopChainExpr({
-      base: loop.array,
-      sortComparator: loop.sortComparator,
-      filterPredicate: loop.filterPredicate,
-      chainOrder: loop.chainOrder,
-    }),
-  )
+function resolveLoopOffset(desc: LoopSiblingOffset | undefined): LoopOffset | undefined {
+  if (!desc) return undefined
   return {
-    siblingOffset: desc.staticCount || undefined,
-    precedingLoopArrays: precedingLoopArrays.length > 0 ? precedingLoopArrays : undefined,
+    staticCount: desc.staticCount,
+    precedingLoopArrays: desc.precedingLoops.map(loop =>
+      buildLoopChainExpr({
+        base: loop.array,
+        sortComparator: loop.sortComparator,
+        filterPredicate: loop.filterPredicate,
+        chainOrder: loop.chainOrder,
+      }),
+    ),
   }
 }
 
@@ -314,7 +312,7 @@ export function collectInnerLoops(
           refsOuterParam: refsOuter,
           childComponents,
           insideConditional: !flat && scope.insideCond ? true : undefined,
-          ...(flat ? {} : resolveLoopOffset(siblingOffsets.get(n))),
+          offset: flat ? undefined : resolveLoopOffset(siblingOffsets.get(n)),
           bindings,
         })
         // Branch-mode callers handle deeper nesting via their own collection paths.
@@ -651,7 +649,7 @@ export function collectElements(
         isStaticArray: l.isStaticArray,
         useElementReconciliation,
         innerLoops: (useElementReconciliation || (l.isStaticArray && innerLoops?.length)) ? innerLoops : undefined,
-        ...resolveLoopOffset(siblingOffsets.get(l)),
+        offset: resolveLoopOffset(siblingOffsets.get(l)),
         filterPredicate: l.filterPredicate ? {
           param: l.filterPredicate.param,
           raw: l.filterPredicate.raw,

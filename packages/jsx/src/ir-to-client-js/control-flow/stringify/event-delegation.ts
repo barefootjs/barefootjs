@@ -187,11 +187,11 @@ function emitStaticIndexLookup(
   lookup: StaticIndexItemLookup,
   containerVar: string,
 ): void {
-  const { arrayExpr, param, mapPreamble, siblingOffset, precedingLoopArrays } = lookup
+  const { arrayExpr, param, mapPreamble, offset } = lookup
   ls.push(`      let __el = ${varSlotId(ev.childSlotId)}El`)
   ls.push(`      while (__el.parentElement && __el.parentElement !== ${containerVar}) __el = __el.parentElement`)
   ls.push(`      if (__el.parentElement === ${containerVar}) {`)
-  const idxOffset = buildLoopChildIndexSubtraction(siblingOffset ?? undefined, precedingLoopArrays ?? undefined)
+  const idxOffset = buildLoopChildIndexSubtraction(offset ?? undefined)
   ls.push(`        const __idx = Array.from(${containerVar}.children).indexOf(__el)${idxOffset}`)
   ls.push(`        const ${param} = ${arrayExpr}[__idx]`)
   if (mapPreamble) ls.push(`        ${mapPreamble}`)

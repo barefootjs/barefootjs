@@ -130,7 +130,7 @@ export function buildStaticLoopPlan(elem: TopLevelLoop, unsafeLocalNames: Set<st
   }
 
   const indexParam = elem.index || '__idx'
-  const childIndexExpr = buildLoopChildIndexExpr(indexParam, elem.siblingOffset, elem.precedingLoopArrays)
+  const childIndexExpr = buildLoopChildIndexExpr(indexParam, elem.offset)
 
   return {
     kind: 'static',

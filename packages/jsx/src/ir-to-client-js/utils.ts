@@ -5,7 +5,7 @@
 
 import ts from 'typescript'
 import type { AttrValue, IRTemplatePart, LoopParamBinding, FreeReference, IRNode } from '../types'
-import type { TopLevelLoop, BranchLoop } from './types'
+import type { TopLevelLoop, BranchLoop, LoopOffset } from './types'
 import { buildLoopChainExpr } from '../loop-chain'
 import {
   iterateJsTokens,
@@ -146,14 +146,24 @@ export function buildChainedArrayExpr(elem: TopLevelLoop | BranchLoop): string {
 }
 
 /**
- * Build the additive `children[idx]` offset expression for a loop's items.
- *
- * The offset past a loop's preceding siblings is the count of static
- * (non-loop) DOM siblings *plus* the runtime length of every preceding
- * sibling loop's rendered array. A static count alone is wrong whenever a
- * `.map()` precedes this loop inside the same container — the earlier loop
- * contributes `array.length` DOM children that shift this loop's items, and
- * that count is only known at runtime (#1693, follow-up to #1688).
+ * The single source of truth for what contributes to a loop's child-index
+ * offset: the static sibling count (a folded integer) followed by one
+ * `(arr).length` term per preceding sibling loop. The additive and
+ * subtractive forms below are thin projections over this list, so they can
+ * never drift in which terms they include, and a new offset contributor is
+ * added here once rather than in every consumer (#1693).
+ */
+function loopOffsetTerms(offset: LoopOffset | undefined): string[] {
+  if (!offset) return []
+  const terms: string[] = []
+  if (offset.staticCount) terms.push(String(offset.staticCount))
+  for (const arr of offset.precedingLoopArrays) terms.push(`(${arr}).length`)
+  return terms
+}
+
+/**
+ * Build the additive `children[idx]` access expression for a loop's items —
+ * `indexParam` plus every offset term.
  *
  * Examples:
  *   - no offset                  → `__idx`
@@ -161,17 +171,8 @@ export function buildChainedArrayExpr(elem: TopLevelLoop | BranchLoop): string {
  *   - one preceding `.map()`     → `__idx + (arr).length`
  *   - static sibling + 2 `.map()`→ `__idx + 1 + (a).length + (b).length`
  */
-export function buildLoopChildIndexExpr(
-  indexParam: string,
-  siblingOffset: number | undefined,
-  precedingLoopArrays: readonly string[] | undefined,
-): string {
-  let expr = indexParam
-  if (siblingOffset) expr += ` + ${siblingOffset}`
-  if (precedingLoopArrays) {
-    for (const arr of precedingLoopArrays) expr += ` + (${arr}).length`
-  }
-  return expr
+export function buildLoopChildIndexExpr(indexParam: string, offset: LoopOffset | undefined): string {
+  return [indexParam, ...loopOffsetTerms(offset)].join(' + ')
 }
 
 /**
@@ -180,16 +181,8 @@ export function buildLoopChildIndexExpr(
  * index. Returns the trailing `` - <static> - (arr).length …`` suffix (empty
  * when there is no offset) appended after `…indexOf(__el)`.
  */
-export function buildLoopChildIndexSubtraction(
-  siblingOffset: number | undefined,
-  precedingLoopArrays: readonly string[] | undefined,
-): string {
-  let expr = ''
-  if (siblingOffset) expr += ` - ${siblingOffset}`
-  if (precedingLoopArrays) {
-    for (const arr of precedingLoopArrays) expr += ` - (${arr}).length`
-  }
-  return expr
+export function buildLoopChildIndexSubtraction(offset: LoopOffset | undefined): string {
+  return loopOffsetTerms(offset).map(term => ` - ${term}`).join('')
 }
 
 /**

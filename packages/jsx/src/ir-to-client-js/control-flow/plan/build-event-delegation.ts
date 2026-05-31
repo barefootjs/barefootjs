@@ -69,8 +69,7 @@ export function buildStaticArrayDelegationPlan(elem: TopLevelLoop): EventDelegat
       arrayExpr: buildChainedArrayExpr(elem),
       param: elem.param,
       mapPreamble: elem.mapPreamble ?? null,
-      siblingOffset: elem.siblingOffset ?? null,
-      precedingLoopArrays: elem.precedingLoopArrays ?? null,
+      offset: elem.offset ?? null,
     },
   }
 }

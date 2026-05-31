@@ -167,6 +167,27 @@ export interface ConditionalBranchReactiveAttr extends AttrMeta {
 }
 
 /**
+ * How many DOM children precede a loop's items in its container — the
+ * offset applied to `container.children[idx]` so each item resolves to the
+ * right element during hydration.
+ *
+ * Two contributions, kept distinct because they codegen differently:
+ *   - `staticCount`: non-loop siblings, a compile-time integer (`+ 1`).
+ *   - `precedingLoopArrays`: earlier sibling `.map()`s' rendered array
+ *     expressions, whose lengths are only known at runtime (`+ (arr).length`).
+ *
+ * Carried as one value object end-to-end (collect → IR loop → plan → codegen)
+ * so a future offset contributor is added in one place, not threaded as a new
+ * field through every layer (#1693).
+ */
+export interface LoopOffset {
+  /** Count of static (non-loop) DOM siblings before the loop. `0` = none. */
+  staticCount: number
+  /** Rendered array expressions of preceding sibling loops; `[]` = none. */
+  precedingLoopArrays: readonly string[]
+}
+
+/**
  * Fields shared by every flavour of collected loop (top-level, branch-scoped, nested).
  * The three loop-info variants (`TopLevelLoop`, `BranchLoop`, `NestedLoop`) each extend
  * this base and add a `kind` discriminator so callers can narrow exhaustively.
@@ -363,15 +384,8 @@ export interface NestedLoop extends LoopCore {
   childComponents?: import('../types').IRLoopChildComponent[]
   /** True when this loop is inside a conditional branch (handled by insert() bindEvents instead) */
   insideConditional?: boolean
-  /** Number of non-loop DOM siblings before this loop in its container element */
-  siblingOffset?: number
-  /**
-   * Rendered array expressions of preceding sibling loops in the same
-   * container. Their lengths add to `siblingOffset` at runtime so
-   * children[idx] access skips earlier `.map()`s' items, not just static
-   * siblings (#1693).
-   */
-  precedingLoopArrays?: string[]
+  /** Offset of this loop's items past its preceding container siblings (#1693). */
+  offset?: LoopOffset
   // Per-item bindings (events / reactiveAttrs / reactiveTexts / refs / conditionals)
   // now live on `LoopCore.bindings` — see issue #1244 §B.
 }
@@ -475,15 +489,8 @@ export interface TopLevelLoop extends LoopCore {
   useElementReconciliation?: boolean // True: reconcileElements + composite rendering (native root with child components)
   /** Inner loop metadata for composite element reconciliation (array, param, key, container) */
   innerLoops?: NestedLoop[]
-  /** Number of non-loop DOM siblings before this loop in its parent element. Used to offset children[idx] access. */
-  siblingOffset?: number
-  /**
-   * Rendered array expressions of preceding sibling loops in the same
-   * container. Their lengths add to `siblingOffset` at runtime so
-   * children[idx] access skips earlier `.map()`s' items, not just static
-   * siblings (#1693).
-   */
-  precedingLoopArrays?: string[]
+  /** Offset of this loop's items past its preceding container siblings (#1693). */
+  offset?: LoopOffset
   filterPredicate?: {
     param: string
     raw: string  // Original filter predicate expression or block body
