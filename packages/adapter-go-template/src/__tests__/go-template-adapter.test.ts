@@ -636,6 +636,67 @@ export function List() {
       expect(adapter.generate(ir).types!).toContain('Items: nil,')
     })
 
+    test('widens mixed int/float keys to float64 and keeps negatives (#1680)', () => {
+      // A key seen as both an integer and a fractional literal across elements
+      // can't be `int`; widen it to `float64`. Negative numeric literals keep
+      // their sign in the baked value.
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function List() {
+  const [pts] = createSignal([{ x: 1, y: -2 }, { x: 2.5, y: -3 }])
+  return <ul>{pts().map((p) => <li key={p.x}>{p.x}</li>)}</ul>
+}
+`)
+      const types = adapter.generate(ir).types!
+      // x mixes 1 and 2.5 → float64; y stays int (both integer literals).
+      expect(types).toMatch(/X float64[\s\S]*Y int/)
+      expect(types).toContain('{X: 1, Y: -2}')
+      expect(types).toContain('{X: 2.5, Y: -3}')
+    })
+
+    test('keeps nil when the synthesised name collides with a user type (#1680)', () => {
+      // The struct name is `<Component><Signal>Item`. If the user already
+      // declares that exact type, synthesis bails rather than shadowing it.
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+type ListItemsItem = { id: string }
+export function List() {
+  const [items] = createSignal([{ id: "a" }])
+  return <ul>{items().map((t) => <li key={t.id}>{t.id}</li>)}</ul>
+}
+`)
+      expect(adapter.generate(ir).types!).toContain('Items: nil,')
+    })
+
+    test('synthesises a distinct struct per untyped object-array signal (#1680)', () => {
+      // Two untyped signals get component+getter-prefixed names, so their
+      // synthesised structs and fields don't collide.
+      const adapter = new GoTemplateAdapter()
+      const ir = compileToIR(`
+"use client"
+import { createSignal } from "@barefootjs/client"
+
+export function List() {
+  const [rows] = createSignal([{ id: "a" }])
+  const [cols] = createSignal([{ label: "x" }])
+  return <ul>{rows().map((r) => <li key={r.id}>{r.id}</li>)}{cols().map((c) => <li key={c.label}>{c.label}</li>)}</ul>
+}
+`)
+      const types = adapter.generate(ir).types!
+      expect(types).toContain('type ListRowsItem struct {')
+      expect(types).toContain('type ListColsItem struct {')
+      expect(types).toMatch(/Rows \[\]ListRowsItem/)
+      expect(types).toMatch(/Cols \[\]ListColsItem/)
+      expect(types).toContain('Rows: []ListRowsItem{ListRowsItem{ID: "a"}}')
+      expect(types).toContain('Cols: []ListColsItem{ListColsItem{Label: "x"}}')
+    })
+
     test('keeps nil for non-literal array initial values (#1672)', () => {
       // A signal whose array initial value is a function call / variable
       // reference cannot be evaluated at codegen time — it must stay nil so
