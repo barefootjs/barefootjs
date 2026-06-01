@@ -203,8 +203,9 @@ describe('#1247 — static-loop CSR self-heal', () => {
     // the inner `it` param).
     expect(clientJs).toMatch(/items\.map\(\(it, i\) =>/)
     // The inner per-item HTML references the inner destructured param
-    // directly (`${it}` in the template), not via a `__bfItem` accessor.
-    expect(clientJs).toMatch(/\$\{it\}/)
+    // directly (`${escapeText(it)}` in the template — text slots are
+    // HTML-escaped, #1694), not via a `__bfItem` accessor.
+    expect(clientJs).toMatch(/\$\{escapeText\(it\)\}/)
     expect(clientJs).not.toMatch(/__bfItem\(\)/)
   })
 
@@ -335,7 +336,8 @@ describe('#1247 — static-loop CSR self-heal', () => {
     // Preamble is NOT duplicated inside the materialize branch.
     expect(materializeBlock).not.toMatch(/const count = users\.length/)
     // The cloned template still references `count` — now resolved by the
-    // forEach-scope `const` introduced just above.
-    expect(materializeBlock).toMatch(/\$\{String\(count\)\}/)
+    // forEach-scope `const` introduced just above. Text slots are
+    // HTML-escaped (#1694), so it appears as `${escapeText(String(count))}`.
+    expect(materializeBlock).toMatch(/\$\{escapeText\(String\(count\)\)\}/)
   })
 })

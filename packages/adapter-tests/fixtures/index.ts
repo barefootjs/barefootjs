@@ -21,6 +21,8 @@ import { fixture as aiChat } from './ai-chat'
 // #1467 Phase 2a: first `site/ui` source-root fixture (Button + its
 // auto-inferred Slot sibling), proving the UI loader infrastructure.
 import { fixture as button } from './button'
+// #1694: text-content HTML-escaping (parallel to the #1692 attribute fix).
+import { fixture as textEscape } from './text-escape'
 // Priority 1: Core reactivity
 import { fixture as signalWithFallback } from './signal-with-fallback'
 import { fixture as signalDefaultFromJsx } from './signal-default-from-jsx'
@@ -183,6 +185,7 @@ export const jsxFixtures: JSXFixture[] = [
   todoAppSsr,
   aiChat,
   button,
+  textEscape,
   // Priority 1: Core reactivity
   signalWithFallback,
   signalDefaultFromJsx,

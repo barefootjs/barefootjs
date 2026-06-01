@@ -1,4 +1,4 @@
-import { $, $t, __bfSlot, __bfText, createComponent, createDisposableEffect, createEffect, createSignal, escapeAttr, hydrate, insert, mapArray, qsa } from '@barefootjs/client/runtime'
+import { $, $t, __bfSlot, __bfText, createComponent, createDisposableEffect, createEffect, createSignal, escapeAttr, escapeText, hydrate, insert, mapArray, qsa } from '@barefootjs/client/runtime'
 
 
 export function initAIChatInteractive(__scope, _p = {}) {
@@ -59,7 +59,7 @@ export function initAIChatInteractive(__scope, _p = {}) {
   })
 
   insert(__scope, 's2', () => isStreaming(), {
-    template: () => { const __slots = []; return { html: `<div bf-c="s2" class="chat-msg chat-assistant"><div class="chat-bubble"><p bf="s4"><!--bf:s3-->${__bfSlot(streamingText(), __slots)}<!--/--><span class="streaming-cursor">▌</span></p></div></div>`, slots: __slots } },
+    template: () => { const __slots = []; return { html: `<div bf-c="s2" class="chat-msg chat-assistant"><div class="chat-bubble"><p bf="s4"><!--bf:s3-->${escapeText(__bfSlot(streamingText(), __slots))}<!--/--><span class="streaming-cursor">▌</span></p></div></div>`, slots: __slots } },
     bindEvents: (__branchScope, { isFirstRun: __bfFirstRun = false } = {}) => {
       const __disposers = []
       let __anchor_s3 = $t(__branchScope, 's3')[0]
@@ -85,7 +85,7 @@ export function initAIChatInteractive(__scope, _p = {}) {
     if (el) el.scrollTop = el.scrollHeight
   })
   mapArray(() => messages(), _s5, (msg) => String(msg.id), (msg, __idx, __existing) => {
-    const __el = __existing ?? (() => { const __tpl = document.createElement('template'); __tpl.innerHTML = `<div data-key="${msg().id}" ${(`chat-msg chat-${msg().role}`) != null ? 'class="' + escapeAttr(`chat-msg chat-${msg().role}`) + '"' : ''} bf="s1"><div class="chat-bubble"><p><!--bf:s0-->${msg().content}<!--/--></p></div></div>`; return __tpl.content.firstElementChild.cloneNode(true) })()
+    const __el = __existing ?? (() => { const __tpl = document.createElement('template'); __tpl.innerHTML = `<div data-key="${msg().id}" ${(`chat-msg chat-${msg().role}`) != null ? 'class="' + escapeAttr(`chat-msg chat-${msg().role}`) + '"' : ''} bf="s1"><div class="chat-bubble"><p><!--bf:s0-->${escapeText(msg().content)}<!--/--></p></div></div>`; return __tpl.content.firstElementChild.cloneNode(true) })()
     { const __ra_s1 = qsa(__el, '[bf="s1"]')
     if (__ra_s1) {
       createEffect(() => {
@@ -99,5 +99,5 @@ export function initAIChatInteractive(__scope, _p = {}) {
 
 }
 
-hydrate('AIChatInteractive', { init: initAIChatInteractive, template: (_p) => `<div class="chat-container"><div class="chat-messages" id="chat-messages" bf="s5"><!--bf-loop:l0-->${([]).map((msg) => `<div data-key="${msg.id}" ${(`chat-msg chat-${msg.role}`) != null ? 'class="' + escapeAttr(`chat-msg chat-${msg.role}`) + '"' : ''} bf="s1"><div class="chat-bubble"><p><!--bf:s0-->${msg.content}<!--/--></p></div></div>`).join('')}<!--bf-/loop:l0-->${(false) ? `<div bf-c="s2" class="chat-msg chat-assistant"><div class="chat-bubble"><p bf="s4"><!--bf:s3-->${('')}<!--/--><span class="streaming-cursor">▌</span></p></div></div>` : `<!--bf-cond-start:s2--><!--bf-cond-end:s2-->`}</div><div class="chat-input-area"><input type="text" class="chat-input" placeholder="Type a message..." ${(('')) != null ? 'value="' + escapeAttr(('')) + '"' : ''} ${(false) ? 'disabled' : ''} bf="s6" /><button class="chat-send" ${(false) ? 'disabled' : ''} bf="s7"> Send </button></div></div>` })
+hydrate('AIChatInteractive', { init: initAIChatInteractive, template: (_p) => `<div class="chat-container"><div class="chat-messages" id="chat-messages" bf="s5"><!--bf-loop:l0-->${([]).map((msg) => `<div data-key="${msg.id}" ${(`chat-msg chat-${msg.role}`) != null ? 'class="' + escapeAttr(`chat-msg chat-${msg.role}`) + '"' : ''} bf="s1"><div class="chat-bubble"><p><!--bf:s0-->${escapeText(msg.content)}<!--/--></p></div></div>`).join('')}<!--bf-/loop:l0-->${(false) ? `<div bf-c="s2" class="chat-msg chat-assistant"><div class="chat-bubble"><p bf="s4"><!--bf:s3-->${escapeText((''))}<!--/--><span class="streaming-cursor">▌</span></p></div></div>` : `<!--bf-cond-start:s2--><!--bf-cond-end:s2-->`}</div><div class="chat-input-area"><input type="text" class="chat-input" placeholder="Type a message..." ${(('')) != null ? 'value="' + escapeAttr(('')) + '"' : ''} ${(false) ? 'disabled' : ''} bf="s6" /><button class="chat-send" ${(false) ? 'disabled' : ''} bf="s7"> Send </button></div></div>` })
 export function AIChatInteractive(_p, __bfKey) { return createComponent('AIChatInteractive', _p, __bfKey) }
