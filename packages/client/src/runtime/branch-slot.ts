@@ -15,9 +15,16 @@
  * in by identity (no `cloneNode`), preserving event listeners and signal
  * bindings.
  *
- * Non-node values fall through to `String(value)` for the existing
- * inline-string path.
+ * Non-node values fall through to the inline-string path, HTML-escaped
+ * (#1694 follow-up) so a branch-template text value containing `< / &`
+ * surfaces as text — not markup — and matches the SSR-rendered bytes.
+ * Escaping happens here, on the string path only, so the `<!--bf-slot:N-->`
+ * markers returned for live `Node` values are left intact for `insert()`
+ * to splice. (Doing it here rather than wrapping the whole `__bfSlot(...)`
+ * call in `escapeText` is what lets the marker path stay raw.)
  */
+import { escapeText } from './component'
+
 export function __bfSlot(value: unknown, slots: Node[]): string {
   if (value == null || value === false || value === true) return ''
   if (typeof Node !== 'undefined' && value instanceof Node) {
@@ -28,5 +35,5 @@ export function __bfSlot(value: unknown, slots: Node[]): string {
   if (Array.isArray(value)) {
     return value.map((v) => __bfSlot(v, slots)).join('')
   }
-  return String(value)
+  return escapeText(value)
 }
