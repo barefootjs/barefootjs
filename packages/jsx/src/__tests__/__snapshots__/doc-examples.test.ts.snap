@@ -55,7 +55,7 @@ export function initExample(__scope, _p = {}) {
   const [_s0] = $(__scope, 's0')
 
   insert(__scope, 's0', () => count() > 0, {
-    template: () => { const __slots = []; return { html: \`<p bf-c="s0" bf="s2"><!--bf:s1-->\${escapeText(__bfSlot(count(), __slots))}<!--/--> items</p>\`, slots: __slots } },
+    template: () => { const __slots = []; return { html: \`<p bf-c="s0" bf="s2"><!--bf:s1-->\${__bfSlot(count(), __slots)}<!--/--> items</p>\`, slots: __slots } },
     bindEvents: (__branchScope, { isFirstRun: __bfFirstRun = false } = {}) => {
       const __disposers = []
       let __anchor_s1 = $t(__branchScope, 's1')[0]

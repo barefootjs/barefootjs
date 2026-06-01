@@ -59,7 +59,7 @@ export function initAIChatInteractive(__scope, _p = {}) {
   })
 
   insert(__scope, 's2', () => isStreaming(), {
-    template: () => { const __slots = []; return { html: `<div bf-c="s2" class="chat-msg chat-assistant"><div class="chat-bubble"><p bf="s4"><!--bf:s3-->${escapeText(__bfSlot(streamingText(), __slots))}<!--/--><span class="streaming-cursor">▌</span></p></div></div>`, slots: __slots } },
+    template: () => { const __slots = []; return { html: `<div bf-c="s2" class="chat-msg chat-assistant"><div class="chat-bubble"><p bf="s4"><!--bf:s3-->${__bfSlot(streamingText(), __slots)}<!--/--><span class="streaming-cursor">▌</span></p></div></div>`, slots: __slots } },
     bindEvents: (__branchScope, { isFirstRun: __bfFirstRun = false } = {}) => {
       const __disposers = []
       let __anchor_s3 = $t(__branchScope, 's3')[0]

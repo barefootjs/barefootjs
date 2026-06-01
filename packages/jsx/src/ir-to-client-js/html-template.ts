@@ -523,7 +523,15 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
     case 'expression':
       if (node.expr === 'null' || node.expr === 'undefined') return ''
       if (node.slotId) {
-        return `<!--bf:${node.slotId}-->\${${escapeTextSlotExpr(wrapInterpolation(wrapExpr(node.expr)))}}<!--/-->`
+        const inner = wrapInterpolation(wrapExpr(node.expr))
+        // In branch-slot context `wrapInterpolation` routes the value
+        // through `__bfSlot`, which returns raw `<!--bf-slot:N-->` markers
+        // for live `Node` values (spliced back by `insert()`). Escaping
+        // would corrupt those markers and drop slotted content (#1694
+        // regression). `__bfSlot` owns coercion of its own value, so the
+        // text-escape applies only to the non-slot (plain text) form.
+        const slotted = branchSlotsVar ? inner : escapeTextSlotExpr(inner)
+        return `<!--bf:${node.slotId}-->\${${slotted}}<!--/-->`
       }
       return `\${${wrapInterpolation(wrapExpr(node.expr))}}`
 
