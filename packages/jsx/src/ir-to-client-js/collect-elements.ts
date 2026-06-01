@@ -11,30 +11,45 @@ import { expandDynamicPropValue, expandConstantForReactivity } from './prop-hand
 import { walkIR, stopAt } from './walker'
 import { buildLoopChainExpr } from '../loop-chain'
 
+/** Expressions that render nothing (0 DOM nodes) — `&&` / `?:` empty branches. */
+const EMPTY_RENDER_EXPRS = new Set(['null', 'undefined', 'false', "''", '""', '``'])
+
 /**
  * Number of *element* children a node contributes to its parent's `.children`
  * run — the collection that `container.children[idx]` indexes and that event
  * delegation's `Array.from(container.children).indexOf(...)` walks. `.children`
  * is element-only, so text / comment nodes never count.
  *
- * Returns a folded integer when the count is static, or a JS expression string
- * when it depends on runtime state:
+ * Returns a folded integer when the count is statically known, a JS expression
+ * string when it depends on runtime state, or `null` when the element count is
+ * statically undecidable (the caller then falls back to the legacy count):
  *   - element / component / provider / async → `1` (one root element)
- *   - loop                                   → `(arr).length`
- *   - conditional                            → `1` when both branches render
- *     the same element count, else `(cond ? trueCount : falseCount)` — the
- *     false `&&`/`?:null` branch renders only comment anchors (0 elements),
- *     so a static count would over-count it (#1693)
- *   - text / expression / slot / everything else → `0` (no element child)
+ *   - text / empty-render expression (`null`/`false`/…) → `0`
+ *   - plain loop → `(arr).length`; per-item-conditional / flatMap loop → `null`
+ *     (renders a runtime-variable count, not `array.length`) (#1693)
+ *   - conditional → fold to a number when both branches match, else
+ *     `(cond ? t : f)`; `null` when a branch is undecidable (e.g. the `??`/`||`
+ *     left operand, a bare expression that may render an element OR text)
+ *   - fragment → sum of its children (transparent wrapper)
+ *   - bare expression / slot / everything else → `null` (undecidable)
  */
-function domElementCount(node: IRNode, ctx?: ClientJsContext): number | string {
+function domElementCount(node: IRNode): number | string | null {
   switch (node.type) {
     case 'element':
     case 'component':
     case 'provider':
     case 'async':
       return 1
+    case 'text':
+      return 0
+    case 'expression':
+      // `&&` / `?:` empty branches (`null`, `false`, …) render nothing; any
+      // other expression may resolve to an element or to text — undecidable.
+      return EMPTY_RENDER_EXPRS.has(node.expr.trim()) ? 0 : null
     case 'loop':
+      // A per-item-conditional body (#1665) or flatMap renders a
+      // runtime-variable element count per item, not `array.length`.
+      if (node.bodyIsItemConditional || node.method === 'flatMap') return null
       return `(${buildLoopChainExpr({
         base: node.array,
         sortComparator: node.sortComparator,
@@ -42,33 +57,54 @@ function domElementCount(node: IRNode, ctx?: ClientJsContext): number | string {
         chainOrder: node.chainOrder,
       })}).length`
     case 'conditional': {
-      const t = domElementCount(node.whenTrue, ctx)
-      const f = domElementCount(node.whenFalse, ctx)
+      const t = domElementCount(node.whenTrue)
+      const f = domElementCount(node.whenFalse)
+      if (t === null || f === null) return null
       if (typeof t === 'number' && typeof f === 'number' && t === f) return t
       // Active branch chosen at runtime — reuse the raw `condition`, the exact
       // form `insert()` evaluates in the same init scope.
       return `(${node.condition} ? ${t} : ${f})`
     }
     case 'fragment':
-      return sumElementCounts(node.children, ctx)
+      return sumElementCounts(node.children)
     default:
-      // text / expression / slot / if-statement: no element child in the run.
-      return 0
+      // slot / if-statement: element count not statically known.
+      return null
   }
 }
 
-/** Sum `domElementCount` over a run of nodes, folding the static part. */
-function sumElementCounts(nodes: readonly IRNode[], ctx?: ClientJsContext): number | string {
+/**
+ * Sum `domElementCount` over a run of nodes, folding the static part. Returns
+ * `null` if any child's count is undecidable — the whole run is then unknown.
+ */
+function sumElementCounts(nodes: readonly IRNode[]): number | string | null {
   let staticCount = 0
   const dynamic: string[] = []
   for (const n of nodes) {
-    const c = domElementCount(n, ctx)
+    const c = domElementCount(n)
+    if (c === null) return null
     if (typeof c === 'number') staticCount += c
     else dynamic.push(c)
   }
   if (dynamic.length === 0) return staticCount
   const parts = staticCount > 0 ? [String(staticCount), ...dynamic] : dynamic
   return parts.length === 1 ? parts[0] : `(${parts.join(' + ')})`
+}
+
+/**
+ * Pre-#1693 element-count heuristic, used as the fallback for nodes whose count
+ * `domElementCount` cannot decide. Mirrors the old `producesDomChild` exactly,
+ * so an undecidable sibling contributes precisely what it did before this fix —
+ * guaranteeing no regression on shapes the new counting can't improve (a bare
+ * expression, a `??`/`||` fallback, a per-item-conditional loop).
+ */
+function legacyElementCount(node: IRNode): number {
+  return node.type === 'element' || node.type === 'component' || node.type === 'provider'
+    || node.type === 'async'
+    || node.type === 'text' || (node.type === 'expression' && !node.reactive)
+    || node.type === 'conditional'
+    ? 1
+    : 0
 }
 
 /**
@@ -130,17 +166,19 @@ export function computeLoopSiblingOffsets(root: IRNode): Map<IRLoop, IRNode[]> {
  * Resolve a loop's preceding-sibling run into the `LoopOffset` value object
  * stored on `TopLevelLoop` / `NestedLoop`: the folded static element count
  * plus one dynamic term (`(arr).length`, `(cond ? … : …)`) per sibling whose
- * count is only known at runtime. Returns `undefined` when nothing precedes
- * the loop (or only non-element nodes do), so the loop keeps bare
- * `children[idx]`.
+ * count is only known at runtime. Siblings whose count is statically
+ * undecidable fall back to `legacyElementCount` (the pre-#1693 behaviour).
+ * Returns `undefined` when nothing precedes the loop (or only non-element
+ * nodes do), so the loop keeps bare `children[idx]`.
  */
-function resolveLoopOffset(preceding: IRNode[] | undefined, ctx?: ClientJsContext): LoopOffset | undefined {
+function resolveLoopOffset(preceding: IRNode[] | undefined): LoopOffset | undefined {
   if (!preceding || preceding.length === 0) return undefined
   let staticCount = 0
   const dynamicTerms: string[] = []
   for (const node of preceding) {
-    const c = domElementCount(node, ctx)
-    if (typeof c === 'number') staticCount += c
+    const c = domElementCount(node)
+    if (c === null) staticCount += legacyElementCount(node)
+    else if (typeof c === 'number') staticCount += c
     else dynamicTerms.push(c)
   }
   if (staticCount === 0 && dynamicTerms.length === 0) return undefined
@@ -337,7 +375,7 @@ export function collectInnerLoops(
           refsOuterParam: refsOuter,
           childComponents,
           insideConditional: !flat && scope.insideCond ? true : undefined,
-          offset: flat ? undefined : resolveLoopOffset(siblingOffsets.get(n), ctx),
+          offset: flat ? undefined : resolveLoopOffset(siblingOffsets.get(n)),
           bindings,
         })
         // Branch-mode callers handle deeper nesting via their own collection paths.
@@ -674,7 +712,7 @@ export function collectElements(
         isStaticArray: l.isStaticArray,
         useElementReconciliation,
         innerLoops: (useElementReconciliation || (l.isStaticArray && innerLoops?.length)) ? innerLoops : undefined,
-        offset: resolveLoopOffset(siblingOffsets.get(l), ctx),
+        offset: resolveLoopOffset(siblingOffsets.get(l)),
         filterPredicate: l.filterPredicate ? {
           param: l.filterPredicate.param,
           raw: l.filterPredicate.raw,

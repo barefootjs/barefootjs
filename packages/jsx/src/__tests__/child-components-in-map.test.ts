@@ -960,6 +960,74 @@ describe('child components inside .map() (#344)', () => {
     expect(content).not.toContain('children[__idx + ')
   })
 
+  test('nullish/logical (?? / ||) fallback sibling keeps a static offset, not an inverted ternary (#1693)', () => {
+    // `{icon ?? <fallback/>}` transforms to a conditional whose true-branch is
+    // the bare `icon` expression (undecidable element count) and whose false-
+    // branch is the JSX fallback. The element count is statically unknown, so
+    // it must fall back to the legacy flat `1` — NOT emit `(cond ? 0 : 1)`,
+    // which would resolve to 0 and drop the items when `icon` is a real element.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) { return <div>{props.children}</div> }
+      function Wrapper(props: { children?: any }) { return <div>{props.children}</div> }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function NullishGroup(props: { icon?: any }) {
+        return (
+          <Box>
+            {props.icon ?? <span>fallback</span>}
+            {['a', 'b'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'NullishGroup.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const content = result.files.find(f => f.type === 'clientJs')!.content
+    expect(content).toContain('children[__idx + 1]')
+    // The inverted-count regression — must not appear.
+    expect(content).not.toContain('? 0 : 1')
+  })
+
+  test('preceding per-item-conditional loop does not contribute a bogus .length offset (#1693)', () => {
+    // A `{arr.map(x => cond ? <el/> : null)}` loop renders 0-or-1 element per
+    // item, so its rendered count is NOT `arr.length`. Emitting `+ arr.length`
+    // would over-count; the undecidable loop falls back to the legacy `0`.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) { return <div>{props.children}</div> }
+      function Wrapper(props: { children?: any }) { return <div>{props.children}</div> }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function MixedLoops() {
+        return (
+          <Box>
+            {['a', 'b', 'c'].map(x => (x === 'b' ? <span key={x}>{x}</span> : null))}
+            {['a', 'b'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'MixedLoops.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const content = result.files.find(f => f.type === 'clientJs')!.content
+    // No `.length` term from the undecidable per-item-conditional loop.
+    expect(content).not.toContain("(['a', 'b', 'c']).length")
+    expect(content).not.toContain("(['a','b','c']).length")
+  })
+
   test('nested .map() with multiple inner components emits unique __compEl bindings (#1664)', () => {
     const source = `
       'use client'
