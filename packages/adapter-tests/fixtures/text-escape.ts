@@ -21,10 +21,15 @@ export const spec: SharedFixtureSpec = {
   componentName: 'TextEscape',
   description:
     'text-content HTML-escaping — metacharacter label + reactive count (#1694)',
-  props: { label: `Tom & Jerry <b>"x" 'y'</b>` },
+  // Metacharacters limited to `& < >` — the parsing-significant text set.
+  // `"` / `'` are exercised by `escape-text.test.ts`; embedding them here
+  // would break the Go adapter's test harness, which serialises string
+  // props into a Go composite literal (an unescaped `"` closes the Go
+  // string). `& < >` are the chars that actually corrupt HTML parsing.
+  props: { label: `Tom & Jerry <b>bold</b> & <i>italic</i>` },
   interactions: [
     // The `<b>` survives as literal text (escaped), not a real element.
-    { type: 'expectContains', selector: '.label', text: 'Tom & Jerry <b>' },
+    { type: 'expectContains', selector: '.label', text: 'Tom & Jerry <b>bold</b>' },
     { type: 'expectContains', selector: 'button', text: 'count: 0' },
     { type: 'click', selector: 'button' },
     { type: 'expectContains', selector: 'button', text: 'count: 1' },
