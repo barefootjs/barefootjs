@@ -2706,7 +2706,7 @@ export function Example(_p, __bfKey) { return createComponent('Example', _p, __b
 `;
 
 exports[`docs/core/components/children-slots.md doc-examples L109 — Dialog trigger as a custom element 1`] = `
-"import { $c, $t, __bfText, createComponent, createEffect, createSignal, hydrate, initChild, renderChild } from '@barefootjs/client/runtime'
+"import { $c, $t, __bfText, createComponent, createEffect, createSignal, escapeAttr, hydrate, initChild, renderChild } from '@barefootjs/client/runtime'
 import '/* @bf-child:DialogTrigger */'
 
 export function initTodoItem(__scope, _p = {}) {
@@ -2765,7 +2765,7 @@ export function initExample(__scope, _p = {}) {
   initChild('DialogTrigger', _s0, { asChild: true })
 }
 
-hydrate('Example', { init: initExample, template: (_p) => \`<div>\${renderChild('DialogTrigger', {asChild: true, children: \`<span role="button" \${(0) != null ? 'tabIndex="' + (0) + '"' : ''}>Open</span>\`}, undefined, 's0')}</div>\` })
+hydrate('Example', { init: initExample, template: (_p) => \`<div>\${renderChild('DialogTrigger', {asChild: true, children: \`<span role="button" \${(0) != null ? 'tabIndex="' + escapeAttr(0) + '"' : ''}>Open</span>\`}, undefined, 's0')}</div>\` })
 export function Example(_p, __bfKey) { return createComponent('Example', _p, __bfKey) }"
 `;
 
@@ -3538,11 +3538,11 @@ export function StatementExample(_p, __bfKey) { return createComponent('Statemen
 `;
 
 exports[`docs/core/components/props-type-safety.md doc-examples L54 — (no label) 1`] = `
-"import { createComponent, hydrate } from '@barefootjs/client/runtime'
+"import { createComponent, escapeAttr, hydrate } from '@barefootjs/client/runtime'
 
 function initButton() {}
 
-hydrate('Button__b3c36eee', { init: initButton, template: (_p) => \`<button \${((\`btn btn-\${(_p.variant ?? 'default')} btn-\${(_p.size ?? 'md')} \${_p.className ?? ''}\`)) != null ? 'class="' + ((\`btn btn-\${(_p.variant ?? 'default')} btn-\${(_p.size ?? 'md')} \${_p.className ?? ''}\`)) + '"' : ''} bf="s0">\${_p.children}</button>\` })
+hydrate('Button__b3c36eee', { init: initButton, template: (_p) => \`<button \${((\`btn btn-\${(_p.variant ?? 'default')} btn-\${(_p.size ?? 'md')} \${_p.className ?? ''}\`)) != null ? 'class="' + escapeAttr((\`btn btn-\${(_p.variant ?? 'default')} btn-\${(_p.size ?? 'md')} \${_p.className ?? ''}\`)) + '"' : ''} bf="s0">\${_p.children}</button>\` })
 export function Button(_p, __bfKey) { return createComponent('Button__b3c36eee', _p, __bfKey) }"
 `;
 
@@ -3686,7 +3686,7 @@ export function StatementExample(_p, __bfKey) { return createComponent('Statemen
 `;
 
 exports[`docs/core/core-concepts/mpa-style.md doc-examples L23 — (no label) 1`] = `
-"import { $, $c, $t, __bfText, createComponent, createEffect, hydrate, initChild, renderChild } from '@barefootjs/client/runtime'
+"import { $, $c, $t, __bfText, createComponent, createEffect, escapeAttr, hydrate, initChild, renderChild } from '@barefootjs/client/runtime'
 import '/* @bf-child:ReviewStars */'
 import '/* @bf-child:AddToCart */'
 
@@ -3737,7 +3737,7 @@ export function initProductPage(__scope, _p = {}) {
   initChild('AddToCart', _s6, { get productId() { return product.id } })
 }
 
-hydrate('ProductPage', { init: initProductPage, template: (_p) => \`<div><h1 bf="s1"><!--bf:s0-->\${_p.product.name}<!--/--></h1><p bf="s3"><!--bf:s2-->\${_p.product.description}<!--/--></p><img \${(_p.product.image) != null ? 'src="' + (_p.product.image) + '"' : ''} bf="s4" />\${renderChild('ReviewStars', {rating: _p.product.rating}, undefined, 's5')}\${renderChild('AddToCart', {productId: _p.product.id}, undefined, 's6')}</div>\` })
+hydrate('ProductPage', { init: initProductPage, template: (_p) => \`<div><h1 bf="s1"><!--bf:s0-->\${_p.product.name}<!--/--></h1><p bf="s3"><!--bf:s2-->\${_p.product.description}<!--/--></p><img \${(_p.product.image) != null ? 'src="' + escapeAttr(_p.product.image) + '"' : ''} bf="s4" />\${renderChild('ReviewStars', {rating: _p.product.rating}, undefined, 's5')}\${renderChild('AddToCart', {productId: _p.product.id}, undefined, 's6')}</div>\` })
 export function ProductPage(_p, __bfKey) { return createComponent('ProductPage', _p, __bfKey) }"
 `;
 

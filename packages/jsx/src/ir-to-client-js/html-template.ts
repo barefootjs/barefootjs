@@ -196,7 +196,7 @@ function templateAttrExpr(attrName: string, valExpr: string, presenceOrUndefined
     return `\${${valExpr} ? '${attrName}' : ''}`
   }
   if (attrName === 'style') {
-    return `\${((v) => v != null ? 'style="' + v + '"' : '')(styleToCss(${valExpr}))}`
+    return `\${((v) => v != null ? 'style="' + ${escapeAttrValueExpr('v')} + '"' : '')(styleToCss(${valExpr}))}`
   }
   // `data-key` / `data-key-N` is a reconciliation contract — every loop item
   // must carry one. Emit unconditionally; if the user passes `key={undefined}`
@@ -205,7 +205,22 @@ function templateAttrExpr(attrName: string, valExpr: string, presenceOrUndefined
   if (attrName === 'data-key' || attrName.startsWith('data-key-')) {
     return `${attrName}="\${${valExpr}}"`
   }
-  return `\${(${valExpr}) != null ? '${attrName}="' + (${valExpr}) + '"' : ''}`
+  return `\${(${valExpr}) != null ? '${attrName}="' + ${escapeAttrValueExpr(valExpr)} + '"' : ''}`
+}
+
+/**
+ * Build a runtime expression that HTML-escapes an interpolated attribute
+ * value, matching the SSR adapters' attribute escaping (Hono escapes
+ * `& " ' < >`) via the `escapeAttr` runtime helper. The client template
+ * assembles an HTML string inserted via `innerHTML`, so an unescaped `"`
+ * / `<` / `>` in a value — e.g. UnoCSS arbitrary variants like
+ * `[class*="size-"]` or `has-[>svg]` — corrupts attribute parsing (and
+ * diverges from the SSR-rendered bytes). Escaping at interpolation time
+ * is the only correct layer: a post-assembly pass can't tell a delimiter
+ * `"` from a value `"`.
+ */
+function escapeAttrValueExpr(valExpr: string): string {
+  return `escapeAttr(${valExpr})`
 }
 
 /**

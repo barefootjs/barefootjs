@@ -241,6 +241,17 @@ const initChild = (name, _scope, props) => { __runInit(name, props) }
 const createComponent = () => null
 const createPortal = () => {}
 const applyRestAttrs = () => {}
+// Mirror @barefootjs/client/runtime escapeAttr: HTML-escape an
+// interpolated attribute value (Hono's set: & " ' < >) so CSR template
+// output matches the SSR-escaped reference. The harness strips the
+// runtime import, so the template's escapeAttr(...) calls need this stub.
+const escapeAttr = (value) =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 // Mirror @barefootjs/client/runtime/spread-attrs.ts: format a record of
 // attributes as an HTML attribute string for use inside template literals.
 // The real runtime helper is imported by generated client JS, but the
