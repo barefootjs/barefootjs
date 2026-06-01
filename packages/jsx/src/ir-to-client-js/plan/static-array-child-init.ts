@@ -75,7 +75,7 @@ export interface OuterNestedInitPlan {
   arrayExpr: string
   param: string
   indexParam: string
-  /** `indexParam` or `${indexParam} + ${siblingOffset}` — already substituted. */
+  /** `indexParam` plus any sibling-offset terms (`+ 1 + (arr).length`) — already substituted. */
   offsetExpr: string
   /**
    * Outer `.map()` callback preamble locals (#1064), emitted inside the
@@ -99,7 +99,7 @@ export interface InnerLoopNestedInitPlan {
   outerArrayExpr: string
   outerParam: string
   outerIndexParam: string
-  /** Outer offset — `outerIndexParam` or `${outerIndexParam} + ${siblingOffset}`. */
+  /** Outer offset — `outerIndexParam` plus any sibling-offset terms. */
   outerOffsetExpr: string
   /**
    * Outer `.map()` callback preamble locals, emitted after the
@@ -115,7 +115,7 @@ export interface InnerLoopNestedInitPlan {
   innerContainerSlotId: string | null
   innerArrayExpr: string
   innerParam: string
-  /** Inner offset — `__innerIdx` or `__innerIdx + ${siblingOffset}`. */
+  /** Inner offset — `__innerIdx` plus any sibling-offset terms. */
   innerOffsetExpr: string
   /**
    * Inner `.map()` callback preamble locals, emitted after the

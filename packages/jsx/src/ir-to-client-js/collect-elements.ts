@@ -3,51 +3,145 @@
  */
 
 import { type IRNode, type IRElement, type IRComponent, type IRLoop, type IRProp, pickAttrMetaFromIR } from '../types'
-import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchReactiveAttr, BranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildBindings, LoopChildBranchSummary, LoopChildConditional, NestedLoop } from './types'
+import type { ClientJsContext, ConditionalBranchChildComponent, ConditionalBranchReactiveAttr, BranchLoop, ConditionalBranchTextEffect, ConditionalElement, LoopChildBindings, LoopChildBranchSummary, LoopChildConditional, LoopOffset, NestedLoop } from './types'
 import { attrValueToString, freeIdsFromRefs, quotePropName, PROPS_PARAM } from './utils'
 import { classifyReactivity, decideWrapForAttr, decideWrapForChildProp, decideWrapFromAstFlags, collectEventHandlersFromIR, collectConditionalBranchEvents, collectConditionalBranchRefs, collectConditionalBranchChildComponents, collectLoopChildEventsWithNesting, collectLoopChildReactiveAttrs, collectLoopChildReactiveTexts, collectLoopChildRefs, emptyLoopChildBindings } from './reactivity'
 import { irToHtmlTemplate, irToPlaceholderTemplate, irChildrenToJsExpr } from './html-template'
 import { expandDynamicPropValue, expandConstantForReactivity } from './prop-handling'
 import { walkIR, stopAt } from './walker'
+import { buildLoopChainExpr } from '../loop-chain'
 
-/** Check if an IR node produces a DOM child element (for sibling offset counting). */
-function producesDomChild(node: IRNode): boolean {
+/** Expressions that render nothing (0 DOM nodes) — `&&` / `?:` empty branches. */
+const EMPTY_RENDER_EXPRS = new Set(['null', 'undefined', 'false', "''", '""', '``'])
+
+/**
+ * Number of *element* children a node contributes to its parent's `.children`
+ * run — the collection that `container.children[idx]` indexes and that event
+ * delegation's `Array.from(container.children).indexOf(...)` walks. `.children`
+ * is element-only, so text / comment nodes never count.
+ *
+ * Returns a folded integer when the count is statically known, a JS expression
+ * string when it depends on runtime state, or `null` when the element count is
+ * statically undecidable (the caller then falls back to the legacy count):
+ *   - element / component / provider / async → `1` (one root element)
+ *   - text / empty-render expression (`null`/`false`/…) → `0`
+ *   - plain loop → `(arr).length`; per-item-conditional / flatMap loop → `null`
+ *     (renders a runtime-variable count, not `array.length`) (#1693)
+ *   - conditional → fold to a number when both branches match, else
+ *     `(cond ? t : f)`; `null` when a branch is undecidable (e.g. the `??`/`||`
+ *     left operand, a bare expression that may render an element OR text)
+ *   - fragment → sum of its children (transparent wrapper)
+ *   - bare expression / slot / everything else → `null` (undecidable)
+ */
+function domElementCount(node: IRNode): number | string | null {
+  switch (node.type) {
+    case 'element':
+    case 'component':
+    case 'provider':
+    case 'async':
+      return 1
+    case 'text':
+      return 0
+    case 'expression':
+      // `&&` / `?:` empty branches (`null`, `false`, …) render nothing; any
+      // other expression may resolve to an element or to text — undecidable.
+      return EMPTY_RENDER_EXPRS.has(node.expr.trim()) ? 0 : null
+    case 'loop':
+      // A per-item-conditional body (#1665) or flatMap renders a
+      // runtime-variable element count per item, not `array.length`.
+      if (node.bodyIsItemConditional || node.method === 'flatMap') return null
+      return `(${buildLoopChainExpr({
+        base: node.array,
+        sortComparator: node.sortComparator,
+        filterPredicate: node.filterPredicate,
+        chainOrder: node.chainOrder,
+      })}).length`
+    case 'conditional': {
+      const t = domElementCount(node.whenTrue)
+      const f = domElementCount(node.whenFalse)
+      if (t === null || f === null) return null
+      if (typeof t === 'number' && typeof f === 'number' && t === f) return t
+      // Active branch chosen at runtime — reuse the raw `condition`, the exact
+      // form `insert()` evaluates in the same init scope.
+      return `(${node.condition} ? ${t} : ${f})`
+    }
+    case 'fragment':
+      return sumElementCounts(node.children)
+    default:
+      // slot / if-statement: element count not statically known.
+      return null
+  }
+}
+
+/**
+ * Sum `domElementCount` over a run of nodes, folding the static part. Returns
+ * `null` if any child's count is undecidable — the whole run is then unknown.
+ */
+function sumElementCounts(nodes: readonly IRNode[]): number | string | null {
+  let staticCount = 0
+  const dynamic: string[] = []
+  for (const n of nodes) {
+    const c = domElementCount(n)
+    if (c === null) return null
+    if (typeof c === 'number') staticCount += c
+    else dynamic.push(c)
+  }
+  if (dynamic.length === 0) return staticCount
+  const parts = staticCount > 0 ? [String(staticCount), ...dynamic] : dynamic
+  return parts.length === 1 ? parts[0] : `(${parts.join(' + ')})`
+}
+
+/**
+ * Pre-#1693 element-count heuristic, used as the fallback for nodes whose count
+ * `domElementCount` cannot decide. Mirrors the old `producesDomChild` exactly,
+ * so an undecidable sibling contributes precisely what it did before this fix —
+ * guaranteeing no regression on shapes the new counting can't improve (a bare
+ * expression, a `??`/`||` fallback, a per-item-conditional loop).
+ */
+function legacyElementCount(node: IRNode): number {
   return node.type === 'element' || node.type === 'component' || node.type === 'provider'
     || node.type === 'async'
     || node.type === 'text' || (node.type === 'expression' && !node.reactive)
     || node.type === 'conditional'
+    ? 1
+    : 0
 }
 
 /**
- * Pre-pass: for every loop node in the IR tree, record the number of non-loop
- * DOM siblings that appear before it in its parent container. Read when
- * constructing TopLevelLoop and NestedLoop so the client JS can offset
- * children[idx] access past statically-rendered siblings.
+ * Pre-pass: for every loop node in the IR tree, record the sibling nodes that
+ * appear before it in its parent container. Read when constructing
+ * TopLevelLoop and NestedLoop so the client JS can offset children[idx]
+ * access past everything rendered ahead of the loop's items.
  *
  * Counting must happen for every container whose children render as a
  * contiguous run of DOM siblings into the same parent — not just `element`.
  * A loop nested directly inside a component (`<Wrapper><span/>{xs.map(...)}`
  * </Wrapper>`), fragment, provider, or async boundary has its preceding
- * static sibling rendered as a sibling of the loop's items too, so
- * `children[idx]` access is shifted exactly as it is under an element parent
- * (#1688). Before this, a static sibling before a `.map()` inside a
- * (self-portaling) component dropped the first item's nested child component
- * during hydration because the offset was silently zero.
+ * siblings rendered as siblings of the loop's items too, so `children[idx]`
+ * access is shifted exactly as it is under an element parent (#1688).
+ *
+ * The siblings are stored raw; `resolveLoopOffset` turns each into its element
+ * count via `domElementCount`. That generalisation closes the #1688 follow-up
+ * (#1693): a preceding `.map()` contributes `array.length` and a preceding
+ * conditional contributes a `(cond ? … : …)` term, both resolved at runtime —
+ * a static-only count resolved later groups' nested children against the wrong
+ * `children[idx]`, leaving them inert after hydration.
  *
  * Computed once up front (instead of during collection) so the offset data
  * lives in an explicit value rather than a module-level WeakMap mutated by
  * two separate traversals.
  */
-export function computeLoopSiblingOffsets(root: IRNode): Map<IRLoop, number> {
-  const offsets = new Map<IRLoop, number>()
+export function computeLoopSiblingOffsets(root: IRNode): Map<IRLoop, IRNode[]> {
+  const offsets = new Map<IRLoop, IRNode[]>()
   const recordChildren = (children: IRNode[]): void => {
-    let nonLoopCount = 0
+    const preceding: IRNode[] = []
     for (const child of children) {
-      if (child.type === 'loop') {
-        if (nonLoopCount > 0) offsets.set(child, nonLoopCount)
-      } else if (producesDomChild(child)) {
-        nonLoopCount++
+      // Record the preceding run only when something precedes this loop. A
+      // leading loop keeps the bare `children[idx]` access.
+      if (child.type === 'loop' && preceding.length > 0) {
+        offsets.set(child, [...preceding])
       }
+      preceding.push(child)
     }
   }
   const containerVisit = ({ node, descend }: { node: { children: IRNode[] }; descend: () => void }): void => {
@@ -66,6 +160,29 @@ export function computeLoopSiblingOffsets(root: IRNode): Map<IRLoop, number> {
     // default descent with the same scope.
   })
   return offsets
+}
+
+/**
+ * Resolve a loop's preceding-sibling run into the `LoopOffset` value object
+ * stored on `TopLevelLoop` / `NestedLoop`: the folded static element count
+ * plus one dynamic term (`(arr).length`, `(cond ? … : …)`) per sibling whose
+ * count is only known at runtime. Siblings whose count is statically
+ * undecidable fall back to `legacyElementCount` (the pre-#1693 behaviour).
+ * Returns `undefined` when nothing precedes the loop (or only non-element
+ * nodes do), so the loop keeps bare `children[idx]`.
+ */
+function resolveLoopOffset(preceding: IRNode[] | undefined): LoopOffset | undefined {
+  if (!preceding || preceding.length === 0) return undefined
+  let staticCount = 0
+  const dynamicTerms: string[] = []
+  for (const node of preceding) {
+    const c = domElementCount(node)
+    if (c === null) staticCount += legacyElementCount(node)
+    else if (typeof c === 'number') staticCount += c
+    else dynamicTerms.push(c)
+  }
+  if (staticCount === 0 && dynamicTerms.length === 0) return undefined
+  return { staticCount, dynamicTerms }
 }
 
 /**
@@ -129,7 +246,7 @@ export const branchInnerLoopOptions: CollectInnerLoopsOptions = {
  */
 export function collectInnerLoops(
   nodes: IRNode[],
-  siblingOffsets: Map<IRLoop, number>,
+  siblingOffsets: Map<IRLoop, IRNode[]>,
   outerLoopParam?: string,
   ctx?: ClientJsContext,
   options?: CollectInnerLoopsOptions,
@@ -258,7 +375,7 @@ export function collectInnerLoops(
           refsOuterParam: refsOuter,
           childComponents,
           insideConditional: !flat && scope.insideCond ? true : undefined,
-          siblingOffset: flat ? undefined : (siblingOffsets.get(n) || undefined),
+          offset: flat ? undefined : resolveLoopOffset(siblingOffsets.get(n)),
           bindings,
         })
         // Branch-mode callers handle deeper nesting via their own collection paths.
@@ -286,7 +403,7 @@ export function collectInnerLoops(
  */
 function decideLoopRendering(
   loop: IRLoop,
-  siblingOffsets: Map<IRLoop, number>,
+  siblingOffsets: Map<IRLoop, IRNode[]>,
   ctx: ClientJsContext | undefined,
 ): { useElementReconciliation: boolean; innerLoops: NestedLoop[] | undefined } {
   const hasNestedComps = (loop.nestedComponents?.length ?? 0) > 0
@@ -440,7 +557,7 @@ function buildBranchChildComponents(
 export function collectElements(
   node: IRNode,
   ctx: ClientJsContext,
-  siblingOffsets: Map<IRLoop, number>,
+  siblingOffsets: Map<IRLoop, IRNode[]>,
   insideConditional = false,
 ): void {
   walkIR<boolean>(node, insideConditional, {
@@ -595,7 +712,7 @@ export function collectElements(
         isStaticArray: l.isStaticArray,
         useElementReconciliation,
         innerLoops: (useElementReconciliation || (l.isStaticArray && innerLoops?.length)) ? innerLoops : undefined,
-        siblingOffset: siblingOffsets.get(l) || undefined,
+        offset: resolveLoopOffset(siblingOffsets.get(l)),
         filterPredicate: l.filterPredicate ? {
           param: l.filterPredicate.param,
           raw: l.filterPredicate.raw,
@@ -854,7 +971,7 @@ function collectBranchTextEffects(node: IRNode): ConditionalBranchTextEffect[] {
 function collectBranchLoops(
   node: IRNode,
   ctx: ClientJsContext | undefined,
-  siblingOffsets: Map<IRLoop, number>,
+  siblingOffsets: Map<IRLoop, IRNode[]>,
 ): BranchLoop[] {
   const loops: BranchLoop[] = []
   const restNames = ctx ? buildRestSpreadNames(ctx) : undefined
@@ -953,7 +1070,7 @@ function collectBranchLoops(
 function buildConditionalMetadata(
   node: IRNode & { type: 'conditional' },
   ctx: ClientJsContext,
-  siblingOffsets: Map<IRLoop, number>,
+  siblingOffsets: Map<IRLoop, IRNode[]>,
 ): ConditionalElement {
   const restNames = buildRestSpreadNames(ctx)
   // Use loopDepth=-1 so the first loop encountered inside the branch emits
@@ -983,7 +1100,7 @@ function buildConditionalMetadata(
 function summarizeBranch(
   node: IRNode,
   ctx: ClientJsContext,
-  siblingOffsets: Map<IRLoop, number>,
+  siblingOffsets: Map<IRLoop, IRNode[]>,
 ): import('./types').BranchSummary {
   return {
     events: collectConditionalBranchEvents(node),
@@ -1003,7 +1120,7 @@ function summarizeBranch(
 function collectBranchConditionals(
   node: IRNode,
   ctx: ClientJsContext,
-  siblingOffsets: Map<IRLoop, number>,
+  siblingOffsets: Map<IRLoop, IRNode[]>,
 ): ConditionalElement[] {
   const result: ConditionalElement[] = []
   walkIR(node, null, {
@@ -1051,7 +1168,7 @@ function collectBranchConditionals(
 export function collectLoopChildBindings(
   children: readonly IRNode[],
   ctx: ClientJsContext,
-  siblingOffsets: Map<IRLoop, number>,
+  siblingOffsets: Map<IRLoop, IRNode[]>,
   loopParam: string,
   loopParamBindings: readonly import('../types').LoopParamBinding[] | undefined,
 ): LoopChildBindings {
@@ -1069,7 +1186,7 @@ export function collectLoopChildBindings(
 export function collectLoopChildConditionals(
   node: IRNode,
   ctx: ClientJsContext,
-  siblingOffsets: Map<IRLoop, number>,
+  siblingOffsets: Map<IRLoop, IRNode[]>,
   loopParam?: string,
   loopParamBindings?: readonly import('../types').LoopParamBinding[],
 ): LoopChildConditional[] {
@@ -1144,7 +1261,7 @@ export function collectLoopChildConditionals(
 function summarizeLoopChildBranch(
   node: IRNode,
   ctx: ClientJsContext,
-  siblingOffsets: Map<IRLoop, number>,
+  siblingOffsets: Map<IRLoop, IRNode[]>,
   loopParam?: string,
   loopParamBindings?: readonly import('../types').LoopParamBinding[],
 ): LoopChildBranchSummary {

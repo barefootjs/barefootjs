@@ -9,6 +9,14 @@ import { HonoAdapter } from '../../../../packages/adapter-hono/src/adapter/hono-
 
 const adapter = new TestAdapter()
 
+/**
+ * Collapse all whitespace so offset assertions match the generated index
+ * math regardless of the printer's spacing inside array literals
+ * (`['a','b']` vs `['a', 'b']`) — the test asserts the offset logic, not
+ * formatting.
+ */
+const noWs = (s: string) => s.replace(/\s+/g, '')
+
 describe('child components inside .map() (#344)', () => {
   test('static array: nested component inside element wrapper generates initChild', () => {
     const source = `
@@ -771,6 +779,260 @@ describe('child components inside .map() (#344)', () => {
     // The nested Counter lookup must skip the preceding static <span>.
     expect(content).toContain('children[__idx + 1]')
     expect(content).not.toContain('children[__idx]')
+  })
+
+  test('two static + .map() groups inside a component: 2nd group offset skips the 1st group items (#1693)', () => {
+    // Follow-up to #1688. With two `<span/> + {arr.map(...)}` groups inside a
+    // self-portaling component, the second group's nested child components
+    // must be resolved past BOTH the static <span>s AND the first group's
+    // mapped items. The static-only offset (#1688) under-counted by the first
+    // array's length, leaving the second group inert after hydration.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) {
+        return <div>{props.children}</div>
+      }
+      function Wrapper(props: { children?: any }) {
+        return <div class="wrapper">{props.children}</div>
+      }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button data-testid={props.id} onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function TwoGroups() {
+        return (
+          <Box>
+            <span>group 1</span>
+            {['a', 'b'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+            <span>group 2</span>
+            {['c', 'd'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'TwoGroups.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const clientJs = result.files.find(f => f.type === 'clientJs')
+    expect(clientJs).toBeDefined()
+    const content = clientJs!.content
+
+    // First group: one preceding static <span> → `+ 1`.
+    expect(content).toContain('children[__idx + 1]')
+    // Second group: two static <span>s plus the first group's mapped items →
+    // the runtime length of the first array is added to the static count.
+    expect(noWs(content)).toContain(noWs("children[__idx + 2 + (['a', 'b']).length]"))
+  })
+
+  test('two consecutive pure .map()s inside a component: 2nd loop offset is the 1st array length (#1693)', () => {
+    // No static siblings: the second loop's items still start after the first
+    // loop's items, so the offset is purely the first array's runtime length.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) {
+        return <div>{props.children}</div>
+      }
+      function Wrapper(props: { children?: any }) {
+        return <div class="wrapper">{props.children}</div>
+      }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button data-testid={props.id} onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function TwoLoops() {
+        return (
+          <Box>
+            {['a', 'b'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+            {['c', 'd'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'TwoLoops.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const content = result.files.find(f => f.type === 'clientJs')!.content
+    // First loop: no preceding siblings → bare access.
+    expect(content).toContain('children[__idx]')
+    // Second loop: offset is the first array's runtime length, no static term.
+    expect(noWs(content)).toContain(noWs("children[__idx + (['a', 'b']).length]"))
+  })
+
+  test('conditional (&&) sibling before a static-array loop adds a runtime ternary offset (#1693)', () => {
+    // A `{cond && <span/>}` sibling renders 1 element when true but ZERO
+    // elements (only comment anchors) when false. Counting it as a static
+    // `1` over-counts the false case, so the loop's nested children resolve
+    // against the wrong `children[idx]`. The offset must be a runtime
+    // `(cond ? 1 : 0)` term that collapses to 0 when the branch is absent.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) { return <div>{props.children}</div> }
+      function Wrapper(props: { children?: any }) { return <div>{props.children}</div> }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function CondGroup(props: { show: boolean }) {
+        return (
+          <Box>
+            {props.show && <span>maybe</span>}
+            {['a', 'b'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'CondGroup.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const content = result.files.find(f => f.type === 'clientJs')!.content
+    // Runtime ternary — `0` when the conditional renders no element. The
+    // condition reuses the same `_p.show` form `insert()` evaluates.
+    expect(content).toContain('children[__idx + (_p.show ? 1 : 0)]')
+    // Must NOT mis-count the conditional as a static sibling.
+    expect(content).not.toContain('children[__idx + 1]')
+  })
+
+  test('ternary sibling with an element in both branches keeps a static offset (#1693)', () => {
+    // `{cond ? <a/> : <b/>}` always renders exactly one element, so both
+    // branch counts are equal and the offset folds to a static `+ 1` — no
+    // runtime ternary needed.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) { return <div>{props.children}</div> }
+      function Wrapper(props: { children?: any }) { return <div>{props.children}</div> }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function TernaryGroup(props: { show: boolean }) {
+        return (
+          <Box>
+            {props.show ? <span>a</span> : <em>b</em>}
+            {['a', 'b'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'TernaryGroup.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const content = result.files.find(f => f.type === 'clientJs')!.content
+    expect(content).toContain('children[__idx + 1]')
+    expect(content).not.toContain('? 1 : 0')
+  })
+
+  test('non-element (text) sibling before a loop produces no offset (#1693)', () => {
+    // A bare text node is NOT in `.children` (element-only), so it must
+    // contribute 0 to the offset — not be counted as a static sibling.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) { return <div>{props.children}</div> }
+      function Wrapper(props: { children?: any }) { return <div>{props.children}</div> }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function TextGroup() {
+        return (
+          <Box>
+            hello
+            {['a', 'b'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'TextGroup.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const content = result.files.find(f => f.type === 'clientJs')!.content
+    expect(content).toContain('children[__idx]')
+    expect(content).not.toContain('children[__idx + ')
+  })
+
+  test('nullish/logical (?? / ||) fallback sibling keeps a static offset, not an inverted ternary (#1693)', () => {
+    // `{icon ?? <fallback/>}` transforms to a conditional whose true-branch is
+    // the bare `icon` expression (undecidable element count) and whose false-
+    // branch is the JSX fallback. The element count is statically unknown, so
+    // it must fall back to the legacy flat `1` — NOT emit `(cond ? 0 : 1)`,
+    // which would resolve to 0 and drop the items when `icon` is a real element.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) { return <div>{props.children}</div> }
+      function Wrapper(props: { children?: any }) { return <div>{props.children}</div> }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function NullishGroup(props: { icon?: any }) {
+        return (
+          <Box>
+            {props.icon ?? <span>fallback</span>}
+            {['a', 'b'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'NullishGroup.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const content = result.files.find(f => f.type === 'clientJs')!.content
+    expect(content).toContain('children[__idx + 1]')
+    // The inverted-count regression — must not appear.
+    expect(content).not.toContain('? 0 : 1')
+  })
+
+  test('preceding per-item-conditional loop does not contribute a bogus .length offset (#1693)', () => {
+    // A `{arr.map(x => cond ? <el/> : null)}` loop renders 0-or-1 element per
+    // item, so its rendered count is NOT `arr.length`. Emitting `+ arr.length`
+    // would over-count; the undecidable loop falls back to the legacy `0`.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) { return <div>{props.children}</div> }
+      function Wrapper(props: { children?: any }) { return <div>{props.children}</div> }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function MixedLoops() {
+        return (
+          <Box>
+            {['a', 'b', 'c'].map(x => (x === 'b' ? <span key={x}>{x}</span> : null))}
+            {['a', 'b'].map(id => (
+              <Wrapper key={id}><Counter id={id} /></Wrapper>
+            ))}
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'MixedLoops.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const content = result.files.find(f => f.type === 'clientJs')!.content
+    // No `.length` term from the undecidable per-item-conditional loop.
+    expect(noWs(content)).not.toContain(noWs("(['a', 'b', 'c']).length"))
   })
 
   test('nested .map() with multiple inner components emits unique __compEl bindings (#1664)', () => {

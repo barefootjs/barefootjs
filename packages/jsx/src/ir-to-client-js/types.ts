@@ -167,6 +167,29 @@ export interface ConditionalBranchReactiveAttr extends AttrMeta {
 }
 
 /**
+ * How many element children precede a loop's items in its container — the
+ * offset applied to `container.children[idx]` so each item resolves to the
+ * right element during hydration.
+ *
+ * Two contributions, kept distinct because they codegen differently:
+ *   - `staticCount`: siblings of statically-known element count, folded to a
+ *     compile-time integer (`+ 1`).
+ *   - `dynamicTerms`: one JS expression per sibling whose element count is
+ *     only known at runtime — a preceding `.map()` (`(arr).length`) or a
+ *     preceding conditional (`(cond ? 1 : 0)`) — each added as `+ <term>`.
+ *
+ * Carried as one value object end-to-end (collect → IR loop → plan → codegen)
+ * so a future offset contributor is added in one place, not threaded as a new
+ * field through every layer (#1693).
+ */
+export interface LoopOffset {
+  /** Folded element count of statically-sized preceding siblings. `0` = none. */
+  staticCount: number
+  /** Runtime element-count expressions of dynamic preceding siblings; `[]` = none. */
+  dynamicTerms: readonly string[]
+}
+
+/**
  * Fields shared by every flavour of collected loop (top-level, branch-scoped, nested).
  * The three loop-info variants (`TopLevelLoop`, `BranchLoop`, `NestedLoop`) each extend
  * this base and add a `kind` discriminator so callers can narrow exhaustively.
@@ -363,8 +386,8 @@ export interface NestedLoop extends LoopCore {
   childComponents?: import('../types').IRLoopChildComponent[]
   /** True when this loop is inside a conditional branch (handled by insert() bindEvents instead) */
   insideConditional?: boolean
-  /** Number of non-loop DOM siblings before this loop in its container element */
-  siblingOffset?: number
+  /** Offset of this loop's items past its preceding container siblings (#1693). */
+  offset?: LoopOffset
   // Per-item bindings (events / reactiveAttrs / reactiveTexts / refs / conditionals)
   // now live on `LoopCore.bindings` — see issue #1244 §B.
 }
@@ -468,8 +491,8 @@ export interface TopLevelLoop extends LoopCore {
   useElementReconciliation?: boolean // True: reconcileElements + composite rendering (native root with child components)
   /** Inner loop metadata for composite element reconciliation (array, param, key, container) */
   innerLoops?: NestedLoop[]
-  /** Number of non-loop DOM siblings before this loop in its parent element. Used to offset children[idx] access. */
-  siblingOffset?: number
+  /** Offset of this loop's items past its preceding container siblings (#1693). */
+  offset?: LoopOffset
   filterPredicate?: {
     param: string
     raw: string  // Original filter predicate expression or block body

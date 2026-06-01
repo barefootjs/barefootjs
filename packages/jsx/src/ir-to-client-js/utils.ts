@@ -5,7 +5,7 @@
 
 import ts from 'typescript'
 import type { AttrValue, IRTemplatePart, LoopParamBinding, FreeReference, IRNode } from '../types'
-import type { TopLevelLoop, BranchLoop } from './types'
+import type { TopLevelLoop, BranchLoop, LoopOffset } from './types'
 import { buildLoopChainExpr } from '../loop-chain'
 import {
   iterateJsTokens,
@@ -143,6 +143,46 @@ export function buildChainedArrayExpr(elem: TopLevelLoop | BranchLoop): string {
     filterPredicate: elem.filterPredicate,
     chainOrder: elem.chainOrder,
   })
+}
+
+/**
+ * The single source of truth for what contributes to a loop's child-index
+ * offset: the static sibling count (a folded integer) followed by one
+ * `(arr).length` term per preceding sibling loop. The additive and
+ * subtractive forms below are thin projections over this list, so they can
+ * never drift in which terms they include, and a new offset contributor is
+ * added here once rather than in every consumer (#1693).
+ */
+function loopOffsetTerms(offset: LoopOffset | undefined): string[] {
+  if (!offset) return []
+  const terms: string[] = []
+  if (offset.staticCount) terms.push(String(offset.staticCount))
+  terms.push(...offset.dynamicTerms)
+  return terms
+}
+
+/**
+ * Build the additive `children[idx]` access expression for a loop's items —
+ * `indexParam` plus every offset term.
+ *
+ * Examples:
+ *   - no offset                  → `__idx`
+ *   - one static sibling         → `__idx + 1`
+ *   - one preceding `.map()`     → `__idx + (arr).length`
+ *   - static sibling + 2 `.map()`→ `__idx + 1 + (a).length + (b).length`
+ */
+export function buildLoopChildIndexExpr(indexParam: string, offset: LoopOffset | undefined): string {
+  return [indexParam, ...loopOffsetTerms(offset)].join(' + ')
+}
+
+/**
+ * Build the subtractive counterpart of `buildLoopChildIndexExpr` — used by
+ * event delegation to recover a loop item's array index from its DOM child
+ * index. Returns the trailing `` - <static> - (arr).length …`` suffix (empty
+ * when there is no offset) appended after `…indexOf(__el)`.
+ */
+export function buildLoopChildIndexSubtraction(offset: LoopOffset | undefined): string {
+  return loopOffsetTerms(offset).map(term => ` - ${term}`).join('')
 }
 
 /**

@@ -5,7 +5,7 @@
  * container variable and the per-event item-lookup strategy.
  */
 
-import type { LoopChildEvent, TopLevelLoop } from '../../types'
+import type { LoopChildEvent, LoopOffset, TopLevelLoop } from '../../types'
 
 /**
  * Plan for a loop's event-delegation block. Covers three legacy emitters:
@@ -72,6 +72,11 @@ export interface StaticIndexItemLookup {
   arrayExpr: string
   param: string
   mapPreamble: string | null
-  /** Sibling offset for `__idx` arithmetic; `null` when no offset. */
-  siblingOffset: number | null
+  /**
+   * Offset of the loop's items past its preceding container siblings. Its
+   * terms are subtracted from the DOM child index to recover the array index,
+   * so later `static + .map()` groups resolve the correct item (#1693).
+   * `null` when nothing precedes the loop.
+   */
+  offset: LoopOffset | null
 }
