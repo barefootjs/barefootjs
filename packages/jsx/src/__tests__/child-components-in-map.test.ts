@@ -9,6 +9,14 @@ import { HonoAdapter } from '../../../../packages/adapter-hono/src/adapter/hono-
 
 const adapter = new TestAdapter()
 
+/**
+ * Collapse all whitespace so offset assertions match the generated index
+ * math regardless of the printer's spacing inside array literals
+ * (`['a','b']` vs `['a', 'b']`) — the test asserts the offset logic, not
+ * formatting.
+ */
+const noWs = (s: string) => s.replace(/\s+/g, '')
+
 describe('child components inside .map() (#344)', () => {
   test('static array: nested component inside element wrapper generates initChild', () => {
     const source = `
@@ -818,7 +826,7 @@ describe('child components inside .map() (#344)', () => {
     expect(content).toContain('children[__idx + 1]')
     // Second group: two static <span>s plus the first group's mapped items →
     // the runtime length of the first array is added to the static count.
-    expect(content).toContain("children[__idx + 2 + (['a', 'b']).length]")
+    expect(noWs(content)).toContain(noWs("children[__idx + 2 + (['a', 'b']).length]"))
   })
 
   test('two consecutive pure .map()s inside a component: 2nd loop offset is the 1st array length (#1693)', () => {
@@ -857,7 +865,7 @@ describe('child components inside .map() (#344)', () => {
     // First loop: no preceding siblings → bare access.
     expect(content).toContain('children[__idx]')
     // Second loop: offset is the first array's runtime length, no static term.
-    expect(content).toContain("children[__idx + (['a', 'b']).length]")
+    expect(noWs(content)).toContain(noWs("children[__idx + (['a', 'b']).length]"))
   })
 
   test('conditional (&&) sibling before a static-array loop adds a runtime ternary offset (#1693)', () => {
@@ -1024,8 +1032,7 @@ describe('child components inside .map() (#344)', () => {
 
     const content = result.files.find(f => f.type === 'clientJs')!.content
     // No `.length` term from the undecidable per-item-conditional loop.
-    expect(content).not.toContain("(['a', 'b', 'c']).length")
-    expect(content).not.toContain("(['a','b','c']).length")
+    expect(noWs(content)).not.toContain(noWs("(['a', 'b', 'c']).length"))
   })
 
   test('nested .map() with multiple inner components emits unique __compEl bindings (#1664)', () => {
