@@ -781,6 +781,77 @@ describe('child components inside .map() (#344)', () => {
     expect(content).not.toContain('children[__idx]')
   })
 
+  test('a transparent fragment wrapping a .map() inherits the parent container preceding siblings (#1699)', () => {
+    // A fragment renders no DOM element wrapper, so a loop inside `<>…</>` is a
+    // direct sibling of the fragment's siblings in the real parent element.
+    // The offset must skip the two <hr/>s that precede the fragment in <Box>,
+    // not reset to the fragment's own (empty) preceding run.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) { return <div>{props.children}</div> }
+      function Wrapper(props: { children?: any }) { return <div>{props.children}</div> }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function FragGroup() {
+        return (
+          <Box>
+            <hr />
+            <hr />
+            <>
+              {['a', 'b'].map(id => (
+                <Wrapper key={id}><Counter id={id} /></Wrapper>
+              ))}
+            </>
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'FragGroup.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const content = result.files.find(f => f.type === 'clientJs')!.content
+    // Items start past both <hr/>s.
+    expect(content).toContain('children[__idx + 2]')
+    expect(content).not.toContain('children[__idx]')
+  })
+
+  test('a static sibling inside the fragment still counts toward the offset (#1699 regression guard)', () => {
+    // The fragment's OWN preceding children must keep counting too — the
+    // parent-inheriting flatten must not drop the fragment-internal <span>.
+    const source = `
+      'use client'
+
+      function Box(props: { children?: any }) { return <div>{props.children}</div> }
+      function Wrapper(props: { children?: any }) { return <div>{props.children}</div> }
+      function Counter(props: { id: string }) {
+        const [n, setN] = createSignal(0)
+        return <button onClick={() => setN(v => v + 1)}>{n()}</button>
+      }
+      export function MixedFrag() {
+        return (
+          <Box>
+            <hr />
+            <>
+              <span>label</span>
+              {['a', 'b'].map(id => (
+                <Wrapper key={id}><Counter id={id} /></Wrapper>
+              ))}
+            </>
+          </Box>
+        )
+      }
+    `
+    const result = compileJSX(source, 'MixedFrag.tsx', { adapter })
+    expect(result.errors).toHaveLength(0)
+
+    const content = result.files.find(f => f.type === 'clientJs')!.content
+    // 1 (parent <hr/>) + 1 (fragment-internal <span>) = 2.
+    expect(content).toContain('children[__idx + 2]')
+  })
+
   test('two static + .map() groups inside a component: 2nd group offset skips the 1st group items (#1693)', () => {
     // Follow-up to #1688. With two `<span/> + {arr.map(...)}` groups inside a
     // self-portaling component, the second group's nested child components

@@ -120,6 +120,14 @@ function legacyElementCount(node: IRNode): number {
  * siblings rendered as siblings of the loop's items too, so `children[idx]`
  * access is shifted exactly as it is under an element parent (#1688).
  *
+ * Transparent containers (fragment / provider / async) render no DOM element
+ * wrapper, so their children are siblings in the nearest ancestor element —
+ * not in a container of their own. `recordRun` therefore threads ONE
+ * preceding-sibling accumulator through them, so a loop inside a fragment sees
+ * the parent element's earlier siblings too, not just the fragment's own
+ * children (#1699). `<Box><hr/><hr/><>{xs.map(...)}</></Box>` must offset the
+ * items past both `<hr/>`s.
+ *
  * The siblings are stored raw; `resolveLoopOffset` turns each into its element
  * count via `domElementCount`. That generalisation closes the #1688 follow-up
  * (#1693): a preceding `.map()` contributes `array.length` and a preceding
@@ -133,19 +141,32 @@ function legacyElementCount(node: IRNode): number {
  */
 export function computeLoopSiblingOffsets(root: IRNode): Map<IRLoop, IRNode[]> {
   const offsets = new Map<IRLoop, IRNode[]>()
-  const recordChildren = (children: IRNode[]): void => {
-    const preceding: IRNode[] = []
+  // Walk a flat DOM run, flattening transparent containers inline so their
+  // children join the same preceding-sibling accumulator.
+  const recordRun = (children: IRNode[], preceding: IRNode[]): void => {
     for (const child of children) {
-      // Record the preceding run only when something precedes this loop. A
-      // leading loop keeps the bare `children[idx]` access.
-      if (child.type === 'loop' && preceding.length > 0) {
-        offsets.set(child, [...preceding])
+      if (child.type === 'loop') {
+        // Record the preceding run only when something precedes this loop (a
+        // leading loop keeps bare `children[idx]`). `!offsets.has`: the
+        // enclosing run records the loop first, in pre-order, with the full
+        // preceding context; a later standalone visit of the transparent
+        // wrapper (still descended for loops that sit *directly* in a root /
+        // loop-body / branch fragment) must not overwrite it with a shorter
+        // run.
+        if (preceding.length > 0 && !offsets.has(child)) {
+          offsets.set(child, [...preceding])
+        }
+        preceding.push(child)
+      } else if (child.type === 'fragment' || child.type === 'provider' || child.type === 'async') {
+        // Transparent: no element wrapper — its children render into this run.
+        recordRun(child.children, preceding)
+      } else {
+        preceding.push(child)
       }
-      preceding.push(child)
     }
   }
   const containerVisit = ({ node, descend }: { node: { children: IRNode[] }; descend: () => void }): void => {
-    recordChildren(node.children)
+    recordRun(node.children, [])
     descend()
   }
   walkIR(root, null, {
