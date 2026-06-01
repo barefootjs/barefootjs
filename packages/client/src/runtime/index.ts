@@ -69,6 +69,7 @@ export {
   getComponentProps,
   parseHTML,
   escapeAttr,
+  escapeText,
 } from './component'
 
 // Spread props helpers

@@ -252,6 +252,9 @@ const escapeAttr = (value) =>
     .replace(/'/g, '&#39;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
+// Mirror @barefootjs/client/runtime escapeText: text-content escaping uses
+// the same set as attributes (Hono escapes text identically), so delegate.
+const escapeText = (value) => escapeAttr(value)
 // Mirror @barefootjs/client/runtime/spread-attrs.ts: format a record of
 // attributes as an HTML attribute string for use inside template literals.
 // The real runtime helper is imported by generated client JS, but the

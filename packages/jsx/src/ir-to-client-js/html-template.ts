@@ -224,6 +224,23 @@ function escapeAttrValueExpr(valExpr: string): string {
 }
 
 /**
+ * Build a runtime expression that HTML-escapes an interpolated **text
+ * content** slot, via the `escapeText` runtime helper. Only the
+ * `<!--bf:sN-->${expr}<!--/-->` text-marker form is text content: the
+ * runtime treats whatever sits between the markers as the slot's text, so
+ * a string value containing `<` / `&` (e.g. `{user.name}`) must be escaped
+ * to parse correctly under `innerHTML` and to match the SSR-rendered
+ * bytes. Bare `${...}` interpolations — `{children}` passthrough and
+ * `renderChild(...)` output — are pre-rendered HTML and must NOT be
+ * escaped, so this is applied only at the four text-marker emit sites.
+ * Hono escapes text content with the same set as attribute values
+ * (`& " ' < >`), so `escapeText` delegates to the same operation.
+ */
+function escapeTextSlotExpr(innerExpr: string): string {
+  return `escapeText(${innerExpr})`
+}
+
+/**
  * Project a prop's `AttrValue` into its JS-expression string form suitable
  * for the `renderChild(..., propsObj, KEY)` `KEY` argument. `transformExpr`
  * applies the constant-inlining / props-rewrite pass used by the CSR
@@ -506,7 +523,15 @@ export function irToHtmlTemplate(node: IRNode, restSpreadNames?: Set<string>, lo
     case 'expression':
       if (node.expr === 'null' || node.expr === 'undefined') return ''
       if (node.slotId) {
-        return `<!--bf:${node.slotId}-->\${${wrapInterpolation(wrapExpr(node.expr))}}<!--/-->`
+        const inner = wrapInterpolation(wrapExpr(node.expr))
+        // In branch-slot context `wrapInterpolation` routes the value
+        // through `__bfSlot`, which returns raw `<!--bf-slot:N-->` markers
+        // for live `Node` values (spliced back by `insert()`). Escaping
+        // would corrupt those markers and drop slotted content (#1694
+        // regression). `__bfSlot` owns coercion of its own value, so the
+        // text-escape applies only to the non-slot (plain text) form.
+        const slotted = branchSlotsVar ? inner : escapeTextSlotExpr(inner)
+        return `<!--bf:${node.slotId}-->\${${slotted}}<!--/-->`
       }
       return `\${${wrapInterpolation(wrapExpr(node.expr))}}`
 
@@ -685,7 +710,7 @@ export function irToPlaceholderTemplate(node: IRNode, restSpreadNames?: Set<stri
     case 'expression':
       if (node.expr === 'null' || node.expr === 'undefined') return ''
       if (node.slotId) {
-        return `<!--bf:${node.slotId}-->\${${wrapExpr(node.expr)}}<!--/-->`
+        return `<!--bf:${node.slotId}-->\${${escapeTextSlotExpr(wrapExpr(node.expr))}}<!--/-->`
       }
       return `\${${wrapExpr(node.expr)}}`
 
@@ -1070,7 +1095,7 @@ function irToComponentTemplateWithOpts(node: IRNode, opts: TemplateOptions): str
     case 'expression':
       if (node.expr === 'null' || node.expr === 'undefined') return ''
       if (node.slotId) {
-        return `<!--bf:${node.slotId}-->\${${transformExpr(node.expr, node.templateExpr)}}<!--/-->`
+        return `<!--bf:${node.slotId}-->\${${escapeTextSlotExpr(transformExpr(node.expr, node.templateExpr))}}<!--/-->`
       }
       return `\${${transformExpr(node.expr, node.templateExpr)}}`
 
@@ -1455,7 +1480,7 @@ function generateCsrTemplateWithOpts(node: IRNode, opts: TemplateOptions): strin
         // an empty placeholder instead.
         const expr = transformed === UNSAFE_TEMPLATE_EXPR ? "''" : transformed
         if (node.slotId) {
-          return `<!--bf:${node.slotId}-->\${${expr}}<!--/-->`
+          return `<!--bf:${node.slotId}-->\${${escapeTextSlotExpr(expr)}}<!--/-->`
         }
         return `\${${expr}}`
       }

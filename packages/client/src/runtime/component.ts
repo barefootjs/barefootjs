@@ -418,6 +418,21 @@ export function escapeAttr(value: unknown): string {
     .replace(/>/g, '&gt;')
 }
 
+/**
+ * HTML-escape interpolated **text content** before it is concatenated into
+ * a client-rendered template string (the `<!--bf:sN-->…<!--/-->` text
+ * slots). The HTML spec only requires `& < >` in text, but the SSR
+ * adapters (Hono) escape text with the same set as attribute values
+ * (`& " ' < >`), and the fixture-hydrate / CSR-conformance layer requires
+ * byte-parity with the server-rendered output — so this delegates to
+ * `escapeAttr`. Kept as a distinct export so generated code reads
+ * `escapeText(...)` at text sites (self-documenting) and so the two
+ * contexts can diverge later without touching call sites.
+ */
+export function escapeText(value: unknown): string {
+  return escapeAttr(value)
+}
+
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
 /**
